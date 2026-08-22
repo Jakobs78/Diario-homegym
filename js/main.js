@@ -68,8 +68,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // AGGIUNGI QUESTO ASCOLTATORE PER IL TOGGLE
     const toggleTextEl = document.getElementById('auth-toggle-text');
+// TEST DA ELIMINARE
+        console.log("Elemento trovato:", toggleTextEl); // da rimuovere
+
     if (toggleTextEl) {
         toggleTextEl.addEventListener('click', () => {
+        // TEST DA ELIMINARE     
+        console.log("Click rilevato!"); // da rimuovere
+
             toggleAuthMode();
         });
     }
