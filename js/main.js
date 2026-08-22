@@ -16,6 +16,8 @@ import {
 } from './storage.js';
 import { renderMacroProgress, renderMuscleVolumeDashboard } from './analytics.js';
 import { esportaWorkoutPDF } from './pdf.js';
+import { supabase } from './supabaseClient.js';
+import { state } from './state.js';
 
 // --- GESTIONE DEI TAB DELL'INTERFACCIA ---
 function switchTab(tabId, btnElement) {
@@ -58,9 +60,22 @@ window.esportaWorkoutPDF = esportaWorkoutPDF;
 
 window.switchTab = switchTab;
 window.renderCurrentView = renderCurrentView;
-
-// --- INIZIALIZZAZIONE ALL'AVVIO ---
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     initTheme();
-    console.log(">>> Tutti i 9 moduli caricati con successo! Diario Home Gym pronto. <<<");
+    
+    // AGGIUNGI QUESTO BLOCCO PER IL RECUPERO SESSIONE
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+        state.currentUser = session.user;
+        const overlay = document.getElementById('auth-overlay');
+        const userInfo = document.getElementById('user-info-bar');
+        const userEmail = document.getElementById('user-email-display');
+        
+        if (overlay) overlay.style.display = 'none';
+        if (userInfo) userInfo.style.display = 'flex';
+        if (userEmail) userEmail.innerText = session.user.email;
+        console.log("Sessione ripristinata per:", session.user.email);
+    }
+    
+    console.log(">>> Tutti i 9 moduli caricati con successo! <<<");
 });
