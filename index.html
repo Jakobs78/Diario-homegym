@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Tag specifici per iOS / PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Diario Home Gym">
+    <link rel="apple-touch-icon" href="https://via.placeholder.com/180/0284c7/ffffff?text=GYM">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diario Allenamento - Settimanale</title>
+<!-- CSS: Prima le basi, poi la struttura, infine i dettagli -->
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/layout.css">
+</head>
+<body>
+    <div id="floating-timer">
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <span>⏱</span>
+        <span id="timer-display">00:00</span>
+    </div>
+    <div style="display: flex; gap: 4px;">
+        <button class="timer-adjust-btn" onclick="adjustTimer(-15)">-15s</button>
+        <button class="timer-adjust-btn" onclick="adjustTimer(15)">+15s</button>
+        <button class="timer-close" onclick="stopTimer()">✕</button>
+    </div>
+</div>
+    <!-- OVERLAY DI AUTENTICAZIONE -->
+    <div id="auth-overlay">
+        <div class="auth-card">
+            <h2 id="auth-title">Accedi al Diario</h2>
+            <div id="auth-error" style="color: #dc2626; font-size: 0.8rem; margin-bottom: 8px; display: none;"></div>
+            
+            <input type="email" id="auth-email" placeholder="Email" required>
+            <input type="password" id="auth-password" placeholder="Password" required>
+            
+            <button class="auth-btn" id="auth-submit-btn" onclick="handleAuthSubmit()">Accedi</button>
+            
+            <div class="auth-switch">
+                <span id="auth-toggle-text">Non hai un account? Registrati</span>
+            </div>
+        </div>
+    </div>
+
+    <header>
+        <div id="user-info-bar" style="display: none; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 8px; font-size: 0.8rem; color: var(--text-muted);">
+            <span>Utente: <strong id="user-email-display" style="color: var(--text-color);"></strong></span>
+            <button onclick="handleLogout()" style="background: none; border: 1px solid var(--danger-color); color: var(--danger-color); padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75rem;">Logout</button>
+        </div>
+        <div class="meta-top">
+            <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 12px; font-size: 0.85rem; font-weight: 700; color: var(--text-muted); display: flex; align-items: center; gap: 8px; flex: 1;">
+                <span>Mese Attivo:</span>
+                <span id="meso-display" style="color: var(--accent-color); font-size: 1rem;">1</span>
+            </div>
+            <button class="tab-btn" onclick="switchTab('progress', this)" style="background-color: #0ea5e9; color: white; flex: 0 0 auto; min-width: auto; padding: 8px 14px; border-color: #0ea5e9;">Progressione</button>
+            <button class="tab-btn" onclick="switchTab('stats', this)" style="background-color: #10b981; color: white; flex: 0 0 auto; min-width: auto; padding: 8px 14px; border-color: #10b981;" title="Volume per Distretto Muscolare">Statistiche</button>
+            <button class="tab-btn" onclick="switchTab('macro-progress', this)" style="background-color: #8b5cf6; color: white; flex: 0 0 auto; min-width: auto; padding: 8px 14px; border-color: #8b5cf6;" title="Storico pluriennale di tutti i mesocicli">Storico Anni</button>
+        </div>
+            
+        <div class="meta-info" style="margin-top: 8px;">
+            <select id="week-selector" style="width: 110px;" onchange="renderCurrentView()">
+                <option value="1">Sett. 1</option>
+                <option value="2">Sett. 2</option>
+                <option value="3">Sett. 3</option>
+                <option value="4">Sett. 4</option>
+            </select>
+            <input type="date" data-id="meta-date" style="flex: 1;">
+            <select id="barbell-selector" style="padding: 6px; border-radius: 6px; border: 1px solid var(--accent-color); color: var(--accent-color); font-weight: 600;">
+                <option value="20">Bil. 20 kg</option>
+                <option value="9">Bil. 9 kg</option>
+                <option value="6">Bil. 6 kg</option>
+            </select>
+        </div>
+
+        <div class="utility-bar">
+            <label class="utility-btn" style="cursor: pointer; background-color: var(--accent-color); color: white;" title="Carica la scheda in CSV">
+                Carica Scheda <input type="file" accept=".csv" onchange="importWorkoutPlan(event)" style="display: none;">
+            </label>
+            <button class="utility-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="Cambia Tema">🌙 Dark mode</button>
+            <button class="utility-btn" onclick="exportProgressCSV()" title="Salva backup locale">Backup CSV</button>
+            <label class="utility-btn" style="cursor: pointer;" title="Carica backup CSV">
+                Importa CSV <input type="file" accept=".csv" onchange="importProgressCSV(event)" style="display: none;">
+            </label>
+            <button class="reset-btn" onclick="resetDiaryData()" title="Azzera dati">Reset</button>
+            
+        </div>
+        
+        <div class="day-tabs" id="dynamic-day-tabs">
+            <!-- I tab verranno generati qui -->
+        </div>
+    </header>
+
+    <div id="empty-state">
+        <h3>Nessuna scheda caricata</h3>
+        <p>Utilizza il pulsante "Carica Scheda" per importare la programmazione in CSV.</p>
+    </div>
+
+    <!-- Contenitore per le viste giornaliere -->
+    <div id="dynamic-views-container"></div>
+    <!-- Vista Tabella Progressione / Massimali -->
+    <div class="day-view" id="progress">
+        <div class="day-card">
+            <div class="day-title">
+                <span>Tabella Progressione & Carichi</span>
+                <span class="day-subtitle">Storico Settimanale</span>
+            </div>
+            <div id="progress-content">
+                <p style="text-align:center; color:var(--text-muted);">Caricamento dati in corso...</p>
+            </div>
+        </div>
+    </div>
+    <!-- Pulsante per esportare e condividere il report PDF -->
+<div style="text-align: center; margin: 20px 0;">
+    <button type="button" onclick="esportaWorkoutPDF()" class="btn-export-pdf" style="background-color: #2563eb; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem; display: inline-flex; align-items: center; gap: 8px;">
+        📄 Esporta Report PDF per Coach
+    </button>
+</div>
+    <!-- Vista Storico Globale / Anni -->
+    <div class="day-view" id="macro-progress">
+        <div class="day-card">
+            <div class="day-title">
+                <span>Storico Globale (Multi-Mese / Anni)</span>
+                <span class="day-subtitle">Evoluzione a lungo termine (1RM Stimato)</span>
+            </div>
+            <div id="macro-progress-content">
+                <p style="text-align:center; color:var(--text-muted);">Caricamento storico globale...</p>
+            </div>
+        </div>
+    </div>
+     <!-- Vista Statistiche / Volume Muscolare -->
+<div class="day-view" id="stats">
+    <div class="day-card">
+        <div class="day-title">
+            <span>Volume Muscolare (Settimanale)</span>
+            <span class="day-subtitle">Set effettivi completati per distretto</span>
+        </div>
+        <div id="stats-content">
+            <p style="text-align:center; color:var(--text-muted);">Caricamento statistiche...</p>
+        </div>
+    </div>
+</div>
+<div class="auth-switch">
+    <span id="auth-toggle-text" onclick="toggleAuthMode()" style="cursor: pointer; color: var(--accent-color);">Non hai un account? Registrati</span>
+</div>
+<!-- Entry Point principale dell'applicazione -->
+<script type="module" src="js/main.js"></script>
+<script>
+    // Toppa temporanea per verificare il funzionamento del bottone
+    window.handleAuthSubmit = function() {
+        alert("Il bottone funziona! Il problema era il caricamento del modulo.");
+    };
+</script>
+</body>
+</html>

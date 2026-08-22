@@ -1,0 +1,311 @@
+/* --- INPUT DI TESTATA --- */
+.meta-info input, .meta-info select {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 16px;
+    text-align: center;
+    font-weight: 600;
+}
+
+/* --- PULSANTI --- */
+.tab-btn {
+    flex: 1;
+    min-width: 75px;
+    padding: 10px 4px;
+    background-color: var(--block-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.tab-btn.active {
+    background-color: var(--accent-color);
+    color: #ffffff;
+    border-color: var(--accent-color);
+}
+
+.utility-btn, .reset-btn {
+    background-color: var(--block-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+.utility-btn:hover { background-color: var(--border-color); }
+
+.reset-btn { border-color: var(--danger-color); color: var(--danger-color); }
+.reset-btn:hover { background-color: var(--danger-color); color: #ffffff; }
+
+.timer-adjust-btn {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+.timer-adjust-btn:hover { background: rgba(255,255,255,0.4); }
+
+/* --- CARD GIORNATA --- */
+.day-card {
+    background-color: var(--card-bg);
+    border-radius: 12px;
+    padding: 14px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.day-title {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--accent-color);
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 6px;
+    margin-top: 0;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+.day-subtitle { font-size: 0.8rem; color: var(--text-muted); font-weight: normal; }
+
+/* --- BLOCCHI E SUPERSET --- */
+.block {
+    margin-bottom: 18px;
+    padding: 12px;
+    background-color: var(--block-bg);
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+}
+.block-title {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--accent-color);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+}
+.superset-block {
+    background-color: var(--superset-bg);
+    border-left: 5px solid var(--superset-border);
+    padding: 10px;
+    border-radius: 8px;
+}
+.superset-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.superset-badge {
+    font-size: 0.75rem;
+    background-color: var(--accent-color);
+    color: #ffffff;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 700;
+}
+
+/* --- CARD SINGOLO ESERCIZIO --- */
+.ex-card {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border-color);
+}
+.ex-card:last-child { margin-bottom: 0; }
+.ex-header { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+.ex-name { font-size: 0.95rem; font-weight: 700; color: #0f172a; }
+.ex-target { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+.rest-info { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
+
+/* --- STORIA ESERCIZIO --- */
+.history-box {
+    background-color: var(--history-bg);
+    border: 1px solid var(--history-border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    color: #5f370e;
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+.history-title { font-weight: 700; text-transform: uppercase; font-size: 0.7rem; color: #b45309; margin-bottom: 2px; }
+
+/* Fix testo per le note della storia in dark mode */
+[data-theme="dark mode"] .history-box { color: #fef08a; }
+
+/* --- WARM-UP TOGGLE --- */
+.warmup-checkbox { display: none; }
+.warmup-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    background-color: var(--block-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    font-weight: 800;
+    cursor: pointer;
+    user-select: none;
+    margin-left: 6px;
+    transition: all 0.2s ease;
+}
+.warmup-checkbox:checked + .warmup-toggle {
+    background-color: #f59e0b;
+    color: white;
+    border-color: #f59e0b;
+}
+
+/* --- TABELLE E INPUT SERIE --- */
+.set-table { width: 100%; border-collapse: collapse; }
+.set-table th { font-size: 0.75rem; color: var(--text-muted); text-align: center; padding-bottom: 4px; font-weight: 700; }
+.set-table td { padding: 4px 2px; text-align: center; }
+.set-table input[type="text"] {
+    width: 100%;
+    background-color: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 8px 2px;
+    border-radius: 6px;
+    font-size: 16px;
+    text-align: center;
+    font-weight: 600;
+}
+.set-table input::placeholder { color: #94a3b8; font-weight: 400; opacity: 1; }
+.set-table input:focus { outline: 2px solid var(--accent-color); border-color: var(--accent-color); }
+.set-table input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--done-color); cursor: pointer; }
+
+.notes-input {
+    width: 100%;
+    background-color: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 16px;
+    margin-top: 8px;
+    box-sizing: border-box;
+}
+
+.progress-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 0.85rem;
+    margin-top: 10px;
+}
+.progress-table th, .progress-table td { border: 1px solid var(--border-color); padding: 8px 6px; text-align: center; }
+.progress-table th { background-color: var(--block-bg); color: var(--accent-color); font-weight: 700; }
+
+/* --- STILI TIMER RECUPERO --- */
+#floating-timer {
+    position: fixed;
+    bottom: -100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--accent-color);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 30px;
+    font-size: 1.2rem;
+    font-weight: 800;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    transition: bottom 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+#floating-timer.active { bottom: 30px; }
+.timer-close {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+/* --- SCHERMATA LOGIN / AUTH --- */
+#auth-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(15, 23, 42, 0.95);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+.auth-card {
+    background: #ffffff;
+    padding: 24px;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    text-align: center;
+}
+.auth-card h2 { margin-top: 0; color: var(--accent-color); font-size: 1.4rem; }
+.auth-card input {
+    width: 100%;
+    padding: 10px;
+    margin: 8px 0;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+.auth-btn {
+    width: 100%;
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 10px;
+}
+.auth-btn:hover { background-color: var(--accent-hover); }
+.auth-switch { margin-top: 14px; font-size: 0.85rem; color: var(--text-muted); }
+.auth-switch span {
+    color: var(--accent-color);
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: underline;
+}
