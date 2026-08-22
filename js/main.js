@@ -63,6 +63,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (userInfo) userInfo.style.display = 'none';
         console.log("Nessuna sessione attiva, login richiesto.");
     }
+    document.addEventListener('DOMContentLoaded', async () => {
+    initTheme();
+
+    // AGGIUNGI QUESTO ASCOLTATORE PER IL TOGGLE
+    const toggleTextEl = document.getElementById('auth-toggle-text');
+    if (toggleTextEl) {
+        toggleTextEl.addEventListener('click', () => {
+            toggleAuthMode();
+        });
+    }
+});
 
     // --- ESPOSIZIONE GLOBALE PER GLI ONCLICK / ONCHANGE DELL'HTML ---
 window.toggleTheme = toggleTheme;
