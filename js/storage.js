@@ -1,18 +1,7 @@
 // Salvataggio locale, Supabase, Import/ export CSV
 // js/storage.js
+import { supabase } from './supabaseClient.js';
 import { state } from './state.js';
-    const SUPABASE_URL = 'https://fcuywiijylvgrutwioak.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_z5K-2II8twK6ruPfk4Tp0g_MlFnZy7B';
-if (window.supabase && SUPABASE_URL) {
-    state.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-// Controlla se c'è già una sessione attiva all'avvio
-    state.supabaseClient.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-            state.currentUser = session.user;
-            // Mostra l'app e nascondi l'overlay di login se necessario
-        }
-    });
-}
     export async function saveInputToStorage(dataId, valToSave, renderCallback) {
     const savedData = JSON.parse(localStorage.getItem(state.STORAGE_KEY_DATA)) || {};
     savedData[dataId] = valToSave;
@@ -22,11 +11,11 @@ if (window.supabase && SUPABASE_URL) {
         renderCallback();
     }
 
-    if (state.currentUser && state.supabaseClient) {
+    if (state.currentUser && supabase) {
         clearTimeout(state.supabaseDebounceTimer);
         state.supabaseDebounceTimer = setTimeout(async () => {
             try {
-                await state.supabaseClient
+                await supabase
                     .from('workout_data')
                     .upsert({
                         user_id: state.currentUser.id,
@@ -135,7 +124,7 @@ export async function handleAuthSubmit() {
     const email = emailInput.value.trim();
     const password = passwordInput.value.trim();
 
-    if (!state.supabaseClient) {
+    if (!supabase) {
         alert("Credenziali Supabase non configurate.");
         return;
     }
@@ -143,14 +132,14 @@ export async function handleAuthSubmit() {
     try {
         let result;
         if (isRegistering) {
-            result = await state.supabaseClient.auth.signUp({ email, password });
+            result = await supabase.auth.signUp({ email, password });
             if (result.error) throw result.error;
             alert("Registrazione completata! Controlla la tua email per confermare l'account.");
             // Reset modalità dopo registrazione
             isRegistering = false;
             toggleAuthMode();
         } else {
-            result = await state.supabaseClient.auth.signInWithPassword({ email, password });
+            result = await supabase.auth.signInWithPassword({ email, password });
             if (result.error) throw result.error;
             state.currentUser = result.data.user;
             location.reload();
@@ -165,8 +154,8 @@ export async function handleAuthSubmit() {
     }
 }
 export async function handleLogout() {
-    if (state.supabaseClient) {
-        await state.supabaseClient.auth.signOut();
+    if (supabase) {
+        await supabase.auth.signOut();
         state.currentUser = null;
         location.reload();
     }
@@ -179,9 +168,9 @@ export async function resetDiaryData() {
         if (secondaConferma) {
             localStorage.removeItem(state.STORAGE_KEY_DATA);
 
-            if (state.currentUser && state.supabaseClient) {
+            if (state.currentUser && supabase) {
                 try {
-                    await state.supabaseClient
+                    await supabase
                         .from('workout_data')
                         .delete()
                         .eq('user_id', state.currentUser.id);
