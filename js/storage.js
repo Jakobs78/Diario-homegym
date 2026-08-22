@@ -45,16 +45,16 @@ export function exportProgressCSV() {
     link.click();
     document.body.removeChild(link);
 }
-
-export function importProgressCSV(event, renderCallback) {
+export async function importProgressCSV(event, renderCallback) {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         const text = e.target.result;
         const lines = text.split(/\r\n|\n/);
         let savedData = JSON.parse(localStorage.getItem(state.STORAGE_KEY_DATA)) || {};
         let count = 0;
+        
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
@@ -72,9 +72,32 @@ export function importProgressCSV(event, renderCallback) {
                 }
             }
         }
+        
+        // Salva nel localStorage
         localStorage.setItem(state.STORAGE_KEY_DATA, JSON.stringify(savedData));
+
+        // Se l'utente è loggato, sincronizza l'intero blocco su Supabase
+        if (state.currentUser && supabase) {
+            try {
+                for (const [key, val] of Object.entries(savedData)) {
+                    await supabase
+                        .from('workout_data')
+                        .upsert({
+                            user_id: state.currentUser.id,
+                            data_key: key,
+                            valore: String(val),
+                            updated_at: new Date().toISOString()
+                        }, { onConflict: 'user_id,data_key' });
+                }
+            } catch (err) {
+                console.error("Errore di sincronizzazione Supabase durante l'importazione:", err);
+            }
+        }
+
         alert(`Progressi importati con successo! (${count} valori caricati)`);
-        if (typeof renderCallback === 'function') renderCallback();
+        
+        // Ricarica la pagina per popolare l'interfaccia con i dati freschi
+        location.reload();
     };
     reader.readAsText(file);
 }
