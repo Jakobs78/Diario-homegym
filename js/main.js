@@ -39,28 +39,6 @@ function switchTab(tabId, btnElement) {
 function renderCurrentView() {
     console.log("Rendering vista corrente aggiornato.");
 }
-
-// --- ESPOSIZIONE GLOBALE PER GLI ONCLICK / ONCHANGE DELL'HTML ---
-window.toggleTheme = toggleTheme;
-window.startTimer = startTimer;
-window.adjustTimer = adjustTimer;
-window.stopTimer = stopTimer;
-window.saveInputToStorage = saveInputToStorage;
-window.exportProgressCSV = exportProgressCSV;
-window.importProgressCSV = importProgressCSV;
-window.importWorkoutPlan = importWorkoutPlan;
-window.resetDiaryData = resetDiaryData;
-
-window.handleAuthSubmit = handleAuthSubmit;
-window.handleLogout = handleLogout;
-window.toggleAuthMode = toggleAuthMode;
-window.renderMacroProgress = renderMacroProgress;
-window.renderMuscleVolumeDashboard = renderMuscleVolumeDashboard;
-window.esportaWorkoutPDF = esportaWorkoutPDF;
-
-window.switchTab = switchTab;
-window.renderCurrentView = renderCurrentView;
-
 document.addEventListener('DOMContentLoaded', async () => {
     initTheme();
     
@@ -85,6 +63,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (userInfo) userInfo.style.display = 'none';
         console.log("Nessuna sessione attiva, login richiesto.");
     }
+
+    // --- ESPOSIZIONE GLOBALE PER GLI ONCLICK / ONCHANGE DELL'HTML ---
+window.toggleTheme = toggleTheme;
+window.startTimer = startTimer;
+window.adjustTimer = adjustTimer;
+window.stopTimer = stopTimer;
+window.saveInputToStorage = saveInputToStorage;
+window.exportProgressCSV = exportProgressCSV;
+window.importProgressCSV = importProgressCSV;
+window.importWorkoutPlan = importWorkoutPlan;
+window.resetDiaryData = resetDiaryData;
+window.handleAuthSubmit = handleAuthSubmit;
+window.handleLogout = handleLogout;
+window.toggleAuthMode = toggleAuthMode;
+window.renderMacroProgress = renderMacroProgress;
+window.renderMuscleVolumeDashboard = renderMuscleVolumeDashboard;
+window.esportaWorkoutPDF = esportaWorkoutPDF;
+window.switchTab = switchTab;
+window.renderCurrentView = renderCurrentView;
     
     console.log(">>> Tutti i 9 moduli caricati con successo! <<<");
 });
