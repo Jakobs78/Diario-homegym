@@ -32,7 +32,101 @@ function switchTab(tabId, btnElement) {
         renderMuscleVolumeDashboard();
     }
 }
+// Funzione per generare i tab dei giorni e le tabelle degli esercizi
+function renderExercisesIntoUI(exercises) {
+    const dayTabsContainer = document.getElementById('dynamic-day-tabs');
+    const viewsContainer = document.getElementById('dynamic-views-container');
+    const emptyState = document.getElementById('empty-state');
+    const weekSelector = document.getElementById('week-selector');
 
+    if (!exercises || exercises.length === 0) {
+        if (emptyState) emptyState.style.display = 'block';
+        return;
+    }
+
+    if (emptyState) emptyState.style.display = 'none';
+
+    // Recupera la settimana selezionata (default 1)
+    const selectedWeek = weekSelector ? weekSelector.value : "1";
+
+    // Filtra gli esercizi per la settimana selezionata
+    const filteredExercises = exercises.filter(ex => String(ex.Settimana).trim() === String(selectedWeek));
+
+    // Trova i giorni unici presenti in questa settimana
+    const days = [...new Set(filteredExercises.map(ex => ex.Giorno))].sort((a, b) => a - b);
+
+    if (dayTabsContainer) dayTabsContainer.innerHTML = '';
+    if (viewsContainer) viewsContainer.innerHTML = '';
+
+    if (days.length === 0) {
+        viewsContainer.innerHTML = `<p style="text-align:center; padding: 20px; color: var(--text-muted);">Nessun esercizio trovato per la Settimana ${selectedWeek}</p>`;
+        return;
+    }
+
+    days.forEach((day, index) => {
+        const dayId = `day-${day}`;
+        const isActive = index === 0 ? 'active' : '';
+
+        // 1. Crea il pulsante del tab del giorno
+        const tabBtn = document.createElement('button');
+        tabBtn.className = `tab-btn ${isActive}`;
+        tabBtn.innerText = `Giorno ${day}`;
+        tabBtn.onclick = (e) => switchTab(dayId, e.currentTarget);
+        if (dayTabsContainer) dayTabsContainer.appendChild(tabBtn);
+
+        // 2. Crea la vista/contenitore del giorno
+        const dayView = document.createElement('div');
+        dayView.className = `day-view ${isActive}`;
+        dayView.id = dayId;
+
+        let exercisesHtml = `
+            <div class="day-card">
+                <div class="day-title">
+                    <span>Giorno ${day} - Settimana ${selectedWeek}</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="workout-table" style="width:100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border-color); text-align: left;">
+                                <th style="padding: 8px;">Esercizio</th>
+                                <th style="padding: 8px;">Set</th>
+                                <th style="padding: 8px;">Reps</th>
+                                <th style="padding: 8px;">Carico</th>
+                                <th style="padding: 8px;">RPE</th>
+                                <th style="padding: 8px;">Note</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        // Filtra gli esercizi per questo specifico giorno e settimana
+        const dayExercises = filteredExercises.filter(ex => String(ex.Giorno) === String(day));
+
+        dayExercises.forEach(ex => {
+            const carico = ex.KgMax && ex.KgMax !== '-' ? `${ex.KgMin} - ${ex.KgMax}` : (ex.KgMin || '-');
+            exercisesHtml += `
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 8px; font-weight: 600;">${ex.Esercizio || ''}</td>
+                    <td style="padding: 8px;">${ex.Set || ''}</td>
+                    <td style="padding: 8px;">${ex.Reps || ''}</td>
+                    <td style="padding: 8px; color: var(--accent-color);">${carico}</td>
+                    <td style="padding: 8px;">${ex.RPE || ''}</td>
+                    <td style="padding: 8px; font-size: 0.85rem; color: var(--text-muted);">${ex.Note || ''}</td>
+                </tr>
+            `;
+        });
+
+        exercisesHtml += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        dayView.innerHTML = exercisesHtml;
+        if (viewsContainer) viewsContainer.appendChild(viewsContainer.appendChild ? dayView : null);
+    });
+}
 // Funzione per parsare e renderizzare la scheda CSV dell'allenamento
 async function loadAndRenderWorkoutPlan() {
     const rawCsv = localStorage.getItem('workout_plan_csv_raw');
