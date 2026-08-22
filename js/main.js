@@ -60,21 +60,30 @@ window.esportaWorkoutPDF = esportaWorkoutPDF;
 
 window.switchTab = switchTab;
 window.renderCurrentView = renderCurrentView;
+
 document.addEventListener('DOMContentLoaded', async () => {
     initTheme();
     
-    // AGGIUNGI QUESTO BLOCCO PER IL RECUPERO SESSIONE
+    // Recupero sessione
     const { data: { session } } = await supabase.auth.getSession();
+    
+    const authOverlay = document.getElementById('auth-overlay');
+    const userInfo = document.getElementById('user-info-bar');
+    const userEmail = document.getElementById('user-email-display');
+
     if (session) {
         state.currentUser = session.user;
-        const overlay = document.getElementById('auth-overlay');
-        const userInfo = document.getElementById('user-info-bar');
-        const userEmail = document.getElementById('user-email-display');
         
-        if (overlay) overlay.style.display = 'none';
+        // Utente loggato: nascondi login e mostra barra utente
+        if (authOverlay) authOverlay.style.display = 'none';
         if (userInfo) userInfo.style.display = 'flex';
         if (userEmail) userEmail.innerText = session.user.email;
         console.log("Sessione ripristinata per:", session.user.email);
+    } else {
+        // Utente NON loggato: assicurati che il login sia ben visibile
+        if (authOverlay) authOverlay.style.display = 'flex';
+        if (userInfo) userInfo.style.display = 'none';
+        console.log("Nessuna sessione attiva, login richiesto.");
     }
     
     console.log(">>> Tutti i 9 moduli caricati con successo! <<<");
