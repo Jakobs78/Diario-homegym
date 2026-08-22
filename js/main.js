@@ -130,7 +130,10 @@ function renderExercisesIntoUI(exercises) {
 // Funzione per parsare e renderizzare la scheda CSV dell'allenamento
 async function loadAndRenderWorkoutPlan() {
     const rawCsv = localStorage.getItem('workout_plan_csv_raw');
-    if (!rawCsv) return;
+    if (!rawCsv) {
+        renderExercisesIntoUI([]);
+        return;
+    }
 
     try {
         const lines = rawCsv.split(/\r\n|\n/);
@@ -155,11 +158,17 @@ async function loadAndRenderWorkoutPlan() {
                     let val = currentLine[index] ? currentLine[index].replace(/^"|"$/g, '').trim() : '';
                     obj[h] = val;
                 });
-                state.workoutPlan.push(obj);
+                // Inserisci solo se c'è un esercizio valido
+                if (obj['Esercizio']) {
+                    state.workoutPlan.push(obj);
+                }
             }
         }
         console.log(`Scheda caricata con successo: ${state.workoutPlan.length} esercizi trovati.`);
-        // Qui potrai aggiungere la chiamata alla funzione grafica che popola i giorni se esiste, oppure la pagina userà lo stato
+        
+        // CHIAMA LA FUNZIONE CHE DISEGNA I TAB E LE TABELLE NELLA PAGINA
+        renderExercisesIntoUI(state.workoutPlan);
+
     } catch (err) {
         console.error("Errore nel parsing del CSV della scheda:", err);
     }
