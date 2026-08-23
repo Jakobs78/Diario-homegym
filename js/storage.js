@@ -280,3 +280,18 @@ export async function resetDiaryData() {
         }
     }
 }
+window.resetTotalFactory = function() {
+    const conferma1 = confirm("ATTENZIONE: Stai per eliminare COMPLETAMENTE tutti i dati, inclusi i mesocicli salvati, i piani di allenamento e lo storico. Vuoi procedere?");
+    if (!conferma1) return;
+
+    const conferma2 = confirm("Sei davvero sicuro al 100%? Questa operazione è irreversibile e riporterà l'app allo stato iniziale.");
+    if (!conferma2) return;
+
+    // Cancella tutto il localStorage della webapp
+    localStorage.clear();
+
+    alert("Tutti i dati e i mesocicli sono stati eliminati con successo.");
+    
+    // Ricarica la pagina per ripulire lo stato in memoria
+    location.reload();
+};

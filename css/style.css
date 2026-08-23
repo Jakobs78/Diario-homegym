@@ -421,3 +421,27 @@ input[type="date"], select {
     margin-top: 10px;
     display: inline-block;
 }
+/* Stile moderno per il menu a tendina delle Analisi in alto a destra */
+.analytics-select {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.analytics-select:hover {
+    border-color: var(--accent-color);
+    background-color: var(--block-bg);
+}
+
+.analytics-select:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+}
