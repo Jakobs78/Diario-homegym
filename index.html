@@ -46,16 +46,28 @@
 
         <!-- Barra di Controllo Parametri & Import -->
         <div class="controls-bar">
-            <div class="control-row">
-                <div style="display: flex; gap: 6px; align-items: center;">
-                    <label style="font-size: 0.8rem; font-weight: 600;">Data:</label>
-                    <input type="date" data-id="meta-date">
+            <div class="control-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        <label style="font-size: 0.8rem; font-weight: 600;">Data:</label>
+                        <input type="date" data-id="meta-date">
+                    </div>
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        <label style="font-size: 0.8rem; font-weight: 600;">Mesociclo:</label>
+                        <button class="btn btn-secondary" onclick="window.changeMeso(-1)" style="padding: 2px 6px;">-</button>
+                        <span id="meso-display" style="font-weight: 700; font-size: 0.9rem;">1</span>
+                        <button class="btn btn-secondary" onclick="window.changeMeso(1)" style="padding: 2px 6px;">+</button>
+                    </div>
                 </div>
-                <div style="display: flex; gap: 6px; align-items: center;">
-                    <label style="font-size: 0.8rem; font-weight: 600;">Mesociclo:</label>
-                    <button class="btn btn-secondary" onclick="window.changeMeso(-1)" style="padding: 2px 6px;">-</button>
-                    <span id="meso-display" style="font-weight: 700; font-size: 0.9rem;">1</span>
-                    <button class="btn btn-secondary" onclick="window.changeMeso(1)" style="padding: 2px 6px;">+</button>
+
+                <!-- Menu a tendina posizionato esattamente a destra del mesociclo -->
+                <div>
+                    <select id="analyticsMenu" class="analytics-select" style="font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-color); cursor: pointer;" onchange="handleAnalyticsNavigation(this.value)">
+                        <option value="" disabled selected>📊 Analisi...</option>
+                        <option value="stats">📈 Volume Muscolare</option>
+                        <option value="progress">🌐 Progressione Mese</option>
+                        <option value="macro-progress">📅 Macro Storico</option>
+                    </select>
                 </div>
             </div>
 
@@ -92,7 +104,6 @@
                 </div>
             </div>
         </div>
-
         <!-- Contenitore della barra di navigazione (Settimana + Giorni) -->
         <div class="tabs" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <!-- Selettore della Settimana (fisso e sicuro) -->
@@ -146,15 +157,7 @@
                 <div id="macro-progress-content"></div>
             </div>
         </div>
-
-        <!-- Tab fissi aggiuntivi in fondo -->
-        <div class="tabs" style="margin-top: 15px;">
-            <button class="tab-btn" onclick="window.switchTab('stats', this)">📊 Volume Muscolare</button>
-            <button class="tab-btn" onclick="window.switchTab('progress', this)">📈 Progressione Mese</button>
-            <button class="tab-btn" onclick="window.switchTab('macro-progress', this)">🌐 Macro Storico</button>
-        </div>
-    </div>
-
+     
     <!-- Timer Mobile Fondi Pagina Flottante -->
     <div id="floating-timer">
         <div>

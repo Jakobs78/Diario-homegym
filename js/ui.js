@@ -8,8 +8,12 @@ export function switchTab(dayId, btn) {
     state.currentActiveTab = dayId;
 
     document.querySelectorAll('.tab-btn').forEach(tab => tab.classList.remove('active'));
-    btn.classList.add('active');
-
+    if (btn) {
+        btn.classList.add('active');
+    } else {
+        const matchingTab = document.querySelector(`.tab-btn[data-target="${dayId}"]`);
+        if (matchingTab) matchingTab.classList.add('active');
+    }
     document.querySelectorAll('.day-view').forEach(view => view.classList.remove('active'));
     const targetView = document.getElementById(dayId);
     if (targetView) targetView.classList.add('active');
@@ -26,6 +30,24 @@ export function switchTab(dayId, btn) {
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+// Rendi disponibile switchTab globalmente (lascia questa riga così com'è)
+window.switchTab = switchTab;
+
+// AGGIUNGI QUI SOTTO la nuova funzione per il menu a tendina
+window.handleAnalyticsNavigation = function(tabId) {
+    if (!tabId) return;
+    
+    const targetView = document.getElementById(tabId);
+    if (targetView) {
+        switchTab(tabId, null); 
+    }
+
+    // Riporta il select sulla voce iniziale dopo la selezione
+    setTimeout(() => {
+        const menu = document.getElementById('analyticsMenu');
+        if (menu) menu.value = "";
+    }, 150);
+};
 
 export function generateDynamicDays() {
     const tabsContainer = document.getElementById('dynamic-day-tabs');
