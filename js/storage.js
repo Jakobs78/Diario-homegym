@@ -109,6 +109,26 @@ export function importWorkoutPlan(event) {
         state.currentMesoNumber = parseInt(mesoMatch[1]);
         document.getElementById('meso-display').innerText = state.currentMesoNumber;
         saveMetaToStorage();
+    } else {
+        // Se il nome NON contiene il mese, controlliamo se esiste già una scheda per il mesociclo attuale
+        const currentPlanKey = `${STORAGE_KEY_PLAN}_mese_${state.currentMesoNumber}`;
+        const existingPlan = localStorage.getItem(currentPlanKey);
+        if (existingPlan) {
+            // Esiste già una scheda per questo mesociclo: chiediamo cosa fare
+            const nextMeso = state.currentMesoNumber + 1;
+            const scelta = confirm(
+                `Esiste già una scheda salvata per il Mesociclo ${state.currentMesoNumber}.\n\n` +
+                `Vuoi passare al Mesociclo successivo (${nextMeso}) caricando qui la nuova scheda?\n` +
+                `(Clicca 'Annulla' se vuoi invece sovrascrivere quella attuale del Mesociclo ${state.currentMesoNumber})`
+            );
+
+        if (scelta) {
+                // L'utente vuole avanzare di mesociclo
+                state.currentMesoNumber = nextMeso;
+                document.getElementById('meso-display').innerText = state.currentMesoNumber;
+                saveMetaToStorage();
+            }
+        }
     }
 
     const reader = new FileReader();

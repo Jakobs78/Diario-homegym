@@ -53,13 +53,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderCurrentView();
     });
 
-    const savedPlan = localStorage.getItem(STORAGE_KEY_PLAN);
-    if (savedPlan) {
-        state.workoutPlan = JSON.parse(savedPlan);
-        document.getElementById('empty-state').style.display = 'none';
-        generateDynamicDays();
-        renderCurrentView();
-    }
+    // Richiamo della funzione dinamica per il mesociclo:
+    loadWorkoutPlanForCurrentMeso();
 });
 
 async function handleAuthSubmit() {
