@@ -1,21 +1,88 @@
-// Salvataggio locale, Supabase, Import/ export CSV
-// js/storage.js
-import { supabase } from './supabaseClient.js';
+// Gestione LocalStorage, Supabase, Import/ Export CSV, ecc.
+import { supabaseClient, STORAGE_KEY_DATA, STORAGE_KEY_PLAN } from './config.js';
 import { state } from './state.js';
-    export async function saveInputToStorage(dataId, valToSave, renderCallback) {
-    const savedData = JSON.parse(localStorage.getItem(state.STORAGE_KEY_DATA)) || {};
-    savedData[dataId] = valToSave;
-    localStorage.setItem(state.STORAGE_KEY_DATA, JSON.stringify(savedData));
+import { renderCurrentView, generateDynamicDays } from './ui.js';
 
-    if (typeof renderCallback === 'function') {
-        renderCallback();
+export async function loadUserDataFromSupabase() {
+    if (!state.currentUser) return;
+    try {
+        const { data, error } = await supabaseClient
+            .from('workout_data')
+            .select('data_key, valore')
+            .eq('user_id', state.currentUser.id);
+
+        if (error) {
+            console.error("Errore nel caricamento Supabase:", error);
+            return;
+        }
+
+        if (data && data.length > 0) {
+            let savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
+            data.forEach(row => {
+                let val = row.valore;
+                if (val === 'true') val = true;
+                if (val === 'false') val = false;
+                savedData[row.data_key] = val;
+            });
+            localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(savedData));
+        }
+    } catch (err) {
+        console.error("Errore di rete:", err);
+    }
+}
+
+export function saveMetaToStorage() {
+    let savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
+    savedData['meta-date'] = document.querySelector('[data-id="meta-date"]').value;
+    savedData['meta-meso-num'] = state.currentMesoNumber;
+    savedData['meta-week'] = document.getElementById('week-selector').value;
+    localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(savedData));
+}
+
+export async function saveInputToStorage(e) {
+    const input = e.target;
+    const dataId = input.getAttribute('data-id');
+    if (!dataId) return;
+
+    const weekNumber = parseInt(document.getElementById('week-selector').value) || 1;
+    if (weekNumber > 1 && input.type !== 'checkbox') {
+        const val = parseFloat(input.value);
+        if (input.hasAttribute('data-csv-kg')) {
+            const csvKg = parseFloat(input.getAttribute('data-csv-kg'));
+            if (!isNaN(csvKg) && !isNaN(val) && val !== csvKg) {
+                input.style.color = '#dc2626';
+                input.style.fontWeight = '700';
+            } else {
+                input.style.color = '';
+                input.style.fontWeight = '';
+            }
+        } else if (input.hasAttribute('data-csv-rep-min')) {
+            const minRep = parseFloat(input.getAttribute('data-csv-rep-min'));
+            const maxRep = parseFloat(input.getAttribute('data-csv-rep-max'));
+            if (!isNaN(minRep) && !isNaN(maxRep) && !isNaN(val) && (val < minRep || val > maxRep)) {
+                input.style.color = '#dc2626';
+                input.style.fontWeight = '700';
+            } else {
+                input.style.color = '';
+                input.style.fontWeight = '';
+            }
+        }
+    } else {
+        input.style.color = '';
+        input.style.fontWeight = '';
     }
 
-    if (state.currentUser && supabase) {
+    let valToSave = input.type === 'checkbox' ? input.checked : input.value;
+
+    let savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
+    savedData[dataId] = valToSave;
+    localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(savedData));
+
+    if (state.currentUser) {
         clearTimeout(state.supabaseDebounceTimer);
         state.supabaseDebounceTimer = setTimeout(async () => {
             try {
-                await supabase
+                await supabaseClient
                     .from('workout_data')
                     .upsert({
                         user_id: state.currentUser.id,
@@ -30,8 +97,74 @@ import { state } from './state.js';
     }
 }
 
+export function importWorkoutPlan(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const fileName = file.name.toLowerCase();
+    const mesoMatch = fileName.match(/mese[_\s-]?(\d+)/);
+    if (mesoMatch) {
+        state.currentMesoNumber = parseInt(mesoMatch[1]);
+        document.getElementById('meso-display').innerText = state.currentMesoNumber;
+        saveMetaToStorage();
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        const lines = text.split(/\r\n|\n/);
+        
+        const delimiter = lines[0].includes(';') ? ';' : ',';
+        const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+        
+        let newPlan = [];
+
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            const values = line.split(delimiter);
+            let obj = {};
+            
+            headers.forEach((header, index) => {
+                let val = values[index] ? values[index].replace(/""/g, '"').trim() : '';
+                const cleanHeader = header.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+                
+                if (val.includes(',')) {
+                    val = val.replace(',', '.');
+                }
+                
+                obj[header] = val;
+
+                if (cleanHeader === 'note' || cleanHeader === 'noteallenatore') obj['NoteAllenatore'] = val;
+                if (cleanHeader === 'kg' || cleanHeader === 'peso' || cleanHeader === 'carico' || cleanHeader === 'kgtarget') obj['Kg'] = val.replace(/kg/gi, '').trim();
+                if (cleanHeader === 'kgmin' || cleanHeader === 'pesomin' || cleanHeader === 'caricomin') obj['KgMin'] = val.replace(/kg/gi, '').trim();
+                if (cleanHeader === 'kgmax' || cleanHeader === 'pesomax' || cleanHeader === 'caricomax') obj['KgMax'] = val.replace(/kg/gi, '').trim();
+                if (cleanHeader === 'reps' || cleanHeader === 'ripetizioni') obj['Reps'] = val;
+                if (cleanHeader === 'rpe') obj['RPE'] = val;
+                if (cleanHeader === 'recupero' || cleanHeader === 'rest') obj['Recupero'] = val;
+                if (cleanHeader === 'blocco') obj['Blocco'] = val;
+                if (cleanHeader === 'settimana' || cleanHeader === 'week') obj['Settimana'] = val;
+                if (cleanHeader === 'giorno' || cleanHeader === 'day') obj['Giorno'] = val;
+                if (cleanHeader === 'esercizio' || cleanHeader === 'exercise') obj['Esercizio'] = val;
+            });
+            newPlan.push(obj);
+        }
+
+        if (newPlan.length > 0) {
+            state.workoutPlan = newPlan;
+            localStorage.setItem(STORAGE_KEY_PLAN, JSON.stringify(state.workoutPlan));
+            document.getElementById('empty-state').style.display = 'none';
+            generateDynamicDays();
+            renderCurrentView();
+            alert("Scheda importata con successo!");
+        }
+    };
+    reader.readAsText(file);
+}
+
 export function exportProgressCSV() {
-    const dataToExport = JSON.parse(localStorage.getItem(state.STORAGE_KEY_DATA)) || {};
+    const dataToExport = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
     let csvContent = "data:text/csv;charset=utf-8,ID_Dato,Valore\r\n";
     for (const [key, value] of Object.entries(dataToExport)) {
         const safeValue = String(value).replace(/"/g, '""');
@@ -45,16 +178,16 @@ export function exportProgressCSV() {
     link.click();
     document.body.removeChild(link);
 }
-export async function importProgressCSV(event, renderCallback) {
+
+export function importProgressCSV(event) {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = async function(e) {
+    reader.onload = function(e) {
         const text = e.target.result;
         const lines = text.split(/\r\n|\n/);
-        let savedData = JSON.parse(localStorage.getItem(state.STORAGE_KEY_DATA)) || {};
+        let savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
         let count = 0;
-        
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
@@ -72,136 +205,33 @@ export async function importProgressCSV(event, renderCallback) {
                 }
             }
         }
-        
-        // Salva nel localStorage
-        localStorage.setItem(state.STORAGE_KEY_DATA, JSON.stringify(savedData));
-
-        // Se l'utente è loggato, sincronizza l'intero blocco su Supabase
-        if (state.currentUser && supabase) {
-            try {
-                for (const [key, val] of Object.entries(savedData)) {
-                    await supabase
-                        .from('workout_data')
-                        .upsert({
-                            user_id: state.currentUser.id,
-                            data_key: key,
-                            valore: String(val),
-                            updated_at: new Date().toISOString()
-                        }, { onConflict: 'user_id,data_key' });
-                }
-            } catch (err) {
-                console.error("Errore di sincronizzazione Supabase durante l'importazione:", err);
-            }
-        }
-
+        localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(savedData));
         alert(`Progressi importati con successo! (${count} valori caricati)`);
-        
-        // Ricarica la pagina per popolare l'interfaccia con i dati freschi
-        location.reload();
+        renderCurrentView();
     };
     reader.readAsText(file);
-}
-
-export function importWorkoutPlan(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        localStorage.setItem('workout_plan_csv_raw', e.target.result);
-        alert("Scheda di allenamento caricata correttamente!");
-        location.reload();
-    };
-    reader.readAsText(file);
-}
-
-// Aggiungi questa variabile in alto nel file, appena sotto gli import
-let isRegistering = false;
-
-// ... (le tue altre funzioni esistenti rimangono invariate) ...
-
-// Aggiungi queste due funzioni in fondo al file storage.js
-export function toggleAuthMode() {
-    isRegistering = !isRegistering;
-    const titleEl = document.getElementById('auth-title');
-    const submitBtn = document.getElementById('auth-submit-btn');
-    const toggleText = document.getElementById('auth-toggle-text');
-
-    if (isRegistering) {
-        if (titleEl) titleEl.innerText = "Registrati al Diario";
-        if (submitBtn) submitBtn.innerText = "Registrati";
-        if (toggleText) toggleText.innerText = "Hai già un account? Accedi";
-    } else {
-        if (titleEl) titleEl.innerText = "Accedi al Diario";
-        if (submitBtn) submitBtn.innerText = "Accedi";
-        if (toggleText) toggleText.innerText = "Non hai un account? Registrati";
-    }
-}
-
-export async function handleAuthSubmit() {
-    const emailInput = document.getElementById('auth-email');
-    const passwordInput = document.getElementById('auth-password');
-    const errorDiv = document.getElementById('auth-error');
-    
-    if (!emailInput || !passwordInput) return;
-    
-    const email = emailInput.value.trim();
-    const password = passwordInput.value.trim();
-
-    if (!supabase) {
-        alert("Credenziali Supabase non configurate.");
-        return;
-    }
-
-    try {
-        let result;
-        if (isRegistering) {
-            result = await supabase.auth.signUp({ email, password });
-            if (result.error) throw result.error;
-            alert("Registrazione completata! Controlla la tua email per confermare l'account.");
-            // Reset modalità dopo registrazione
-            isRegistering = false;
-            toggleAuthMode();
-        } else {
-            result = await supabase.auth.signInWithPassword({ email, password });
-            if (result.error) throw result.error;
-            state.currentUser = result.data.user;
-            location.reload();
-        }
-    } catch (err) {
-        if (errorDiv) {
-            errorDiv.style.display = 'block';
-            errorDiv.innerText = err.message;
-        } else {
-            alert("Errore: " + err.message);
-        }
-    }
-}
-export async function handleLogout() {
-    if (supabase) {
-        await supabase.auth.signOut();
-        state.currentUser = null;
-        location.reload();
-    }
 }
 
 export async function resetDiaryData() {
     const primaConferma = confirm("Sei sicuro di voler azzerare tutti i progressi e le spunte registrate?");
     if (primaConferma) {
-        const secondaConferma = confirm("ATTENZIONE: Questa azione è irreversibile. Vuoi davvero procedere?");
+        const secondaConferma = confirm("ATTENZIONE: Questa azione è irreversibile e cancellerà definitivamente l'intero storico. Vuoi davvero procedere?");
         if (secondaConferma) {
-            localStorage.removeItem(state.STORAGE_KEY_DATA);
-
-            if (state.currentUser && supabase) {
+            localStorage.removeItem(STORAGE_KEY_DATA);
+            if (state.currentUser) {
                 try {
-                    await supabase
+                    const { error } = await supabaseClient
                         .from('workout_data')
                         .delete()
                         .eq('user_id', state.currentUser.id);
+                    
+                    if (error) {
+                        console.error("Errore durante la pulizia su Supabase:", error);
+                    }
                 } catch (err) {
-                    console.error("Errore di rete durante il reset:", err);
+                    console.error("Errore di rete:", err);
                 }
             }
-
             location.reload();
         }
     }

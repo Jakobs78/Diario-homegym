@@ -1,13 +1,15 @@
-// Stato condiviso dell'applicazione
-// js/state.js
+// Stato globale dell'applicazione
 export const state = {
+    isSignUpMode: false,
     currentUser: null,
-    supabaseClient: null,
-    supabaseDebounceTimer: null,
-    currentMesoNumber: 1,
-    CURRENT_YEAR: new Date().getFullYear(),
-    STORAGE_KEY_DATA: 'workout_diary_data',
+    currentActiveTab: 'giorno1',
     workoutPlan: [],
+    currentMesoNumber: 1,
+    instanceChart1RM: null,
+    instanceChartVol: null,
     instanceMacroChart: null,
-    instanceMuscleChart: null
+    instanceMuscleChart: null,
+    supabaseDebounceTimer: null,
+    restInterval: null,
+    currentTimerSeconds: 0
 };

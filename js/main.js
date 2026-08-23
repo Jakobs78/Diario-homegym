@@ -1,258 +1,180 @@
-// importa tutti i moduli. Nel file principale HTML questo script deve essere incluso.
-// js/main.js
-import { initTheme, toggleTheme } from './theme.js';
-import { startTimer, adjustTimer, stopTimer } from './timer.js';
-import { 
-    saveInputToStorage,
-    toggleAuthMode,
-    exportProgressCSV,
-    importProgressCSV, 
-    importWorkoutPlan, 
-    resetDiaryData, 
-    handleAuthSubmit, 
-    handleLogout 
-} from './storage.js';
-import { renderMacroProgress, renderMuscleVolumeDashboard } from './analytics.js';
-import { esportaWorkoutPDF } from './pdf.js';
-import { supabase } from './supabaseClient.js';
+// Entry point ed Events Listener
+import { supabaseClient, STORAGE_KEY_DATA, STORAGE_KEY_PLAN } from './config.js';
 import { state } from './state.js';
+import { parseRestTime } from './helpers.js';
+import { loadUserDataFromSupabase, saveMetaToStorage, importWorkoutPlan, exportProgressCSV, importProgressCSV, resetDiaryData } from './storage.js';
+import { switchTab, generateDynamicDays, renderCurrentView, startTimer, stopTimer, adjustTimer, esportaWorkoutPDF, toggleTheme, initTeme, calcPlates } from './ui.js';
 
-// --- GESTIONE DEI TAB DELL'INTERFACCIA ---
-function switchTab(tabId, btnElement) {
-    document.querySelectorAll('.day-view').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-    
-    const target = document.getElementById(tabId);
-    if (target) target.classList.add('active');
-    if (btnElement) btnElement.classList.add('active');
+window.switchTab = switchTab;
+window.changeMeso = changeMeso;
+window.importWorkoutPlan = importWorkoutPlan;
+window.toggleTheme = toggleTheme;
+window.exportProgressCSV = exportProgressCSV;
+window.importProgressCSV = importProgressCSV;
+window.resetDiaryData = resetDiaryData;
+window.esportaWorkoutPDF = esportaWorkoutPDF;
+window.adjustTimer = adjustTimer;
+window.stopTimer = stopTimer;
+window.handleAuthSubmit = handleAuthSubmit;
+window.handleLogout = handleLogout;
+window.calcPlates = calcPlates;
+window.renderCurrentView = renderCurrentView;
 
-    if (tabId === 'macro-progress') {
-        renderMacroProgress();
-    } else if (tabId === 'stats') {
-        renderMuscleVolumeDashboard();
-    }
-}
-// Funzione per generare i tab dei giorni e le tabelle degli esercizi
-function renderExercisesIntoUI(exercises) {
-    const dayTabsContainer = document.getElementById('dynamic-day-tabs');
-    const viewsContainer = document.getElementById('dynamic-views-container');
-    const emptyState = document.getElementById('empty-state');
+document.addEventListener('DOMContentLoaded', async () => {
+    initTeme();
+
+    document.getElementById('auth-toggle-text').addEventListener('click', () => {
+        state.isSignUpMode = !state.isSignUpMode;
+        document.getElementById('auth-title').innerText = state.isSignUpMode ? "Crea un Account" : "Accedi al Diario";
+        document.getElementById('auth-submit-btn').innerText = state.isSignUpMode ? "Registrati" : "Accedi";
+        document.getElementById('auth-toggle-text').innerText = state.isSignUpMode ? "Hai già un account? Accedi" : "Non hai un account? Registrati";
+        document.getElementById('auth-error').style.display = 'none';
+    });
+    document.getElementById('auth-submit-btn').addEventListener('click', handleAuthSubmit);
+    await checkUserSession();
+
+    const savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
+    const dateInput = document.querySelector('[data-id="meta-date"]');
     const weekSelector = document.getElementById('week-selector');
 
-    if (!exercises || exercises.length === 0) {
-        if (emptyState) emptyState.style.display = 'block';
-        return;
+    if (savedData['meta-date']) dateInput.value = savedData['meta-date'];
+    else dateInput.value = new Date().toISOString().split('T')[0];
+    
+    if (savedData['meta-meso-num']) {
+        state.currentMesoNumber = parseInt(savedData['meta-meso-num']) || 1;
     }
+    document.getElementById('meso-display').innerText = state.currentMesoNumber;
 
-    if (emptyState) emptyState.style.display = 'none';
+    if (savedData['meta-week']) weekSelector.value = savedData['meta-week'];
 
-    // Recupera la settimana selezionata (default 1)
-    const selectedWeek = weekSelector ? weekSelector.value : "1";
-
-    // Filtra gli esercizi per la settimana selezionata
-    const filteredExercises = exercises.filter(ex => String(ex.Settimana).trim() === String(selectedWeek));
-
-    // Trova i giorni unici presenti in questa settimana
-    const days = [...new Set(filteredExercises.map(ex => ex.Giorno))].sort((a, b) => a - b);
-
-    if (dayTabsContainer) dayTabsContainer.innerHTML = '';
-    if (viewsContainer) viewsContainer.innerHTML = '';
-
-    if (days.length === 0) {
-        viewsContainer.innerHTML = `<p style="text-align:center; padding: 20px; color: var(--text-muted);">Nessun esercizio trovato per la Settimana ${selectedWeek}</p>`;
-        return;
-    }
-
-    days.forEach((day, index) => {
-        const dayId = `day-${day}`;
-        const isActive = index === 0 ? 'active' : '';
-
-        // 1. Crea il pulsante del tab del giorno
-        const tabBtn = document.createElement('button');
-        tabBtn.className = `tab-btn ${isActive}`;
-        tabBtn.innerText = `Giorno ${day}`;
-        tabBtn.onclick = (e) => switchTab(dayId, e.currentTarget);
-        if (dayTabsContainer) dayTabsContainer.appendChild(tabBtn);
-
-        // 2. Crea la vista/contenitore del giorno
-        const dayView = document.createElement('div');
-        dayView.className = `day-view ${isActive}`;
-        dayView.id = dayId;
-
-        let exercisesHtml = `
-            <div class="day-card">
-                <div class="day-title">
-                    <span>Giorno ${day} - Settimana ${selectedWeek}</span>
-                </div>
-                <div class="table-responsive">
-                    <table class="workout-table" style="width:100%; border-collapse: collapse;">
-                        <thead>
-                            <tr style="border-bottom: 1px solid var(--border-color); text-align: left;">
-                                <th style="padding: 8px;">Esercizio</th>
-                                <th style="padding: 8px;">Set</th>
-                                <th style="padding: 8px;">Reps</th>
-                                <th style="padding: 8px;">Carico</th>
-                                <th style="padding: 8px;">RPE</th>
-                                <th style="padding: 8px;">Note</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-        `;
-
-        // Filtra gli esercizi per questo specifico giorno e settimana
-        const dayExercises = filteredExercises.filter(ex => String(ex.Giorno) === String(day));
-
-        dayExercises.forEach(ex => {
-            const carico = ex.KgMax && ex.KgMax !== '-' ? `${ex.KgMin} - ${ex.KgMax}` : (ex.KgMin || '-');
-            exercisesHtml += `
-                <tr style="border-bottom: 1px solid var(--border-color);">
-                    <td style="padding: 8px; font-weight: 600;">${ex.Esercizio || ''}</td>
-                    <td style="padding: 8px;">${ex.Set || ''}</td>
-                    <td style="padding: 8px;">${ex.Reps || ''}</td>
-                    <td style="padding: 8px; color: var(--accent-color);">${carico}</td>
-                    <td style="padding: 8px;">${ex.RPE || ''}</td>
-                    <td style="padding: 8px; font-size: 0.85rem; color: var(--text-muted);">${ex.Note || ''}</td>
-                </tr>
-            `;
-        });
-
-        exercisesHtml += `
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-
-        dayView.innerHTML = exercisesHtml;
-        if (viewsContainer) viewsContainer.appendChild(viewsContainer.appendChild ? dayView : null);
+    dateInput.addEventListener('change', saveMetaToStorage);
+    weekSelector.addEventListener('change', () => {
+        saveMetaToStorage();
+        renderCurrentView();
     });
-}
-// Funzione per parsare e renderizzare la scheda CSV dell'allenamento
-async function loadAndRenderWorkoutPlan() {
-    const rawCsv = localStorage.getItem('workout_plan_csv_raw');
-    if (!rawCsv) {
-        renderExercisesIntoUI([]);
+
+    const savedPlan = localStorage.getItem(STORAGE_KEY_PLAN);
+    if (savedPlan) {
+        state.workoutPlan = JSON.parse(savedPlan);
+        document.getElementById('empty-state').style.display = 'none';
+        generateDynamicDays();
+        renderCurrentView();
+    }
+});
+
+async function handleAuthSubmit() {
+    console.log("1. Pulsante premuto, avvio autenticazione..."); // <-- Aggiungi questo
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value.trim();
+    const errorBox = document.getElementById('auth-error');
+
+    errorBox.style.display = 'none';
+
+    if (!email || !password) {
+        errorBox.innerText = "Inserisci email e password.";
+        errorBox.style.display = 'block';
         return;
     }
 
     try {
-        const lines = rawCsv.split(/\r\n|\n/);
-        if (lines.length < 2) return;
-
-        // Rileva separatore (virgola o punto e virgola)
-        const header = lines[0];
-        const delimiter = header.includes(';') ? ';' : ',';
-        const headers = header.split(delimiter).map(h => h.replace(/^"|"$/g, '').trim());
-
-        state.workoutPlan = [];
-
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-            
-            // Gestione base dei campi divisi da separatore
-            const currentLine = line.split(delimiter);
-            if (currentLine.length >= headers.length) {
-                let obj = {};
-                headers.forEach((h, index) => {
-                    let val = currentLine[index] ? currentLine[index].replace(/^"|"$/g, '').trim() : '';
-                    obj[h] = val;
-                });
-                // Inserisci solo se c'è un esercizio valido
-                if (obj['Esercizio']) {
-                    state.workoutPlan.push(obj);
-                }
-            }
+        let result;
+        if (state.isSignUpMode) {
+            console.log("2. Avvio registrazione utente...");
+            result = await supabaseClient.auth.signUp({ email, password });
+        } else {
+            console.log("2. Avvio accesso utente...");
+            result = await supabaseClient.auth.signInWithPassword({ email, password });
         }
-        console.log(`Scheda caricata con successo: ${state.workoutPlan.length} esercizi trovati.`);
-        
-        // CHIAMA LA FUNZIONE CHE DISEGNA I TAB E LE TABELLE NELLA PAGINA
-        renderExercisesIntoUI(state.workoutPlan);
-
+        console.log("Risultato ricevuto da Supabase:", result);
+        if (result.error) {
+            errorBox.innerText = result.error.message;
+            errorBox.style.display = 'block';
+        } else {
+            state.currentUser = result.data.user;
+            await checkUserSession();
+        }
     } catch (err) {
-        console.error("Errore nel parsing del CSV della scheda:", err);
+        console.error("Errore critico catturato:", err);
+        errorBox.innerText = "Errore durante la connessione.";
+        errorBox.style.display = 'block';
     }
 }
 
-function renderCurrentView() {
-    console.log("Rendering vista corrente aggiornato.");
-    loadAndRenderWorkoutPlan();
-}
-
-// --- UNICO BLOCCO DI INIZIALIZZAZIONE ALL'AVVIO ---
-document.addEventListener('DOMContentLoaded', async () => {
-    initTheme();
-    console.log("DOM completamente caricato.");
-
-    // 1. Recupero sessione Supabase
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    const authOverlay = document.getElementById('auth-overlay');
-    const userInfo = document.getElementById('user-info-bar');
-    const userEmail = document.getElementById('user-email-display');
-
+async function checkUserSession() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    console.log("Sessione ricevuta da Supabase:", session);
     if (session) {
         state.currentUser = session.user;
-        if (authOverlay) authOverlay.style.display = 'none';
-        if (userInfo) userInfo.style.display = 'flex';
-        if (userEmail) userEmail.innerText = session.user.email;
-        console.log("Sessione ripristinata per:", session.user.email);
+        document.getElementById('auth-overlay').style.display = 'none';
+        document.getElementById('user-info-bar').style.display = 'flex';
+        document.getElementById('user-email-display').innerText = state.currentUser.email;
+        await loadUserDataFromSupabase();
+        if (state.workoutPlan.length > 0) renderCurrentView();
+    } else {
+        state.currentUser = null;
+        document.getElementById('auth-overlay').style.display = 'flex';
+        document.getElementById('user-info-bar').style.display = 'none';
+    }
+}
 
-        // SCARICA I DATI DA SUPABASE AL LOCALSTORAGE
-        try {
-            const { data: cloudData, error } = await supabase
-                .from('workout_data')
-                .select('data_key, valore')
-                .eq('user_id', session.user.id);
+async function handleLogout() {
+    await supabaseClient.auth.signOut();
+    location.reload();
+}
 
-            if (!error && cloudData && cloudData.length > 0) {
-                let localData = JSON.parse(localStorage.getItem(state.STORAGE_KEY_DATA)) || {};
-                cloudData.forEach(row => {
-                    localData[row.data_key] = row.valore === 'true' ? true : (row.valore === 'false' ? false : row.valore);
-                });
-                localStorage.setItem(state.STORAGE_KEY_DATA, JSON.stringify(localData));
-                console.log("Dati sincronizzati da Supabase al browser.");
-            }
-        } catch (err) {
-            console.error("Errore durante il recupero dei dati da Supabase:", err);
+function changeMeso(delta) {
+    state.currentMesoNumber += delta;
+    if (state.currentMesoNumber < 1) state.currentMesoNumber = 1;
+    document.getElementById('meso-display').innerText = state.currentMesoNumber;
+    saveMetaToStorage();
+    renderCurrentView();
+}
+
+document.addEventListener('change', async (e) => {
+    if (e.target.classList.contains('check-input')) {
+        const id = e.target.getAttribute('data-id');
+        const isChecked = e.target.checked;
+        const savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
+        savedData[id] = isChecked;
+
+        if (isChecked) {
+            const restValue = e.target.getAttribute('data-rest');
+            const seconds = parseRestTime(restValue);
+            startTimer(seconds);
+        } else {
+            stopTimer();
         }
 
-    } else {
-        if (authOverlay) authOverlay.style.display = 'flex';
-        if (userInfo) userInfo.style.display = 'none';
-        console.log("Nessuna sessione attiva, login richiesto.");
-    }
+        const baseId = id.substring(0, id.lastIndexOf('-'));
+        const kgInput = document.querySelector(`input[data-id="${baseId}-kg"]`);
+        const repInput = document.querySelector(`input[data-id="${baseId}-r"]`);
+        const rpeInput = document.querySelector(`input[data-id="${baseId}-rpe"]`);
 
-    // 2. Ascoltatore per il cambio tra Login e Registrazione
-    const toggleTextEl = document.getElementById('auth-toggle-text');
-    if (toggleTextEl) {
-        toggleTextEl.addEventListener('click', () => {
-            toggleAuthMode();
+        [kgInput, repInput, rpeInput].forEach(input => {
+            if (input) {
+                input.readOnly = isChecked;
+                input.style.backgroundColor = isChecked ? 'var(--block-bg)' : '';
+                input.style.opacity = isChecked ? '0.7' : '1';
+            }
         });
+
+        if (isChecked) {
+            if (kgInput && kgInput.value) savedData[`${baseId}-kg`] = kgInput.value;
+            if (repInput && repInput.value) savedData[`${baseId}-r`] = repInput.value;
+            if (rpeInput && rpeInput.value) savedData[`${baseId}-rpe`] = rpeInput.value;
+        }
+
+        localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(savedData));
+
+        if (state.currentUser) {  
+            await supabaseClient
+                .from('workout_data')
+                .upsert({
+                    user_id: state.currentUser.id,
+                    data_key: id,
+                    valore: String(isChecked),
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id,data_key' });
+        }
     }
-
-    // 3. Caricamento iniziale scheda e vista
-    await loadAndRenderWorkoutPlan();
-    renderCurrentView();
-
-    // 4. Esposizione globale per gli onclick dell'HTML
-    window.toggleTheme = toggleTheme;
-    window.startTimer = startTimer;
-    window.adjustTimer = adjustTimer;
-    window.stopTimer = stopTimer;
-    window.saveInputToStorage = saveInputToStorage;
-    window.exportProgressCSV = exportProgressCSV;
-    window.importProgressCSV = importProgressCSV;
-    window.importWorkoutPlan = importWorkoutPlan;
-    window.resetDiaryData = resetDiaryData;
-    window.handleAuthSubmit = handleAuthSubmit;
-    window.handleLogout = handleLogout;
-    window.toggleAuthMode = toggleAuthMode;
-    window.renderMacroProgress = renderMacroProgress;
-    window.renderMuscleVolumeDashboard = renderMuscleVolumeDashboard;
-    window.esportaWorkoutPDF = esportaWorkoutPDF;
-    window.switchTab = switchTab;
-    window.renderCurrentView = renderCurrentView;
-    
-    console.log(">>> Tutti i moduli caricati con successo e funzioni globali registrate! <<<");
 });
