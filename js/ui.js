@@ -380,7 +380,7 @@ function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, dayNum) {
           </div>
           </td>
             <td>
-                <div style="font-size: 0.7rem; color: #007aff; margin-bottom: 2px; cursor: pointer; text-decoration: underline; white-space: nowrap;" onclick="window.calcPlates(${currentDefaultKg || 0})">Target: ${currentDefaultKg || '-'} kg 🏋️ (Calcola)</div>
+                <div style="font-size: 0.7rem; color: #007aff; margin-bottom: 2px; cursor: pointer; text-decoration: underline; white-space: nowrap;" onclick="window.calcPlates(document.querySelector('input[data-id=\\'${kgId}\\']')?.value)">Target: ${currentDefaultKg || '-'} kg 🏋️ (Calcola)</div>
                 <input type="text" inputmode="decimal" data-id="${kgId}" data-csv-kg="${csvKgNum !== null ? csvKgNum : ''}" value="${defaultKgValue}" placeholder="${placeholderText}" style="${kgStyle}" onfocus="this.select()">
             </td>
             <td><input type="text" inputmode="decimal" data-id="${repId}" data-csv-rep-min="${csvRepMin !== null ? csvRepMin : ''}" data-csv-rep-max="${csvRepMax !== null ? csvRepMax : ''}" value="${currentDefaultRep}" placeholder="${repPlaceholder}" style="${repStyle}" onfocus="this.select()"></td>
@@ -426,7 +426,7 @@ export function calcPlates(targetWeight) {
     }
 
     let perSide = (targetWeight - barWeight) / 2;
-    const plates = [25, 20, 15, 10, 5, 2.5, 1.25, 1, 0.5]; 
+    const plates = [25, 20, 15, 10, 5, 2.5, 2, 1.25, 1, 0.5]; 
     let loaded = [];
     
     for (let p of plates) {
