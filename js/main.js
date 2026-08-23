@@ -85,7 +85,26 @@ async function handleAuthSubmit() {
             errorBox.innerText = result.error.message;
             errorBox.style.display = 'block';
         } else {
-            state.currentUser = result.data.user;
+            const user = result.data.user;
+        // --- CONTROLLO 15 GIORNI DI PROVA (Sicuro) ---
+            const createdAtString = user?.created_at || user?.user_metadata?.created_at;
+            
+            if (createdAtString) {
+                const createdAt = new Date(createdAtString);
+                const now = new Date();
+                const diffDays = Math.ceil(Math.abs(now - createdAt) / (1000 * 60 * 60 * 24));
+                const TRIAL_DAYS = 15; // Metti 0 per testare
+
+                if (diffDays > TRIAL_DAYS) {
+                    await supabaseClient.auth.signOut();
+                    document.getElementById('auth-title').innerText = "Periodo di Prova Scaduto";
+                    errorBox.innerText = "I tuoi 15 giorni di prova gratuita sono terminati. Abbonati per continuare.";
+                    errorBox.style.display = 'block';
+                    return;
+                }
+            }
+            // ---------------------------------------------
+            state.currentUser = user;
             await checkUserSession();
         }
     } catch (err) {
@@ -99,7 +118,27 @@ async function checkUserSession() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     console.log("Sessione ricevuta da Supabase:", session);
     if (session) {
-        state.currentUser = session.user;
+        const user = session.user;
+    
+        // --- CONTROLLO 15 GIORNI DI PROVA (Sicuro) ---
+            const createdAtString = user?.created_at || user?.user_metadata?.created_at;
+            
+            if (createdAtString) {
+                const createdAt = new Date(createdAtString);
+                const now = new Date();
+                const diffDays = Math.ceil(Math.abs(now - createdAt) / (1000 * 60 * 60 * 24));
+                const TRIAL_DAYS = 15; // Metti 0 per testare
+
+                if (diffDays > TRIAL_DAYS) {
+                    await supabaseClient.auth.signOut();
+                    document.getElementById('auth-title').innerText = "Periodo di Prova Scaduto";
+                    errorBox.innerText = "I tuoi 15 giorni di prova gratuita sono terminati. Abbonati per continuare.";
+                    errorBox.style.display = 'block';
+                    return;
+                }
+            }
+            // ---------------------------------------------
+        state.currentUser = user;
         document.getElementById('auth-overlay').style.display = 'none';
         document.getElementById('user-info-bar').style.display = 'flex';
         document.getElementById('user-email-display').innerText = state.currentUser.email;
