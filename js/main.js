@@ -2,7 +2,7 @@
 import { supabaseClient, STORAGE_KEY_DATA, STORAGE_KEY_PLAN } from './config.js';
 import { state } from './state.js';
 import { parseRestTime } from './helpers.js';
-import { loadUserDataFromSupabase, saveMetaToStorage, importWorkoutPlan, exportProgressCSV, importProgressCSV, resetDiaryData } from './storage.js';
+import { loadUserDataFromSupabase, saveMetaToStorage, importWorkoutPlan, exportProgressCSV, importProgressCSV, resetDiaryData, loadWorkoutPlanForCurrentMeso } from './storage.js';
 import { switchTab, generateDynamicDays, renderCurrentView, startTimer, stopTimer, adjustTimer, esportaWorkoutPDF, toggleTheme, initTeme, calcPlates } from './ui.js';
 
 window.switchTab = switchTab;
@@ -127,7 +127,7 @@ function changeMeso(delta) {
     if (state.currentMesoNumber < 1) state.currentMesoNumber = 1;
     document.getElementById('meso-display').innerText = state.currentMesoNumber;
     saveMetaToStorage();
-    renderCurrentView();
+    loadWorkoutPlanForCurrentMeso();
 }
 
 document.addEventListener('change', async (e) => {

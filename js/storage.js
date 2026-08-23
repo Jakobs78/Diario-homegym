@@ -97,12 +97,14 @@ export async function saveInputToStorage(e) {
     }
 }
 
+// Quando importi il piano, lo salvi legato al mesociclo corrente
 export function importWorkoutPlan(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     const fileName = file.name.toLowerCase();
     const mesoMatch = fileName.match(/mese[_\s-]?(\d+)/);
+    
     if (mesoMatch) {
         state.currentMesoNumber = parseInt(mesoMatch[1]);
         document.getElementById('meso-display').innerText = state.currentMesoNumber;
@@ -153,14 +155,36 @@ export function importWorkoutPlan(event) {
 
         if (newPlan.length > 0) {
             state.workoutPlan = newPlan;
-            localStorage.setItem(STORAGE_KEY_PLAN, JSON.stringify(state.workoutPlan));
+            // Salviamo il piano specifico per questo mesociclo
+            const planKey = `${STORAGE_KEY_PLAN}_mese_${state.currentMesoNumber}`;
+            localStorage.setItem(planKey, JSON.stringify(state.workoutPlan));
+            
             document.getElementById('empty-state').style.display = 'none';
             generateDynamicDays();
             renderCurrentView();
-            alert("Scheda importata con successo!");
+            alert(`Scheda importata con successo per il Mesociclo ${state.currentMesoNumber}!`);
         }
     };
     reader.readAsText(file);
+}
+
+// Funzione per caricare il piano del mesociclo attivo (da richiamare quando cambi mese o all'avvio)
+export function loadWorkoutPlanForCurrentMeso() {
+    const planKey = `${STORAGE_KEY_PLAN}_mese_${state.currentMesoNumber}`;
+    const savedPlan = localStorage.getItem(planKey);
+    
+    if (savedPlan) {
+        state.workoutPlan = JSON.parse(savedPlan);
+        document.getElementById('empty-state').style.display = 'none';
+        generateDynamicDays();
+    } else {
+        // Se per quel mesociclo non esiste una scheda caricata, puliamo il piano corrente o mostriamo lo stato vuoto
+        state.workoutPlan = [];
+        document.getElementById('empty-state').style.display = 'block';
+        document.getElementById('dynamic-views-container').innerHTML = '';
+        document.getElementById('dynamic-day-tabs').innerHTML = '';
+    }
+    renderCurrentView();
 }
 
 export function exportProgressCSV() {
