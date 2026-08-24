@@ -16,16 +16,22 @@ export function switchTab(dayId, btn) {
         const matchingTab = document.querySelector(`.tab-btn[data-target="${dayId}"]`);
         if (matchingTab) matchingTab.classList.add('active');
     }
+    // Gestione visualizzazione delle viste
     document.querySelectorAll('.day-view').forEach(view => view.classList.remove('active'));
     const targetView = document.getElementById(dayId);
     if (targetView) targetView.classList.add('active');
-
+    
     if (dayId === 'stats') {
         renderMuscleVolumeDashboard();
     } else if (dayId === 'progress') {
         renderProgressTable();
     } else if (dayId === 'macro-progress') {
         renderMacroProgress();
+    } else if (dayId === 'manual') {
+        const manualContainer = document.getElementById('manual-content');
+        if (manualContainer) {
+            manualContainer.innerHTML = renderManualView();
+        }
     } else {
         renderCurrentView(); 
     }
@@ -91,6 +97,20 @@ export function generateDynamicDays() {
 }
 
 export function renderCurrentView() {
+    if (state.currentActiveTab === 'manual') {
+        document.querySelectorAll('.day-view').forEach(view => view.classList.remove('active'));
+        
+        const manualView = document.getElementById('manual');
+        if (manualView) {
+            manualView.classList.add('active');
+        }
+        
+        const manualContainer = document.getElementById('manual-content');
+        if (manualContainer) {
+            manualContainer.innerHTML = renderManualView();
+        }
+        return;
+    }
     if (state.currentActiveTab === 'macro-progress') {
         document.querySelectorAll('.day-view').forEach(view => view.classList.remove('active'));
         document.getElementById('macro-progress').classList.add('active');
