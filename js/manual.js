@@ -14,7 +14,7 @@ export function renderManualView() {
             <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                 <h3 style="font-size: 1.2rem; font-weight: 700; color: #1d4ed8; margin-top: 0; margin-bottom: 12px;">📁 1. Guida alla Formattazione del File CSV</h3>
                 <p style="font-size: 0.9rem; margin-bottom: 12px;">
-                    L'applicazione legge le schede di allenamento direttamente da file CSV strutturati. Il file deve rispettare la struttura a colonne mostrata nell'esempio sottostante (esempio di 6 righe con variazioni di settimana e giorno):
+                    L'applicazione legge le schede di allenamento direttamente da file CSV strutturati. Il file deve rispettare la struttura a colonne mostrata nell'esempio sottostante (con 6 righe di esempio che variano settimane, giorni e formati di recupero):
                 </p>
 
                 <!-- ANTEPRIMA GRAFICA DEL FILE CSV (6 RIGHE) -->
@@ -39,7 +39,7 @@ export function renderManualView() {
                                 </tr>
                             </thead>
                             <tbody style="color: #334155;">
-                                <!-- Riga 1: Settimana 1, Giorno 1 -->
+                                <!-- Riga 1 -->
                                 <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">1</td>
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">1</td>
@@ -54,7 +54,7 @@ export function renderManualView() {
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">120</td>
                                     <td style="padding: 6px 8px;">Fermo al petto</td>
                                 </tr>
-                                <!-- Riga 2: Settimana 1, Giorno 1 (Superset) -->
+                                <!-- Riga 2 -->
                                 <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">1</td>
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">1</td>
@@ -66,10 +66,10 @@ export function renderManualView() {
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;"></td>
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">100</td>
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">8.5</td>
-                                    <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">0</td>
+                                    <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">2min</td>
                                     <td style="padding: 6px 8px;">superset</td>
                                 </tr>
-                                <!-- Riga 3: Settimana 1, Giorno 2 -->
+                                <!-- Riga 3 -->
                                 <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">1</td>
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">2</td>
@@ -81,10 +81,10 @@ export function renderManualView() {
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;"></td>
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">120</td>
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">8</td>
-                                    <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">180</td>
+                                    <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">1.30</td>
                                     <td style="padding: 6px 8px;">Profondità valida</td>
                                 </tr>
-                                <!-- Riga 4: Settimana 1, Giorno 2 -->
+                                <!-- Riga 4 -->
                                 <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">1</td>
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">2</td>
@@ -96,10 +96,10 @@ export function renderManualView() {
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">45</td>
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;"></td>
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">9</td>
-                                    <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">90</td>
+                                    <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">90s</td>
                                     <td style="padding: 6px 8px;">Contrazione di picco</td>
                                 </tr>
-                                <!-- Riga 5: Settimana 2, Giorno 1 -->
+                                <!-- Riga 5 -->
                                 <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">2</td>
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">1</td>
@@ -111,10 +111,10 @@ export function renderManualView() {
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">50</td>
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;"></td>
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">8</td>
-                                    <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">90</td>
+                                    <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">1:30</td>
                                     <td style="padding: 6px 8px;">Settimana 2 incremento</td>
                                 </tr>
-                                <!-- Riga 6: Settimana 2, Giorno 1 -->
+                                <!-- Riga 6 -->
                                 <tr style="background: #ffffff;">
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">2</td>
                                     <td style="padding: 6px 8px; border-right: 1px solid #e2e8f0;">1</td>
@@ -148,12 +148,12 @@ export function renderManualView() {
                         </thead>
                         <tbody>
                             <tr>
-                                <td style="padding: 8px; border: 1px solid #e5e7eb; font-weight: 600;">Settimana / Week</td>
-                                <td style="padding: 8px; border: 1px solid #e5e7eb;">Numero intero della settimana del mesociclo (es. 1, 2, 3...). Cambia man mano che si avanza nel programma.</td>
+                                <td style="padding: 8px; border: 1px solid #e5e7eb; font-weight: 600;">Settimana/ Week</td>
+                                <td style="padding: 8px; border: 1px solid #e5e7eb;">Numero della settimana del mesociclo (es. 1, 2, 3...).</td>
                             </tr>
                             <tr>
-                                <td style="padding: 8px; border: 1px solid #e5e7eb; font-weight: 600;">Giorno / Day</td>
-                                <td style="padding: 8px; border: 1px solid #e5e7eb;">Numero del giorno di allenamento (es. 1, 2, 3...). Raggruppa gli esercizi previsti per la singola seduta.</td>
+                                <td style="padding: 8px; border: 1px solid #e5e7eb; font-weight: 600;">Giorno/ Day</td>
+                                <td style="padding: 8px; border: 1px solid #e5e7eb;">Numero del giorno all'interno della settimana (es. 1, 2...).</td>
                             </tr>
                             <tr>
                                 <td style="padding: 8px; border: 1px solid #e5e7eb; font-weight: 600;">Blocco</td>
@@ -161,7 +161,7 @@ export function renderManualView() {
                             </tr>
                             <tr>
                                 <td style="padding: 8px; border: 1px solid #e5e7eb; font-weight: 600;">Esercizio</td>
-                                <td style="padding: 8px; border: 1px solid #e5e7eb;">Nome ufficiale dell'esercizio (es. <i>Panca Piana</i>).</td>
+                                <td style="padding: 8px; border: 1px solid #e5e7eb;">Nome ufficiale dell'esercizio (es. <i>Panca Piana</i>). Attenzione, usare sempre lo stesso nome per l'esercizio, altrimenti la webapp li interpreterà come esercizi diversi.</td>
                             </tr>
                             <tr>
                                 <td style="padding: 8px; border: 1px solid #e5e7eb; font-weight: 600;">Set</td>
@@ -185,11 +185,11 @@ export function renderManualView() {
                             </tr>
                             <tr>
                                 <td style="padding: 8px; border: 1px solid #e5e7eb; font-weight: 600;">Recupero</td>
-                                <td style="padding: 8px; border: 1px solid #e5e7eb;">Tempo di recupero in secondi (es. 120).</td>
+                                <td style="padding: 8px; border: 1px solid #e5e7eb;">Tempo di recupero. Supporta in automatico diversi formati: secondi puri (es. <code>120</code>), minuti con etichetta (es. <code>2min</code>), o separati da punto/due punti (es. <code>1.30</code> o <code>1:30</code>).</td>
                             </tr>
                             <tr>
                                 <td style="padding: 8px; border: 1px solid #e5e7eb; font-weight: 600;">NoteAllenatore</td>
-                                <td style="padding: 8px; border: 1px solid #e5e7eb;">Eventuali direttive (inserendo la parola <b>"superset"</b> si attiva automaticamente il raggruppamento). Le celle non utilizzate vanno lasciate vuote.</td>
+                                <td style="padding: 8px; border: 1px solid #e5e7eb;">Eventuali direttive o note o stili di esecuzione</td>
                             </tr>
                         </tbody>
                     </table>
@@ -198,7 +198,7 @@ export function renderManualView() {
                 <!-- BOX SUPERSERIE -->
                 <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; margin-top: 14px; font-size: 0.85rem; color: #334155;">
                     <div style="font-weight: 700; text-transform: uppercase; font-size: 0.8rem; color: #0f172a; margin-bottom: 4px;">Regola Automatica: Superserie (Superset)</div>
-                    <span>Inserendo la parola <b>"superset"</b> o <b>"superserie"</b> nella colonna <b>NoteAllenatore</b>, l'app unirà automaticamente il blocco corrente con quello successivo (es. <i>Trazioni</i> e <i>Curl Bicipiti</i>) raggruppandoli sotto un unico badge visivo.</span>
+                    <span>Inserendo la parola <b>"superset"</b> o <b>"superserie"</b> nella colonna <b>NoteAllenatore</b>, l'app unirà automaticamente il blocco corrente con quello successivo raggruppandoli sotto un unico badge visivo. Le celle che non contengono valori, vanno lasciate semplicemente vuote.</span>
                 </div>
             </div>
 
@@ -237,7 +237,7 @@ export function renderManualView() {
             <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                 <h3 style="font-size: 1.2rem; font-weight: 700; color: #1d4ed8; margin-top: 0; margin-bottom: 12px;">📈 5. Dashboard Statistiche e Grafici</h3>
                 <ul style="padding-left: 20px; font-size: 0.9rem; color: #374151; margin-bottom: 0;">
-                    <li style="margin-bottom: 6px;"><b>Analytics con Chart.js:</b> Sezione dedicata all'analisi visiva dei volumi di lavoro, del tonnellaggio totale e dei trend di progressione dei carichi.</li>
+                    <li style="margin-bottom: 6px;"><b>Grafici:</b> Sezione dedicata all'analisi visiva dei volumi di lavoro, del tonnellaggio totale e dei trend di progressione dei carichi.</li>
                     <li style="margin-bottom: 6px;"><b>Monitoraggio Performance:</b> Visualizzazione chiara dei progressi a medio e lungo termine.</li>
                 </ul>
             </div>
