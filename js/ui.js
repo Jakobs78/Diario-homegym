@@ -397,7 +397,7 @@ function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, dayNum) {
                 ${s}
                 <label>
                     <input type="checkbox" class="warmup-checkbox" data-id="${warmupId}">
-                    <span class="warmup-toggle" title="Segna come Warm-up (escluso dalle statistiche)">W</span>
+                    <span class="warmup-toggle" title="Segna come Warm-up (escluso dalle statistiche)">Escludi da statistiche</span>
                 </label>
           </div>
           </td>
