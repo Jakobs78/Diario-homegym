@@ -250,7 +250,7 @@ function findLastSessionForExercise(targetMeso, targetWeek, targetDay, ex, total
     return null;
 }
 
-function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, dayNum) {
+export function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, dayNum) {
     const totalSets = parseInt(ex.Set) || 1;
     const currentWeekInt = parseInt(weekNumber);
     let lastSessionData = null;
@@ -281,7 +281,12 @@ function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, dayNum) {
         ? `<span style="color: #ea580c; font-weight: 700;"> ${kgDisplay}</span> | ` 
         : '';
     const exSlugWithSig = getExerciseSignature(ex);
-
+    
+    const cardUniqueId = `${mesoPrefix}_w${weekNumber}-d${dayNum}-${ex.Blocco}-${exSlugWithSig}`;
+    const firstSetKgId = `${cardUniqueId}-s1-kg`;
+    const barbellSelectId = `barbell-${cardUniqueId}`;
+    const plateDisplayId = `plates-display-${cardUniqueId}`;
+    
     const csvKgNum = ex.Kg ? parseFloat(extractNumber(ex.Kg)) : null;
     let csvRepMin = null;
     let csvRepMax = null;
@@ -300,11 +305,11 @@ function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, dayNum) {
 
     let setsHtml = '';
     for (let s = 1; s <= totalSets; s++) {
-        const kgId = `${mesoPrefix}_w${weekNumber}-d${dayNum}-${ex.Blocco}-${exSlugWithSig}-s${s}-kg`;
-        const warmupId = `${mesoPrefix}_w${weekNumber}-d${dayNum}-${ex.Blocco}-${exSlugWithSig}-s${s}-w`;
-        const repId = `${mesoPrefix}_w${weekNumber}-d${dayNum}-${ex.Blocco}-${exSlugWithSig}-s${s}-r`;
-        const rpeId = `${mesoPrefix}_w${weekNumber}-d${dayNum}-${ex.Blocco}-${exSlugWithSig}-s${s}-rpe`;
-        const checkId = `${mesoPrefix}_w${weekNumber}-d${dayNum}-${ex.Blocco}-${exSlugWithSig}-s${s}-c`;
+        const kgId = `${cardUniqueId}-s${s}-kg`;
+        const warmupId = `${cardUniqueId}-s${s}-w`;
+        const repId = `${cardUniqueId}-s${s}-r`;
+        const rpeId = `${cardUniqueId}-s${s}-rpe`;
+        const checkId = `${cardUniqueId}-s${s}-c`;
 
         const minKg = ex.KgMin !== undefined && ex.KgMin !== '' ? String(ex.KgMin).trim() : '';
         const maxKg = ex.KgMax !== undefined && ex.KgMax !== '' ? String(ex.KgMax).trim() : '';
@@ -314,21 +319,7 @@ function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, dayNum) {
         const rangeText = isRange ? `${minKg}-${maxKg}` : (ex.Kg || minKg || '');
 
         const isWeek1 = (currentWeekInt === 1);
-        
-        // 1. DICHIARIAMO savedKg PER PRIMO
         const savedKg = savedData[kgId];
-
-        // 2. ORA POSSIAMO USARLO NEL LOG DI DEBUG IN PIENO SICUREZZA
-        console.log("DEBUG TOPSET ->", {
-            esercizio: ex.Esercizio || ex.esercizio,
-            currentWeekInt: currentWeekInt,
-            isWeek1: isWeek1,
-            minKg: minKg,
-            maxKg: maxKg,
-            areMinMaxEmpty: areMinMaxEmpty,
-            topsetVal: topsetVal,
-            savedKg: savedKg
-        });
 
         let defaultKgValue = '';
         let placeholderText = '';
@@ -390,6 +381,9 @@ function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, dayNum) {
             }
         }
 
+        // AGGIUNTO oninput per aggiornare i dischi in tempo reale se modifichi il Set 1
+        const onInputAttr = (s === 1) ? `oninput="window.updateLivePlates('${cardUniqueId}', '${firstSetKgId}')"` : '';
+
         setsHtml += `
         <tr>
             <td>
@@ -399,11 +393,10 @@ function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, dayNum) {
                     <input type="checkbox" class="warmup-checkbox" data-id="${warmupId}">
                     <span class="warmup-toggle" title="Segna come Warm-up (escluso dalle statistiche)">Escludi da statistiche</span>
                 </label>
-          </div>
-          </td>
+              </div>
+            </td>
             <td>
-                <div style="font-size: 0.7rem; color: #007aff; margin-bottom: 2px; cursor: pointer; text-decoration: underline; white-space: nowrap;" onclick="window.calcPlates(document.querySelector('input[data-id=\\'${kgId}\\']')?.value)">Target: ${currentDefaultKg || '-'} kg 🏋️ (Calcola)</div>
-                <input type="text" inputmode="decimal" data-id="${kgId}" data-csv-kg="${csvKgNum !== null ? csvKgNum : ''}" value="${defaultKgValue}" placeholder="${placeholderText}" style="${kgStyle}" onfocus="this.select()">
+                <input type="text" inputmode="decimal" data-id="${kgId}" data-csv-kg="${csvKgNum !== null ? csvKgNum : ''}" value="${defaultKgValue}" placeholder="${placeholderText}" style="${kgStyle}" ${onInputAttr} onfocus="this.select()">
             </td>
             <td><input type="text" inputmode="decimal" data-id="${repId}" data-csv-rep-min="${csvRepMin !== null ? csvRepMin : ''}" data-csv-rep-max="${csvRepMax !== null ? csvRepMax : ''}" value="${currentDefaultRep}" placeholder="${repPlaceholder}" style="${repStyle}" onfocus="this.select()"></td>
             <td><input type="text" inputmode="decimal" data-id="${rpeId}" value="${currentDefaultRpe}" onfocus="this.select()"></td>
@@ -412,33 +405,54 @@ function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, dayNum) {
         `;
     }
 
+    // Eseguiamo un piccolo script ritardato o diretto per popolare il calcolo iniziale se c'è un valore di default
+    setTimeout(() => { if(window.updateLivePlates) window.updateLivePlates(cardUniqueId, firstSetKgId); }, 50);
+
     return `
-        <div class="ex-card">
+        <div class="ex-card" data-card-id="${cardUniqueId}">
         <div class="ex-header">
-            <span class="ex-name">${exerciseLabel}. ${ex.Esercizio}</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 4px;">
+                <span class="ex-name">${exerciseLabel}. ${ex.Esercizio}</span>
+                
+                <!-- SELETTORE BILANCIERE RAPIDO + BOX DISCHI LIVE -->
+                <div style="display: flex; align-items: center; gap: 6px; font-size: 0.7rem;">
+                    <select id="${barbellSelectId}" onchange="window.updateLivePlates('${cardUniqueId}', '${firstSetKgId}')" style="font-size: 0.7rem; padding: 2px 4px; border-radius: 4px; border: 1px solid #d1d5db; background: #fff; cursor: pointer;">
+                        <option value="20">Bil. 20kg</option>
+                        <option value="15">Bil. 15kg</option>
+                        <option value="10">Bil. 10kg</option>
+                        <option value="9">Bil. 9kg</option>
+                        <option value="6">Bil. 6kg</option>
+                    </select>
+                    <span id="${plateDisplayId}" style="background: #eff6ff; padding: 3px 8px; border-radius: 4px; font-weight: 600; color: #1e40af; border: 1px solid #bfdbfe; white-space: nowrap;" title="Dischi per lato calcolati sul Set 1">
+                        ⚖️ --
+                    </span>
+                </div>
+            </div>
             <span class="ex-target">
             ${targetKgText}${ex.Set} Set x ${ex.Reps} | RPE: ${ex.RPE} | Rest: ${ex.Recupero}
             ${ex.Topset ? ` | <span style="color: #dc2626; font-weight: 800;">Topset: ${ex.Topset}</span>` : ''}
             </span>
         </div>
-            ${ex.NoteAllenatore ? `
+
+        ${ex.NoteAllenatore ? `
             <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 6px 10px; font-size: 0.75rem; color: #1e40af; margin-bottom: 8px; font-weight: 500;">
                 <div style="font-weight: 700; text-transform: uppercase; font-size: 0.7rem; color: #1d4ed8; margin-bottom: 2px;">Note Allenatore</div>
                 <span>${ex.NoteAllenatore}</span>
             </div>` : ''}
-            <div class="history-box">
-                <div class="history-title">Scorsa Sessione</div>
-                <span>${historyText}</span>
-            </div>
-            <table class="set-table">
-                <tr><th>SET</th><th>KG</th><th>REPS</th><th>RPE</th><th>✓</th></tr>
-                ${setsHtml}
-            </table>
-            <input type="text" class="notes-input" data-id="${mesoPrefix}_w${weekNumber}-d${dayNum}-${ex.Blocco}-${exSlugWithSig}-notes" placeholder="Note esercizio..." onfocus="this.select()">
+
+        <div class="history-box">
+            <div class="history-title">Scorsa Sessione</div>
+            <span>${historyText}</span>
+        </div>
+
+        <table class="set-table">
+            <tr><th>SET</th><th>KG</th><th>REPS</th><th>RPE</th><th>✓</th></tr>
+            ${setsHtml}
+        </table>
+        <input type="text" class="notes-input" data-id="${cardUniqueId}-notes" placeholder="Note esercizio..." onfocus="this.select()">
         </div>
     `;
 }
-
 export function calcPlates(targetWeight) {
     const barWeight = parseFloat(document.getElementById('barbell-selector').value) || 20;
     
@@ -461,7 +475,7 @@ export function calcPlates(targetWeight) {
     
     alert(`🎯 TARGET: ${targetWeight} kg\n🏋️ BILANCIERE: ${barWeight} kg\n\n👉 CARICA PER OGNI LATO:\n- ` + loaded.join('\n- '));
 }
-
+window.calcPlates = calcPlates; // <--- Aggiungi questa riga
 export function attachStorageListeners() {
     const savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
     document.querySelectorAll('.day-view.active input').forEach(input => {
@@ -1151,3 +1165,49 @@ export function initTeme() {
     document.documentElement.setAttribute('data-theme', savedTheme);
     updateThemeButtonText(savedTheme);
 }
+
+// Funzione globale per il calcolo live dei dischi
+window.updateLivePlates = function(cardUniqueId, firstSetInputId) {
+    const weightInput = document.querySelector(`input[data-id='${firstSetInputId}']`);
+    const barbellSelect = document.getElementById(`barbell-${cardUniqueId}`);
+    const plateDisplay = document.getElementById(`plates-display-${cardUniqueId}`);
+
+    if (!weightInput || !plateDisplay) return;
+
+    const targetWeight = parseFloat(weightInput.value) || 0;
+    const barbellWeight = barbellSelect ? parseFloat(barbellSelect.value) : 20;
+
+    if (targetWeight <= 0) {
+        plateDisplay.innerHTML = 'Inserisci un peso nel set 1';
+        plateDisplay.title = "Inserisci un peso nel Set 1";
+        return;
+    }
+
+    if (targetWeight < barbellWeight) {
+        plateDisplay.innerHTML = '⚠️ Peso < Bil.';
+        plateDisplay.title = "Il peso target è inferiore al bilanciere";
+        return;
+    }
+
+    const weightPerSide = (targetWeight - barbellWeight) / 2;
+    const availablePlates = [25, 20, 15, 10, 5, 2.5, 2, 1.25, 0.5];
+    let remaining = weightPerSide;
+    const breakdown = [];
+
+    for (let plate of availablePlates) {
+        let count = Math.floor((remaining + 0.001) / plate);
+        if (count > 0) {
+            breakdown.push(`${count}×${plate}`);
+            remaining -= count * plate;
+            remaining = Math.round(remaining * 100) / 100;
+        }
+    }
+
+    if (breakdown.length === 0 || remaining > 0) {
+        plateDisplay.innerHTML = `⚖️ Lato: ${weightPerSide}kg`;
+        plateDisplay.title = `Per lato: ${weightPerSide}kg (Resto non componibile esatto)`;
+    } else {
+        plateDisplay.innerHTML = `⚖️ Lato: <b>${breakdown.join(' + ')}kg</b>`;
+        plateDisplay.title = `Bilanciere: ${barbellWeight}kg | Per lato: ${weightPerSide}kg`;
+    }
+};
