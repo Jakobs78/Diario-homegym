@@ -284,7 +284,7 @@ export function importProgressCSV(event) {
 export async function resetDiaryData() {
     const primaConferma = confirm("Sei sicuro di voler azzerare tutti i progressi e le spunte registrate?");
     if (primaConferma) {
-        const secondaConferma = confirm("ATTENZIONE: Questa azione è irreversibile e cancellerà definitivamente l'intero storico. Vuoi davvero procedere?");
+        const secondaConferma = confirm("ATTENZIONE: Questa azione è irreversibile e cancellerà definitivamente l'intero mesociclo. Vuoi davvero procedere?");
         if (secondaConferma) {
             localStorage.removeItem(STORAGE_KEY_DATA);
             if (state.currentUser) {
@@ -305,35 +305,69 @@ export async function resetDiaryData() {
         }
     }
 }
-window.resetTotalFactory = function() {
-    const conferma1 = confirm("ATTENZIONE: Stai per eliminare COMPLETAMENTE tutti i dati, inclusi i mesocicli salvati, i piani di allenamento e lo storico. Vuoi procedere?");
+window.resetTotalFactory = async function() {
+    const conferma1 = confirm("ATTENZIONE: Esegui un backup prima di procedere ad eliminare COMPLETAMENTE tutti i dati, inclusi i mesocicli salvati, i piani di allenamento e lo storico. Vuoi procedere?");
     if (!conferma1) return;
 
     const conferma2 = confirm("Sei davvero sicuro al 100%? Questa operazione è irreversibile e riporterà l'app allo stato iniziale.");
     if (!conferma2) return;
 
-    // Cancella tutto il localStorage della webapp
+    // 1. Cancella tutto il localStorage del browser
     localStorage.clear();
+
+    // 2. CANCELLA TUTTO ANCHE DA SUPABASE (per evitare che i dati vengano riscaricati al login)
+    if (state.currentUser) {
+        try {
+            const { error } = await supabaseClient
+                .from('workout_data')
+                .delete()
+                .eq('user_id', state.currentUser.id);
+            
+            if (error) {
+                console.error("Errore durante la pulizia totale su Supabase:", error);
+            }
+        } catch (err) {
+            console.error("Errore di rete durante la cancellazione totale:", err);
+        }
+    }
 
     alert("Tutti i dati e i mesocicli sono stati eliminati con successo.");
     
     // Ricarica la pagina per ripulire lo stato in memoria
     location.reload();
 };
-// Funzione per azzerare i dati del mesociclo corrente
-window.resetCurrentMesocycleData = function() {
+// Funzione per azzerare i dati del mesociclo corrente e sincronizzare l'eliminazione su Supabase
+window.resetCurrentMesocycleData = async function() {
     const mesoNum = state.currentMesoNumber;
     const conferma = confirm(`Sei sicuro di voler eliminare la scheda e il mesociclo ${mesoNum}?`);
     if (!conferma) return;
 
-    // 1. Rimuove la scheda specifica del mesociclo corrente dal localStorage[cite: 1]
     const planKey = `${STORAGE_KEY_PLAN}_mese_${mesoNum}`;
+
+    // 1. Rimuove la scheda specifica del mesociclo corrente dal localStorage
     localStorage.removeItem(planKey);
 
-    // 2. Pulisce lo stato in memoria del piano corrente[cite: 1]
+    // 2. ELIMINA ANCHE DA SUPABASE (così l'eliminazione si riflette sugli altri device)
+    if (state.currentUser) {
+        try {
+            const { error } = await supabaseClient
+                .from('workout_data')
+                .delete()
+                .eq('user_id', state.currentUser.id)
+                .eq('data_key', planKey);
+
+            if (error) {
+                console.error("Errore durante l'eliminazione del piano su Supabase:", error);
+            }
+        } catch (err) {
+            console.error("Errore di rete durante la cancellazione:", err);
+        }
+    }
+
+    // 3. Pulisce lo stato in memoria del piano corrente
     state.workoutPlan = [];
 
-    // 3. Mostra lo stato vuoto e ripulisce le viste a schermo[cite: 1]
+    // 4. Mostra lo stato vuoto e ripulisce le viste a schermo
     const emptyState = document.getElementById('empty-state');
     if (emptyState) emptyState.style.display = 'block';
     
@@ -347,5 +381,5 @@ window.resetCurrentMesocycleData = function() {
         renderCurrentView();
     }
 
-    alert(`Il Mesociclo ${mesoNum} è stato azzerato con successo.`);
+    alert(`Il Mesociclo ${mesoNum} è stato eliminato e sincronizzato con successo.`);
 };
