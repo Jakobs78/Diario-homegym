@@ -1,4 +1,4 @@
-// Funzioni di utilità: slugify, timer, beep, ecc.
+// Funzioni di utilità: slugify, ecc.
 import { CURRENT_YEAR } from './config.js';
 
 export function generateKey(dataId) {
@@ -43,23 +43,6 @@ export function getExerciseSignature(ex) {
         }
     }
     return `${nameSlug}_${tipoReps}`;
-}
-
-export function playBeep(frequency = 800, duration = 0.3, volume = 0.2) {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-
-    oscillator.type = 'sine';
-    oscillator.frequency.value = frequency;
-
-    gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
-
-    oscillator.start();
-    oscillator.stop(audioCtx.currentTime + duration);
 }
 
 export function parseRestTime(restStr) {

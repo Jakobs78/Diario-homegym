@@ -2,7 +2,8 @@
 import { renderManualView } from './manual.js';
 import { CURRENT_YEAR, STORAGE_KEY_DATA } from './config.js';
 import { state } from './state.js';
-import { slugify, extractNumber, getExerciseSignature, getAutoMuscleGroup, playBeep, parseRestTime } from './helpers.js';
+import { slugify, extractNumber, getExerciseSignature, getAutoMuscleGroup, parseRestTime } from './helpers.js';
+import { playBeep } from './audio.js';
 import { saveInputToStorage, saveMetaToStorage } from './storage.js';
 
 
@@ -936,12 +937,12 @@ export function startTimer(seconds) {
         state.currentTimerSeconds--;
         updateDisplay();
         
-        if (state.currentTimerSeconds > 0 && state.currentTimerSeconds <= 3) {
-            playBeep(800, 0.15, 0.2);
+        if (state.currentTimerSeconds > 0 && state.currentTimerSeconds <= 5) {
+            playBeep(800, 0.15, 0.4);
         }
 
         if (state.currentTimerSeconds <= 0) {
-            playBeep(1700, 1, 0.7);
+            playBeep(2000, 1.8, 1);
             stopTimer();
             if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
         }
