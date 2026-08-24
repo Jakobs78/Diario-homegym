@@ -1,8 +1,10 @@
 // Rendering delle viste, tab, grafici Charts.js e PDF
+import { renderManualView } from './manual.js';
 import { CURRENT_YEAR, STORAGE_KEY_DATA } from './config.js';
 import { state } from './state.js';
 import { slugify, extractNumber, getExerciseSignature, getAutoMuscleGroup, playBeep, parseRestTime } from './helpers.js';
 import { saveInputToStorage, saveMetaToStorage } from './storage.js';
+
 
 export function switchTab(dayId, btn) {
     state.currentActiveTab = dayId;
@@ -454,7 +456,7 @@ export function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, da
     `;
 }
 export function calcPlates(targetWeight) {
-    const barWeight = parseFloat(document.getElementById('barbell-selector').value) || 20;
+    const barWeight = parseFloat(document.getElementById('barbell-selector')?.value) || 20;
     
     if (!targetWeight || targetWeight <= barWeight) {
         alert(`Nessun disco necessario! Usa solo il bilanciere da ${barWeight}kg o un target inferiore.`);

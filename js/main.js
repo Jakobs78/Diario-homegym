@@ -79,6 +79,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         saveMetaToStorage();
         renderCurrentView();
     });
+// Richiamo della funzione dinamica per il mesociclo:
+    loadWorkoutPlanForCurrentMeso();
+    generateDynamicDays();
+    renderCurrentView();
 
     // Richiamo della funzione dinamica per il mesociclo:
     loadWorkoutPlanForCurrentMeso();
@@ -171,46 +175,50 @@ async function handleLogout() {
     location.reload();
 }
 
-function changeMeso(delta) {
+async function changeMeso(delta) {
     state.currentMesoNumber += delta;
     if (state.currentMesoNumber < 1) state.currentMesoNumber = 1;
     document.getElementById('meso-display').innerText = state.currentMesoNumber;
     saveMetaToStorage();
     loadWorkoutPlanForCurrentMeso();
+    generateDynamicDays();
+    renderCurrentView();
 }
 
 document.addEventListener('change', async (e) => {
-    if (e.target.classList.contains('check-input')) {
+    if (e.target.classList.contains('check-input') || e.target.classList.contains('warmup-checkbox')) {
         const id = e.target.getAttribute('data-id');
         const isChecked = e.target.checked;
         const savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
         savedData[id] = isChecked;
 
-        if (isChecked) {
-            const restValue = e.target.getAttribute('data-rest');
-            const seconds = parseRestTime(restValue);
-            startTimer(seconds);
-        } else {
-            stopTimer();
-        }
-
-        const baseId = id.substring(0, id.lastIndexOf('-'));
-        const kgInput = document.querySelector(`input[data-id="${baseId}-kg"]`);
-        const repInput = document.querySelector(`input[data-id="${baseId}-r"]`);
-        const rpeInput = document.querySelector(`input[data-id="${baseId}-rpe"]`);
-
-        [kgInput, repInput, rpeInput].forEach(input => {
-            if (input) {
-                input.readOnly = isChecked;
-                input.style.backgroundColor = isChecked ? 'var(--block-bg)' : '';
-                input.style.opacity = isChecked ? '0.7' : '1';
+        if (e.target.classList.contains('check-input')) {
+            if (isChecked) {
+                const restValue = e.target.getAttribute('data-rest');
+                const seconds = parseRestTime(restValue);
+                startTimer(seconds);
+            } else {
+                stopTimer();
             }
-        });
 
-        if (isChecked) {
-            if (kgInput && kgInput.value) savedData[`${baseId}-kg`] = kgInput.value;
-            if (repInput && repInput.value) savedData[`${baseId}-r`] = repInput.value;
-            if (rpeInput && rpeInput.value) savedData[`${baseId}-rpe`] = rpeInput.value;
+            const baseId = id.substring(0, id.lastIndexOf('-'));
+            const kgInput = document.querySelector(`input[data-id="${baseId}-kg"]`);
+            const repInput = document.querySelector(`input[data-id="${baseId}-r"]`);
+            const rpeInput = document.querySelector(`input[data-id="${baseId}-rpe"]`);
+
+            [kgInput, repInput, rpeInput].forEach(input => {
+                if (input) {
+                    input.readOnly = isChecked;
+                    input.style.backgroundColor = isChecked ? 'var(--block-bg)' : '';
+                    input.style.opacity = isChecked ? '0.7' : '1';
+                }
+            });
+
+            if (isChecked) {
+                if (kgInput && kgInput.value) savedData[`${baseId}-kg`] = kgInput.value;
+                if (repInput && repInput.value) savedData[`${baseId}-r`] = repInput.value;
+                if (rpeInput && rpeInput.value) savedData[`${baseId}-rpe`] = rpeInput.value;
+            }
         }
 
         localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(savedData));
@@ -227,3 +235,4 @@ document.addEventListener('change', async (e) => {
         }
     }
 });
+

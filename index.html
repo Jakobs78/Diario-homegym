@@ -72,16 +72,8 @@
             </div>
 
             <div class="control-row" style="border-top: 1px solid var(--border-color); padding-top: 8px;">
-                <div style="display: flex; gap: 4px; align-items: center;">
-                    <label style="font-size: 0.75rem; color: var(--text-muted);">Bilanciere:</label>
-                    <select id="barbell-selector" style="font-size: 0.75rem; padding: 2px 4px;">
-                        <option value="20">20 kg</option>
-                        <option value="15">15 kg</option>
-                        <option value="10">10 kg</option>
-                        <option value="9">9 kg</option>
-                        <option value="6">6 kg</option>
-                        <option value="0">0 kg (Nessuno)</option>
-                    </select>
+                <div>
+                    <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 8px;" onclick="window.switchView ? window.switchView('manual') : handleAnalyticsNavigation('manual')">📖 Manuale</button>
                 </div>
                 <div style="display: flex; gap: 4px; flex-wrap: wrap;">
                     <label class="btn btn-secondary" style="font-size: 0.75rem; padding: 4px 8px; cursor: pointer;">
@@ -168,7 +160,13 @@
                 <div id="macro-progress-content"></div>
             </div>
         </div>
-     
+        <!-- Vista Manuale e Istruzioni -->
+        <div class="day-view" id="manual">
+            <div class="day-card">
+                <div class="day-title"><span>Manuale di Istruzioni</span></div>
+                <div id="manual-content"></div>
+            </div>
+        </div>
     <!-- Timer Mobile Fondi Pagina Flottante -->
     <div id="floating-timer">
         <div>
