@@ -18,12 +18,22 @@ export async function loadUserDataFromSupabase() {
 
         if (data && data.length > 0) {
             let savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
+            
             data.forEach(row => {
                 let val = row.valore;
                 if (val === 'true') val = true;
                 if (val === 'false') val = false;
-                savedData[row.data_key] = val;
+
+                // Se la chiave appartiene a un piano di allenamento (contiene STORAGE_KEY_PLAN o _mese_)
+                if (row.data_key.includes(STORAGE_KEY_PLAN) || row.data_key.includes('_mese_')) {
+                    // La salviamo direttamente come chiave dedicata nel localStorage
+                    localStorage.setItem(row.data_key, val);
+                } else {
+                    // Altrimenti è un dato di progresso normale
+                    savedData[row.data_key] = val;
+                }
             });
+            
             localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(savedData));
         }
     } catch (err) {
@@ -132,7 +142,7 @@ export function importWorkoutPlan(event) {
     }
 
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         const text = e.target.result;
         const lines = text.split(/\r\n|\n/);
         
@@ -178,6 +188,21 @@ export function importWorkoutPlan(event) {
             // Salviamo il piano specifico per questo mesociclo
             const planKey = `${STORAGE_KEY_PLAN}_mese_${state.currentMesoNumber}`;
             localStorage.setItem(planKey, JSON.stringify(state.workoutPlan));
+            // Sincronizziamo anche con Supabase se l'utente è loggato
+            if (state.currentUser) {
+                try {
+                    await supabaseClient
+                        .from('workout_data')
+                        .upsert({
+                            user_id: state.currentUser.id,
+                            data_key: planKey,
+                            valore: JSON.stringify(state.workoutPlan),
+                            updated_at: new Date().toISOString()
+                        }, { onConflict: 'user_id,data_key' });
+                } catch (err) {
+                    console.error("Errore di sincronizzazione piano su Supabase:", err);
+                }
+            }
             
             document.getElementById('empty-state').style.display = 'none';
             generateDynamicDays();
@@ -294,4 +319,33 @@ window.resetTotalFactory = function() {
     
     // Ricarica la pagina per ripulire lo stato in memoria
     location.reload();
+};
+// Funzione per azzerare i dati del mesociclo corrente
+window.resetCurrentMesocycleData = function() {
+    const mesoNum = state.currentMesoNumber;
+    const conferma = confirm(`Sei sicuro di voler eliminare la scheda e il mesociclo ${mesoNum}?`);
+    if (!conferma) return;
+
+    // 1. Rimuove la scheda specifica del mesociclo corrente dal localStorage[cite: 1]
+    const planKey = `${STORAGE_KEY_PLAN}_mese_${mesoNum}`;
+    localStorage.removeItem(planKey);
+
+    // 2. Pulisce lo stato in memoria del piano corrente[cite: 1]
+    state.workoutPlan = [];
+
+    // 3. Mostra lo stato vuoto e ripulisce le viste a schermo[cite: 1]
+    const emptyState = document.getElementById('empty-state');
+    if (emptyState) emptyState.style.display = 'block';
+    
+    const viewsContainer = document.getElementById('dynamic-views-container');
+    if (viewsContainer) viewsContainer.innerHTML = '';
+    
+    const dayTabs = document.getElementById('dynamic-day-tabs');
+    if (dayTabs) dayTabs.innerHTML = '';
+
+    if (typeof renderCurrentView === 'function') {
+        renderCurrentView();
+    }
+
+    alert(`Il Mesociclo ${mesoNum} è stato azzerato con successo.`);
 };
