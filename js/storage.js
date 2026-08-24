@@ -16,25 +16,41 @@ export async function loadUserDataFromSupabase() {
             return;
         }
 
+        // Raccogliamo tutte le chiavi attualmente presenti sul cloud di Supabase
+        const remoteKeys = new Set(data ? data.map(row => row.data_key) : []);
+
+        // 1. PULIZIA LOCALE: Controlliamo il localStorage e rimuoviamo i piani 
+        // che non esistono più su Supabase (perché eliminati da un altro device)
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && (key.includes(STORAGE_KEY_PLAN) || key.includes('_mese_'))) {
+                if (!remoteKeys.has(key)) {
+                    localStorage.removeItem(key);
+                }
+            }
+        }
+
+        // 2. AGGIORNAMENTO: Salviamo/Aggiorniamo i dati presenti sul cloud
+        let savedData = {};
         if (data && data.length > 0) {
-            let savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
-            
             data.forEach(row => {
                 let val = row.valore;
                 if (val === 'true') val = true;
                 if (val === 'false') val = false;
 
-                // Se la chiave appartiene a un piano di allenamento (contiene STORAGE_KEY_PLAN o _mese_)
+                // Se la chiave appartiene a un piano di allenamento
                 if (row.data_key.includes(STORAGE_KEY_PLAN) || row.data_key.includes('_mese_')) {
-                    // La salviamo direttamente come chiave dedicata nel localStorage
                     localStorage.setItem(row.data_key, val);
                 } else {
-                    // Altrimenti è un dato di progresso normale
                     savedData[row.data_key] = val;
                 }
             });
-            
-            localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(savedData));
+        }
+        localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(savedData));
+
+        // 3. Ricarichiamo la vista del mesociclo attivo per riflettere eventuali cancellazioni
+        if (typeof loadWorkoutPlanForCurrentMeso === 'function') {
+            loadWorkoutPlanForCurrentMeso();
         }
     } catch (err) {
         console.error("Errore di rete:", err);
