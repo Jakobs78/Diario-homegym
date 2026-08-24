@@ -200,6 +200,15 @@ export function importWorkoutPlan(event) {
         }
 
         if (newPlan.length > 0) {
+            // --- FILTRO ANTI-ERRORI PER I GIORNI ---
+            // Scartiamo tutte le righe che hanno un Giorno non valido (es. 0, vuoto, o anomalie come 20)
+            newPlan = newPlan.filter(item => {
+                const dayNum = parseInt(item.Giorno);
+                return !isNaN(dayNum) && dayNum >= 1 && dayNum <= 7; 
+                // Nota: accetta solo i giorni da 1 a 7 della settimana. 
+                // Se hai mesocicli con più di 7 giorni, puoi alzare il limite a 10 o 14.
+            });
+            // -------------------------------------
             state.workoutPlan = newPlan;
             // Salviamo il piano specifico per questo mesociclo
             const planKey = `${STORAGE_KEY_PLAN}_mese_${state.currentMesoNumber}`;
