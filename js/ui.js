@@ -1184,7 +1184,7 @@ window.updateLivePlates = function(cardUniqueId, firstSetInputId) {
     }
 
     if (targetWeight < barbellWeight) {
-        plateDisplay.innerHTML = '⚠️ Peso < Bil.';
+        plateDisplay.innerHTML = '⚠️ Il peso < Bilanciere';
         plateDisplay.title = "Il peso target è inferiore al bilanciere";
         return;
     }
