@@ -36,13 +36,13 @@ body {
     background-color: var(--bg-color);
     color: var(--text-color);
     margin: 0;
-    padding: 12px;
+    padding: 4px 6px; /* Ridotto al minimo lo spazio attorno al bordo esterno della pagina */
     -webkit-font-smoothing: antialiased;
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .container {
-    max-width: 650px;
+    max-width: 100%; /* Sfrutta tutta la larghezza disponibile dell schermo */
     margin: 0 auto;
     padding-bottom: 90px;
 }
@@ -217,10 +217,9 @@ input[type="date"]:focus, select:focus {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
-    padding: 16px;
-    margin-bottom: 14px;
+    padding: 10px 8px; /* Regola il contorno esterno del giorno */
+    margin-bottom: 10px;
     box-shadow: var(--shadow-sm);
-    transition: transform 0.2s ease;
 }
 
 .day-title {
@@ -241,9 +240,9 @@ input[type="date"]:focus, select:focus {
 .block {
     background: var(--block-bg);
     border: 1px solid var(--border-color);
-    border-radius: 10px;
-    padding: 12px;
-    margin-bottom: 12px;
+    border-radius: 8px;
+    padding: 8px 6px; /* Regola lo spazio del Blocco */
+    margin-bottom: 8px;
 }
 
 .block-title {
@@ -280,9 +279,9 @@ input[type="date"]:focus, select:focus {
 .ex-card {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
-    border-radius: 10px;
-    padding: 12px;
-    margin-bottom: 10px;
+    border-radius: 8px;
+    padding: 8px 6px; /* Gestisce lo spazio del box degli esercizi*/
+    margin-bottom: 8px;
     box-shadow: var(--shadow-sm);
 }
 
@@ -330,7 +329,7 @@ input[type="date"]:focus, select:focus {
 
 .set-table th, .set-table td {
     border: 1px solid var(--border-color);
-    padding: 6px;
+    padding: 5px 2px; /* gestisce lo spazio che occupano le celle degli esercizi (Kg ecc...)*/
     text-align: center;
     font-size: 0.8rem;
 }
