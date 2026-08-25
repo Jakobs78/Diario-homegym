@@ -51,33 +51,46 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap; /* Permette agli elementi di andare a capo pulito se lo schermo è stretto */
+    gap: 10px;
     background: var(--card-bg);
-    padding: 14px 18px;
+    padding: 12px 16px;
     border-radius: var(--radius);
     border: 1px solid var(--border-color);
     margin-bottom: 12px;
     box-shadow: var(--shadow-sm);
+    width: 100%;
+}
+
+/* Contenitore eventuale dei pulsanti nell'header o gruppo azioni */
+header > div, .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 
 h1 {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
     margin: 0;
     color: var(--accent-color);
     font-weight: 800;
     letter-spacing: -0.02em;
+    flex-grow: 1; /* Occupa lo spazio disponibile ma cede il passo se necessario */
+    min-width: 120px;
 }
 
-/* Pulsanti interattivi con feedback al tatto */
+/* Pulsanti compatti e ben proporzionati per non sprecare spazio */
 .btn {
     background-color: var(--accent-color);
     color: white;
     border: none;
-    padding: 8px 14px;
+    padding: 7px 12px;
     border-radius: 8px;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.1s ease;
     white-space: nowrap;
     flex-shrink: 0;
 }
