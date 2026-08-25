@@ -367,7 +367,7 @@ window.resetTotalFactory = async function() {
         alert("⚠️ Connessione assente: per eliminare definitivamente i dati anche dal cloud è necessaria una connessione internet attiva.");
         return;
     }
-    const conferma1 = confirm("ATTENZIONE: Esegui un backup prima di procedere ad eliminare COMPLETAMENTE tutti i dati, inclusi i mesocicli salvati, i piani di allenamento e lo storico. Vuoi procedere?");
+    const conferma1 = confirm("ATTENZIONE: Esegui un backup utilizzando il tasto Backup storico prima di procedere ad eliminare COMPLETAMENTE tutti i dati, perché se clicchi su OK, confermi il reset totale");
     if (!conferma1) return;
 
     const conferma2 = confirm("Sei davvero sicuro al 100%? Questa operazione è irreversibile e riporterà l'app allo stato iniziale.");
