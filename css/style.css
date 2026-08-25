@@ -445,3 +445,60 @@ input[type="date"], select {
     border-color: var(--accent-color);
     box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
 }
+/* Stili per il menu a tendina degli strumenti */
+.tools-details {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-card);
+    overflow: hidden;
+    width: 100%;
+}
+
+.tools-summary {
+    padding: 8px 12px;
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--text-color);
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.tools-content {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-top: 1px solid var(--border-color);
+}
+
+.tools-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.tools-danger-zone {
+    border-top: 1px dashed var(--border-color);
+    margin-top: 4px;
+    padding-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+/* Badge di stato sincronizzazione Supabase */
+.sync-badge {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    border-radius: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    cursor: default;
+}

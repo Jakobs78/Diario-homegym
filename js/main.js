@@ -2,7 +2,7 @@
 import { supabaseClient, STORAGE_KEY_DATA, STORAGE_KEY_PLAN } from './config.js';
 import { state } from './state.js';
 import { parseRestTime } from './helpers.js';
-import { loadUserDataFromSupabase, saveMetaToStorage, importWorkoutPlan, exportProgressCSV, importProgressCSV, resetDiaryData, loadWorkoutPlanForCurrentMeso } from './storage.js';
+import { loadUserDataFromSupabase, saveMetaToStorage, importWorkoutPlan, exportProgressCSV, importProgressCSV, loadWorkoutPlanForCurrentMeso, initNetworkMonitor } from './storage.js';
 import { switchTab, generateDynamicDays, renderCurrentView, startTimer, stopTimer, adjustTimer, esportaWorkoutPDF, toggleTheme, initTeme, calcPlates } from './ui.js';
 
 window.switchTab = switchTab;
@@ -11,7 +11,6 @@ window.importWorkoutPlan = importWorkoutPlan;
 window.toggleTheme = toggleTheme;
 window.exportProgressCSV = exportProgressCSV;
 window.importProgressCSV = importProgressCSV;
-window.resetDiaryData = resetDiaryData;
 window.esportaWorkoutPDF = esportaWorkoutPDF;
 window.adjustTimer = adjustTimer;
 window.stopTimer = stopTimer;
@@ -79,13 +78,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         saveMetaToStorage();
         renderCurrentView();
     });
-// Richiamo della funzione dinamica per il mesociclo:
+    // Richiamo della funzione dinamica per il mesociclo:
     loadWorkoutPlanForCurrentMeso();
     generateDynamicDays();
     renderCurrentView();
-
-    // Richiamo della funzione dinamica per il mesociclo:
-    loadWorkoutPlanForCurrentMeso();
+    // Attiva il monitoring della connessione internet
+    initNetworkMonitor();
 });
 
 async function handleAuthSubmit() {
