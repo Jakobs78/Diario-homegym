@@ -6,7 +6,6 @@ import { renderCurrentView, generateDynamicDays } from './ui.js';
 export async function loadUserDataFromSupabase() {
     if (!state.currentUser) return;
 
-    // 👉 CONTROLLO OFFLINE: se manca la connessione, usiamo direttamente il browser
     if (!navigator.onLine) {
         console.log("Modalità offline attiva: carico i dati dal browser.");
         updateSyncStatus('offline');
@@ -27,10 +26,8 @@ export async function loadUserDataFromSupabase() {
             return;
         }
 
-        // Raccogliamo tutte le chiavi attualmente presenti sul cloud di Supabase
         const remoteKeys = new Set(data ? data.map(row => row.data_key) : []);
 
-        // 1. PULIZIA LOCALE: Rimuoviamo i piani che non esistono più sul cloud
         for (let i = localStorage.length - 1; i >= 0; i--) {
             const key = localStorage.key(i);
             if (key && (key.includes(STORAGE_KEY_PLAN) || key.includes('_mese_'))) {
@@ -40,7 +37,6 @@ export async function loadUserDataFromSupabase() {
             }
         }
 
-        // 2. AGGIORNAMENTO: Salviamo/Aggiorniamo i dati presenti sul cloud
         let savedData = {};
         if (data && data.length > 0) {
             data.forEach(row => {
@@ -57,7 +53,6 @@ export async function loadUserDataFromSupabase() {
         }
         localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(savedData));
 
-        // 3. Ricarichiamo la vista del mesociclo attivo
         if (typeof loadWorkoutPlanForCurrentMeso === 'function') {
             loadWorkoutPlanForCurrentMeso();
         }
@@ -67,7 +62,6 @@ export async function loadUserDataFromSupabase() {
     }
 }
 
-// Funzione per aggiornare il badge di sync nell'header
 export function updateSyncStatus(status) {
     const badge = document.getElementById('sync-status');
     if (!badge) return;
@@ -95,17 +89,15 @@ export function updateSyncStatus(status) {
 }
 
 window.updateSyncStatus = updateSyncStatus;
-// Sincronizzazione scheda CSV su Supabase
+
 export async function saveMetaToStorage() {
     let savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
-    savedData['meta-date'] = document.querySelector('[data-id="meta-date"]').value;
+    savedData['meta-date'] = document.querySelector('[data-id="meta-date"]')?.value || '';
     savedData['meta-meso-num'] = state.currentMesoNumber;
-    savedData['meta-week'] = document.getElementById('week-selector').value;
+    savedData['meta-week'] = document.getElementById('week-selector')?.value || '1';
     
-    // 1. Salvataggio locale immediato
     localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(savedData));
 
-    // 2. Sincronizzazione automatica dei meta-dati su Supabase
     if (state.currentUser && navigator.onLine) {
         try {
             for (const [key, val] of Object.entries(savedData)) {
@@ -159,13 +151,11 @@ export async function saveInputToStorage(e) {
 
     let valToSave = input.type === 'checkbox' ? input.checked : input.value;
 
-    // Salvataggio immediato in locale (funziona sempre, anche senza internet)
     let savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
     savedData[dataId] = valToSave;
     localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(savedData));
 
     if (state.currentUser) {
-        // Se siamo offline, evitiamo la fetch e aggiorniamo il badge
         if (!navigator.onLine) {
             window.updateSyncStatus('offline');
             return;
@@ -407,9 +397,10 @@ window.resetTotalFactory = async function() {
     location.reload();
 };
 
+// --- RESET MESOCICLO CORRENTE (PULIZIA TOTALE LOCALE E CLOUD) ---
 window.resetCurrentMesocycleData = async function() {
     if (!navigator.onLine) {
-        alert("⚠️ Connessione assente: impossibile eliminare il mesociclocsenza una connessione internet.");
+        alert("⚠️ Connessione assente: impossibile eliminare il mesociclo senza una connessione internet.");
         return;
     }
     const mesoNum = state.currentMesoNumber;
@@ -418,27 +409,47 @@ window.resetCurrentMesocycleData = async function() {
 
     const planKey = `${STORAGE_KEY_PLAN}_mese_${mesoNum}`;
 
+    // Raccogliamo le chiavi dei log locali da rimuovere (tutto tranne i meta)
+    let savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
+    let keysToDelete = [];
+    Object.keys(savedData).forEach(k => {
+        if (!k.startsWith('meta-')) {
+            keysToDelete.push(k);
+            delete savedData[k];
+        }
+    });
+
     if (state.currentUser) {
         try {
-            const { error } = await supabaseClient
+            // 1. Elimina il piano specifico del mesociclo
+            const { error: errorPlan } = await supabaseClient
                 .from('workout_data')
                 .delete()
                 .eq('user_id', state.currentUser.id)
                 .eq('data_key', planKey);
 
-            if (error) {
-                console.error("Errore durante l'eliminazione del piano su Supabase:", error);
-                alert("Errore dal cloud: impossibile eliminare il mesociclo da Supabase.");
-                return;
+            if (errorPlan) throw errorPlan;
+
+            // 2. Elimina i log degli esercizi associati da Supabase
+            if (keysToDelete.length > 0) {
+                const { error: errorLogs } = await supabaseClient
+                    .from('workout_data')
+                    .delete()
+                    .eq('user_id', state.currentUser.id)
+                    .in('data_key', keysToDelete);
+
+                if (errorLogs) throw errorLogs;
             }
         } catch (err) {
-            console.error("Errore di rete durante la cancellazione:", err);
-            alert("Errore di rete: operazione annullata.");
+            console.error("Errore durante l'eliminazione su Supabase:", err);
+            alert("Errore dal cloud: impossibile eliminare completamento i dati da Supabase.");
             return;
         }
     }
 
+    // Rimozione dal localStorage
     localStorage.removeItem(planKey);
+    localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(savedData));
     state.workoutPlan = [];
 
     const emptyState = document.getElementById('empty-state');
@@ -454,8 +465,9 @@ window.resetCurrentMesocycleData = async function() {
         renderCurrentView();
     }
 
-    alert(`Il Mesociclo ${mesoNum} è stato eliminato e sincronizzato con successo.`);
+    alert(`Il Mesociclo ${mesoNum} è stato eliminato e ripulito con successo.`);
 };
+
 // --- 1. GESTIONE TOAST DI RETE (IN ALTO) ---
 function showNetworkToast(message, type = 'info') {
     let toast = document.getElementById('network-toast');
@@ -511,7 +523,6 @@ async function silentBackgroundSync() {
     if (!state.currentUser || !navigator.onLine) return;
 
     try {
-        // A. Sincronizza i dati di log/pesi
         const savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
         for (const [key, value] of Object.entries(savedData)) {
             await supabaseClient
@@ -524,7 +535,6 @@ async function silentBackgroundSync() {
                 }, { onConflict: 'user_id,data_key' });
         }
 
-        // B. Sincronizza i piani di allenamento
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
             if (key && (key.includes(STORAGE_KEY_PLAN) || key.includes('_mese_'))) {
@@ -546,11 +556,11 @@ async function silentBackgroundSync() {
     }
 }
 
-// --- 3. CONTROLLO DI CONCORRENZA (SESSIONE UNICA) ---
-let browserSessionId = sessionStorage.getItem('app_session_id');
+// --- CONTROLLO DI SESSIONE RESILIENTE PER SAFARI ---
+let browserSessionId = localStorage.getItem('app_device_id');
 if (!browserSessionId) {
-    browserSessionId = 'sess_' + Math.random().toString(36).substring(2) + Date.now();
-    sessionStorage.setItem('app_session_id', browserSessionId);
+    browserSessionId = 'dev_' + Math.random().toString(36).substring(2) + Date.now();
+    localStorage.setItem('app_device_id', browserSessionId);
 }
 
 export async function enforceSingleDeviceSession() {
@@ -564,11 +574,10 @@ export async function enforceSingleDeviceSession() {
             .eq('data_key', 'active_device_token')
             .maybeSingle();
 
+        // Se c'è un token diverso, invece di sloggarti di forza (causando falsi positivi su Safari),
+        // aggiorniamo semplicemente il token per la sessione corrente in modo pacifico.
         if (data && data.valore && data.valore !== browserSessionId) {
-            alert("⚠️ Rilevata una nuova sessione su un altro dispositivo. Questa sessione verrà chiusa per evitare conflitti nei dati.");
-            await supabaseClient.auth.signOut();
-            location.reload();
-            return;
+            console.notes?.("Rilevato cambio di contesto/dispositivo, aggiornamento token di sessione in corso...");
         }
 
         await supabaseClient.from('workout_data').upsert({
@@ -579,13 +588,12 @@ export async function enforceSingleDeviceSession() {
         }, { onConflict: 'user_id,data_key' });
 
     } catch (err) {
-        console.error("Errore nel controllo di sessione unica:", err);
+        console.error("Errore nel controllo di sessione:", err);
     }
 }
 
-// --- 4. MONITORAGGIO RETE (SENZA TIMER FISSI, SOLO EVENTI REALI) ---
+// --- 4. MONITORAGGIO RETE ---
 export function initNetworkMonitor() {
-    // Controllo immediato all'avvio dell'app
     if (navigator.onLine && state.currentUser) {
         enforceSingleDeviceSession();
     } else if (!navigator.onLine) {
@@ -593,7 +601,6 @@ export function initNetworkMonitor() {
         showNetworkToast(null, 'offline');
     }
 
-    // Quando la rete torna disponibile (es. apri il PC o l'iPhone dopo ore)
     window.addEventListener('online', async () => {
         window.updateSyncStatus('synced');
         showNetworkToast(null, 'synced');
@@ -612,50 +619,3 @@ export function initNetworkMonitor() {
         showNetworkToast(null, 'offline');
     });
 }
-
-// --- 5. RESET MESOCICLO PULITO ANCHE OFFLINE ---
-window.resetCurrentMesocycleData = async function() {
-    const mesoNum = state.currentMesoNumber;
-    const conferma = confirm(`Sei sicuro di voler eliminare la scheda e il mesociclo ${mesoNum}?`);
-    if (!conferma) return;
-
-    const planKey = `${STORAGE_KEY_PLAN}_mese_${mesoNum}`;
-
-    if (state.currentUser && navigator.onLine) {
-        try {
-            await supabaseClient
-                .from('workout_data')
-                .delete()
-                .eq('user_id', state.currentUser.id)
-                .eq('data_key', planKey);
-        } catch (err) {
-            console.error("Errore rimozione piano cloud:", err);
-        }
-    }
-
-    localStorage.removeItem(planKey);
-    state.workoutPlan = [];
-
-    let savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
-    Object.keys(savedData).forEach(k => {
-        if (!k.startsWith('meta-')) {
-            delete savedData[k];
-        }
-    });
-    localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(savedData));
-
-    const emptyState = document.getElementById('empty-state');
-    if (emptyState) emptyState.style.display = 'block';
-    
-    const viewsContainer = document.getElementById('dynamic-views-container');
-    if (viewsContainer) viewsContainer.innerHTML = '';
-    
-    const dayTabs = document.getElementById('dynamic-day-tabs');
-    if (dayTabs) dayTabs.innerHTML = '';
-
-    if (typeof renderCurrentView === 'function') {
-        renderCurrentView();
-    }
-
-    alert(`Il Mesociclo ${mesoNum} è stato eliminato con successo.`);
-};
