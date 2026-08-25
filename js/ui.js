@@ -226,13 +226,14 @@ function findLastSessionForExercise(targetMeso, targetWeek, targetDay, ex, total
     let w = targetWeek;
     let d = targetDay;
 
+    // Cicla all'indietro nel tempo per trovare la sessione precedente
     while (m >= 1) {
         d--;
         if (d < 1) { 
-            d = 4; 
+            d = 7; // Cerca su un massimo di 7 giorni a settimana
             w--; 
             if (w < 1) { 
-                w = 4; 
+                w = 8; // Massimo range di settimane
                 m--; 
             } 
         }
@@ -276,13 +277,10 @@ function findLastSessionForExercise(targetMeso, targetWeek, targetDay, ex, total
 export function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, dayNum) {
     const totalSets = parseInt(ex.Set) || 1;
     const currentWeekInt = parseInt(weekNumber);
-    let lastSessionData = null;
-    const isValidRepsFormat = String(ex.Reps).trim() !== '';
     const savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
 
-    if (currentWeekInt > 1 && isValidRepsFormat) {
-        lastSessionData = findLastSessionForExercise(state.currentMesoNumber, currentWeekInt, parseInt(dayNum), ex, totalSets);
-    }
+    let lastSessionData = findLastSessionForExercise(state.currentMesoNumber, currentWeekInt, parseInt(dayNum), ex, totalSets);
+    
     let historyText = "Nessun dato precedente";
     if (lastSessionData && lastSessionData.length > 0) {
         let historySets = lastSessionData.map(item => {
@@ -293,27 +291,36 @@ export function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, da
         historyText = historySets.join(' | ');
     }
 
+    // Costruzione Range KG e gestione accurata del Topset in caso di vuoti
+    let csvKgMin = null, csvKgMax = null;
     let kgDisplay = '';
-    if (ex.KgMin && ex.KgMax) {
+    
+    const hasKgMin = ex.KgMin && String(ex.KgMin).trim() !== '';
+    const hasKgMax = ex.KgMax && String(ex.KgMax).trim() !== '';
+    const hasTopset = ex.Topset && String(ex.Topset).trim() !== '';
+
+    if (hasKgMin && hasKgMax) {
+        csvKgMin = parseFloat(ex.KgMin);
+        csvKgMax = parseFloat(ex.KgMax);
         kgDisplay = `${ex.KgMin}-${ex.KgMax}`;
-    } else if (ex.Kg) {
-        kgDisplay = `${ex.Kg}`;
+    } else if (hasTopset) {
+        csvKgMin = parseFloat(ex.Topset);
+        csvKgMax = parseFloat(ex.Topset);
+        kgDisplay = `${ex.Topset} Topset`; // Mostrato come target testuale
+    } else if (ex.Kg && String(ex.Kg).trim() !== '') {
+        const kgStr = String(ex.Kg).trim();
+        kgDisplay = kgStr;
+        if (kgStr.includes('-')) {
+            const pts = kgStr.split('-');
+            csvKgMin = parseFloat(pts[0]);
+            csvKgMax = parseFloat(pts[1]);
+        } else {
+            csvKgMin = parseFloat(kgStr);
+            csvKgMax = parseFloat(kgStr);
+        }
     }
 
-    const targetKgText = kgDisplay 
-        ? `<span style="color: #ea580c; font-weight: 700;"> ${kgDisplay}</span> | ` 
-        : '';
-    const exSlugWithSig = getExerciseSignature(ex);
-    
-    const cardUniqueId = `${mesoPrefix}_w${weekNumber}-d${dayNum}-${ex.Blocco}-${exSlugWithSig}`;
-    const firstSetKgId = `${cardUniqueId}-s1-kg`;
-    const barbellSelectId = `barbell-${cardUniqueId}`;
-    const plateDisplayId = `plates-display-${cardUniqueId}`;
-    
-    const csvKgNum = ex.Kg ? parseFloat(extractNumber(ex.Kg)) : null;
-    let csvRepMin = null;
-    let csvRepMax = null;
-
+    let csvRepMin = null, csvRepMax = null;
     if (ex.Reps) {
         const repStr = String(ex.Reps).trim();
         if (repStr.includes('-')) {
@@ -326,6 +333,23 @@ export function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, da
         }
     }
 
+    // Placeholder di Default: Usa Topset se min/max sono vuoti
+    let defaultKgPlaceholder = '';
+    if (hasKgMin && hasKgMax) {
+        defaultKgPlaceholder = `${ex.KgMin}-${ex.KgMax}`;
+    } else if (hasTopset) {
+        defaultKgPlaceholder = `${ex.Topset}`; // Imposta il topset come numero per il placeholder
+    } else if (ex.Kg && String(ex.Kg).trim() !== '') {
+        defaultKgPlaceholder = `${ex.Kg}`;
+    }
+
+    const targetKgText = kgDisplay ? `<span style="color: #ea580c; font-weight: 700;"> ${kgDisplay}</span> | ` : '';
+    const exSlugWithSig = getExerciseSignature(ex);
+    const cardUniqueId = `${mesoPrefix}_w${weekNumber}-d${dayNum}-${ex.Blocco}-${exSlugWithSig}`;
+    const firstSetKgId = `${cardUniqueId}-s1-kg`;
+    const barbellSelectId = `barbell-${cardUniqueId}`;
+    const plateDisplayId = `plates-display-${cardUniqueId}`;
+
     let setsHtml = '';
     for (let s = 1; s <= totalSets; s++) {
         const kgId = `${cardUniqueId}-s${s}-kg`;
@@ -334,77 +358,19 @@ export function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, da
         const rpeId = `${cardUniqueId}-s${s}-rpe`;
         const checkId = `${cardUniqueId}-s${s}-c`;
 
-        const minKg = ex.KgMin !== undefined && ex.KgMin !== '' ? String(ex.KgMin).trim() : '';
-        const maxKg = ex.KgMax !== undefined && ex.KgMax !== '' ? String(ex.KgMax).trim() : '';
-        const topsetVal = ex.Topset !== undefined && ex.Topset !== '' ? String(ex.Topset).trim() : '';
-        const isRange = (minKg !== '' && maxKg !== '');
-        const areMinMaxEmpty = (minKg === '' || minKg === '-' || maxKg === '' || maxKg === '-');
-        const rangeText = isRange ? `${minKg}-${maxKg}` : (ex.Kg || minKg || '');
+        let kgPlaceholder = defaultKgPlaceholder;
+        let repPlaceholder = ex.Reps ? String(ex.Reps) : '';
 
-        const isWeek1 = (currentWeekInt === 1);
-        const savedKg = savedData[kgId];
-
-        let defaultKgValue = '';
-        let placeholderText = '';
-
-        if (savedKg !== undefined && savedKg !== '') {
-            defaultKgValue = savedKg;
-        } else if (isWeek1 && areMinMaxEmpty && topsetVal !== '') {
-            defaultKgValue = '';
-            placeholderText = `${topsetVal} Topset`;
-        } else if (isRange) {
-            defaultKgValue = '';
-            placeholderText = rangeText; 
-        } else {
-            defaultKgValue = minKg || rangeText;
-            placeholderText = isRange ? rangeText : '';
+        if (lastSessionData && lastSessionData.length > 0) {
+            const matchedSet = lastSessionData.find(item => item.set === s) || lastSessionData[lastSessionData.length - 1];
+            if (matchedSet.kg !== undefined && matchedSet.kg !== '') kgPlaceholder = matchedSet.kg;
+            if (matchedSet.reps !== undefined && matchedSet.reps !== '') repPlaceholder = matchedSet.reps;
         }
 
-        let currentDefaultKg = ex.Kg ? extractNumber(ex.Kg) : '';
-        let currentDefaultRep = '';
-        if (currentWeekInt > 1 && lastSessionData && lastSessionData.length > 0) {
-            const matchedSet = lastSessionData.find(item => item.set === s);
-            if (matchedSet) {
-                currentDefaultRep = matchedSet.reps || '';
-            } else {
-                const lastAvailableSet = lastSessionData[lastSessionData.length - 1];
-                currentDefaultRep = lastAvailableSet.reps || '';
-            }
-        }
+        let currentKgValue = savedData[kgId] !== undefined ? savedData[kgId] : '';
+        let currentRepValue = savedData[repId] !== undefined ? savedData[repId] : '';
+        let currentRpeValue = savedData[rpeId] !== undefined ? savedData[rpeId] : (ex.RPE ? extractNumber(ex.RPE) : '');
 
-        const repPlaceholder = ex.Reps ? ex.Reps : '';
-        let currentDefaultRpe = ex.RPE ? extractNumber(ex.RPE) : '';
-
-        if (currentWeekInt > 1 && lastSessionData && lastSessionData.length > 0) {
-            const matchedSet = lastSessionData.find(item => item.set === s);
-            if (matchedSet) {
-                if (matchedSet.kg !== undefined && matchedSet.kg !== '') currentDefaultKg = matchedSet.kg;
-                if (matchedSet.reps !== undefined && matchedSet.reps !== '') currentDefaultRep = matchedSet.reps;
-            } else {
-                const lastAvailableSet = lastSessionData[lastSessionData.length - 1];
-                if (lastAvailableSet.kg !== undefined && lastAvailableSet.kg !== '') currentDefaultKg = lastAvailableSet.kg;
-                if (lastAvailableSet.reps !== undefined && lastAvailableSet.reps !== '') currentDefaultRep = lastAvailableSet.reps;
-            }
-        }
-
-        let kgStyle = '';
-        let repStyle = '';
-
-        if (currentWeekInt > 1) {
-            const currentKgNum = parseFloat(currentDefaultKg);
-            if (csvKgNum !== null && !isNaN(currentKgNum) && currentKgNum !== csvKgNum) {
-                kgStyle = 'color: #dc2626; font-weight: 700;';
-            }
-
-            const currentRepNum = parseFloat(currentDefaultRep);
-            if (!isNaN(currentRepNum) && csvRepMin !== null && csvRepMax !== null) {
-                if (currentRepNum < csvRepMin || currentRepNum > csvRepMax) {
-                    repStyle = 'color: #dc2626; font-weight: 700;';
-                }
-            }
-        }
-
-        // AGGIUNTO oninput per aggiornare i dischi in tempo reale se modifichi il Set 1
         const onInputAttr = (s === 1) ? `oninput="window.updateLivePlates('${cardUniqueId}', '${firstSetKgId}')"` : '';
 
         setsHtml += `
@@ -414,21 +380,38 @@ export function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, da
                 ${s}
                 <label>
                     <input type="checkbox" class="warmup-checkbox" data-id="${warmupId}">
-                    <span class="warmup-toggle" title="Segna come Warm-up (escluso dalle statistiche)">Escludi da statistiche</span>
+                    <span class="warmup-toggle" title="Segna come Warm-up">Escludi</span>
                 </label>
               </div>
             </td>
             <td>
-                <input type="text" inputmode="decimal" data-id="${kgId}" data-csv-kg="${csvKgNum !== null ? csvKgNum : ''}" value="${defaultKgValue}" placeholder="${placeholderText}" style="${kgStyle}" ${onInputAttr} onfocus="this.select()">
+                <input type="text" inputmode="decimal" 
+                       data-id="${kgId}" 
+                       data-csv-kg-min="${csvKgMin !== null ? csvKgMin : ''}" 
+                       data-csv-kg-max="${csvKgMax !== null ? csvKgMax : ''}" 
+                       value="${currentKgValue}" 
+                       placeholder="${kgPlaceholder}" 
+                       ${onInputAttr} onfocus="this.select()">
             </td>
-            <td><input type="text" inputmode="decimal" data-id="${repId}" data-csv-rep-min="${csvRepMin !== null ? csvRepMin : ''}" data-csv-rep-max="${csvRepMax !== null ? csvRepMax : ''}" value="${currentDefaultRep}" placeholder="${repPlaceholder}" style="${repStyle}" onfocus="this.select()"></td>
-            <td><input type="text" inputmode="decimal" data-id="${rpeId}" value="${currentDefaultRpe}" onfocus="this.select()"></td>
-            <td><input type="checkbox" class="check-input" data-id="${checkId}" data-rest="${ex.Recupero || '90'}"></td>
+            <td>
+                <input type="text" inputmode="decimal" 
+                       data-id="${repId}" 
+                       data-csv-rep-min="${csvRepMin !== null ? csvRepMin : ''}" 
+                       data-csv-rep-max="${csvRepMax !== null ? csvRepMax : ''}" 
+                       value="${currentRepValue}" 
+                       placeholder="${repPlaceholder}" 
+                       onfocus="this.select()">
+            </td>
+            <td>
+                <input type="text" inputmode="decimal" data-id="${rpeId}" value="${currentRpeValue}" onfocus="this.select()">
+            </td>
+            <td>
+                <input type="checkbox" class="check-input" data-id="${checkId}" data-rest="${ex.Recupero || '90'}">
+            </td>
         </tr>
         `;
     }
 
-    // Eseguiamo un piccolo script ritardato o diretto per popolare il calcolo iniziale se c'è un valore di default
     setTimeout(() => { if(window.updateLivePlates) window.updateLivePlates(cardUniqueId, firstSetKgId); }, 50);
 
     return `
@@ -437,7 +420,6 @@ export function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, da
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 4px;">
                 <span class="ex-name">${exerciseLabel}. ${ex.Esercizio}</span>
                 
-                <!-- SELETTORE BILANCIERE RAPIDO + BOX DISCHI LIVE -->
                 <div style="display: flex; align-items: center; gap: 6px; font-size: 0.7rem;">
                     <select id="${barbellSelectId}" onchange="window.updateLivePlates('${cardUniqueId}', '${firstSetKgId}')" style="font-size: 0.7rem; padding: 2px 4px; border-radius: 4px; border: 1px solid #d1d5db; background: #fff; cursor: pointer;">
                         <option value="20">Bil. 20kg</option>
@@ -446,7 +428,7 @@ export function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, da
                         <option value="9">Bil. 9kg</option>
                         <option value="6">Bil. 6kg</option>
                     </select>
-                    <span id="${plateDisplayId}" style="background: #eff6ff; padding: 3px 8px; border-radius: 4px; font-weight: 600; color: #1e40af; border: 1px solid #bfdbfe; white-space: nowrap;" title="Dischi per lato calcolati sul Set 1">
+                    <span id="${plateDisplayId}" style="background: #eff6ff; padding: 3px 8px; border-radius: 4px; font-weight: 600; color: #1e40af; border: 1px solid #bfdbfe; white-space: nowrap;">
                         ⚖️ --
                     </span>
                 </div>
@@ -456,11 +438,11 @@ export function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, da
             ${ex.Topset ? ` | <span style="color: #dc2626; font-weight: 800;">Topset: ${ex.Topset}</span>` : ''}
             </span>
         </div>
-
+        
         ${ex.NoteAllenatore ? `
-            <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 6px 10px; font-size: 0.75rem; color: #1e40af; margin-bottom: 8px; font-weight: 500;">
-                <div style="font-weight: 700; text-transform: uppercase; font-size: 0.7rem; color: #1d4ed8; margin-bottom: 2px;">Note Allenatore</div>
-                <span>${ex.NoteAllenatore}</span>
+            <div class="note-allenatore">
+                <div class="note-allenatore-title">Note Allenatore</div>
+                <span class="note-allenatore-text">${ex.NoteAllenatore}</span>
             </div>` : ''}
 
         <div class="history-box">
@@ -472,10 +454,11 @@ export function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, da
             <tr><th>SET</th><th>KG</th><th>REPS</th><th>RPE</th><th>✓</th></tr>
             ${setsHtml}
         </table>
-        <input type="text" class="notes-input" data-id="${cardUniqueId}-notes" placeholder="Note esercizio..." onfocus="this.select()">
+        <textarea class="notes-input" data-id="${cardUniqueId}-notes" placeholder="Note esercizio..." rows="1" oninput="this.style.height = 'auto'; this.style.height = this.scrollHeight + 'px'"></textarea>
         </div>
     `;
 }
+
 export function calcPlates(targetWeight) {
     const barWeight = parseFloat(document.getElementById('barbell-selector')?.value) || 20;
     
@@ -498,70 +481,185 @@ export function calcPlates(targetWeight) {
     
     alert(`🎯 TARGET: ${targetWeight} kg\n🏋️ BILANCIERE: ${barWeight} kg\n\n👉 CARICA PER OGNI LATO:\n- ` + loaded.join('\n- '));
 }
-window.calcPlates = calcPlates; // <--- Aggiungi questa riga
+window.calcPlates = calcPlates;
+
+// Funzione che calcola se un input (o il suo placeholder se vuoto) è fuori range
+function validateInput(input) {
+    if (!input || input.type === 'checkbox') return false;
+    
+    // Per calcolare l'errore, guardiamo il valore inserito. Se è vuoto, valutiamo il placeholder.
+    const textToValidate = input.value.trim() !== '' ? input.value : input.placeholder;
+    const val = parseFloat(textToValidate.replace(',', '.'));
+    
+    if (isNaN(val)) return false;
+
+    let isOutOfRange = false;
+    
+    // Check limiti KG
+    if (input.hasAttribute('data-csv-kg-min') && input.getAttribute('data-csv-kg-min') !== '') {
+        const minKg = parseFloat(input.getAttribute('data-csv-kg-min'));
+        const maxKg = parseFloat(input.getAttribute('data-csv-kg-max'));
+        if (!isNaN(minKg) && !isNaN(maxKg) && (val < minKg || val > maxKg)) {
+            isOutOfRange = true;
+        }
+    }
+    
+    // Check limiti REPS
+    if (input.hasAttribute('data-csv-rep-min') && input.getAttribute('data-csv-rep-min') !== '') {
+        const minRep = parseFloat(input.getAttribute('data-csv-rep-min'));
+        const maxRep = parseFloat(input.getAttribute('data-csv-rep-max'));
+        if (!isNaN(minRep) && !isNaN(maxRep) && (val < minRep || val > maxRep)) {
+            isOutOfRange = true;
+        }
+    }
+
+    // Colora di rosso il testo digitato SOLO se l'utente ci ha scritto qualcosa
+    if (input.value.trim() !== '') {
+        if (isOutOfRange) {
+            input.style.color = '#dc2626';     
+            input.style.fontWeight = '700';    
+        } else {
+            input.style.color = '';            
+            input.style.fontWeight = '600';
+        }
+    } else {
+        input.style.color = '';
+        input.style.fontWeight = '600';
+    }
+    
+    // Ritorna true se il numero analizzato è fuori range (servirà per il placeholder successivo)
+    return isOutOfRange;
+}
+
+// Funzione di "Refresh Istantaneo": propaga valori e calcola i rossi sfumati
+export function syncCardPlaceholders(cardUniqueId) {
+    let lastValidKg = '';
+    let lastValidRep = '';
+    let lastWasInvalid = false;
+    
+    let s = 1;
+    while(true) {
+        const kgInput = document.querySelector(`input[data-id="${cardUniqueId}-s${s}-kg"]`);
+        const repInput = document.querySelector(`input[data-id="${cardUniqueId}-s${s}-r"]`);
+        const checkInput = document.querySelector(`input[data-id="${cardUniqueId}-s${s}-c"]`);
+        
+        if (!kgInput || !checkInput) break; // Fine dei set per questa scheda
+        
+        // 1. Applica il placeholder ereditato dal set spuntato precedente (se esiste)
+        if (s > 1 && lastValidKg !== '') {
+            kgInput.placeholder = lastValidKg;
+            if (lastWasInvalid) kgInput.classList.add('invalid-placeholder');
+            else kgInput.classList.remove('invalid-placeholder');
+        }
+        if (s > 1 && lastValidRep !== '') {
+            repInput.placeholder = lastValidRep;
+        }
+        
+        // 2. Valida istantaneamente l'input di questa riga
+        const currentIsInvalid = validateInput(kgInput);
+        validateInput(repInput);
+        
+        // 3. Se questo set è COMPLETATO (spuntato), cattura il suo valore e lo passa alla riga sotto
+        if (checkInput.checked) {
+            lastValidKg = kgInput.value.trim() !== '' ? kgInput.value : kgInput.placeholder;
+            lastValidRep = repInput.value.trim() !== '' ? repInput.value : repInput.placeholder;
+            lastWasInvalid = currentIsInvalid;
+        }
+        
+        s++;
+    }
+}
+
+// Configura tutti i listener all'avvio
 export function attachStorageListeners() {
     const savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
+    const processedCards = new Set();
+    
     document.querySelectorAll('.day-view.active input').forEach(input => {
         const dataId = input.getAttribute('data-id');
         if (!dataId) return;
         
+        // Assegna il valore salvato (se c'è)
         if (savedData[dataId] !== undefined) {
             if (input.type === 'checkbox') input.checked = savedData[dataId];
             else input.value = savedData[dataId];
         }
 
-        const weekNumber = parseInt(document.getElementById('week-selector').value) || 1;
-        if (weekNumber > 1 && input.type !== 'checkbox') {
-            const val = parseFloat(input.value);
-            if (input.hasAttribute('data-csv-kg')) {
-                const csvKg = parseFloat(input.getAttribute('data-csv-kg'));
-                if (!isNaN(csvKg) && !isNaN(val) && val !== csvKg) {
-                    input.style.color = '#dc2626';
-                    input.style.fontWeight = '700';
-                } else {
-                    input.style.color = '';
-                    input.style.fontWeight = '';
-                }
-            } else if (input.hasAttribute('data-csv-rep-min')) {
-                const minRep = parseFloat(input.getAttribute('data-csv-rep-min'));
-                const maxRep = parseFloat(input.getAttribute('data-csv-rep-max'));
-                if (!isNaN(minRep) && !isNaN(maxRep) && !isNaN(val) && (val < minRep || val > maxRep)) {
-                    input.style.color = '#dc2626';
-                    input.style.fontWeight = '700';
-                } else {
-                    input.style.color = '';
-                    input.style.fontWeight = '';
-                }
-            }
-        } else {
-            input.style.color = '';
-            input.style.fontWeight = '';
+        // Troviamo l'ID della scheda madre
+        let cardUniqueId = "";
+        if (dataId.includes('-s')) cardUniqueId = dataId.substring(0, dataId.lastIndexOf('-s'));
+        else if (dataId.includes('-notes')) cardUniqueId = dataId.replace('-notes', '');
+
+        // Alla prima interazione, sincronizziamo tutta la scheda per applicare i rossi se caricati da DB
+        if (cardUniqueId && !processedCards.has(cardUniqueId)) {
+            syncCardPlaceholders(cardUniqueId);
+            processedCards.add(cardUniqueId);
         }
 
-        input.addEventListener('input', saveInputToStorage);
-        input.addEventListener('change', saveInputToStorage);
+        // Evento 1: Digitazione live
         if (input.type !== 'checkbox') {
+            input.addEventListener('input', function(e) {
+                if (cardUniqueId) syncCardPlaceholders(cardUniqueId);
+                saveInputToStorage(e);
+            });
             input.addEventListener('focus', function() {
                 setTimeout(() => this.select(), 50);
             });
         }
-    });
 
-    document.querySelectorAll('.day-view.active input.check-input').forEach(checkbox => {
-        const checkId = checkbox.getAttribute('data-id');
-        const isChecked = checkbox.checked;
-        const baseId = checkId.substring(0, checkId.lastIndexOf('-'));
-        const kgInput = document.querySelector(`input[data-id="${baseId}-kg"]`);
-        const repInput = document.querySelector(`input[data-id="${baseId}-r"]`);
-        const rpeInput = document.querySelector(`input[data-id="${baseId}-rpe"]`);
+        // Evento 2: Salvataggio standard e Click sulle Spunte (Refresh + Timer + Blocco Riga)
+        input.addEventListener('change', function(e) {
+            saveInputToStorage(e);
+            
+            if (this.type === 'checkbox' && this.classList.contains('check-input')) {
+                // Esegue il refresh istantaneo della UI
+                syncCardPlaceholders(cardUniqueId);
+                
+                // UI: Blocca input e rende grigia la riga
+                const baseId = dataId.substring(0, dataId.lastIndexOf('-'));
+                const kgInput = document.querySelector(`input[data-id="${baseId}-kg"]`);
+                const repInput = document.querySelector(`input[data-id="${baseId}-r"]`);
+                const rpeInput = document.querySelector(`input[data-id="${baseId}-rpe"]`);
 
-        [kgInput, repInput, rpeInput].forEach(input => {
-            if (input) {
-                input.readOnly = isChecked;
-                input.style.backgroundColor = isChecked ? 'var(--block-bg)' : '';
-                input.style.opacity = isChecked ? '0.7' : '1';
+                [kgInput, repInput, rpeInput].forEach(inp => {
+                    if (inp) {
+                        inp.readOnly = this.checked;
+                        inp.style.backgroundColor = this.checked ? 'var(--block-bg)' : '';
+                        inp.style.opacity = this.checked ? '0.7' : '1';
+                    }
+                });
+
+                // AVVIO TIMER DEL REST QUANDO SI SPUNTA (solo se si sta attivando la spunta)
+                if (this.checked) {
+                    const restTime = this.getAttribute('data-rest');
+                    if (typeof window.startTimer === 'function') {
+                        window.startTimer(parseInt(restTime, 10));
+                    } else if (typeof window.startRestTimer === 'function') {
+                        window.startRestTimer(parseInt(restTime, 10));
+                    }
+                }
             }
         });
+    });
+
+    // Controllo al caricamento: Blocca visualmente le celle che risultano GIÀ spuntate dal salvataggio precedente
+    document.querySelectorAll('.day-view.active input.check-input').forEach(checkbox => {
+        if (checkbox.checked) {
+            const checkId = checkbox.getAttribute('data-id');
+            const baseId = checkId.substring(0, checkId.lastIndexOf('-'));
+            
+            const kgInput = document.querySelector(`input[data-id="${baseId}-kg"]`);
+            const repInput = document.querySelector(`input[data-id="${baseId}-r"]`);
+            const rpeInput = document.querySelector(`input[data-id="${baseId}-rpe"]`);
+
+            [kgInput, repInput, rpeInput].forEach(inp => {
+                if (inp) {
+                    inp.readOnly = true;
+                    inp.style.backgroundColor = 'var(--block-bg)';
+                    inp.style.opacity = '0.7';
+                }
+            });
+        }
     });
 }
 

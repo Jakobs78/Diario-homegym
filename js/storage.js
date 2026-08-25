@@ -223,25 +223,60 @@ export function importWorkoutPlan(event) {
     const reader = new FileReader();
     reader.onload = async function(e) {
         const text = e.target.result;
-        const lines = text.split(/\r\n|\n/);
         
-        const delimiter = lines[0].includes(';') ? ';' : ',';
-        const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
-        
+        // Parser CSV robusto per gestire righe multiple e a capo interni alle virgolette
+        const rows = [];
+        let currentRow = [];
+        let currentField = "";
+        let inQuotes = false;
+
+        for (let i = 0; i < text.length; i++) {
+            let c = text[i];
+
+            if (c === '"') {
+                if (inQuotes && i + 1 < text.length && text[i+1] === '"') {
+                    currentField += '"';
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                    currentField += c;
+                }
+            } else if (c === ';' && !inQuotes) {
+                currentRow.push(currentField);
+                currentField = "";
+            } else if ((c === '\n' || c === '\r') && !inQuotes) {
+                if (c === '\r' && i + 1 < text.length && text[i+1] === '\n') {
+                    i++; // Salta il \n successivo in caso di \r\n
+                }
+                currentRow.push(currentField);
+                rows.push(currentRow);
+                currentRow = [];
+                currentField = "";
+            } else {
+                currentField += c;
+            }
+        }
+        if (currentField !== "" || currentRow.length > 0) {
+            currentRow.push(currentField);
+            rows.push(currentRow);
+        }
+
+        if (rows.length === 0) return;
+
+        const headers = rows[0].map(h => h.trim().replace(/^"|"$/g, ''));
         let newPlan = [];
 
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-            
-            const values = line.split(delimiter);
+        for (let i = 1; i < rows.length; i++) {
+            const values = rows[i];
+            if (!values || values.length === 0 || (values.length === 1 && !values[0].trim())) continue;
+
             let obj = {};
             
             headers.forEach((header, index) => {
-                let val = values[index] ? values[index].replace(/""/g, '"').trim() : '';
+                let val = values[index] ? values[index].replace(/^"|"$/g, '').replace(/""/g, '"').trim() : '';
                 const cleanHeader = header.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
                 
-                if (val.includes(',')) {
+                if (val.includes(',') && !cleanHeader.includes('note')) {
                     val = val.replace(',', '.');
                 }
                 

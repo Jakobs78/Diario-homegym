@@ -372,8 +372,12 @@ input[type="date"]:focus, select:focus {
     font-size: 0.78rem;
     margin-top: 6px;
     outline: none;
+    resize: none; /* Evita il resize manuale dell'utente */
+    overflow: hidden; /* Nasconde la scrollbar verticale durante l'espansione */
     transition: border-color 0.2s;
+    font-family: inherit;
 }
+
 
 .notes-input:focus {
     border-color: var(--accent-color);
@@ -592,4 +596,54 @@ input[type="date"]:focus, select:focus {
     cursor: default;
     font-weight: 600;
     box-shadow: var(--shadow-sm);
+}
+/* Placeholder rosso sfumato per i valori riportati fuori range */
+.invalid-placeholder::placeholder {
+    color: #fca5a5 !important;
+    opacity: 1 !important;
+}
+.auto-expand {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    margin-top: 6px;
+    outline: none;
+    resize: none; /* Disabilita la maniglietta di ridimensionamento manuale */
+    overflow: hidden; /* Evita la comparsa di scrollbar interne */
+    font-family: inherit;
+    line-height: 1.4;
+    transition: border-color 0.2s;
+}
+
+.auto-expand:focus {
+    border-color: var(--primary-color, #3b82f6);
+}
+.note-allenatore {
+    background-color: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    color: #1e40af;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.note-allenatore-title {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    color: #1d4ed8;
+    margin-bottom: 2px;
+}
+
+.note-allenatore-text {
+    white-space: pre-line;
+    word-break: break-word;
+    display: block;
 }

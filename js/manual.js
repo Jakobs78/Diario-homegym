@@ -198,7 +198,8 @@ export function renderManualView() {
                 <!-- BOX REGOLE -->
                 <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; margin-top: 14px; font-size: 0.85rem; color: #334155;">
                     <div style="font-weight: 700; text-transform: uppercase; font-size: 0.8rem; color: #0f172a; margin-bottom: 4px;">Regola Automatica: Superserie (Superset)</div>
-                    <span>Inserendo la parola <b>"superset"</b> o <b>"superserie"</b> nella colonna <b>NoteAllenatore</b>, l'app unirà automaticamente il blocco corrente con quello successivo raggruppandoli sotto un unico badge visivo. Le celle che non contengono valori, vanno lasciate semplicemente vuote.</span>
+                    <span>Inserendo la parola <b>"superset"</b> o <b>"superserie"</b> nella colonna <b>NoteAllenatore</b>, l'app unirà automaticamente il blocco corrente con quello successivo raggruppandoli sotto un unico badge visivo. Le celle che non contengono valori, vanno lasciate semplicemente vuote.
+                    <b>ATTENZIONE:</b> non usare la webapp contemporaneamente su più device, altrimenti la sincronizzazione potrebbe fallare. Se il device (smartphone o altro) è offline e sono state apportate modifiche alla scheda di allenamento, appena possibile occorre sincronizzare il tutto online</span>
                 </div>
             </div>
 
