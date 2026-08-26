@@ -377,15 +377,6 @@ export function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, da
         setsHtml += `
         <tr>
             <td>
-              <div style="display: flex; align-items: center; justify-content: center;">
-                ${s}
-                <label>
-                    <input type="checkbox" class="warmup-checkbox" data-id="${warmupId}">
-                    <span class="warmup-toggle" title="Segna come Warm-up">Escludi</span>
-                </label>
-              </div>
-            </td>
-            <td>
                 <input type="text" inputmode="decimal" 
                        data-id="${kgId}" 
                        data-csv-kg-min="${csvKgMin !== null ? csvKgMin : ''}" 
