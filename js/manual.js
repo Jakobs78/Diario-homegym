@@ -221,7 +221,7 @@ export function renderManualView() {
                 <ul style="padding-left: 20px; font-size: 0.9rem; color: #374151; margin-bottom: 0;">
                     <li style="margin-bottom: 6px;"><b>Scorsa Sessione:</b> Sotto l'intestazione trovi sempre il promemoria di cosa hai sollevato nella sessione precedente.</li>
                     <li style="margin-bottom: 6px;"><b>Indicatori di Scostamento (Testo Rosso):</b> Dalla settimana 2 in poi, se il carico o le ripetizioni inserite si discostano dai parametri originari del CSV, l'app evidenzia il testo in rosso.</li>
-                    <li style="margin-bottom: 6px;"><b>Gestione Warm-up:</b> Ogni set dispone della spunta "Escludi da statistiche" per marcare le serie di riscaldamento ed evitarne l'impatto sui calcoli di volume.</li>
+                    <li style="margin-bottom: 6px;"><b>Gestione Warm-up:</b> Ogni esercizio dispone della funzione <Swipe> (per i dispositivi mobili) o <doppio clik> (per i PC) per escludere dalle statistiche l'esercizio, per marcare le serie di riscaldamento ed evitarne l'impatto sui calcoli di volume.</li>
                 </ul>
             </div>
 

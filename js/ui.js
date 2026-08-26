@@ -376,6 +376,7 @@ export function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, da
 
         setsHtml += `
         <tr>
+            <td>${s}</td>
             <td>
                 <input type="text" inputmode="decimal" 
                        data-id="${kgId}" 
@@ -403,7 +404,7 @@ export function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, da
         </tr>
         `;
     }
-
+    
     setTimeout(() => { if(window.updateLivePlates) window.updateLivePlates(cardUniqueId, firstSetKgId); }, 50);
 
     return `
@@ -1344,8 +1345,31 @@ export function initSwipeEvents() {
         let deltaX = 0;
         let deltaY = 0;
 
+        // --- GESTORE DOPPIO CLICK PER DESKTOP (MOUSE) ---
+        card.addEventListener('dblclick', (e) => {
+            // Evita di attivare l'esclusione se si clicca su input, pulsanti o select
+            if (['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON', 'LABEL', 'SPAN'].includes(e.target.tagName)) {
+                return;
+            }
+
+            const cardUniqueId = card.getAttribute('data-card-id');
+            if (!cardUniqueId) return;
+
+            const currentlyExcluded = card.getAttribute('data-excluded') === 'true';
+            const newExcludedState = !currentlyExcluded;
+
+            // 1. Aggiorna DOM
+            card.setAttribute('data-excluded', newExcludedState);
+            card.classList.toggle('is-excluded', newExcludedState);
+
+            // 2. Persiste lo stato in localStorage
+            const savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
+            savedData[`${cardUniqueId}-excluded`] = newExcludedState;
+            localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(savedData));
+        });
+
+        // --- GESTORI SWIPE MOBILE (TOUCH) ---
         card.addEventListener('touchstart', (e) => {
-            // Evita di far scattare lo swipe se l'utente toccherà input, select, checkbox o textarea
             if (['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON', 'LABEL', 'SPAN'].includes(e.target.tagName)) {
                 return;
             }
@@ -1360,7 +1384,6 @@ export function initSwipeEvents() {
             deltaX = e.touches[0].clientX - startX;
             deltaY = e.touches[0].clientY - startY;
 
-            // Feedback visivo: trasla leggermente la card durante lo scorrimento orizzontale
             if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) < 120) {
                 card.style.transform = `translateX(${deltaX}px)`;
                 card.style.transition = 'none';
@@ -1370,11 +1393,9 @@ export function initSwipeEvents() {
         card.addEventListener('touchend', () => {
             if (!startX) return;
 
-            // Ripristina la posizione originale della card con animazione fluida
             card.style.transition = 'transform 0.2s ease';
             card.style.transform = 'translateX(0px)';
 
-            // Verifica se lo swipe ha superato la soglia di 70px ed è prevalentemente orizzontale
             if (Math.abs(deltaX) > 70 && Math.abs(deltaX) > Math.abs(deltaY)) {
                 const cardUniqueId = card.getAttribute('data-card-id');
                 if (!cardUniqueId) return;
@@ -1382,17 +1403,14 @@ export function initSwipeEvents() {
                 const currentlyExcluded = card.getAttribute('data-excluded') === 'true';
                 const newExcludedState = !currentlyExcluded;
 
-                // 1. Aggiorna DOM
                 card.setAttribute('data-excluded', newExcludedState);
                 card.classList.toggle('is-excluded', newExcludedState);
 
-                // 2. Persiste lo stato in localStorage
                 const savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
                 savedData[`${cardUniqueId}-excluded`] = newExcludedState;
                 localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(savedData));
             }
 
-            // Reset coordinate
             startX = 0;
             startY = 0;
             deltaX = 0;
