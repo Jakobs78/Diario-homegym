@@ -13,7 +13,7 @@
     --radius: 12px;
 }
 
-[data-theme="dark mode"] {
+[data-theme="dark"], [data-theme="dark mode"] {
     --bg-color: #0f172a;
     --card-bg: #1e293b;
     --text-color: #f8fafc;
@@ -36,13 +36,13 @@ body {
     background-color: var(--bg-color);
     color: var(--text-color);
     margin: 0;
-    padding: 4px 6px; /* Ridotto al minimo lo spazio attorno al bordo esterno della pagina */
+    padding: 4px 6px;
     -webkit-font-smoothing: antialiased;
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .container {
-    max-width: 100%; /* Sfrutta tutta la larghezza disponibile dell schermo */
+    max-width: 100%;
     margin: 0 auto;
     padding-bottom: 90px;
 }
@@ -51,7 +51,7 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap; /* Permette agli elementi di andare a capo pulito se lo schermo è stretto */
+    flex-wrap: wrap;
     gap: 10px;
     background: var(--card-bg);
     padding: 12px 16px;
@@ -62,7 +62,6 @@ header {
     width: 100%;
 }
 
-/* Contenitore eventuale dei pulsanti nell'header o gruppo azioni */
 header > div, .header-actions {
     display: flex;
     align-items: center;
@@ -76,11 +75,10 @@ h1 {
     color: var(--accent-color);
     font-weight: 800;
     letter-spacing: -0.02em;
-    flex-grow: 1; /* Occupa lo spazio disponibile ma cede il passo se necessario */
+    flex-grow: 1;
     min-width: 120px;
 }
 
-/* Pulsanti compatti e ben proporzionati per non sprecare spazio */
 .btn {
     background-color: var(--accent-color);
     color: white;
@@ -160,7 +158,7 @@ input[type="date"]:focus, select:focus {
     box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
 }
 
-/* --- TAB DEI GIORNI OTTIMIZZATI PER MOBILE (SCORRIMENTO FLUIDO SENZA ANDARE A CAPO) --- */
+/* --- TAB DEI GIORNI OTTIMIZZATI PER MOBILE --- */
 .tabs, #dynamic-day-tabs {
     display: flex;
     flex-wrap: nowrap;
@@ -170,11 +168,11 @@ input[type="date"]:focus, select:focus {
     padding-bottom: 6px;
     margin-bottom: 12px;
     width: 100%;
-    scrollbar-width: none; /* Firefox */
+    scrollbar-width: none;
 }
 
 .tabs::-webkit-scrollbar, #dynamic-day-tabs::-webkit-scrollbar {
-    display: none; /* Safari & Chrome */
+    display: none;
 }
 
 .tab-btn, #dynamic-day-tabs button {
@@ -217,7 +215,7 @@ input[type="date"]:focus, select:focus {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
-    padding: 10px 8px; /* Regola il contorno esterno del giorno */
+    padding: 10px 8px;
     margin-bottom: 10px;
     box-shadow: var(--shadow-sm);
 }
@@ -241,7 +239,7 @@ input[type="date"]:focus, select:focus {
     background: var(--block-bg);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    padding: 8px 6px; /* Regola lo spazio del Blocco */
+    padding: 8px 6px;
     margin-bottom: 8px;
 }
 
@@ -274,15 +272,6 @@ input[type="date"]:focus, select:focus {
     color: #7c3aed;
     padding: 2px 8px;
     border-radius: 6px;
-}
-
-.ex-card {
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 8px 6px; /* Gestisce lo spazio del box degli esercizi*/
-    margin-bottom: 8px;
-    box-shadow: var(--shadow-sm);
 }
 
 .ex-header {
@@ -329,7 +318,7 @@ input[type="date"]:focus, select:focus {
 
 .set-table th, .set-table td {
     border: 1px solid var(--border-color);
-    padding: 5px 2px; /* gestisce lo spazio che occupano le celle degli esercizi (Kg ecc...)*/
+    padding: 5px 2px;
     text-align: center;
     font-size: 0.8rem;
 }
@@ -372,12 +361,11 @@ input[type="date"]:focus, select:focus {
     font-size: 0.78rem;
     margin-top: 6px;
     outline: none;
-    resize: none; /* Evita il resize manuale dell'utente */
-    overflow: hidden; /* Nasconde la scrollbar verticale durante l'espansione */
+    resize: none;
+    overflow: hidden;
     transition: border-color 0.2s;
     font-family: inherit;
 }
-
 
 .notes-input:focus {
     border-color: var(--accent-color);
@@ -435,7 +423,7 @@ input[type="date"]:focus, select:focus {
     color: var(--text-muted);
 }
 
-/* Floating Timer Overlay con effetto vetro */
+/* Floating Timer Overlay */
 #floating-timer {
     position: fixed;
     bottom: 20px;
@@ -597,11 +585,13 @@ input[type="date"]:focus, select:focus {
     font-weight: 600;
     box-shadow: var(--shadow-sm);
 }
-/* Placeholder rosso sfumato per i valori riportati fuori range */
+
+/* Placeholder rosso sfumato per i valori fuori range */
 .invalid-placeholder::placeholder {
     color: #fca5a5 !important;
     opacity: 1 !important;
 }
+
 .auto-expand {
     width: 100%;
     box-sizing: border-box;
@@ -613,16 +603,17 @@ input[type="date"]:focus, select:focus {
     font-size: 0.78rem;
     margin-top: 6px;
     outline: none;
-    resize: none; /* Disabilita la maniglietta di ridimensionamento manuale */
-    overflow: hidden; /* Evita la comparsa di scrollbar interne */
+    resize: none;
+    overflow: hidden;
     font-family: inherit;
     line-height: 1.4;
     transition: border-color 0.2s;
 }
 
 .auto-expand:focus {
-    border-color: var(--primary-color, #3b82f6);
+    border-color: var(--accent-color);
 }
+
 .note-allenatore {
     background-color: #eff6ff;
     border: 1px solid #bfdbfe;
@@ -646,4 +637,58 @@ input[type="date"]:focus, select:focus {
     white-space: pre-line;
     word-break: break-word;
     display: block;
+}
+
+/* ==========================================================================
+   GESTIONE SCHEDE ESERCIZIO (.ex-card) E SWIPE / ESCLUSIONE
+   ========================================================================== */
+
+.ex-card {
+    position: relative;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 6px;
+    margin-bottom: 8px;
+    box-shadow: var(--shadow-sm);
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1),
+                opacity 0.3s ease,
+                filter 0.3s ease,
+                border-color 0.3s ease;
+    will-change: transform, opacity, filter;
+}
+
+.ex-card.is-swiping {
+    transition: none !important;
+}
+
+.ex-card.is-excluded {
+    opacity: 0.45;
+    filter: grayscale(80%);
+    border-left: 4px solid #ef4444;
+    background-color: rgba(0, 0, 0, 0.03);
+}
+
+.ex-card.is-excluded input,
+.ex-card.is-excluded select,
+.ex-card.is-excluded button {
+    pointer-events: none;
+}
+
+.ex-card.is-excluded::after {
+    content: "ESCLUSO";
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background-color: rgba(255, 59, 48, 0.15);
+    color: #ff3b30;
+    pointer-events: none;
 }

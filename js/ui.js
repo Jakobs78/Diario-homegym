@@ -349,6 +349,7 @@ export function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, da
     const firstSetKgId = `${cardUniqueId}-s1-kg`;
     const barbellSelectId = `barbell-${cardUniqueId}`;
     const plateDisplayId = `plates-display-${cardUniqueId}`;
+    const isExcluded = savedData[`${cardUniqueId}-excluded`] === true || savedData[`${cardUniqueId}-excluded`] === 'true';
 
     let setsHtml = '';
     for (let s = 1; s <= totalSets; s++) {
@@ -415,7 +416,10 @@ export function renderExerciseCard(ex, exerciseLabel, mesoPrefix, weekNumber, da
     setTimeout(() => { if(window.updateLivePlates) window.updateLivePlates(cardUniqueId, firstSetKgId); }, 50);
 
     return `
-        <div class="ex-card" data-card-id="${cardUniqueId}">
+        <div class="ex-card ${isExcluded ? 'is-excluded' : ''}" 
+         data-card-id="${cardUniqueId}" 
+         data-ex-id="${cardUniqueId}" 
+         data-excluded="${isExcluded}">
         <div class="ex-header">
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 4px;">
                 <span class="ex-name">${exerciseLabel}. ${ex.Esercizio}</span>
@@ -661,6 +665,7 @@ export function attachStorageListeners() {
             });
         }
     });
+    initSwipeEvents();
 }
 
 export function renderProgressTable() {
@@ -940,33 +945,40 @@ export function renderMuscleVolumeDashboard() {
     const dailyExercises = state.workoutPlan.filter(ex => parseInt(ex.Settimana) === parseInt(weekNumber));
 
     dailyExercises.forEach(ex => {
-        let distretto = ex.Distretto || ex['Distretto Muscolare'];
-        if (!distretto || distretto.trim() === '') {
-            distretto = getAutoMuscleGroup(ex.Esercizio);
-        } else {
-            distretto = distretto.trim();
+    const dayNum = ex.Giorno || 1;
+    const exSig = getExerciseSignature(ex);
+    const cardUniqueId = `${mesoPrefix}_w${weekNumber}-d${dayNum}-${ex.Blocco}-${exSig}`;
+    
+    // 👉 Verifico se l'esercizio è stato escluso dallo swipe
+    const isExExcluded = savedData[`${cardUniqueId}-excluded`] === true || savedData[`${cardUniqueId}-excluded`] === 'true';
+    if (isExExcluded) return; // Salta interamente l'esercizio se escluso
+
+    let distretto = ex.Distretto || ex['Distretto Muscolare'];
+    if (!distretto || distretto.trim() === '') {
+        distretto = getAutoMuscleGroup(ex.Esercizio);
+    } else {
+        distretto = distretto.trim();
+    }
+
+    if (!volumePerDistretto[distretto]) {
+        volumePerDistretto[distretto] = 0;
+    }
+
+    const totalSets = parseInt(ex.Set) || 1;
+
+    for (let s = 1; s <= totalSets; s++) {
+        const baseId = `${cardUniqueId}-s${s}`;
+        const warmupKey = `${baseId}-w`;
+        const checkKey = `${baseId}-c`;
+
+        const isWarmup = savedData[warmupKey] === true || savedData[warmupKey] === 'true';
+        const isCompleted = savedData[checkKey] === true || savedData[checkKey] === 'true';
+
+        if (isCompleted && !isWarmup) {
+            volumePerDistretto[distretto] += 1;
         }
-
-        if (!volumePerDistretto[distretto]) {
-            volumePerDistretto[distretto] = 0;
-        }
-
-        const totalSets = parseInt(ex.Set) || 1;
-        const dayNum = ex.Giorno || 1;
-
-        for (let s = 1; s <= totalSets; s++) {
-            const baseId = `${mesoPrefix}_w${weekNumber}-d${dayNum}-${ex.Blocco}-${getExerciseSignature(ex)}-s${s}`;
-            const warmupKey = `${baseId}-w`;
-            const checkKey = `${baseId}-c`;
-
-            const isWarmup = savedData[warmupKey] === true || savedData[warmupKey] === 'true';
-            const isCompleted = savedData[checkKey] === true || savedData[checkKey] === 'true';
-
-            if (isCompleted && !isWarmup) {
-                volumePerDistretto[distretto] += 1;
-            }
-        }
-    });
+    }
+});
 
     const labels = Object.keys(volumePerDistretto);
     const dataValues = Object.values(volumePerDistretto);
@@ -1332,3 +1344,68 @@ window.updateLivePlates = function(cardUniqueId, firstSetInputId) {
         plateDisplay.title = `Bilanciere: ${barbellWeight}kg | Per lato: ${weightPerSide}kg`;
     }
 };
+export function initSwipeEvents() {
+    const cards = document.querySelectorAll('.day-view.active .ex-card');
+    
+    cards.forEach(card => {
+        let startX = 0;
+        let startY = 0;
+        let deltaX = 0;
+        let deltaY = 0;
+
+        card.addEventListener('touchstart', (e) => {
+            // Evita di far scattare lo swipe se l'utente toccherà input, select, checkbox o textarea
+            if (['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON', 'LABEL', 'SPAN'].includes(e.target.tagName)) {
+                return;
+            }
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            deltaX = 0;
+            deltaY = 0;
+        }, { passive: true });
+
+        card.addEventListener('touchmove', (e) => {
+            if (!startX) return;
+            deltaX = e.touches[0].clientX - startX;
+            deltaY = e.touches[0].clientY - startY;
+
+            // Feedback visivo: trasla leggermente la card durante lo scorrimento orizzontale
+            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) < 120) {
+                card.style.transform = `translateX(${deltaX}px)`;
+                card.style.transition = 'none';
+            }
+        }, { passive: true });
+
+        card.addEventListener('touchend', () => {
+            if (!startX) return;
+
+            // Ripristina la posizione originale della card con animazione fluida
+            card.style.transition = 'transform 0.2s ease';
+            card.style.transform = 'translateX(0px)';
+
+            // Verifica se lo swipe ha superato la soglia di 70px ed è prevalentemente orizzontale
+            if (Math.abs(deltaX) > 70 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                const cardUniqueId = card.getAttribute('data-card-id');
+                if (!cardUniqueId) return;
+
+                const currentlyExcluded = card.getAttribute('data-excluded') === 'true';
+                const newExcludedState = !currentlyExcluded;
+
+                // 1. Aggiorna DOM
+                card.setAttribute('data-excluded', newExcludedState);
+                card.classList.toggle('is-excluded', newExcludedState);
+
+                // 2. Persiste lo stato in localStorage
+                const savedData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
+                savedData[`${cardUniqueId}-excluded`] = newExcludedState;
+                localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(savedData));
+            }
+
+            // Reset coordinate
+            startX = 0;
+            startY = 0;
+            deltaX = 0;
+            deltaY = 0;
+        });
+    });
+}
