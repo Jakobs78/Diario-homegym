@@ -1,11 +1,34 @@
 // charts.js
 import { state } from './state.js';
 
-export function render1RMChart(canvasId, dataLabels, dataValues) {
+export function render1RMChart(canvasId, exerciseName) {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
 
-    // Distrugge l'istanza precedente se esiste
+    // Raccoglie date e carichi dell'esercizio specifico da tutto lo storico gerarchico
+    const labels = [];
+    const values = [];
+
+    const yearsObj = state.workoutData.history?.years || {};
+    Object.keys(yearsObj).forEach(year => {
+        (yearsObj[year].mesocycles || []).forEach(meso => {
+            (meso.weeks || []).forEach(week => {
+                (week.days || []).forEach(day => {
+                    (day.exercises || []).forEach(ex => {
+                        if (ex.name.toLowerCase() === exerciseName.toLowerCase()) {
+                            (ex.loggedSets || []).forEach(set => {
+                                labels.push(day.date);
+                                // Formula Epley 1RM: weight * (1 + reps / 30)
+                                const estimated1RM = set.weight * (1 + (set.reps / 30));
+                                values.push(Math.round(estimated1RM));
+                            });
+                        }
+                    });
+                });
+            });
+        });
+    });
+
     if (state.chartInstances['1rm']) {
         state.chartInstances['1rm'].destroy();
     }
@@ -13,10 +36,10 @@ export function render1RMChart(canvasId, dataLabels, dataValues) {
     state.chartInstances['1rm'] = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: dataLabels,
+            labels: labels,
             datasets: [{
-                label: 'Andamento 1RM Stimato (kg)',
-                data: dataValues,
+                label: `1RM Stimato (${exerciseName})`,
+                data: values,
                 borderColor: 'rgba(75, 192, 192, 1)',
                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
                 tension: 0.1
@@ -24,38 +47,7 @@ export function render1RMChart(canvasId, dataLabels, dataValues) {
         },
         options: {
             responsive: true,
-            scales: {
-                y: { beginAtZero: false }
-            }
-        }
-    });
-}
-
-export function renderVolumeChart(canvasId, dataLabels, dataValues) {
-    const ctx = document.getElementById(canvasId);
-    if (!ctx) return;
-
-    if (state.chartInstances['volume']) {
-        state.chartInstances['volume'].destroy();
-    }
-
-    state.chartInstances['volume'] = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: dataLabels,
-            datasets: [{
-                label: 'Volume Muscolare (Ripetizioni Totali)',
-                data: dataValues,
-                backgroundColor: 'rgba(153, 102, 255, 0.5)',
-                borderColor: 'rgba(153, 102, 255, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: { beginAtZero: true }
-            }
+            scales: { y: { beginAtZero: false } }
         }
     });
 }

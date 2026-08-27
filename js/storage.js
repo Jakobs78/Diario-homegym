@@ -3,10 +3,15 @@ import { CONFIG } from './config.js';
 import { state } from './state.js';
 import { pushDataToSupabase } from './sync.js';
 
+const DEFAULT_WORKOUT_DATA = {
+    athlete: { email: null },
+    history: { years: {} }
+};
+
 export function saveToLocalStorage(data) {
     try {
         localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(data));
-        state.workoutData = data; // Mantieni sincronizzato lo stato in RAM
+        state.workoutData = data; 
     } catch (e) {
         console.error('Errore nel salvataggio in locale:', e);
     }
@@ -15,18 +20,17 @@ export function saveToLocalStorage(data) {
 export function getFromLocalStorage() {
     try {
         const data = localStorage.getItem(CONFIG.STORAGE_KEY);
-        return data ? JSON.parse(data) : [];
+        // Se non esiste nulla in locale, restituisce la struttura gerarchica vuota di default
+        return data ? JSON.parse(data) : DEFAULT_WORKOUT_DATA;
     } catch (e) {
         console.error('Errore nel caricamento locale:', e);
-        return [];
+        return DEFAULT_WORKOUT_DATA;
     }
 }
 
 export async function saveAndSync(data) {
-    // 1. Salvataggio immediato in locale (garantisce il salvataggio offline)
     saveToLocalStorage(data);
     
-    // 2. Sincronizzazione in cloud se l'utente è loggato ed è online
     if (state.currentUser && navigator.onLine) {
         await pushDataToSupabase(state.currentUser, data);
     }
@@ -35,9 +39,8 @@ export async function saveAndSync(data) {
 export function clearLocalData() {
     if (confirm("Sei sicuro di voler eliminare tutti i dati locali? L'operazione è irreversibile se non sincronizzata.")) {
         localStorage.removeItem(CONFIG.STORAGE_KEY);
-        state.workoutData = [];
+        state.workoutData = DEFAULT_WORKOUT_DATA;
         alert("Dati locali eliminati.");
-        // Ricarica la pagina per azzerare l'interfaccia
         window.location.reload(); 
     }
 }

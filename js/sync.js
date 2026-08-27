@@ -27,7 +27,7 @@ export async function pullDataFromSupabase(email) {
             .from('workouts')
             .select('payload')
             .eq('email', email)
-            .single();
+            .maybeSingle();
         
         if (error) {
             // Il codice PGRST116 significa che nessuna riga è stata trovata (utente nuovo)

@@ -1,8 +1,13 @@
 // state.js
 export const state = {
     currentUser: null,
-    activeMesocycle: null,
-    workoutData: [],
+    activeMesocycleId: null,
+    workoutData: {
+        athlete: { email: null },
+        history: {
+            years: {}
+        }
+    },
     chartInstances: {},
     timer: {
         intervalId: null,
