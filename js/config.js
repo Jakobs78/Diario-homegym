@@ -1,9 +1,14 @@
-// Costanti e config Supabase
-export const CURRENT_YEAR = new Date().getFullYear(); 
+// config.js
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-export const SUPABASE_URL = 'https://fcuywiijylvgrutwioak.supabase.co';
-export const SUPABASE_ANON_KEY = 'sb_publishable_z5K-2II8twK6ruPfk4Tp0g_MlFnZy7B';
-export const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Inserisci i tuoi dati Supabase
+const SUPABASE_URL = 'IL_TUO_SUPABASE_URL';
+const SUPABASE_KEY = 'LA_TUA_SUPABASE_ANON_KEY';
 
-export const STORAGE_KEY_DATA = 'bodybuilding_diary_data';
-export const STORAGE_KEY_PLAN = 'bodybuilding_plan_json';
+export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+export const CONFIG = {
+    STORAGE_KEY: 'workoutApp_data',
+    WHITELIST: ['tua@email.com'], // Aggiungi le email a cui vuoi permettere l'accesso
+    APP_VERSION: '1.0.0'
+};

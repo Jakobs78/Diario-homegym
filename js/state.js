@@ -1,15 +1,12 @@
-// Stato globale dell'applicazione
+// state.js
 export const state = {
-    isSignUpMode: false,
     currentUser: null,
-    currentActiveTab: 'giorno1',
-    workoutPlan: [],
-    currentMesoNumber: 1,
-    instanceChart1RM: null,
-    instanceChartVol: null,
-    instanceMacroChart: null,
-    instanceMuscleChart: null,
-    supabaseDebounceTimer: null,
-    restInterval: null,
-    currentTimerSeconds: 0
+    activeMesocycle: null,
+    workoutData: [],
+    chartInstances: {},
+    timer: {
+        intervalId: null,
+        remainingSeconds: 0,
+        isActive: false
+    }
 };
