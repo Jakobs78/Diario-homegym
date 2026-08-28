@@ -5,7 +5,7 @@ import { getFromLocalStorage, saveAndSync, clearLocalData } from './storage.js';
 import { pullDataFromSupabase } from './sync.js';
 import { renderWorkoutList, showNotification } from './ui.js';
 import { startTimer, stopTimer, adjustTimer } from './timer.js';
-import { generatePDFReport } from './pdfExport.js';
+import { exportWorkoutPDF } from './pdfExport.js';
 import { exportToCSV, importWorkoutPlan, importProgressCSV } from './csvHandler.js';
 import { initTheme, toggleTheme } from './theme.js';
 import { renderStatsView, renderProgressView, renderMacroProgressView, renderManualView } from './dashboards.js';
@@ -49,22 +49,36 @@ function setupEventListeners() {
     document.getElementById('prev-meso-btn')?.addEventListener('click', () => changeMesocycle(-1));
     document.getElementById('next-meso-btn')?.addEventListener('click', () => changeMesocycle(1));
     
-    // 3. Menu Analisi & Dashboard
-    document.getElementById('analyticsMenu')?.addEventListener('change', (e) => {
+   // 3. Menu Analisi & Dashboard
+    const analyticsMenu = document.getElementById('analyticsMenu');
+    analyticsMenu?.addEventListener('change', (e) => {
         const viewId = e.target.value;
-        
-        // Nascondi il contenitore principale dei workout e tutte le day-view
-        document.getElementById('workout-list-container').style.display = 'none';
+        if (!viewId) return;
+
+        // Nascondi prima tutti i contenitori
+        const workoutContainer = document.getElementById('workout-list-container');
+        if (workoutContainer) workoutContainer.style.display = 'none';
         document.querySelectorAll('.day-view').forEach(el => el.style.display = 'none');
 
-        // Mostra e renderizza la vista selezionata
-        const targetView = document.getElementById(viewId);
-        if (targetView) {
-            targetView.style.display = 'block';
-            if (viewId === 'stats') renderStatsView();
-            if (viewId === 'progress') renderProgressView();
-            if (viewId === 'macro-progress') renderMacroProgressView();
+        if (viewId === 'workout') {
+            // Ritorno alla scheda esercizi
+            state.activeView = 'workout';
+            renderWorkoutList();
+        } else {
+            // Visualizzazione di una delle dashboard analitiche
+            state.activeView = viewId;
+            const targetView = document.getElementById(viewId);
+            if (targetView) {
+                targetView.style.display = 'block';
+                if (viewId === 'stats') renderStatsView();
+                if (viewId === 'progress') renderProgressView();
+                if (viewId === 'macro-progress') renderMacroProgressView();
+            }
         }
+
+        // FONDAMENTALE: Ripristina la select sulla voce "📊 Analisi allenamenti"
+        // consentendo di cliccarla nuovamente in qualsiasi momento senza blocchi
+        analyticsMenu.value = "";
     });
 
     // 4. Manuale d'uso
@@ -83,7 +97,7 @@ function setupEventListeners() {
     document.getElementById('import-plan-input')?.addEventListener('change', (e) => importWorkoutPlan(e));
     document.getElementById('export-csv-btn')?.addEventListener('click', () => exportToCSV(state.workoutData));
     document.getElementById('import-history-input')?.addEventListener('change', (e) => importProgressCSV(e));
-    document.getElementById('export-pdf-btn')?.addEventListener('click', () => generatePDFReport(state.workoutData));
+    document.getElementById('export-pdf-btn')?.addEventListener('click', () => exportWorkoutPDF(state.workoutData));
     
     // 6. Zona Pericolosa (Reset)
     document.getElementById('reset-meso-btn')?.addEventListener('click', resetCurrentMesocycle);

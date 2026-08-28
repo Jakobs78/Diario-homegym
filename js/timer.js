@@ -1,74 +1,135 @@
-// timer.js
-import { state } from './state.js';
+// js/timer.js
 import { playBeep } from './audio.js';
 
-export function startTimer(seconds = 90) {
+let timerInterval = null;
+let endTime = null;
+
+/**
+ * Converte varie notazioni di tempo di recupero in un valore numerico in secondi.
+ * Supporta: 90, "90s", "1:30", "1.30", "1.5", "2min", "2m", "2'"
+ */
+export function parseRecoveryTime(input) {
+    if (input === null || input === undefined) return 90;
+
+    if (typeof input === 'number' && !isNaN(input)) {
+        // Se il numero è piccolo (es. 2, 1.5, 3), nel contesto bodybuilding sono minuti -> convertiamo in secondi
+        if (input <= 10) return Math.round(input * 60);
+        return input > 0 ? Math.round(input) : 90;
+    }
+
+    let str = String(input).trim().toLowerCase().replace(',', '.');
+    if (!str) return 90;
+
+    if (str.includes(':')) {
+        const parts = str.split(':');
+        return Math.round((parseFloat(parts[0]) || 0) * 60 + (parseFloat(parts[1]) || 0));
+    }
+
+    if (str.includes('min') || str.endsWith('m') || str.endsWith("'")) {
+        const num = parseFloat(str.replace(/[^0-9.]/g, ''));
+        return !isNaN(num) ? Math.round(num * 60) : 60;
+    }
+
+    if (str.endsWith('s') || str.includes('sec') || str.endsWith('"')) {
+        const num = parseFloat(str.replace(/[^0-9.]/g, ''));
+        return !isNaN(num) ? Math.round(num) : 60;
+    }
+
+    const val = parseFloat(str);
+    if (!isNaN(val)) {
+        if (str.includes('.') && val <= 10) {
+            const parts = str.split('.');
+            const min = parseInt(parts[0], 10) || 0;
+            const decStr = parts[1] || '0';
+            if (decStr.length === 2 && parseInt(decStr, 10) < 60) {
+                return Math.round(min * 60 + parseInt(decStr, 10));
+            }
+            return Math.round(val * 60);
+        }
+        return Math.round(val);
+    }
+
+    return 60;
+}
+
+/**
+ * Avvia il timer di recupero basato su timestamp
+ */
+export function startTimer(durationInput, onTick, onComplete) {
     stopTimer();
 
-    state.timer.remainingSeconds = seconds;
-    state.timer.isActive = true;
+    const seconds = parseRecoveryTime(durationInput);
+    if (!seconds || seconds <= 0) return;
 
-    updateTimerDisplay();
+    endTime = Date.now() + seconds * 1000;
 
-    const displayElem = document.getElementById('floating-timer');
-    if (displayElem) displayElem.style.display = 'flex';
+    updateTimerUI(onTick, onComplete);
 
-    state.timer.intervalId = setInterval(() => {
-        state.timer.remainingSeconds--;
+    timerInterval = setInterval(() => {
+        updateTimerUI(onTick, onComplete);
+    }, 250);
 
-        if (state.timer.remainingSeconds <= 0) {
-            stopTimer();
-            
-            // Beep finale: più lungo (1 sec) e acuto (1000 Hz)
-            playBeep(1000, 1.0, 'sine');
-            
-            if ('vibrate' in navigator) navigator.vibrate([400, 100, 400]);
-            
-            // Un leggero ritardo sull'alert evita che blocchi l'audio del browser
-            setTimeout(() => alert("Tempo di recupero terminato!"), 200);
-            
-        } else if (state.timer.remainingSeconds <= 5) {
-            // Beep brevi di avviso: corti (0.15 sec) e tono medio (600 Hz)
-            playBeep(600, 0.15, 'sine');
-            updateTimerDisplay();
-            
-        } else {
-            updateTimerDisplay();
-        }
-    }, 1000);
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+    document.addEventListener("visibilitychange", () => handleVisibilityChange(onTick, onComplete));
 }
 
-export function stopTimer() {
-    if (state.timer.intervalId) {
-        clearInterval(state.timer.intervalId);
-        state.timer.intervalId = null;
-    }
-    state.timer.isActive = false;
-    state.timer.remainingSeconds = 0;
+/**
+ * Regola il timer in corso aggiungendo o sottraendo secondi (es. +30s / -30s)
+ */
+export function adjustTimer(secondsToAdd, onTick, onComplete) {
+    if (!endTime) return;
 
-    const displayElem = document.getElementById('floating-timer');
-    if (displayElem) displayElem.style.display = 'none';
-}
+    endTime += secondsToAdd * 1000;
 
-export function adjustTimer(amountInSeconds) {
-    if (!state.timer.isActive) {
-        startTimer(Math.max(30, 90 + amountInSeconds));
-        return;
-    }
-
-    state.timer.remainingSeconds += amountInSeconds;
-    if (state.timer.remainingSeconds <= 0) {
+    if (endTime <= Date.now()) {
         stopTimer();
+        if (typeof onTick === "function") onTick(0);
+        if (typeof onComplete === "function") onComplete();
+        triggerTimerAlert();
     } else {
-        updateTimerDisplay();
+        updateTimerUI(onTick, onComplete);
     }
 }
 
-function updateTimerDisplay() {
-    const timerDisplay = document.getElementById('timer-display');
-    if (!timerDisplay) return;
+/**
+ * Ferma il timer in corso
+ */
+export function stopTimer() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+    endTime = null;
+}
 
-    const mins = Math.floor(state.timer.remainingSeconds / 60);
-    const secs = state.timer.remainingSeconds % 60;
-    timerDisplay.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+function updateTimerUI(onTick, onComplete) {
+    if (!endTime) return;
+
+    const remainingMs = endTime - Date.now();
+    const remainingSeconds = Math.ceil(remainingMs / 1000);
+
+    if (remainingSeconds <= 0) {
+        stopTimer();
+        if (typeof onTick === "function") onTick(0);
+        if (typeof onComplete === "function") onComplete();
+        triggerTimerAlert();
+    } else {
+        if (typeof onTick === "function") onTick(remainingSeconds);
+    }
+}
+
+function handleVisibilityChange(onTick, onComplete) {
+    if (document.visibilityState === "visible" && endTime) {
+        updateTimerUI(onTick, onComplete);
+    }
+}
+
+function triggerTimerAlert() {
+    if ("vibrate" in navigator) {
+        try {
+            navigator.vibrate([200, 100, 200, 100, 400]);
+        } catch (e) {
+            console.warn("Vibrazione non supportata o bloccata:", e);
+        }
+    }
 }

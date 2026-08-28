@@ -10,6 +10,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Chart.js per le Dashboard e i Grafici -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+    <!-- Per navigare correttamente nella gerarchia dei dati Anni-mesocicli-settimane ecc... -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -64,7 +66,8 @@
                 <!-- Menu a tendina Analisi -->
                 <div>
                     <select id="analyticsMenu" class="analytics-select" style="font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-color); cursor: pointer;">
-                        <option value="" disabled selected>📊 Analisi allenamenti</option>
+                        <option value="workout">🏋️ Scheda allenamento</option>
+                        <option value="" disabled selected hidden>📊 Analisi allenamenti</option>
                         <option value="stats">📈 Volume Muscolare</option>
                         <option value="progress">🌐 Progressione Mese</option>
                         <option value="macro-progress">📅 Macro Storico</option>

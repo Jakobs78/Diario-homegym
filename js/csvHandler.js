@@ -132,13 +132,14 @@ export function importWorkoutPlan(event) {
             const weekNum = parseInt(row[0]?.trim()) || 1;
             const dayNum = parseInt(row[1]?.trim()) || 1;
             const exerciseName = row[3]?.trim() || 'Esercizio';
-            const rawSets = row[4]?.trim() || '1 set';
-            const rawReps = row[5]?.trim() || '0';
+            const rawSets = row[4]?.trim() || '1';
+            const rawReps = row[5]?.trim() || '-';
             const kgMin = row[6]?.trim() || '-';
             const kgMax = row[7]?.trim() || '-';
-            const rpe = row[8]?.trim() || '';
-            const rest = row[9]?.trim() || '2min';
+            const rpe = row[8]?.trim() || '-';
+            const rest = row[9]?.trim() || '-';
             const notes = row[10]?.trim() || '';
+            const topset = row[11]?.trim() || '-'; // Se presente nel CSV
 
             // 1. Gestione Settimana
             if (!weekMap.has(weekNum)) {
@@ -158,27 +159,35 @@ export function importWorkoutPlan(event) {
             }
             const dayObj = dayMap.get(dayNum);
 
-            // Estrazione del numero di set prescritto
+            // Estrazione del numero di set prescritti
             const numSets = parseInt(rawSets) || 1;
-            const targetWeight = (kgMax !== '-' && kgMax !== '0') ? kgMax : (kgMin !== '-' ? kgMin : '0');
 
+            // Inizializza i set da compilare durante l'allenamento COMPLETAMENTE VUOTI
             const loggedSets = [];
             for (let s = 1; s <= numSets; s++) {
                 loggedSets.push({
                     set: s,
-                    reps: rawReps,
-                    weight: parseFloat(targetWeight.replace(',', '.')) || 0,
-                    rpe: rpe
+                    reps: '',
+                    weight: '',
+                    rpe: '',
+                    isLocked: false
                 });
             }
 
-            // 3. Aggiunta dell'Esercizio al giorno
+            // 3. Aggiunta dell'Esercizio con TUTTI i parametri del target e i log vuoti
             dayObj.exercises.push({
                 signature: `ex_${Date.now()}_${i}`,
                 name: exerciseName,
-                targetSets: numSets,
-                rest: rest,
-                notes: notes !== '0' ? notes : '',
+                kgMin: kgMin,
+                kgMax: kgMax,
+                sets: rawSets,
+                reps: rawReps,
+                rpe: rpe,
+                restTime: rest,
+                topset: topset,
+                notes: (notes !== '0' && notes !== '-') ? notes : '',
+                userNotes: '',
+                isExcluded: false,
                 loggedSets: loggedSets
             });
         }
@@ -200,7 +209,7 @@ export function importWorkoutPlan(event) {
         saveAndSync(state.workoutData);
         renderWorkoutList();
 
-        showNotification('Mesociclo ${nextMesoNumber} importato e salvato con successo!');
+        showNotification(`Mesociclo ${nextMesoNumber} importato e salvato con successo!`);
     };
 
     reader.readAsText(file);

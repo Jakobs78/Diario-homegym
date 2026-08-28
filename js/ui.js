@@ -1,6 +1,9 @@
 // ui.js
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
+import { formatExerciseSummary, getExerciseSignature, getPlateBreakdown } from './helpers.js';
+import { startTimer, stopTimer, adjustTimer, parseRecoveryTime } from './timer.js';
+import { playBeep } from './audio.js';
 
 export const DOM = {
     appContainer: document.getElementById('app-container'),
@@ -14,13 +17,18 @@ export function renderWorkoutList() {
     if (!DOM.workoutListContainer) return;
     DOM.workoutListContainer.innerHTML = '';
 
-    if (state.activeView && state.activeView !== 'workout') {
+    if (!state.activeView) {
+        state.activeView = 'workout';
+    }
+
+    if (state.activeView !== 'workout') {
         DOM.workoutListContainer.style.display = 'none';
         return;
     }
+    
     DOM.workoutListContainer.style.display = 'block';
 
-    const yearsObj = state.workoutData.history?.years || {};
+    const yearsObj = state.workoutData?.history?.years || {};
     const currentYear = new Date().getFullYear().toString();
     const yearData = yearsObj[currentYear];
 
@@ -34,13 +42,13 @@ export function renderWorkoutList() {
 
     const mesoIndex = state.activeMesocycleIndex || 0;
     const meso = yearData.mesocycles[mesoIndex] || yearData.mesocycles[0];
-    const isPastMeso = mesoIndex > 0; // Se indice > 0, è un mesociclo passato/concluso
+    const isPastMeso = mesoIndex > 0;
     const activeWeekNum = state.activeWeek || 1;
     const targetWeek = (meso.weeks || []).find(w => w.weekNumber === activeWeekNum) || meso.weeks?.[0];
 
     if (!targetWeek) return;
 
-    // 1. BARRA CONTROLLI MESOCICLO (- / + / Elimina)
+    // 1. BARRA CONTROLLI MESOCICLO
     const mesoSelectorDiv = document.createElement('div');
     mesoSelectorDiv.style.cssText = 'display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 10px 14px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 15px;';
     mesoSelectorDiv.innerHTML = `
@@ -54,12 +62,11 @@ export function renderWorkoutList() {
     `;
     DOM.workoutListContainer.appendChild(mesoSelectorDiv);
 
-    // Eventi Selettore Mesociclo
     mesoSelectorDiv.querySelector('#meso-prev-btn').onclick = () => changeMesocycle(-1);
     mesoSelectorDiv.querySelector('#meso-next-btn').onclick = () => changeMesocycle(1);
     mesoSelectorDiv.querySelector('#delete-meso-btn').onclick = () => deleteCurrentMesocycle();
 
-    // 2. BANNER STORICO CONGELATO (Se mesociclo passato)
+    // 2. BANNER STORICO CONGELATO
     if (isPastMeso) {
         const archiveBadge = document.createElement('div');
         archiveBadge.style.cssText = 'background: #fffbebf1; border: 1px solid #fcd34d; color: #b45309; padding: 8px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; gap: 6px;';
@@ -67,7 +74,7 @@ export function renderWorkoutList() {
         DOM.workoutListContainer.appendChild(archiveBadge);
     }
 
-    // 3. Barra Navigazione Giorni (Giorno 1, Giorno 2, ...)
+    // 3. BARRA NAVIGAZIONE GIORNI
     const dayTabsContainer = document.createElement('div');
     dayTabsContainer.className = 'day-tabs';
     dayTabsContainer.style.cssText = 'display: flex; gap: 8px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px;';
@@ -90,7 +97,7 @@ export function renderWorkoutList() {
     const currentDay = targetWeek.days?.[activeDayNum - 1] || targetWeek.days?.[0];
     if (!currentDay) return;
 
-    // Intestazione Giorno
+    // INTESTAZIONE GIORNO
     const dayHeader = document.createElement('div');
     dayHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;';
     dayHeader.innerHTML = `
@@ -99,7 +106,7 @@ export function renderWorkoutList() {
     `;
     DOM.workoutListContainer.appendChild(dayHeader);
 
-    // Render Esercizi
+    // RENDER ESERCIZI
     (currentDay.exercises || []).forEach((ex, exIdx) => {
         const isExExcluded = ex.isExcluded || false;
         
@@ -114,20 +121,34 @@ export function renderWorkoutList() {
                 ${isExExcluded ? '<span style="font-size: 0.7rem; background: #ef4444; color: #ffffff; padding: 2px 8px; border-radius: 12px; font-weight: 800;">ESCLUSO DAI MASSIMALI</span>' : ''}
             </div>
             
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
                 <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a;">${exIdx + 1}. ${ex.name}</h3>
+                
                 <div style="display: flex; gap: 6px; align-items: center;">
-                    <select style="font-size: 0.75rem; padding: 2px 6px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc;" ${isPastMeso ? 'disabled' : ''}>
-                        <option>Bil. 20kg</option>
-                        <option>Bil. 15kg</option>
-                        <option>Manubri</option>
-                        <option>Cavo / Macchina</option>
+                    <select class="bar-select" data-ex="${exIdx}" style="font-size: 0.75rem; padding: 4px 6px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc;" ${isPastMeso ? 'disabled' : ''}>
+                        <option value="20">Bil. 20kg</option>
+                        <option value="15">Bil. 15kg</option>
+                        <option value="12">EZ 12kg</option>
+                        <option value="10">EZ 10kg</option>
+                        <option value="0">Manubri / Macchina</option>
                     </select>
-                    <button style="font-size: 0.75rem; padding: 3px 8px; border-radius: 6px; border: 1px solid #bae6fd; background: #f0f9ff; color: #0284c7; cursor: pointer;" ${isPastMeso ? 'disabled' : ''}>Inserisci un peso nel set 1</button>
+            
+                    <div class="plates-badge" data-ex="${exIdx}" style="font-size: 0.75rem; padding: 4px 10px; border-radius: 6px; background: #f8fafc; border: 1px solid #e2e8f0; color: #64748b; font-weight: 700; font-family: monospace;">
+                        🏋️ 0 kg/lato
+                    </div>
                 </div>
             </div>
         `;
 
+        // 1. RIASSUNTO ESERCIZIO (TARGET)
+        const summaryText = formatExerciseSummary(ex);
+        cardHtml += `
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; font-size: 0.8rem; color: #334155; font-family: monospace;">
+                <strong>TARGET:</strong> ${summaryText}
+            </div>
+        `;
+
+        // 2. NOTE ALLENATORE
         if (ex.notes) {
             cardHtml += `
                 <div style="background: #f0f9ff; border: 1px solid #e0f2fe; border-radius: 8px; padding: 10px; margin-bottom: 12px;">
@@ -137,6 +158,7 @@ export function renderWorkoutList() {
             `;
         }
 
+        // 3. TABELLA DEI SET LOGGATI
         cardHtml += `
             <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 10px;">
                 <thead>
@@ -153,7 +175,7 @@ export function renderWorkoutList() {
 
         (ex.loggedSets || []).forEach((setObj, setIdx) => {
             const isLocked = setObj.isLocked || false;
-            const isDisabled = isLocked || isPastMeso; // Disabilita se bloccato O se mesociclo passato
+            const isDisabled = isLocked || isPastMeso;
 
             cardHtml += `
                 <tr style="border-bottom: 1px solid #e2e8f0;">
@@ -161,13 +183,13 @@ export function renderWorkoutList() {
                         <span style="font-weight: 600; color: #334155;">${setIdx + 1}</span>
                     </td>
                     <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                        <input type="text" class="set-input set-kg" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.weight || ''}" placeholder="---" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 600; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
+                        <input type="text" class="set-input set-kg" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.weight || ''}" placeholder="-" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 600; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
                     </td>
                     <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
                         <input type="text" class="set-input set-reps" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.reps || ''}" placeholder="reps" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; color: #475569; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
                     </td>
                     <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                        <input type="text" class="set-input set-rpe" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.rpe || ''}" placeholder="RPE" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 700; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
+                        <input type="text" class="set-input set-rpe" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.rpe || ex.targetRpe || ex.rpe || ''}" placeholder="RPE" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 700; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
                     </td>
                     <td style="padding: 4px; text-align: center;">
                         <input type="checkbox" class="set-lock-check" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''} style="width: 18px; height: 18px; cursor: pointer;">
@@ -185,9 +207,51 @@ export function renderWorkoutList() {
 
         exCard.innerHTML = cardHtml;
         DOM.workoutListContainer.appendChild(exCard);
+
+        // Calcolo iniziale badge dischi
+        updatePlatesBadgeUI(exIdx);
     });
 
     bindWorkoutTableEvents(currentDay, isPastMeso);
+}
+
+/**
+ * Aggiorna il testo e lo stile del badge dischi
+ */
+export function updatePlatesBadgeUI(exIdx) {
+    const container = DOM.workoutListContainer;
+    if (!container) return;
+
+    const barSelect = container.querySelector(`.bar-select[data-ex="${exIdx}"]`);
+    const set1Input = container.querySelector(`.set-kg[data-ex="${exIdx}"][data-set="0"]`);
+    const badge = container.querySelector(`.plates-badge[data-ex="${exIdx}"]`);
+
+    if (!badge) return;
+
+    const barWeight = parseFloat(barSelect?.value || 20);
+    const totalKg = parseFloat(set1Input?.value.replace(',', '.')) || 0;
+
+    if (barWeight === 0) {
+        badge.innerHTML = `🏋️ Manubri / Macchina`;
+        badge.style.background = '#f1f5f9';
+        badge.style.color = '#475569';
+        badge.style.borderColor = '#cbd5e1';
+        return;
+    }
+
+    const breakdown = getPlateBreakdown(totalKg, barWeight);
+
+    if (!breakdown) {
+        badge.innerHTML = `🏋️ 0 kg/lato`;
+        badge.style.background = '#f8fafc';
+        badge.style.color = '#64748b';
+        badge.style.borderColor = '#e2e8f0';
+    } else {
+        badge.innerHTML = `🏋️ <strong>${breakdown.sideWeight}kg</strong>/lato <span style="color: #166534; font-weight: normal;">[${breakdown.str}]</span>`;
+        badge.style.background = '#f0fdf4';
+        badge.style.color = '#15803d';
+        badge.style.borderColor = '#bbf7d0';
+    }
 }
 
 /**
@@ -196,65 +260,317 @@ export function renderWorkoutList() {
 function bindWorkoutTableEvents(currentDay, isPastMeso) {
     if (!DOM.workoutListContainer) return;
 
-    // 1. Modifica KG, REPS, RPE e Note Esercizio
+    // 1. Gestione Unificata Input: Salvataggio, Range Check e Auto-Fill a cascata
     DOM.workoutListContainer.querySelectorAll('.set-input, .ex-user-notes').forEach(input => {
-        input.addEventListener('change', (e) => {
+        input.addEventListener('input', (e) => {
             const exIdx = e.target.dataset.ex;
-            
-            if (e.target.classList.contains('ex-user-notes')) {
-                currentDay.exercises[exIdx].userNotes = e.target.value;
-            } else {
-                const setIdx = e.target.dataset.set;
-                const setObj = currentDay.exercises[exIdx].loggedSets[setIdx];
+            const ex = currentDay.exercises[exIdx];
+            if (!ex) return;
 
-                if (e.target.classList.contains('set-kg')) setObj.weight = parseFloat(e.target.value.replace(',', '.')) || 0;
-                if (e.target.classList.contains('set-reps')) setObj.reps = e.target.value;
-                if (e.target.classList.contains('set-rpe')) setObj.rpe = e.target.value;
+            // Se sono le note esercizio
+            if (e.target.classList.contains('ex-user-notes')) {
+                ex.userNotes = e.target.value;
+                saveAndSync(state.workoutData);
+                return;
             }
 
+            // Gestione dei set
+            const setIdx = parseInt(e.target.dataset.set, 10);
+            const setObj = ex.loggedSets?.[setIdx];
+            if (!setObj) return;
+
+            const val = e.target.value;
+            const isKg = e.target.classList.contains('set-kg');
+            const isReps = e.target.classList.contains('set-reps');
+            const isRpe = e.target.classList.contains('set-rpe');
+
+            // Salvataggio nel modello dati (riga corrente)
+            if (isKg) setObj.weight = parseFloat(val.replace(',', '.')) || 0;
+            if (isReps) setObj.reps = val;
+            if (isRpe) setObj.rpe = val;
+
+            // Aggiorna Badge Dischi in tempo reale (solo se Set 1 e input KG)
+            if (setIdx === 0 && isKg) {
+                updatePlatesBadgeUI(exIdx);
+            }
+
+            // Allarme visivo se il carico è fuori range previsto (solo input KG)
+            if (isKg) {
+                const numVal = parseFloat(val.replace(',', '.')) || 0;
+                const kgMin = parseFloat(ex.kgMin) || 0;
+                const kgMax = parseFloat(ex.kgMax) || Infinity;
+
+                if (numVal > 0 && (numVal < kgMin || numVal > kgMax)) {
+                    e.target.style.backgroundColor = '#fef2f2';
+                    e.target.style.borderColor = '#ef4444';
+                    e.target.style.color = '#dc2626';
+                } else {
+                    e.target.style.backgroundColor = '#ffffff';
+                    e.target.style.borderColor = '#cbd5e1';
+                    e.target.style.color = '#000000';
+                }
+            }
+
+            // Salva lo stato in LocalStorage/Supabase dopo aver gestito l'input e l'eventuale auto-fill
             saveAndSync(state.workoutData);
-            renderWorkoutList();
         });
     });
 
-    // 2. Spunta di blocco riga (Check)
+    // 2. Listener cambio Bilanciere per ricalcolo Dischi
+    DOM.workoutListContainer.querySelectorAll('.bar-select').forEach(select => {
+        select.addEventListener('change', (e) => {
+            updatePlatesBadgeUI(e.target.dataset.ex);
+        });
+    });
+
+    // 3. Spunta di blocco riga (Check) -> Gestione indipendente per ogni set, Auto-fill per il primo & Avvio Timer
     DOM.workoutListContainer.querySelectorAll('.set-lock-check').forEach(chk => {
         chk.addEventListener('change', (e) => {
-            const exIdx = e.target.dataset.ex;
-            const setIdx = e.target.dataset.set;
-            currentDay.exercises[exIdx].loggedSets[setIdx].isLocked = e.target.checked;
+            // Recupera gli indici dell'esercizio e del set corrente dai dataset dell'elemento
+            const exIdx = parseInt(e.target.dataset.ex, 10);
+            const setIdx = parseInt(e.target.dataset.set, 10);
             
+            // Ottiene l'oggetto esercizio e l'oggetto set corrispondente dallo stato
+            const ex = currentDay.exercises[exIdx];
+            const setObj = ex?.loggedSets?.[setIdx];
+
+            // Interrompe l'esecuzione se il set non esiste
+            if (!setObj) return;
+
+            // Legge lo stato attuale della spunta (true se spuntato, false altrimenti)
+            const isChecked = e.target.checked;
+
+            // 1. Imposta lo stato di blocco specifico della riga corrente nel modello dati
+            setObj.isLocked = isChecked;
+
+            // 2. Se viene spuntato il PRIMO SET (indice 0), compila (auto-fill) i set successivi vuoti con i valori correnti
+            if (isChecked && setIdx === 0) {
+                ['weight', 'reps', 'rpe'].forEach(prop => {
+                    const val = setObj[prop];
+                    if (val !== undefined && val !== null && val !== '') {
+                        // Seleziona la classe CSS corretta in base alla proprietà da propagare (kg, reps, rpe)
+                        const targetClass = prop === 'weight' ? '.set-kg' : (prop === 'reps' ? '.set-reps' : '.set-rpe');
+                        const setRows = DOM.workoutListContainer.querySelectorAll(`${targetClass}[data-ex="${exIdx}"]`);
+
+                        // Scorre i set successivi e compila solo quelli che sono vuoti
+                        setRows.forEach((rowInput, idx) => {
+                            if (idx > 0 && (!rowInput.value || rowInput.value.trim() === '')) {
+                                rowInput.value = val;
+                                if (ex.loggedSets[idx]) {
+                                    ex.loggedSets[idx][prop] = val;
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+
+            // Salva lo stato aggiornato in LocalStorage e sincronizza con Supabase
             saveAndSync(state.workoutData);
-            renderWorkoutList();
+
+            // 3. Aggiorna istantaneamente lo stato di abilitazione (disabled/enabled) e lo stile visivo dei campi di ogni singola riga nella UI
+            const card = DOM.workoutListContainer.querySelector(`.exercise-card[data-ex="${exIdx}"]`);
+            if (card) {
+                card.querySelectorAll('.set-input').forEach(inp => {
+                    const sIdx = parseInt(inp.dataset.set, 10);
+                    const isRowLocked = ex.loggedSets[sIdx]?.isLocked || false;
+                    inp.disabled = isRowLocked;
+                    inp.style.background = isRowLocked ? '#f1f5f9' : '#ffffff';
+                });
+            }
+
+            // 4. Se una riga è stata spuntata (bloccata), estrae il tempo di recupero e fa partire il timer flottante
+            if (isChecked) {
+                let rawRecovery = 90; // Valore di fallback predefinito a 90 secondi
+                
+                // Cerca dinamicamente tra le proprietà dell'esercizio la chiave del recupero/riposo
+                for (const key of Object.keys(ex)) {
+                    const lKey = key.toLowerCase();
+                    if ((lKey.includes('rest') || lKey.includes('rec') || lKey.includes('tempo') || lKey.includes('pause') || lKey.includes('recupero')) && ex[key]) {
+                        rawRecovery = ex[key];
+                        break;
+                    }
+                }
+                const recoveryTime = parseRecoveryTime(rawRecovery);
+
+                // Verifica se il widget grafico del timer esiste già nel DOM, altrimenti lo crea dinamicamente
+                let timerDisplay = document.getElementById('floating-timer-display');
+                if (!timerDisplay) {
+                    timerDisplay = document.createElement('div');
+                    timerDisplay.id = 'floating-timer-display';
+                    timerDisplay.style.cssText = 'position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #ffffff; padding: 10px 18px; border-radius: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); z-index: 9999; display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 0.95rem; border: 2px solid #0284c7; flex-wrap: wrap; justify-content: center;';
+                    
+                    timerDisplay.innerHTML = `
+                        <span id="timer-text-content">⏱️ Recupero: <span style="color: #38bdf8; font-family: monospace;">0:00</span></span>
+                        <div style="display: flex; gap: 5px; align-items: center;">
+                            <button id="timer-minus-15" style="background: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: bold;">-15s</button>
+                            <button id="timer-plus-30" style="background: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: bold;">+30s</button>
+                            <button id="timer-close" style="background: #ef4444; color: white; border: none; padding: 4px 7px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: bold;">✕</button>
+                        </div>
+                    `;
+                    document.body.appendChild(timerDisplay);
+                }
+
+                // Inizializza un Set per tracciare i secondi in cui è già stato emesso il beep negli ultimi secondi
+                const beepedSeconds = new Set();
+
+                // Funzione di callback eseguita ad ogni tick (secondo) del timer
+                const updateTick = (remainingSeconds) => {
+                    const mins = Math.floor(remainingSeconds / 60);
+                    const secs = remainingSeconds % 60;
+                    const timeStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                    
+                    // Aggiorna il testo formattato del tempo residuo nel widget grafico
+                    const textSpan = timerDisplay.querySelector('#timer-text-content');
+                    if (textSpan) {
+                        textSpan.innerHTML = `⏱️ Recupero: <span style="color: #38bdf8; font-family: monospace;">${timeStr}</span>`;
+                    }
+                    timerDisplay.style.display = 'flex';
+
+                    // Se il tempo viene incrementato (es. clic su +30s), ripulisce il registro dei beep
+                    if (remainingSeconds > 5) {
+                        beepedSeconds.clear();
+                    }
+
+                    // Emette un beep acustico (800 Hz) esattamente una volta per ogni secondo negli ultimi 5 secondi
+                    if (remainingSeconds <= 5 && remainingSeconds > 0) {
+                        if (!beepedSeconds.has(remainingSeconds)) {
+                            playBeep(800, 0.15, 'sine');
+                            beepedSeconds.add(remainingSeconds);
+                        }
+                    }
+                };
+
+                // Funzione di callback eseguita quando il timer scade completamente
+                const updateComplete = () => {
+                    const textSpan = timerDisplay.querySelector('#timer-text-content');
+                    if (textSpan) {
+                        textSpan.innerHTML = `✅ Recupero Terminato!`;
+                    }
+                    beepedSeconds.clear();
+                    
+                    // Emette un suono acuto e prolungato (1700 Hz per 1.5 secondi) alla fine del recupero
+                    playBeep(1700, 1.5, 'sine');
+
+                    // Nasconde automaticamente il widget del timer dopo 3 secondi dal termine
+                    setTimeout(() => {
+                        timerDisplay.style.display = 'none';
+                    }, 3000);
+                };
+
+                // Associa le azioni ai pulsanti di controllo rapido del timer fluttuante
+                timerDisplay.querySelector('#timer-minus-15').onclick = () => {
+                    adjustTimer(-15, updateTick, updateComplete);
+                };
+                timerDisplay.querySelector('#timer-plus-30').onclick = () => {
+                    adjustTimer(30, updateTick, updateComplete);
+                };
+                timerDisplay.querySelector('#timer-close').onclick = () => {
+                    stopTimer();
+                    timerDisplay.style.display = 'none';
+                };
+
+                // Avvia ufficialmente il conto alla rovescia del timer
+                startTimer(recoveryTime, updateTick, updateComplete);
+            }
         });
     });
 
-    // 3. Gestione Doppio Click (Desktop) e Swipe (Mobile) per esclusione esercizio
+    // 4. Gestione Doppio Click e Swipe (Esclusione massimali)
     DOM.workoutListContainer.querySelectorAll('.exercise-card').forEach(card => {
         const exIdx = card.dataset.ex;
 
-        const toggleExclusion = (e) => {
-            if (isPastMeso) return; // Non permette modifiche nei mesocicli conclusi
-            if (['INPUT', 'SELECT', 'BUTTON'].includes(e.target.tagName)) return;
-            
+        const toggleExclusion = () => {
+            if (isPastMeso) return;
             currentDay.exercises[exIdx].isExcluded = !currentDay.exercises[exIdx].isExcluded;
-            
             saveAndSync(state.workoutData);
             renderWorkoutList();
         };
 
-        // Desktop
-        card.addEventListener('dblclick', toggleExclusion);
+        card.addEventListener('dblclick', (e) => {
+            if (['INPUT', 'SELECT', 'BUTTON'].includes(e.target.tagName)) return;
+            toggleExclusion();
+        });
 
-        // Mobile Swipe
-        let touchStartX = 0;
-        card.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-        card.addEventListener('touchend', (e) => {
-            const touchEndX = e.changedTouches[0].screenX;
-            if (Math.abs(touchEndX - touchStartX) > 60) {
-                toggleExclusion(e);
+        enableCardSwipeGesture(
+            card,
+            () => toggleExclusion(), 
+            () => toggleExclusion()  
+        );
+    });
+}
+
+/**
+ * Registra le gesture di swipe orizzontale
+ */
+export function enableCardSwipeGesture(cardElement, onSwipeLeft, onSwipeRight) {
+    if (!cardElement) return;
+
+    let startX = 0;
+    let startY = 0;
+    let currentX = 0;
+    let currentY = 0;
+    let isSwiping = false;
+
+    const MIN_SWIPE_DISTANCE = 50; 
+
+    cardElement.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        startX = touch.clientX;
+        startY = touch.clientY;
+        currentX = startX;
+        currentY = startY;
+        isSwiping = false;
+        
+        cardElement.style.transition = 'none';
+    }, { passive: true });
+
+    cardElement.addEventListener('touchmove', (e) => {
+        const touch = e.touches[0];
+        currentX = touch.clientX;
+        currentY = touch.clientY;
+
+        const deltaX = currentX - startX;
+        const deltaY = currentY - startY;
+
+        const absX = Math.abs(deltaX);
+        const absY = Math.abs(deltaY);
+
+        if (!isSwiping && absY > absX) {
+            return;
+        }
+
+        if (absX > 15 && absX > absY * 1.5) {
+            isSwiping = true;
+            cardElement.style.transform = `translateX(${deltaX}px)`;
+            cardElement.style.opacity = `${1 - Math.min(absX / 300, 0.5)}`;
+        }
+    }, { passive: true });
+
+    cardElement.addEventListener('touchend', () => {
+        cardElement.style.transition = 'transform 0.25s ease-out, opacity 0.25s ease-out';
+
+        const deltaX = currentX - startX;
+        const deltaY = currentY - startY;
+        const absX = Math.abs(deltaX);
+        const absY = Math.abs(deltaY);
+
+        if (isSwiping && absX >= MIN_SWIPE_DISTANCE && absX > absY * 1.5) {
+            if (deltaX < 0 && typeof onSwipeLeft === 'function') {
+                cardElement.style.transform = 'translateX(-100%)';
+                cardElement.style.opacity = '0';
+                setTimeout(() => onSwipeLeft(cardElement), 250);
+                return;
+            } else if (deltaX > 0 && typeof onSwipeRight === 'function') {
+                cardElement.style.transform = 'translateX(100%)';
+                cardElement.style.opacity = '0';
+                setTimeout(() => onSwipeRight(cardElement), 250);
+                return;
             }
-        }, { passive: true });
+        }
+
+        cardElement.style.transform = 'translateX(0px)';
+        cardElement.style.opacity = '1';
     });
 }
 
@@ -312,7 +628,7 @@ export function deleteCurrentMesocycle() {
     showNotification("Mesociclo eliminato e numerazione riallineata!");
 }
 
-// --- NOTIFICHE E TEMA ---
+// --- NOTIFICHE ---
 export function showNotification(message, type = 'info') {
     alert(`${type.toUpperCase()}: ${message}`);
 }

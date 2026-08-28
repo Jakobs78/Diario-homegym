@@ -20,15 +20,64 @@ export function assignMuscleGroup(exerciseName) {
     return 'Altro';
 }
 
-export function generateExerciseSignature(exerciseName, index) {
-    return `${slugify(exerciseName)}-${index}`;
+/**
+ * Genera il riassunto dell'esercizio formattato per la scheda
+ */
+export function formatExerciseSummary(ex) {
+    const formatVal = (val) => (!val || val === '0' || val === 0) ? '-' : val;
+
+    const kgMin = formatVal(ex.kgMin);
+    const kgMax = formatVal(ex.kgMax);
+    const sets = formatVal(ex.sets);
+    const reps = formatVal(ex.reps);
+    const rpe = formatVal(ex.rpe);
+    const rest = formatVal(ex.restTime);
+    const topset = formatVal(ex.topset);
+
+    let kgStr = '-';
+    if (kgMin !== '-' || kgMax !== '-') {
+        kgStr = kgMin === kgMax ? `${kgMin}kg` : `${kgMin}-${kgMax}kg`;
+    }
+
+    const kgHtml = `<span style="color: #ef4444; font-weight: 700;">${kgStr}</span>`;
+    const topsetHtml = `<span style="color: #ef4444; font-weight: 700;">${topset}${topset !== '-' ? 'kg' : ''}</span>`;
+
+    return `${kgHtml} | ${sets} set x ${reps} reps @${rpe} | rest ${rest} | Topset ${topsetHtml}`;
 }
 
-export function parseRecoveryTime(recoveryString) {
-    if (!recoveryString) return 0;
-    const parts = recoveryString.toString().trim().split(':');
-    if (parts.length === 2) {
-        return (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
+/**
+ * Distingue lo stimolo dell'esercizio (Forza vs Ipertrofia) basandosi sul target reps
+ */
+export function getExerciseSignature(ex) {
+    const slug = slugify(ex.name || '');
+    const repsStr = String(ex.reps || '');
+    const firstNum = parseInt(repsStr.match(/\d+/)?.[0] || '8', 10);
+    
+    // Se le reps target sono <= 5 viene classificato come Forza, altrimenti Ipertrofia
+    const type = firstNum <= 5 ? 'strength' : 'hypertrophy';
+    return `${slug}_${type}`;
+}
+// js/helpers.js
+
+export function getPlateBreakdown(totalWeight, barWeight = 20) {
+    if (!totalWeight || totalWeight <= barWeight) {
+        return null;
     }
-    return parseInt(recoveryString, 10) || 0;
+
+    let sideWeight = (totalWeight - barWeight) / 2;
+    const availablePlates = [20, 15, 10, 5, 2.5, 2, 1.25, 1, 0.5];
+    const combination = [];
+    for (const plate of availablePlates) {
+            while (sideWeight >= plate) {
+                combination.push(plate);
+                sideWeight = Math.round((sideWeight - plate) * 100) / 100;
+            }
+        }
+
+        const sideTotal = (totalWeight - barWeight) / 2;
+        return {
+            sideWeight: sideTotal,
+            plates: combination,
+            str: combination.length > 0 ? combination.join(' + ') : 'Nessun disco'
+        };
 }
