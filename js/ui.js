@@ -9,24 +9,6 @@ export const DOM = {
     timerDisplay: document.getElementById('timer-display')
 };
 
-// --- GESTIONE VISTE E DASHBOARD ---
-export function switchView(viewId) {
-    state.activeView = viewId;
-    
-    const views = document.querySelectorAll('.day-view');
-    views.forEach(v => v.style.display = 'none');
-
-    const workoutContainer = DOM.workoutListContainer;
-
-    if (viewId === 'workout' || !viewId) {
-        if (workoutContainer) workoutContainer.style.display = 'block';
-    } else {
-        if (workoutContainer) workoutContainer.style.display = 'none';
-        const targetView = document.getElementById(viewId);
-        if (targetView) targetView.style.display = 'block';
-    }
-}
-
 // --- RENDERING SCHEDA ALLENAMENTO ---
 export function renderWorkoutList() {
     if (!DOM.workoutListContainer) return;
