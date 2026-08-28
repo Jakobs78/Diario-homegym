@@ -1,7 +1,8 @@
-// state.js
 export const state = {
     currentUser: null,
-    activeMesocycleId: null,
+    activeMesocycleIndex: 0,
+    activeWeek: 1,
+    activeView: 'workout',
     workoutData: {
         athlete: { email: null },
         history: {

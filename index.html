@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="it" data-theme="light mode">
+<html lang="it" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,8 +9,7 @@
     <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Chart.js per le Dashboard e i Grafici -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
 </head>
 <body>
 
@@ -33,8 +32,8 @@
             <div style="display: flex; gap: 6px; align-items: center;">
                 <span id="sync-status" class="sync-badge" title="Stato sincronizzazione cloud">🟢 Sincronizzato</span>
                 <span id="user-email-display" style="font-size: 0.8rem; color: var(--text-muted);"></span>    
-                <button class="btn btn-secondary" id="theme-toggle-btn" onclick="window.toggleTheme()">🌙 Dark</button>
-                <button class="btn btn-secondary" onclick="window.handleLogout()" id="user-info-bar" style="display: none; align-items: center; gap: 6px;" title="Esci">
+                <button class="btn btn-secondary" id="theme-toggle-btn">🌙 Dark</button>
+                <button class="btn btn-secondary" id="user-info-bar" style="display: none; align-items: center; gap: 6px;" title="Esci">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                         <polyline points="16 17 21 12 16 7"></polyline>
@@ -45,46 +44,26 @@
             </div>
         </header>
 
-        <!-- Menu a tendina con le funzioni -->
-        <!-- Script per l'auto-chiusura del menu strumenti -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const detailsElem = document.querySelector('.tools-details');
-            let autoCloseTimer = null;
-
-            if (detailsElem) {
-                detailsElem.addEventListener('toggle', () => {
-                    if (detailsElem.open) {
-                        if (autoCloseTimer) clearTimeout(autoCloseTimer);
-                        autoCloseTimer = setTimeout(() => {
-                            detailsElem.open = false;
-                        }, 8000);
-                    } else {
-                        if (autoCloseTimer) clearTimeout(autoCloseTimer);
-                    }
-                });
-            }
-        });
-    </script>
+        <!-- Barra Controlli -->
         <div class="controls-bar">
             <!-- Riga Principale: Data, Mesociclo e Analytics -->
             <div class="control-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                 <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
                     <div style="display: flex; gap: 6px; align-items: center;">
                         <label style="font-size: 0.8rem; font-weight: 600;">Data:</label>
-                        <input type="date" data-id="meta-date">
+                        <input type="date" id="meta-date" data-id="meta-date">
                     </div>
                     <div style="display: flex; gap: 6px; align-items: center;">
                         <label style="font-size: 0.8rem; font-weight: 600;">Mesociclo:</label>
-                        <button class="btn btn-secondary" onclick="window.changeMeso(-1)" style="padding: 2px 6px;">-</button>
+                        <button class="btn btn-secondary" id="prev-meso-btn" style="padding: 2px 6px;">-</button>
                         <span id="meso-display" style="font-weight: 700; font-size: 0.9rem;">1</span>
-                        <button class="btn btn-secondary" onclick="window.changeMeso(1)" style="padding: 2px 6px;">+</button>
+                        <button class="btn btn-secondary" id="next-meso-btn" style="padding: 2px 6px;">+</button>
                     </div>
                 </div>
 
                 <!-- Menu a tendina Analisi -->
                 <div>
-                    <select id="analyticsMenu" class="analytics-select" style="font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-color); cursor: pointer;" onchange="handleAnalyticsNavigation(this.value)">
+                    <select id="analyticsMenu" class="analytics-select" style="font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-color); cursor: pointer;">
                         <option value="" disabled selected>📊 Analisi allenamenti</option>
                         <option value="stats">📈 Volume Muscolare</option>
                         <option value="progress">🌐 Progressione Mese</option>
@@ -93,9 +72,9 @@
                 </div>
             </div>
 
-            <!-- Menu a tendina Strumenti & Gestione Scheda -->
+            <!-- Menu Strumenti & Gestione Scheda -->
             <div class="control-row" style="border-top: 1px solid var(--border-color); padding-top: 8px;">
-                <details class="tools-details">
+                <details class="tools-details" id="tools-details">
                     <summary class="tools-summary">
                         <span>📁 Manuale d'uso e gestione schede</span>
                         <span style="font-size: 0.7rem; color: var(--text-muted);">▼</span>
@@ -104,24 +83,26 @@
                     <div class="tools-content">
                         <!-- Pulsante Manuale -->
                         <div>
-                            <button class="btn btn-secondary" style="font-size: 0.85rem; padding: 6px 10px; width: 100%; background-color: #4ade80; color: #065f46; font-weight: 600;" onclick="window.switchView ? window.switchView('manual') : handleAnalyticsNavigation('manual')">📖 Leggimi: Manuale d'uso</button>
+                            <button class="btn btn-secondary" id="manual-btn" style="font-size: 0.85rem; padding: 6px 10px; width: 100%; background-color: #4ade80; color: #065f46; font-weight: 600;">📖 Leggimi: Manuale d'uso</button>
                         </div>
 
                         <!-- Griglia Utility -->
                         <div class="tools-grid">
                             <label class="btn btn-secondary" style="font-size: 0.75rem; padding: 6px; cursor: pointer; text-align: center;">
-                                📂 Importa scheda CSV mesociclo <input type="file" accept=".csv" style="display: none;" onchange="window.importWorkoutPlan(event)">
+                                📂 Importa scheda CSV mesociclo 
+                                <input type="file" id="import-plan-input" accept=".csv" style="display: none;">
                             </label>
-                            <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 6px;" onclick="window.exportProgressCSV()">💾 Backup storico</button>
+                            <button class="btn btn-secondary" id="export-csv-btn" style="font-size: 0.75rem; padding: 6px;">💾 Backup storico</button>
                             <label class="btn btn-secondary" style="font-size: 0.75rem; padding: 6px; cursor: pointer; text-align: center;">
-                                📥 Import storico<input type="file" accept=".csv" style="display: none;" onchange="window.importProgressCSV(event)">
+                                📥 Import storico
+                                <input type="file" id="import-history-input" accept=".csv" style="display: none;">
                             </label>
-                            <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 6px;" onclick="window.esportaWorkoutPDF()" title="Stampa o Salva PDF">🖨️ PDF giornaliero</button>
+                            <button class="btn btn-secondary" id="export-pdf-btn" style="font-size: 0.75rem; padding: 6px;" title="Stampa o Salva PDF">🖨️ PDF giornaliero</button>
                         </div>
 
                         <!-- Zona Pericolosa -->
                         <div class="tools-danger-zone">
-                            <button class="btn btn-danger" style="font-size: 0.75rem; padding: 6px; display: flex; align-items: center; justify-content: center; gap: 4px;" onclick="window.resetCurrentMesocycleData()" title="Elimina scheda e mesociclo selezionato">
+                            <button class="btn btn-danger" id="reset-meso-btn" style="font-size: 0.75rem; padding: 6px; display: flex; align-items: center; justify-content: center; gap: 4px;" title="Elimina scheda e mesociclo selezionato">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <polyline points="3 6 5 6 21 6"></polyline>
                                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -130,7 +111,7 @@
                                 </svg>
                                 Elimina scheda mesociclo selezionato
                             </button>
-                            <button class="btn btn-danger" style="font-size: 0.75rem; padding: 6px; display: flex; align-items: center; justify-content: center; gap: 4px; background-color: #991b1b;" onclick="window.resetTotalFactory()" title="Cancella tutto inclusi mesocicli e piani">
+                            <button class="btn btn-danger" id="clear-data-btn" style="font-size: 0.75rem; padding: 6px; display: flex; align-items: center; justify-content: center; gap: 4px; background-color: #991b1b;" title="Cancella tutto inclusi mesocicli e piani">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M3 6h18"></path>
                                     <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
@@ -145,9 +126,9 @@
                 </details>
             </div>
         </div>
+
         <!-- Contenitore della barra di navigazione (Settimana + Giorni) -->
         <div class="tabs" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-            <!-- Selettore della Settimana (fisso e sicuro) -->
             <div style="display: flex; gap: 4px; align-items: center; background: var(--bg-card); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color);">
                 <label for="week-selector" style="font-size: 0.75rem; font-weight: 700;">Settimana:</label>
                 <select id="week-selector" style="font-size: 0.75rem; padding: 2px 4px;">
@@ -157,49 +138,35 @@
                     <option value="4">4</option>
                 </select>
             </div>
-
-            <!-- Tab Dinamici dei Giorni (gestiti da JavaScript) -->
             <div id="dynamic-day-tabs" style="display: flex; gap: 4px; align-items: center;"></div>
         </div>
 
-        <!-- Stato Iniziale se manca la scheda CSV -->
-        <div id="empty-state" class="day-card" style="text-align: center; padding: 30px;">
-            <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 0.9rem;">Nessuna scheda di allenamento caricata.</p>
-            <label class="btn" style="cursor: pointer;">
-                Seleziona file CSV della scheda <input type="file" accept=".csv" style="display: none;" onchange="window.importWorkoutPlan(event)">
-            </label>
-        </div>
+        <!-- Lista e Contenitori Allenamento -->
+        <div id="workout-list-container"></div>
 
-        <!-- Contenitore delle Viste dei Giorni e delle Dashboard -->
-        <div id="dynamic-views-container">
-            <!-- Viste generate dinamicamente -->
-        </div>
-
-        <!-- Vista Statistiche (Heatmap Volumi Gruppi Muscolari) -->
-        <div class="day-view" id="stats">
+        <!-- Viste Dashboard -->
+        <div class="day-view" id="stats" style="display: none;">
             <div class="day-card">
                 <div class="day-title"><span>Dashboard Volume Muscolare</span></div>
                 <div id="stats-content"></div>
             </div>
         </div>
 
-        <!-- Vista Progressione 1RM / Tonnellaggio del Mesociclo -->
-        <div class="day-view" id="progress">
+        <div class="day-view" id="progress" style="display: none;">
             <div class="day-card">
                 <div class="day-title"><span>Progressi & Analitiche Mesociclo</span></div>
                 <div id="progress-content"></div>
             </div>
         </div>
 
-        <!-- Vista Macro Progress (Confronto Storico Pluriennale Mesocicli) -->
-        <div class="day-view" id="macro-progress">
+        <div class="day-view" id="macro-progress" style="display: none;">
             <div class="day-card">
                 <div class="day-title"><span>Macro Progressione Pluriennale (1RM)</span></div>
                 <div id="macro-progress-content"></div>
             </div>
         </div>
-        <!-- Vista Manuale e Istruzioni -->
-        <div class="day-view" id="manual">
+
+        <div class="day-view" id="manual" style="display: none;">
             <div class="day-card">
                 <div class="day-title"><span>Manuale di Istruzioni</span></div>
                 <div id="manual-content"></div>
@@ -207,16 +174,16 @@
         </div>
     </div>
 
-    <!-- Timer Mobile Fondi Pagina Flottante -->
+    <!-- Timer Mobile Flottante -->
     <div id="floating-timer">
         <div>
             <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Recupero</div>
             <div id="timer-display">01:30</div>
         </div>
         <div style="display: flex; gap: 4px;">
-            <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75rem;" onclick="window.adjustTimer(-15)">-15s</button>
-            <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75rem;" onclick="window.adjustTimer(30)">+30s</button>
-            <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.75rem;" onclick="window.stopTimer()">✕</button>
+            <button class="btn btn-secondary" id="timer-minus-15" style="padding: 4px 8px; font-size: 0.75rem;">-15s</button>
+            <button class="btn btn-secondary" id="timer-plus-30" style="padding: 4px 8px; font-size: 0.75rem;">+30s</button>
+            <button class="btn btn-danger" id="stop-timer-btn" style="padding: 4px 8px; font-size: 0.75rem;">✕</button>
         </div>
     </div>
 

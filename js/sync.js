@@ -1,44 +1,94 @@
 // sync.js
 import { supabase } from './config.js';
 
-export async function pushDataToSupabase(email, data) {
-    if (!email) return false;
-    
+/**
+ * Gestisce il login dell'utente
+ */
+export async function loginUser(email, password) {
+    if (!supabase) {
+        alert("Client Supabase non configurato correttamente in config.js.");
+        return null;
+    }
     try {
-        const { error } = await supabase
-            .from('workouts')
-            // Assicurati che la tabella si chiami 'workouts' e abbia le colonne email, payload e updated_at
-            .upsert({ email: email, payload: data, updated_at: new Date().toISOString() }, { onConflict: 'email' });
-        
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        console.log('Sincronizzazione su Supabase avvenuta con successo.');
-        return true;
-    } catch (error) {
-        console.error('Errore durante il salvataggio su Supabase:', error.message);
-        return false;
+        return data.user;
+    } catch (err) {
+        console.error("Errore durante il login:", err.message);
+        alert(`Errore di login: ${err.message}`);
+        return null;
     }
 }
 
-export async function pullDataFromSupabase(email) {
-    if (!email) return null;
+/**
+ * Gestisce la registrazione di un nuovo account
+ */
+export async function signupUser(email, password) {
+    if (!supabase) {
+        alert("Client Supabase non configurato correttamente in config.js.");
+        return null;
+    }
+    try {
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        alert("Registrazione completata! Controlla la tua email o effettua il login.");
+        return data.user;
+    } catch (err) {
+        console.error("Errore durante la registrazione:", err.message);
+        alert(`Errore di registrazione: ${err.message}`);
+        return null;
+    }
+}
 
+/**
+ * Scarica il payload JSON da Supabase per l'utente loggato
+ */
+export async function pullDataFromSupabase(email) {
+    if (!supabase) return null;
     try {
         const { data, error } = await supabase
             .from('workouts')
             .select('payload')
             .eq('email', email)
             .maybeSingle();
-        
-        if (error) {
-            // Il codice PGRST116 significa che nessuna riga è stata trovata (utente nuovo)
-            if (error.code === 'PGRST116') return null;
-            throw error;
-        }
-        
-        console.log('Dati recuperati da Supabase con successo.');
+
+        if (error) throw error;
         return data ? data.payload : null;
-    } catch (error) {
-        console.error('Errore durante il caricamento da Supabase:', error.message);
+    } catch (err) {
+        console.error("Errore nel recupero dati da Supabase:", err.message);
         return null;
+    }
+}
+
+/**
+ * Salva/Aggiorna il payload JSON su Supabase
+ */
+export async function pushDataToSupabase(email, payload) {
+    if (!supabase) return;
+    try {
+        const { error } = await supabase
+            .from('workouts')
+            .upsert({ 
+                email: email, 
+                payload: payload, 
+                updated_at: new Date().toISOString() 
+            });
+
+        if (error) throw error;
+    } catch (err) {
+        console.error("Errore nel salvataggio su Supabase:", err.message);
+    }
+}
+// Esegue il logout
+export async function logoutUser() {
+    if (!supabase) return;
+    try {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+        return true;
+    } catch (err) {
+        console.error("Errore durante il logout:", err.message);
+        alert(`Errore di logout: ${err.message}`);
+        return false;
     }
 }

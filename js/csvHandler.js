@@ -1,26 +1,64 @@
 // csvHandler.js
-export function exportToCSV(workoutData) {
-    // Estrae tutti gli esercizi dall'albero gerarchico per portarli in formato piatto tabellare
-    const flatRows = [];
+import { state } from './state.js';
+import { saveAndSync } from './storage.js';
+import { renderWorkoutList, showNotification } from './ui.js';
+
+/**
+ * Parser robusto per CSV con separatore ';' e gestione dei testi tra virgolette su più righe
+ */
+function parseCSV(text) {
+    const lines = [];
+    let row = [''];
+    let inQuotes = false;
     
-    const yearsObj = workoutData.history?.years || {};
-    Object.keys(yearsObj).forEach(year => {
-        (yearsObj[year].mesocycles || []).forEach(meso => {
+    for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        const next = text[i + 1];
+        
+        if (c === '"') {
+            if (inQuotes && next === '"') {
+                row[row.length - 1] += '"';
+                i++; // Salta la virgoletta scalata
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (c === ';' && !inQuotes) {
+            row.push('');
+        } else if ((c === '\r' || c === '\n') && !inQuotes) {
+            if (c === '\r' && next === '\n') i++;
+            if (row.length > 1 || row[0] !== '') {
+                lines.push(row);
+            }
+            row = [''];
+        } else {
+            row[row.length - 1] += c;
+        }
+    }
+    if (row.length > 1 || row[0] !== '') {
+        lines.push(row);
+    }
+    return lines;
+}
+
+/**
+ * Esporta lo storico dati dell'atleta in formato CSV
+ */
+export function exportToCSV(workoutData) {
+    if (!workoutData || !workoutData.history) {
+        showNotification("Nessun dato da esportare.", "error");
+        return;
+    }
+
+    let csvContent = "data:text/csv;charset=utf-8,Anno,Mesociclo,Settimana,Giorno,Esercizio,Reps,Weight,RPE\n";
+    const years = workoutData.history.years || {};
+
+    Object.keys(years).forEach(year => {
+        (years[year].mesocycles || []).forEach(meso => {
             (meso.weeks || []).forEach(week => {
                 (week.days || []).forEach(day => {
                     (day.exercises || []).forEach(ex => {
                         (ex.loggedSets || []).forEach(set => {
-                            flatRows.push({
-                                year,
-                                mesocycle: meso.name,
-                                week: week.weekNumber,
-                                date: day.date,
-                                exercise: ex.name,
-                                setNumber: set.set,
-                                reps: set.reps,
-                                weight: set.weight,
-                                rpe: set.rpe || ''
-                            });
+                            csvContent += `${year},"${meso.name}",${week.weekNumber},"${day.dayName}","${ex.name}",${set.reps},${set.weight},${set.rpe || ''}\n`;
                         });
                     });
                 });
@@ -28,89 +66,157 @@ export function exportToCSV(workoutData) {
         });
     });
 
-    if (flatRows.length === 0) {
-        alert("Nessun dato strutturato da esportare.");
-        return;
-    }
-    
-    const headers = Object.keys(flatRows[0]).join(',');
-    const rows = flatRows.map(row => Object.values(row).join(','));
-    
-    const csvContent = [headers, ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute("href", url);
-    link.setAttribute("download", `workout_history_${new Date().toISOString().slice(0, 10)}.csv`);
-    link.style.visibility = 'hidden';
-    
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `backup_homegym_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 }
 
-export function parseCSVAndMerge(file, currentWorkoutData) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        
-        reader.onload = (event) => {
-            const text = event.target.result;
-            const lines = text.split('\n').filter(line => line.trim() !== '');
-            
-            if (lines.length < 2) {
-                reject("File CSV vuoto o formato non valido.");
-                return;
-            }
-            
-            const currentYear = new Date().getFullYear().toString();
-            if (!currentWorkoutData.history.years[currentYear]) {
-                currentWorkoutData.history.years[currentYear] = { mesocycles: [] };
-            }
-            
-            // Crea un mesociclo apposito per l'importazione CSV
-            const importedMeso = {
-                id: `meso_csv_${Date.now()}`,
-                name: "Scheda Importata da CSV",
-                startDate: new Date().toISOString().split('T')[0],
-                endDate: "",
-                status: "active",
-                weeks: [
-                    {
-                        weekNumber: 1,
-                        days: [
-                            {
-                                dayId: `day_csv_${Date.now()}`,
-                                dayName: "Import CSV",
-                                date: new Date().toISOString().split('T')[0],
-                                completed: true,
-                                exercises: []
-                            }
-                        ]
-                    }
-                ]
-            };
-            
-            // Logica semplificata di parsing righe CSV
-            for (let i = 1; i < lines.length; i++) {
-                const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-                if (cols.length >= 4) {
-                    importedMeso.weeks[0].days[0].exercises.push({
-                        signature: `csv_ex_${i}`,
-                        name: cols[3] || 'Esercizio CSV',
-                        targetSets: 3,
-                        loggedSets: [
-                            { set: 1, reps: parseInt(cols[5]) || 0, weight: parseFloat(cols[6]) || 0, rpe: 0 }
-                        ]
-                    });
-                }
-            }
-            
-            currentWorkoutData.history.years[currentYear].mesocycles.push(importedMeso);
-            resolve(currentWorkoutData);
+/**
+ * Importa la scheda CSV del mesociclo e la inserisce nello stato dell'applicazione
+ */
+export function importWorkoutPlan(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        const rows = parseCSV(text);
+
+        if (rows.length < 2) {
+            showNotification("Il file CSV appare vuoto o non valido.", "error");
+            return;
+        }
+
+        // Verifica la presenza delle intestazioni chiave
+        const header = rows[0].map(h => h.trim().toLowerCase());
+        if (!header.includes('settimana') || !header.includes('esercizio')) {
+            showNotification("Formato CSV non riconosciuto. Intestazioni mancanti.", "error");
+            return;
+        }
+
+        const currentYear = new Date().getFullYear().toString();
+        if (!state.workoutData.history) state.workoutData.history = { years: {} };
+        if (!state.workoutData.history.years) state.workoutData.history.years = {};
+        if (!state.workoutData.history.years[currentYear]) {
+            state.workoutData.history.years[currentYear] = { mesocycles: [] };
+        }
+
+        const mesocycles = state.workoutData.history.years[currentYear].mesocycles;
+
+        // Numerazione progressiva automatica
+        const nextMesoNumber = mesocycles.length + 1;
+
+        // Struttura del nuovo mesociclo importato
+        const newMesocycle = {
+            id: `meso_${Date.now()}`,
+            number: nextMesoNumber,
+            name: `Mesociclo ${nextMesoNumber}`,
+            startDate: new Date().toISOString().split('T')[0],
+            endDate: "",
+            status: "active",
+            weeks: []
         };
-        
-        reader.onerror = (error) => reject(error);
-        reader.readAsText(file);
-    });
+
+        const weekMap = new Map();
+
+        // Cicla su tutte le righe del CSV (escludendo l'intestazione)
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row || row.length < 4) continue;
+
+            const weekNum = parseInt(row[0]?.trim()) || 1;
+            const dayNum = parseInt(row[1]?.trim()) || 1;
+            const exerciseName = row[3]?.trim() || 'Esercizio';
+            const rawSets = row[4]?.trim() || '1 set';
+            const rawReps = row[5]?.trim() || '0';
+            const kgMin = row[6]?.trim() || '-';
+            const kgMax = row[7]?.trim() || '-';
+            const rpe = row[8]?.trim() || '';
+            const rest = row[9]?.trim() || '2min';
+            const notes = row[10]?.trim() || '';
+
+            // 1. Gestione Settimana
+            if (!weekMap.has(weekNum)) {
+                weekMap.set(weekNum, new Map());
+            }
+            const dayMap = weekMap.get(weekNum);
+
+            // 2. Gestione Giorno
+            if (!dayMap.has(dayNum)) {
+                dayMap.set(dayNum, {
+                    dayId: `day_${weekNum}_${dayNum}`,
+                    dayName: `Giorno ${dayNum}`,
+                    date: new Date().toISOString().split('T')[0],
+                    completed: false,
+                    exercises: []
+                });
+            }
+            const dayObj = dayMap.get(dayNum);
+
+            // Estrazione del numero di set prescritto
+            const numSets = parseInt(rawSets) || 1;
+            const targetWeight = (kgMax !== '-' && kgMax !== '0') ? kgMax : (kgMin !== '-' ? kgMin : '0');
+
+            const loggedSets = [];
+            for (let s = 1; s <= numSets; s++) {
+                loggedSets.push({
+                    set: s,
+                    reps: rawReps,
+                    weight: parseFloat(targetWeight.replace(',', '.')) || 0,
+                    rpe: rpe
+                });
+            }
+
+            // 3. Aggiunta dell'Esercizio al giorno
+            dayObj.exercises.push({
+                signature: `ex_${Date.now()}_${i}`,
+                name: exerciseName,
+                targetSets: numSets,
+                rest: rest,
+                notes: notes !== '0' ? notes : '',
+                loggedSets: loggedSets
+            });
+        }
+
+        // Conversione delle mappe nella gerarchia dell'app
+        weekMap.forEach((daysMap, weekNumber) => {
+            const daysArray = Array.from(daysMap.values());
+            newMesocycle.weeks.push({
+                weekNumber: weekNumber,
+                days: daysArray
+            });
+        });
+
+        // Inserisce il nuovo mesociclo in cima e aggiorna lo stato
+        mesocycles.unshift(newMesocycle);
+        state.activeMesocycleIndex = 0;
+        state.activeWeek = 1;
+
+        saveAndSync(state.workoutData);
+        renderWorkoutList();
+
+        showNotification('Mesociclo ${nextMesoNumber} importato e salvato con successo!');
+    };
+
+    reader.readAsText(file);
+}
+
+/**
+ * Importa uno storico completo da file CSV
+ */
+export function importProgressCSV(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        showNotification("Storico importato con successo!");
+        renderWorkoutList();
+    };
+    reader.readAsText(file);
 }
