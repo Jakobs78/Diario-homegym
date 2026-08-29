@@ -1,7 +1,8 @@
 // csvHandler.js
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
-import { renderWorkoutList, showNotification } from './ui.js';
+import { renderWorkoutList } from './ui.js';
+import { showNotification } from './helpers.js';
 
 /**
  * Parser robusto per CSV con separatore ';' e gestione dei testi tra virgolette su più righe

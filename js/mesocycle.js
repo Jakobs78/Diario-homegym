@@ -1,36 +1,62 @@
 // js/mesocycle.js
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
-import { renderWorkoutList, showNotification } from './ui.js';
+import { renderWorkoutList } from './ui.js';
+import { showNotification } from './helpers.js';
 
 /**
- * Gestisce lo scorrimento dei mesocicli (-1 o +1)
+ * Gestisce lo scorrimento dei mesocicli (-1 o +1) con controlli sui limiti
  */
-export function changeMesocycle(direction) {
-    if (!state.activeMesocycleIndex) state.activeMesocycleIndex = 0;
-    
-    const newIndex = state.activeMesocycleIndex + direction;
-    if (newIndex >= 0) {
-        state.activeMesocycleIndex = newIndex;
-        const display = document.getElementById('meso-display');
-        if (display) display.textContent = newIndex + 1;
-        renderWorkoutList();
+export function changeMesocycle(delta) {
+    const currentYear = new Date().getFullYear().toString();
+    const mesocycles = state.workoutData.history?.years?.[currentYear]?.mesocycles || [];
+    const currentIndex = state.activeMesocycleIndex || 0;
+    const targetIndex = currentIndex + delta;
+
+    if (delta > 0 && targetIndex >= mesocycles.length) {
+        showNotification(`Il Mesociclo ${targetIndex + 1} non è ancora stato caricato. Importa un file CSV per proseguire.`, 'warning');
+        return;
     }
+
+    if (delta < 0 && targetIndex < 0) return;
+
+    state.activeMesocycleIndex = targetIndex;
+    state.activeWeek = 1;
+    state.activeDay = 1;
+    renderWorkoutList();
 }
 
 /**
- * Elimina la scheda ed i dati del mesociclo attivo
+ * Elimina la scheda e i dati del mesociclo attivo riallineando la numerazione
  */
-export function resetCurrentMesocycle() {
-    if (confirm("Sei sicuro di voler eliminare la scheda e i dati del mesociclo selezionato?")) {
-        const currentYear = new Date().getFullYear().toString();
-        const yearData = state.workoutData.history?.years?.[currentYear];
-        
-        if (yearData && yearData.mesocycles) {
-            yearData.mesocycles.splice(state.activeMesocycleIndex || 0, 1);
-            saveAndSync(state.workoutData);
-            renderWorkoutList();
-            showNotification("Mesociclo eliminato con successo.");
-        }
+export function deleteCurrentMesocycle() {
+    const currentYear = new Date().getFullYear().toString();
+    const mesocycles = state.workoutData.history?.years?.[currentYear]?.mesocycles || [];
+
+    if (mesocycles.length === 0) {
+        showNotification("Nessun mesociclo da eliminare.", "error");
+        return;
     }
+
+    const activeIdx = state.activeMesocycleIndex || 0;
+    const mesoToDelete = mesocycles[activeIdx];
+
+    if (!confirm(`Sei sicuro di voler eliminare definitivamente il "${mesoToDelete?.name || 'Mesociclo'}"?`)) {
+        return;
+    }
+
+    mesocycles.splice(activeIdx, 1);
+
+    mesocycles.forEach((meso, idx) => {
+        meso.number = idx + 1;
+        meso.name = `Mesociclo ${idx + 1}`;
+    });
+
+    if (activeIdx >= mesocycles.length) {
+        state.activeMesocycleIndex = Math.max(0, mesocycles.length - 1);
+    }
+
+    saveAndSync(state.workoutData);
+    renderWorkoutList();
+    showNotification("Mesociclo eliminato e numerazione riallineata!");
 }

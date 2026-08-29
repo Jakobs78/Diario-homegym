@@ -3,7 +3,8 @@ import { supabase} from './config.js'
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
 import { pullDataFromSupabase, loginUser, logoutUser, signupUser } from './sync.js';
-import { renderWorkoutList, showNotification } from './ui.js';
+import { renderWorkoutList } from './ui.js';
+import { showNotification } from './helpers.js';
 
 /**
  * Gestisce il logout dell'utente ed azzera l'interfaccia.

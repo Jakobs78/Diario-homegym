@@ -63,17 +63,26 @@
                     </div>
                 </div>
 
-                <!-- Menu a tendina Analisi -->
-                <div>
-                    <select id="analyticsMenu" class="analytics-select" style="font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-color); cursor: pointer;">
-                        <option value="workout">🏋️ Scheda allenamento</option>
-                        <option value="" disabled selected hidden>📊 Analisi allenamenti</option>
-                        <option value="stats">📈 Volume Muscolare</option>
-                        <option value="progress">🌐 Progressione Mese</option>
-                        <option value="macro-progress">📅 Macro Storico</option>
-                    </select>
+                <!-- Pulsante per aprire il menu analisi allenamenti -->
+                <button id="open-analytics-btn" class="analytics-trigger-btn">
+                    📊 Analisi & Dashboards
+                </button>
+
+                <!-- Bottom Sheet (Menu da basso) -->
+                <div id="analytics-modal" class="bottom-sheet-overlay hidden">
+                    <div class="bottom-sheet-content">
+                        <div class="bottom-sheet-header">
+                            <span>Seleziona Vista</span>
+                            <button id="close-analytics-btn" class="close-sheet">&times;</button>
+                        </div>
+                        <div class="bottom-sheet-menu">
+                            <button class="sheet-item" data-view="workout">🏋️ Allenamento</button>
+                            <button class="sheet-item" data-view="stats">📈 Statistiche</button>
+                            <button class="sheet-item" data-view="progress">🎯 Progressi</button>
+                            <button class="sheet-item" data-view="macro-progress">📊 Macro Progressi</button>
+                        </div>
+                    </div>
                 </div>
-            </div>
 
             <!-- Menu Strumenti & Gestione Scheda -->
             <div class="control-row" style="border-top: 1px solid var(--border-color); padding-top: 8px;">

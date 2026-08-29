@@ -1,14 +1,28 @@
 // sync.js
-import { supabase } from './config.js';
+import { supabase, CONFIG } from './config.js';
 
 /**
- * Gestisce il login dell'utente
+ * Verifica se un'email è autorizzata tramite la whitelist in config.js
+ */
+function isEmailWhitelisted(email) {
+    if (!CONFIG.WHITELIST || CONFIG.WHITELIST.length === 0) return true;
+    return CONFIG.WHITELIST.map(e => e.toLowerCase()).includes(email?.toLowerCase());
+}
+
+/**
+ * Gestisce il login dell'utente con controllo Whitelist
  */
 export async function loginUser(email, password) {
     if (!supabase) {
         alert("Client Supabase non configurato correttamente in config.js.");
         return null;
     }
+
+    if (!isEmailWhitelisted(email)) {
+        alert("Accesso negato: Indirizzo email non autorizzato.");
+        return null;
+    }
+
     try {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -21,13 +35,19 @@ export async function loginUser(email, password) {
 }
 
 /**
- * Gestisce la registrazione di un nuovo account
+ * Gestisce la registrazione di un nuovo account con controllo Whitelist
  */
 export async function signupUser(email, password) {
     if (!supabase) {
         alert("Client Supabase non configurato correttamente in config.js.");
         return null;
     }
+
+    if (!isEmailWhitelisted(email)) {
+        alert("Registrazione non consentita per questo indirizzo email.");
+        return null;
+    }
+
     try {
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
@@ -41,10 +61,14 @@ export async function signupUser(email, password) {
 }
 
 /**
- * Scarica il payload JSON da Supabase per l'utente loggato
+ * Scarica il payload JSON da Supabase accettando sia stringhe email che oggetti utente
  */
-export async function pullDataFromSupabase(email) {
+export async function pullDataFromSupabase(userOrEmail) {
     if (!supabase) return null;
+
+    const email = typeof userOrEmail === 'object' ? userOrEmail?.email : userOrEmail;
+    if (!email) return null;
+
     try {
         const { data, error } = await supabase
             .from('workouts')
@@ -61,10 +85,14 @@ export async function pullDataFromSupabase(email) {
 }
 
 /**
- * Salva/Aggiorna il payload JSON su Supabase
+ * Salva/Aggiorna il payload JSON su Supabase ritornando uno stato booleano per la coda di storage.js
  */
-export async function pushDataToSupabase(email, payload) {
-    if (!supabase) return;
+export async function pushDataToSupabase(userOrEmail, payload) {
+    if (!supabase) return false;
+
+    const email = typeof userOrEmail === 'object' ? userOrEmail?.email : userOrEmail;
+    if (!email) return false;
+
     try {
         const { error } = await supabase
             .from('workouts')
@@ -72,16 +100,21 @@ export async function pushDataToSupabase(email, payload) {
                 email: email, 
                 payload: payload, 
                 updated_at: new Date().toISOString() 
-            });
+            }, { onConflict: 'email' });
 
         if (error) throw error;
+        return true;
     } catch (err) {
         console.error("Errore nel salvataggio su Supabase:", err.message);
+        return false;
     }
 }
-// Esegue il logout
+
+/**
+ * Esegue il logout
+ */
 export async function logoutUser() {
-    if (!supabase) return;
+    if (!supabase) return false;
     try {
         const { error } = await supabase.auth.signOut();
         if (error) throw error;

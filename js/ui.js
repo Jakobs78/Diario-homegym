@@ -1,7 +1,7 @@
 // ui.js
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
-import { formatExerciseSummary, getExerciseSignature, getPlateBreakdown } from './helpers.js';
+import { formatExerciseSummary, getPlateBreakdown } from './helpers.js';
 import { startTimer, stopTimer, adjustTimer, parseRecoveryTime } from './timer.js';
 import { playBeep } from './audio.js';
 
@@ -17,10 +17,7 @@ export function renderWorkoutList() {
     if (!DOM.workoutListContainer) return;
     DOM.workoutListContainer.innerHTML = '';
 
-    if (!state.activeView) {
-        state.activeView = 'workout';
-    }
-
+    if (!state.activeView) state.activeView = 'workout';
     if (state.activeView !== 'workout') {
         DOM.workoutListContainer.style.display = 'none';
         return;
@@ -47,24 +44,6 @@ export function renderWorkoutList() {
     const targetWeek = (meso.weeks || []).find(w => w.weekNumber === activeWeekNum) || meso.weeks?.[0];
 
     if (!targetWeek) return;
-
-    // 1. BARRA CONTROLLI MESOCICLO
-    const mesoSelectorDiv = document.createElement('div');
-    mesoSelectorDiv.style.cssText = 'display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 10px 14px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 15px;';
-    mesoSelectorDiv.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 0.9rem; font-weight: 600; color: #334155;">Mesociclo:</span>
-            <button id="meso-prev-btn" style="padding: 2px 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold; cursor: pointer;">-</button>
-            <span style="font-size: 1rem; font-weight: 700; color: #0284c7; min-width: 20px; text-align: center;">${mesoIndex + 1}</span>
-            <button id="meso-next-btn" style="padding: 2px 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight: bold; cursor: pointer;">+</button>
-        </div>
-        <button id="delete-meso-btn" style="font-size: 0.8rem; padding: 4px 10px; border-radius: 6px; border: 1px solid #fca5a5; background: #fef2f2; color: #dc2626; cursor: pointer; font-weight: 600;">🗑️ Elimina Mesociclo</button>
-    `;
-    DOM.workoutListContainer.appendChild(mesoSelectorDiv);
-
-    mesoSelectorDiv.querySelector('#meso-prev-btn').onclick = () => changeMesocycle(-1);
-    mesoSelectorDiv.querySelector('#meso-next-btn').onclick = () => changeMesocycle(1);
-    mesoSelectorDiv.querySelector('#delete-meso-btn').onclick = () => deleteCurrentMesocycle();
 
     // 2. BANNER STORICO CONGELATO
     if (isPastMeso) {
@@ -126,10 +105,12 @@ export function renderWorkoutList() {
                 
                 <div style="display: flex; gap: 6px; align-items: center;">
                     <select class="bar-select" data-ex="${exIdx}" style="font-size: 0.75rem; padding: 4px 6px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc;" ${isPastMeso ? 'disabled' : ''}>
-                        <option value="20">Bil. 20kg</option>
-                        <option value="15">Bil. 15kg</option>
-                        <option value="12">EZ 12kg</option>
-                        <option value="10">EZ 10kg</option>
+                        <option value="20">Bil 20kg</option>
+                        <option value="15">Bil 15kg</option>
+                        <option value="12">Bil 12kg</option>
+                        <option value="10">Bil 10kg</option>
+                        <option value="9">Bil 9kg</option>
+                        <option value="6">Bil 6kg</option>
                         <option value="0">Manubri / Macchina</option>
                     </select>
             
@@ -138,17 +119,12 @@ export function renderWorkoutList() {
                     </div>
                 </div>
             </div>
-        `;
-
-        // 1. RIASSUNTO ESERCIZIO (TARGET)
-        const summaryText = formatExerciseSummary(ex);
-        cardHtml += `
+            
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; font-size: 0.8rem; color: #334155; font-family: monospace;">
-                <strong>TARGET:</strong> ${summaryText}
+                <strong>TARGET:</strong> ${formatExerciseSummary(ex)}
             </div>
         `;
 
-        // 2. NOTE ALLENATORE
         if (ex.notes) {
             cardHtml += `
                 <div style="background: #f0f9ff; border: 1px solid #e0f2fe; border-radius: 8px; padding: 10px; margin-bottom: 12px;">
@@ -158,7 +134,6 @@ export function renderWorkoutList() {
             `;
         }
 
-        // 3. TABELLA DEI SET LOGGATI
         cardHtml += `
             <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 10px;">
                 <thead>
@@ -183,13 +158,13 @@ export function renderWorkoutList() {
                         <span style="font-weight: 600; color: #334155;">${setIdx + 1}</span>
                     </td>
                     <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                        <input type="text" class="set-input set-kg" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.weight || ''}" placeholder="-" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 600; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
+                        <input type="text" class="set-input set-kg" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.weight || ''}" placeholder="-" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
                     </td>
                     <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                        <input type="text" class="set-input set-reps" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.reps || ''}" placeholder="reps" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; color: #475569; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
+                        <input type="text" class="set-input set-reps" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.reps || ''}" placeholder="reps" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
                     </td>
                     <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                        <input type="text" class="set-input set-rpe" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.rpe || ex.targetRpe || ex.rpe || ''}" placeholder="RPE" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 700; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
+                        <input type="text" class="set-input set-rpe" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.rpe || ex.targetRpe || ex.rpe || ''}" placeholder="RPE" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
                     </td>
                     <td style="padding: 4px; text-align: center;">
                         <input type="checkbox" class="set-lock-check" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''} style="width: 18px; height: 18px; cursor: pointer;">
@@ -201,23 +176,19 @@ export function renderWorkoutList() {
         cardHtml += `
                 </tbody>
             </table>
-
             <input type="text" placeholder="Note esercizio..." value="${ex.userNotes || ''}" class="ex-user-notes" data-ex="${exIdx}" ${isPastMeso ? 'disabled' : ''} style="width: 100%; font-size: 0.8rem; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: ${isPastMeso ? '#f1f5f9' : '#f8fafc'};">
         `;
 
         exCard.innerHTML = cardHtml;
         DOM.workoutListContainer.appendChild(exCard);
 
-        // Calcolo iniziale badge dischi
         updatePlatesBadgeUI(exIdx);
     });
 
     bindWorkoutTableEvents(currentDay, isPastMeso);
 }
 
-/**
- * Aggiorna il testo e lo stile del badge dischi
- */
+// --- GESTIONE BADGE DISCHI ---
 export function updatePlatesBadgeUI(exIdx) {
     const container = DOM.workoutListContainer;
     if (!container) return;
@@ -254,27 +225,22 @@ export function updatePlatesBadgeUI(exIdx) {
     }
 }
 
-/**
- * Gestisce l'interattività e il salvataggio automatico (LocalStorage + Supabase)
- */
+// --- ASSOCIAZIONE EVENTI TABELLA ---
 function bindWorkoutTableEvents(currentDay, isPastMeso) {
     if (!DOM.workoutListContainer) return;
 
-    // 1. Gestione Unificata Input: Salvataggio, Range Check e Auto-Fill a cascata
     DOM.workoutListContainer.querySelectorAll('.set-input, .ex-user-notes').forEach(input => {
         input.addEventListener('input', (e) => {
             const exIdx = e.target.dataset.ex;
             const ex = currentDay.exercises[exIdx];
             if (!ex) return;
 
-            // Se sono le note esercizio
             if (e.target.classList.contains('ex-user-notes')) {
                 ex.userNotes = e.target.value;
                 saveAndSync(state.workoutData);
                 return;
             }
 
-            // Gestione dei set
             const setIdx = parseInt(e.target.dataset.set, 10);
             const setObj = ex.loggedSets?.[setIdx];
             if (!setObj) return;
@@ -284,17 +250,14 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
             const isReps = e.target.classList.contains('set-reps');
             const isRpe = e.target.classList.contains('set-rpe');
 
-            // Salvataggio nel modello dati (riga corrente)
             if (isKg) setObj.weight = parseFloat(val.replace(',', '.')) || 0;
             if (isReps) setObj.reps = val;
             if (isRpe) setObj.rpe = val;
 
-            // Aggiorna Badge Dischi in tempo reale (solo se Set 1 e input KG)
             if (setIdx === 0 && isKg) {
                 updatePlatesBadgeUI(exIdx);
             }
 
-            // Allarme visivo se il carico è fuori range previsto (solo input KG)
             if (isKg) {
                 const numVal = parseFloat(val.replace(',', '.')) || 0;
                 const kgMin = parseFloat(ex.kgMin) || 0;
@@ -311,48 +274,35 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                 }
             }
 
-            // Salva lo stato in LocalStorage/Supabase dopo aver gestito l'input e l'eventuale auto-fill
             saveAndSync(state.workoutData);
         });
     });
 
-    // 2. Listener cambio Bilanciere per ricalcolo Dischi
     DOM.workoutListContainer.querySelectorAll('.bar-select').forEach(select => {
         select.addEventListener('change', (e) => {
             updatePlatesBadgeUI(e.target.dataset.ex);
         });
     });
 
-    // 3. Spunta di blocco riga (Check) -> Gestione indipendente per ogni set, Auto-fill per il primo & Avvio Timer
     DOM.workoutListContainer.querySelectorAll('.set-lock-check').forEach(chk => {
         chk.addEventListener('change', (e) => {
-            // Recupera gli indici dell'esercizio e del set corrente dai dataset dell'elemento
             const exIdx = parseInt(e.target.dataset.ex, 10);
             const setIdx = parseInt(e.target.dataset.set, 10);
             
-            // Ottiene l'oggetto esercizio e l'oggetto set corrispondente dallo stato
             const ex = currentDay.exercises[exIdx];
             const setObj = ex?.loggedSets?.[setIdx];
-
-            // Interrompe l'esecuzione se il set non esiste
             if (!setObj) return;
 
-            // Legge lo stato attuale della spunta (true se spuntato, false altrimenti)
             const isChecked = e.target.checked;
-
-            // 1. Imposta lo stato di blocco specifico della riga corrente nel modello dati
             setObj.isLocked = isChecked;
 
-            // 2. Se viene spuntato il PRIMO SET (indice 0), compila (auto-fill) i set successivi vuoti con i valori correnti
             if (isChecked && setIdx === 0) {
                 ['weight', 'reps', 'rpe'].forEach(prop => {
                     const val = setObj[prop];
                     if (val !== undefined && val !== null && val !== '') {
-                        // Seleziona la classe CSS corretta in base alla proprietà da propagare (kg, reps, rpe)
                         const targetClass = prop === 'weight' ? '.set-kg' : (prop === 'reps' ? '.set-reps' : '.set-rpe');
                         const setRows = DOM.workoutListContainer.querySelectorAll(`${targetClass}[data-ex="${exIdx}"]`);
 
-                        // Scorre i set successivi e compila solo quelli che sono vuoti
                         setRows.forEach((rowInput, idx) => {
                             if (idx > 0 && (!rowInput.value || rowInput.value.trim() === '')) {
                                 rowInput.value = val;
@@ -365,10 +315,8 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                 });
             }
 
-            // Salva lo stato aggiornato in LocalStorage e sincronizza con Supabase
             saveAndSync(state.workoutData);
 
-            // 3. Aggiorna istantaneamente lo stato di abilitazione (disabled/enabled) e lo stile visivo dei campi di ogni singola riga nella UI
             const card = DOM.workoutListContainer.querySelector(`.exercise-card[data-ex="${exIdx}"]`);
             if (card) {
                 card.querySelectorAll('.set-input').forEach(inp => {
@@ -379,11 +327,8 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                 });
             }
 
-            // 4. Se una riga è stata spuntata (bloccata), estrae il tempo di recupero e fa partire il timer flottante
             if (isChecked) {
-                let rawRecovery = 90; // Valore di fallback predefinito a 90 secondi
-                
-                // Cerca dinamicamente tra le proprietà dell'esercizio la chiave del recupero/riposo
+                let rawRecovery = 90;
                 for (const key of Object.keys(ex)) {
                     const lKey = key.toLowerCase();
                     if ((lKey.includes('rest') || lKey.includes('rec') || lKey.includes('tempo') || lKey.includes('pause') || lKey.includes('recupero')) && ex[key]) {
@@ -393,7 +338,6 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                 }
                 const recoveryTime = parseRecoveryTime(rawRecovery);
 
-                // Verifica se il widget grafico del timer esiste già nel DOM, altrimenti lo crea dinamicamente
                 let timerDisplay = document.getElementById('floating-timer-display');
                 if (!timerDisplay) {
                     timerDisplay = document.createElement('div');
@@ -411,28 +355,21 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                     document.body.appendChild(timerDisplay);
                 }
 
-                // Inizializza un Set per tracciare i secondi in cui è già stato emesso il beep negli ultimi secondi
                 const beepedSeconds = new Set();
 
-                // Funzione di callback eseguita ad ogni tick (secondo) del timer
                 const updateTick = (remainingSeconds) => {
                     const mins = Math.floor(remainingSeconds / 60);
                     const secs = remainingSeconds % 60;
                     const timeStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
                     
-                    // Aggiorna il testo formattato del tempo residuo nel widget grafico
                     const textSpan = timerDisplay.querySelector('#timer-text-content');
                     if (textSpan) {
                         textSpan.innerHTML = `⏱️ Recupero: <span style="color: #38bdf8; font-family: monospace;">${timeStr}</span>`;
                     }
                     timerDisplay.style.display = 'flex';
 
-                    // Se il tempo viene incrementato (es. clic su +30s), ripulisce il registro dei beep
-                    if (remainingSeconds > 5) {
-                        beepedSeconds.clear();
-                    }
+                    if (remainingSeconds > 5) beepedSeconds.clear();
 
-                    // Emette un beep acustico (800 Hz) esattamente una volta per ogni secondo negli ultimi 5 secondi
                     if (remainingSeconds <= 5 && remainingSeconds > 0) {
                         if (!beepedSeconds.has(remainingSeconds)) {
                             playBeep(800, 0.15, 'sine');
@@ -441,42 +378,31 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                     }
                 };
 
-                // Funzione di callback eseguita quando il timer scade completamente
                 const updateComplete = () => {
                     const textSpan = timerDisplay.querySelector('#timer-text-content');
                     if (textSpan) {
                         textSpan.innerHTML = `✅ Recupero Terminato!`;
                     }
                     beepedSeconds.clear();
-                    
-                    // Emette un suono acuto e prolungato (1700 Hz per 1.5 secondi) alla fine del recupero
                     playBeep(1700, 1.5, 'sine');
 
-                    // Nasconde automaticamente il widget del timer dopo 3 secondi dal termine
                     setTimeout(() => {
                         timerDisplay.style.display = 'none';
                     }, 3000);
                 };
 
-                // Associa le azioni ai pulsanti di controllo rapido del timer fluttuante
-                timerDisplay.querySelector('#timer-minus-15').onclick = () => {
-                    adjustTimer(-15, updateTick, updateComplete);
-                };
-                timerDisplay.querySelector('#timer-plus-30').onclick = () => {
-                    adjustTimer(30, updateTick, updateComplete);
-                };
+                timerDisplay.querySelector('#timer-minus-15').onclick = () => adjustTimer(-15, updateTick, updateComplete);
+                timerDisplay.querySelector('#timer-plus-30').onclick = () => adjustTimer(30, updateTick, updateComplete);
                 timerDisplay.querySelector('#timer-close').onclick = () => {
                     stopTimer();
                     timerDisplay.style.display = 'none';
                 };
 
-                // Avvia ufficialmente il conto alla rovescia del timer
                 startTimer(recoveryTime, updateTick, updateComplete);
             }
         });
     });
 
-    // 4. Gestione Doppio Click e Swipe (Esclusione massimali)
     DOM.workoutListContainer.querySelectorAll('.exercise-card').forEach(card => {
         const exIdx = card.dataset.ex;
 
@@ -500,9 +426,7 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
     });
 }
 
-/**
- * Registra le gesture di swipe orizzontale
- */
+// --- GESTIONE SWIPE ---
 export function enableCardSwipeGesture(cardElement, onSwipeLeft, onSwipeRight) {
     if (!cardElement) return;
 
@@ -536,9 +460,7 @@ export function enableCardSwipeGesture(cardElement, onSwipeLeft, onSwipeRight) {
         const absX = Math.abs(deltaX);
         const absY = Math.abs(deltaY);
 
-        if (!isSwiping && absY > absX) {
-            return;
-        }
+        if (!isSwiping && absY > absX) return;
 
         if (absX > 15 && absX > absY * 1.5) {
             isSwiping = true;
@@ -572,63 +494,4 @@ export function enableCardSwipeGesture(cardElement, onSwipeLeft, onSwipeRight) {
         cardElement.style.transform = 'translateX(0px)';
         cardElement.style.opacity = '1';
     });
-}
-
-// --- CAMBIO E CANCELLAZIONE MESOCICLO ---
-export function changeMesocycle(delta) {
-    const currentYear = new Date().getFullYear().toString();
-    const mesocycles = state.workoutData.history?.years?.[currentYear]?.mesocycles || [];
-    const currentIndex = state.activeMesocycleIndex || 0;
-    const targetIndex = currentIndex + delta;
-
-    if (delta > 0 && targetIndex >= mesocycles.length) {
-        showNotification(`Il Mesociclo ${targetIndex + 1} non è ancora stato caricato. Importa un file CSV per proseguire.`, 'warning');
-        return;
-    }
-
-    if (delta < 0 && targetIndex < 0) {
-        return;
-    }
-
-    state.activeMesocycleIndex = targetIndex;
-    state.activeWeek = 1;
-    state.activeDay = 1;
-    renderWorkoutList();
-}
-
-export function deleteCurrentMesocycle() {
-    const currentYear = new Date().getFullYear().toString();
-    const mesocycles = state.workoutData.history?.years?.[currentYear]?.mesocycles || [];
-
-    if (mesocycles.length === 0) {
-        showNotification("Nessun mesociclo da eliminare.", "error");
-        return;
-    }
-
-    const activeIdx = state.activeMesocycleIndex || 0;
-    const mesoToDelete = mesocycles[activeIdx];
-
-    if (!confirm(`Sei sicuro di voler eliminare definitivamente il "${mesoToDelete?.name || 'Mesociclo'}"?`)) {
-        return;
-    }
-
-    mesocycles.splice(activeIdx, 1);
-
-    mesocycles.forEach((meso, idx) => {
-        meso.number = idx + 1;
-        meso.name = `Mesociclo ${idx + 1}`;
-    });
-
-    if (activeIdx >= mesocycles.length) {
-        state.activeMesocycleIndex = Math.max(0, mesocycles.length - 1);
-    }
-
-    saveAndSync(state.workoutData);
-    renderWorkoutList();
-    showNotification("Mesociclo eliminato e numerazione riallineata!");
-}
-
-// --- NOTIFICHE ---
-export function showNotification(message, type = 'info') {
-    alert(`${type.toUpperCase()}: ${message}`);
 }

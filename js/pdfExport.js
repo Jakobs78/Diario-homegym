@@ -1,101 +1,197 @@
-export function exportWorkoutPDF(workoutData) {
+// pdfExport.js
+export function exportWorkoutPDF(selectedDay, metadata = {}) {
     const { jsPDF } = window.jspdf;
     if (!jsPDF) {
         alert("Libreria jsPDF non caricata correttamente.");
         return;
     }
 
-    const doc = new jsPDF();
-    let y = 15;
-    const lineHeight = 6;
-    const pageHeight = doc.internal.pageSize.getHeight();
-
-    const checkPageBreak = (needed = 10) => {
-        if (y + needed >= pageHeight - 15) {
-            doc.addPage();
-            y = 15;
-        }
-    };
-
-    // Intestazione
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text("Report Allenamenti - Workout Tracker", 14, y);
-    y += 10;
-
-    const years = workoutData?.history?.years;
-    if (!years || Object.keys(years).length === 0) {
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text("Nessun dato storico presente per l'esportazione.", 14, y);
-        doc.save("workout_report.pdf");
+    if (!selectedDay) {
+        alert("Nessun giorno selezionato o dati non validi.");
         return;
     }
 
-    // Iterazione Anni
-    Object.keys(years).sort().reverse().forEach(yearKey => {
-        checkPageBreak(12);
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(2, 132, 199); // Accent color
-        doc.text(`Anno: ${yearKey}`, 14, y);
-        y += 8;
-
-        const mesocycles = years[yearKey].mesocycles || {};
-        
-        // Iterazione Mesocicli
-        Object.keys(mesocycles).forEach(mesoKey => {
-            const meso = mesocycles[mesoKey];
-            checkPageBreak(10);
-            doc.setFontSize(12);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(22, 163, 74); // Success color
-            doc.text(`  Mesociclo: ${meso.name || mesoKey}`, 16, y);
-            y += 6;
-
-            const weeks = meso.weeks || {};
-            
-            // Iterazione Settimane
-            Object.keys(weeks).forEach(weekKey => {
-                const week = weeks[weekKey];
-                checkPageBreak(8);
-                doc.setFontSize(10);
-                doc.setFont("helvetica", "bold");
-                doc.setTextColor(100, 116, 139); // Text muted
-                doc.text(`    Settimana ${weekKey}`, 20, y);
-                y += 5;
-
-                const days = week.days || {};
-                
-                // Iterazione Giorni
-                Object.keys(days).forEach(dayKey => {
-                    const day = days[dayKey];
-                    checkPageBreak(8);
-                    doc.setFontSize(9);
-                    doc.setFont("helvetica", "bold");
-                    doc.setTextColor(15, 23, 42); // Primary text
-                    doc.text(`      Giorno: ${day.name || dayKey} (${day.date || 'Data N/D'})`, 24, y);
-                    y += 5;
-
-                    // Iterazione Esercizi
-                    (day.exercises || []).forEach(ex => {
-                        checkPageBreak(6);
-                        doc.setFontSize(8);
-                        doc.setFont("helvetica", "normal");
-                        
-                        const setsSummary = (ex.sets || [])
-                            .map(s => `${s.kg || 0}kg x ${s.reps || 0}`)
-                            .join(" | ");
-
-                        doc.text(`        • ${ex.name}: ${setsSummary}`, 28, y);
-                        y += lineHeight;
-                    });
-                    y += 2;
-                });
-            });
-        });
-        y += 4;
+    // Configurazione A4 Ultra-Compatto (210mm x 297mm)
+    const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
     });
 
-    doc.save(`workout_report_${new Date().toISOString().slice(0, 10)}.js.pdf`);
+    const pageWidth = doc.internal.pageSize.getWidth();   // 210 mm
+    const margin = 8;                                     // Margini ridotti a 8mm
+    const contentWidth = pageWidth - (margin * 2);        // 194 mm utili
+    let y = 8;
+
+    // --- 1. INTESTAZIONE COMPATTA ---
+    doc.setFillColor(15, 23, 42); // Slate 900
+    doc.roundedRect(margin, y, contentWidth, 14, 2, 2, 'F');
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(255, 255, 255);
+    const dayTitle = (metadata.dayName || selectedDay.dayName || selectedDay.name || 'Giorno').toUpperCase();
+    doc.text(`REPORT ALLENAMENTO: ${dayTitle}`, margin + 4, y + 5.5);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(148, 163, 184);
+    const mesoText = metadata.mesocycleName || 'Mesociclo 1';
+    const weekText = metadata.weekNumber ? `Settimana ${metadata.weekNumber}` : 'Sett. 1';
+    const athleteText = metadata.athlete || 'Atleta';
+    const dateText = metadata.dayDate || selectedDay.date || new Date().toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' });
+
+    doc.text(`Atleta: ${athleteText}   |   Prog: ${mesoText} - ${weekText}   |   Data: ${dateText}`, margin + 4, y + 10.5);
+
+    y += 17;
+
+    // --- 2. CICLO ESERCIZI ---
+    const exercises = selectedDay.exercises || [];
+    if (exercises.length === 0) {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(8);
+        doc.setTextColor(100, 116, 139);
+        doc.text("Nessun esercizio registrato per questa giornata.", margin, y);
+        y += 6;
+    }
+
+    exercises.forEach((ex, idx) => {
+        const rawSets = Array.isArray(ex.loggedSets) 
+            ? ex.loggedSets 
+            : (Array.isArray(ex.sets) ? ex.sets : []);
+
+        const validSets = rawSets.filter(s => s && typeof s === 'object' && !s.isWarmup);
+        const coachNotes = ex.notes ? ex.notes.trim() : '';
+        const userNotes = ex.userNotes ? ex.userNotes.trim() : '';
+
+        // A. TITOLO ESERCIZIO
+        doc.setFillColor(2, 132, 199); // Sky 600
+        doc.rect(margin, y, 2.5, 4.5, 'F');
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(15, 23, 42);
+        doc.text(`${idx + 1}. ${(ex.name || 'Esercizio').toUpperCase()}`, margin + 4, y + 3.5);
+
+        y += 6;
+
+        // B. NOTE ALLENATORE (COMPATTE)
+        if (coachNotes !== '') {
+            const splitCoach = doc.splitTextToSize(coachNotes, contentWidth - 8);
+            const coachBoxHeight = (splitCoach.length * 3.2) + 4;
+
+            doc.setFillColor(240, 249, 255);
+            doc.setDrawColor(186, 230, 253);
+            doc.setLineWidth(0.2);
+            doc.roundedRect(margin, y, contentWidth, coachBoxHeight, 1.5, 1.5, 'FD');
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(6.5);
+            doc.setTextColor(3, 105, 161);
+            doc.text("NOTE ALLENATORE", margin + 3, y + 3.2);
+
+            doc.setFont("helvetica", "italic");
+            doc.setFontSize(7.5);
+            doc.setTextColor(15, 23, 42);
+            doc.text(splitCoach, margin + 3, y + 6.2);
+
+            y += coachBoxHeight + 2;
+        }
+
+        // C. TABELLA DEI SET (RIGA RIDOTTA A 4.5mm)
+        const colWidths = {
+            set: 24,
+            kg: 55,
+            reps: 57,
+            rpe: 58  // Totale: 194 mm
+        };
+
+        // Intestazione Tabella
+        doc.setFillColor(241, 245, 249);
+        doc.setDrawColor(203, 213, 225);
+        doc.setLineWidth(0.2);
+        doc.rect(margin, y, contentWidth, 4.5, 'FD');
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.setTextColor(51, 65, 85);
+
+        let xCurr = margin;
+        doc.text("SET", xCurr + 2, y + 3.2); xCurr += colWidths.set;
+        doc.text("KG", xCurr + 2, y + 3.2); xCurr += colWidths.kg;
+        doc.text("REPS", xCurr + 2, y + 3.2); xCurr += colWidths.reps;
+        doc.text("RPE", xCurr + 2, y + 3.2);
+
+        y += 4.5;
+
+        // Righe Dati
+        if (validSets.length === 0) {
+            doc.rect(margin, y, contentWidth, 4.5);
+            doc.setFont("helvetica", "italic");
+            doc.setFontSize(7);
+            doc.setTextColor(148, 163, 184);
+            doc.text("-", margin + 2, y + 3.2);
+            y += 4.5;
+        } else {
+            validSets.forEach((s, sIdx) => {
+                if (sIdx % 2 === 1) {
+                    doc.setFillColor(248, 250, 252);
+                    doc.rect(margin, y, contentWidth, 4.5, 'F');
+                }
+                
+                doc.setDrawColor(226, 232, 240);
+                doc.rect(margin, y, contentWidth, 4.5, 'S');
+
+                const kgVal = (s.weight ?? s.kg ?? 0) !== 0 ? `${s.weight ?? s.kg} kg` : '-';
+                const repsVal = (s.reps && String(s.reps).trim() !== '') ? s.reps : '-';
+
+                let rawRpe = s.rpe || ex.targetRpe || ex.rpe || '';
+                const numericMatch = String(rawRpe).match(/[\d.]+/);
+                const rpeVal = numericMatch ? numericMatch[0] : '-';
+
+                xCurr = margin;
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(7.5);
+                doc.setTextColor(15, 23, 42);
+                doc.text(String(sIdx + 1), xCurr + 2, y + 3.2); xCurr += colWidths.set;
+
+                doc.setFont("helvetica", "normal");
+                doc.text(String(kgVal), xCurr + 2, y + 3.2); xCurr += colWidths.kg;
+                doc.text(String(repsVal), xCurr + 2, y + 3.2); xCurr += colWidths.reps;
+                doc.text(String(rpeVal), xCurr + 2, y + 3.2);
+
+                y += 4.5;
+            });
+        }
+
+        // D. NOTE ATLETA (COMPATTE)
+        if (userNotes !== '') {
+            y += 1.5;
+            const splitUser = doc.splitTextToSize(userNotes, contentWidth - 8);
+            const userBoxHeight = (splitUser.length * 3.2) + 4;
+
+            doc.setFillColor(248, 250, 252);
+            doc.setDrawColor(203, 213, 225);
+            doc.setLineWidth(0.2);
+            doc.roundedRect(margin, y, contentWidth, userBoxHeight, 1.5, 1.5, 'FD');
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(6.5);
+            doc.setTextColor(71, 85, 105);
+            doc.text("NOTE ATLETA", margin + 3, y + 3.2);
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(7.5);
+            doc.setTextColor(15, 23, 42);
+            doc.text(splitUser, margin + 3, y + 6.2);
+
+            y += userBoxHeight + 1.5;
+        }
+
+        y += 3.5; // Spazio minimo tra blocchi di esercizi
+    });
+
+    const sanitizedDay = dayTitle.toLowerCase().replace(/\s+/g, '_');
+    doc.save(`report_${sanitizedDay}.pdf`);
 }
