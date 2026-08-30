@@ -247,3 +247,58 @@ export function importProgressCSV(csvText) {
         return { success: false, error: err.message };
     }
 }
+/**
+ * Esporta lo stato attuale o lo storico dei mesocicli in un formato CSV
+ */
+export function exportToCSV(workoutData) {
+    try {
+        const currentYear = state.currentYear || new Date().getFullYear();
+        const mesocycles = workoutData?.history?.years?.[currentYear]?.mesocycles || [];
+
+        if (mesocycles.length === 0) {
+            alert("Nessun dato di mesociclo disponibile per l'esportazione CSV.");
+            return;
+        }
+
+        let csvContent = "Settimana,Giorno,Blocco,Esercizio,Serie,Reps,KgMin,KgMax,Rpe,Recupero,Note\n";
+
+        mesocycles.forEach(meso => {
+            meso.weeks?.forEach(week => {
+                week.days?.forEach(day => {
+                    day.exercises?.forEach(ex => {
+                        ex.sets?.forEach(set => {
+                            const row = [
+                                week.weekNumber || 1,
+                                day.dayNumber || 1,
+                                ex.block || 1,
+                                `"${(ex.name || '').replace(/"/g, '""')}"`,
+                                set.setNumber || 1,
+                                `"${(set.reps || '').toString().replace(/"/g, '""')}"`,
+                                set.weight || 0,
+                                set.weight || 0,
+                                `"${(set.rpe || '').toString().replace(/"/g, '""')}"`,
+                                `"${(ex.rest || '').replace(/"/g, '""')}"`,
+                                `"${(ex.notes || '').replace(/"/g, '""')}"`
+                            ];
+                            csvContent += row.join(",") + "\n";
+                        });
+                    });
+                });
+            });
+        });
+
+        // Crea un blob e avvia il download automatico del file CSV
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `workout_plan_${currentYear}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+    } catch (err) {
+        console.error("Errore durante l'esportazione CSV:", err);
+        alert("Errore durante l'esportazione del file CSV.");
+    }
+}
