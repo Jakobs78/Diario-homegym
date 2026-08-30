@@ -80,11 +80,91 @@ function hideAuthOverlay() {
     }
 }
 export function setupAuthListeners() {
+    // 1. Gestione dei cambiamenti di stato di Supabase (mantiene allineato l'utente)
     supabase.auth.onAuthStateChange((event, session) => {
+        const authOverlay = document.getElementById('auth-overlay');
+        
         if (session && session.user) {
             state.currentUser = session.user;
+            if (authOverlay) authOverlay.style.display = 'none';
         } else {
             state.currentUser = null;
+            if (authOverlay) authOverlay.style.display = 'flex';
         }
     });
+
+    // 2. Gestione del click sul pulsante di login/accesso (usa 'auth-submit-btn' come da index.html)
+    const submitBtn = document.getElementById('auth-submit-btn');
+    const emailInput = document.getElementById('auth-email');
+    const passwordInput = document.getElementById('auth-password');
+    const toggleText = document.getElementById('auth-toggle-text');
+    const authTitle = document.getElementById('auth-title');
+    const errorDiv = document.getElementById('auth-error');
+
+    let isRegistering = false;
+
+    // Gestione del testo per alternare Login / Registrazione dal link testuale
+    if (toggleText) {
+        toggleText.addEventListener('click', () => {
+            isRegistering = !isRegistering;
+            if (isRegistering) {
+                authTitle.textContent = "Registrati al Diario";
+                submitBtn.textContent = "Registrati";
+                toggleText.textContent = "Hai già un account? Accedi";
+            } else {
+                authTitle.textContent = "Accedi al Diario";
+                submitBtn.textContent = "Accedi";
+                toggleText.textContent = "Non hai un account? Registrati";
+            }
+        });
+    }
+
+    // Azione al click sul pulsante principale (funziona perfettamente anche con i touch events di Safari mobile)
+    if (submitBtn) {
+        submitBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const email = emailInput?.value.trim();
+            const password = passwordInput?.value;
+
+            if (!email || !password) {
+                if (errorDiv) {
+                    errorDiv.textContent = "Inserisci email e password.";
+                    errorDiv.style.display = 'block';
+                }
+                return;
+            }
+
+            if (errorDiv) errorDiv.style.display = 'none';
+
+            if (isRegistering) {
+                // Logica di Registrazione
+                try {
+                    const { data, error } = await supabase.auth.signUp({ email, password });
+                    if (error) throw error;
+                    alert("Registrazione completata! Controlla la tua email o accedi ora.");
+                    isRegistering = false;
+                    authTitle.textContent = "Accedi al Diario";
+                    submitBtn.textContent = "Accedi";
+                } catch (err) {
+                    if (errorDiv) {
+                        errorDiv.textContent = err.message;
+                        errorDiv.style.display = 'block';
+                    }
+                }
+            } else {
+                // Logica di Login
+                const result = await loginUser(email, password);
+                if (result.success) {
+                    const authOverlay = document.getElementById('auth-overlay');
+                    if (authOverlay) authOverlay.style.display = 'none';
+                    window.location.reload();
+                } else {
+                    if (errorDiv) {
+                        errorDiv.textContent = result.error;
+                        errorDiv.style.display = 'block';
+                    }
+                }
+            }
+        });
+    }
 }
