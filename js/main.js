@@ -9,13 +9,13 @@ import { exportWorkoutPDF } from './pdfExport.js';
 import { exportToCSV, importWorkoutPlan, importProgressCSV } from './csvHandler.js';
 import { initTheme, toggleTheme } from './theme.js';
 import { renderStatsView, renderProgressView, renderMacroProgressView } from './dashboards.js';
-import { setupAuthListeners, handleLogout, checkSession } from './auth.js';
+import { setupAuthListeners, logoutUser, checkSession } from './auth.js';
 import { deleteCurrentMesocycle, changeMesocycle } from './mesocycle.js';
 import { setupBottomSheet } from './helpers.js';
 import { renderManualView } from './manual.js';
 import { initAudioUnlock } from './audio.js';
 
-window.handleLogout = handleLogout;
+window.logoutUser = logoutUser;
 window.state = state;
 // --- INIZIALIZZAZIONE APP E RISOLUZIONE CONFLITTI ---
 async function initApp() {
@@ -72,7 +72,7 @@ async function initApp() {
 // --- COLLEGAMENTO EVENTI GLOBALI ---
 function setupEventListeners() {
     document.getElementById('theme-toggle-btn')?.addEventListener('click', toggleTheme);
-    document.getElementById('user-info-bar')?.addEventListener('click', window.handleLogout);
+    document.getElementById('user-info-bar')?.addEventListener('click', window.logoutUser);
 
     document.getElementById('prev-meso-btn')?.addEventListener('click', () => changeMesocycle(-1));
     document.getElementById('next-meso-btn')?.addEventListener('click', () => changeMesocycle(1));
