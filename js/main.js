@@ -21,7 +21,6 @@ window.state = state;
 async function initApp() {
     console.log(`Avvio Advanced Workout Tracker v${CONFIG.APP_VERSION}`);
     
-    // 1. Registrazione Service Worker per il caching offline
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js')
             .then(reg => console.log('Service Worker registrato:', reg.scope))
@@ -30,42 +29,37 @@ async function initApp() {
 
     initTheme();
     
-    // 2. Caricamento immediato da LocalStorage (Zero lag)
     const localData = getFromLocalStorage();
     state.workoutData = localData;
     
-    const user = await checkSession();
+    try {
+        const user = await checkSession();
 
-    if (user && navigator.onLine) {
-        // 3. Se ci sono dati offline in sospeso, inviali PRIMA di scaricare quelli remoti
-        if (hasPendingSync()) {
-            console.log("Dati offline rilevati. Sincronizzazione in corso prima del fetch...");
-            await processSyncQueue();
-        }
+        if (user && navigator.onLine) {
+            if (hasPendingSync()) {
+                await processSyncQueue();
+            }
 
-        // 4. Scarica i dati da Supabase
-        const remoteData = await pullDataFromSupabase(user);
-        
-        if (remoteData && remoteData.history) {
-            // 5. Risoluzione dei conflitti tramite Timestamp (Last-Write-Wins)
-            const localTime = new Date(localData.updatedAt || 0).getTime();
-            const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
+            const remoteData = await pullDataFromSupabase(user);
+            
+            if (remoteData && remoteData.history) {
+                const localTime = new Date(localData.updatedAt || 0).getTime();
+                const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
 
-            if (remoteTime > localTime) {
-                console.log("Il cloud contiene dati più recenti. Aggiornamento locale in corso...");
-                state.workoutData = remoteData;
-                // Salva localmente senza ri-accodare la modifica per il cloud
-                saveToLocalStorage(remoteData); 
-            } else {
-                console.log("I dati locali sono già aggiornati o più recenti.");
+                if (remoteTime > localTime) {
+                    state.workoutData = remoteData;
+                    saveToLocalStorage(remoteData); 
+                }
             }
         }
+    } catch (err) {
+        console.warn("Impossibile connettersi a Supabase, avvio in modalità offline:", err);
     }
     
+    // QUESTI DEVONO ESSERE SEMPRE ESEGUITI, ANCHE SE IL CLOUD FALLISCE
     renderWorkoutList();
     setupEventListeners();
     setupAuthListeners();
-    // Inizializza l'ascoltatore per lo sblocco dell'audio su iOS/Safari
     initAudioUnlock();
 }
 
