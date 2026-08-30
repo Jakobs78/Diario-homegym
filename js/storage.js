@@ -4,7 +4,7 @@ import { state, resetState } from './state.js';
 import { pushDataToSupabase, deleteCloudData } from './sync.js';
 import { exportToCSV } from './csvHandler.js';
 
-const PENDING_SYNC_KEY = `${CONFIG.STORAGE_KEY}_pending_sync`;
+const QUEUE_KEY = `${CONFIG.STORAGE_KEY}_sync_queue`; // Nuova chiave per la coda offline
 
 const DEFAULT_WORKOUT_DATA = {
     athlete: { email: null },
@@ -14,6 +14,28 @@ const DEFAULT_WORKOUT_DATA = {
 
 let syncDebounceTimer = null;
 let isSyncing = false;
+
+/**
+ * Gestione della Coda Offline
+ */
+function getQueue() {
+    const queue = localStorage.getItem(QUEUE_KEY);
+    return queue ? JSON.parse(queue) : [];
+}
+
+function enqueueAction(action) {
+    const queue = getQueue();
+    queue.push(action);
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+}
+
+function clearQueue() {
+    localStorage.removeItem(QUEUE_KEY);
+}
+
+export function hasPendingSync() {
+    return getQueue().length > 0;
+}
 
 /**
  * Salvataggio immediato e sincrono in LocalStorage
@@ -41,11 +63,21 @@ export function getFromLocalStorage() {
     }
 }
 
-// Aggiorna in tempo reale se online o offline
-export async function saveAndSync(data) {
+/**
+ * Salvataggio locale + Inserimento in coda + Avvio Sincronizzazione
+ */
+export async function saveAndSync(data, actionType = 'UPDATE_WORKOUT') {
     saveToLocalStorage(data);
-    setPendingSyncFlag(true);
-    updateSyncStatusUI(); // <-- Aggiorna subito il badge in 🟠 Offline o 🟠 Sincronizzazione...
+    
+    // Registra lo snapshot dei dati in coda con ID e Timestamp
+    enqueueAction({
+        id: crypto.randomUUID(),
+        type: actionType,
+        payload: data, 
+        timestamp: Date.now()
+    });
+
+    updateSyncStatusUI(); 
 
     if (!state.currentUser || !navigator.onLine) {
         return;
@@ -58,8 +90,17 @@ export async function saveAndSync(data) {
     }, 1500);
 }
 
+/**
+ * Processamento sequenziale della coda verso Supabase
+ */
 export async function processSyncQueue() {
     if (isSyncing || !state.currentUser || !navigator.onLine) {
+        updateSyncStatusUI();
+        return;
+    }
+
+    const queue = getQueue();
+    if (queue.length === 0) {
         updateSyncStatusUI();
         return;
     }
@@ -68,47 +109,37 @@ export async function processSyncQueue() {
         isSyncing = true;
         updateSyncStatusUI();
         
-        const localData = getFromLocalStorage();
-        const success = await pushDataToSupabase(state.currentUser, localData);
-        
-        if (success !== false) {
-            setPendingSyncFlag(false);
+        // Ordina rigorosamente dal più vecchio al più recente
+        queue.sort((a, b) => a.timestamp - b.timestamp);
+
+        // Processa ogni azione in sequenza
+        for (const action of queue) {
+            // Passiamo anche il timestamp dell'azione per mantenere l'esattezza cronologica su DB
+            const success = await pushDataToSupabase(state.currentUser, action.payload, action.timestamp);
+            if (!success) {
+                throw new Error(`Sincronizzazione fallita per l'azione ${action.id}`);
+            }
         }
+        
+        // Se tutte le chiamate hanno successo, svuota la coda
+        clearQueue();
     } catch (error) {
-        console.error("❌ Errore durante la sincronizzazione cloud:", error);
+        console.error("❌ Errore durante la sincronizzazione cloud (i dati restano in coda):", error);
     } finally {
         isSyncing = false;
-        updateSyncStatusUI(); // <-- Torna a 🟢 Sincronizzato al termine
+        updateSyncStatusUI(); 
     }
 }
 
 /**
- * Gestione dello stato di sincronizzazione pendente
- */
-function setPendingSyncFlag(isPending) {
-    if (isPending) {
-        localStorage.setItem(PENDING_SYNC_KEY, 'true');
-    } else {
-        localStorage.removeItem(PENDING_SYNC_KEY);
-    }
-}
-
-export function hasPendingSync() {
-    return localStorage.getItem(PENDING_SYNC_KEY) === 'true';
-}
-
-/**
- * PROCEDURA DI ELIMINAZIONE TOTALE:
- * Genera l'overlay a schermo intero con doppio avviso e backup CSV
+ * PROCEDURA DI ELIMINAZIONE TOTALE
  */
 export function clearAllData() {
-    // Rimuove eventuali overlay già aperti per sicurezza
     document.querySelector('.danger-overlay')?.remove();
 
     const overlay = document.createElement('div');
     overlay.className = 'danger-overlay';
 
-    // Step 1: Avviso forte + Opzione Backup CSV
     overlay.innerHTML = `
         <div class="danger-modal-card animate-pop">
             <div class="danger-icon-wrapper">
@@ -143,7 +174,6 @@ export function clearAllData() {
 
     document.body.appendChild(overlay);
 
-    // Event Listeners Step 1
     overlay.querySelector('#danger-backup-btn')?.addEventListener('click', () => {
         if (state.workoutData && typeof exportToCSV === 'function') {
             exportToCSV(state.workoutData);
@@ -161,9 +191,6 @@ export function clearAllData() {
     });
 }
 
-/**
- * Step 2: Modal di conferma irreversibile (richiede digitazione "ELIMINA")
- */
 function showFinalConfirmationStep(overlay) {
     const card = overlay.querySelector('.danger-modal-card');
     if (!card) return;
@@ -200,7 +227,6 @@ function showFinalConfirmationStep(overlay) {
     const deleteBtn = card.querySelector('#danger-final-delete-btn');
     const cancelBtn = card.querySelector('#danger-final-cancel-btn');
 
-    // Abilita il pulsante solo quando la parola chiave è corretta
     input?.addEventListener('input', (e) => {
         const value = e.target.value.trim().toUpperCase();
         deleteBtn.disabled = value !== 'ELIMINA';
@@ -213,23 +239,20 @@ function showFinalConfirmationStep(overlay) {
         deleteBtn.innerText = "Eliminazione in corso...";
 
         try {
-            // 1. Eliminazione dati remoti su Supabase
             if (typeof deleteCloudData === 'function') {
                 await deleteCloudData(state.currentUser);
             }
 
-            // 2. Pulizia storage di sistema
             localStorage.clear();
             sessionStorage.clear();
+            clearQueue(); // Pulizia esplicita della coda offline
             
-            // 3. Reset dello stato in memoria
             if (typeof resetState === 'function') {
                 resetState();
             } else {
                 state.workoutData = DEFAULT_WORKOUT_DATA;
             }
 
-            // 4. Ricarica pulita della webapp
             window.location.reload();
         } catch (err) {
             console.error("❌ Errore durante l'eliminazione:", err);
@@ -239,9 +262,7 @@ function showFinalConfirmationStep(overlay) {
         }
     });
 }
-/**
- * Mantenuto per retrocompatibilità
- */
+
 export function clearLocalData() {
     clearAllData();
 }
@@ -255,13 +276,13 @@ export function updateSyncStatusUI() {
 
     if (!navigator.onLine) {
         syncBadge.textContent = '🔴 Offline';
-        syncBadge.title = 'Nessuna connessione internet. I dati sono salvati sul dispositivo.';
+        syncBadge.title = 'Nessuna connessione internet. I dati sono salvati sul dispositivo in attesa di rete.';
     } else if (hasPendingSync()) {
         syncBadge.textContent = '🟠 Sincronizzazione...';
-        syncBadge.title = 'Sincronizzazione dei dati locali con Supabase in corso...';
+        syncBadge.title = 'Sincronizzazione della coda locale verso Supabase in corso...';
     } else {
         syncBadge.textContent = '🟢 Sincronizzato';
-        syncBadge.title = 'Dati aggiornati nel cloud';
+        syncBadge.title = 'Tutti i dati sono allineati con il cloud';
     }
 }
 
@@ -278,5 +299,4 @@ window.addEventListener('offline', () => {
     updateSyncStatusUI();
 });
 
-// Esegue un controllo dello stato immediato all'avvio della pagina
 document.addEventListener('DOMContentLoaded', updateSyncStatusUI);

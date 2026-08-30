@@ -3,6 +3,7 @@ import { playBeep } from './audio.js';
 
 let timerInterval = null;
 let endTime = null;
+let boundVisibilityHandler = null;
 
 /**
  * Converte varie notazioni di tempo di recupero in un valore numerico in secondi.
@@ -12,7 +13,6 @@ export function parseRecoveryTime(input) {
     if (input === null || input === undefined) return 90;
 
     if (typeof input === 'number' && !isNaN(input)) {
-        // Se il numero è piccolo (es. 2, 1.5, 3), nel contesto bodybuilding sono minuti -> convertiamo in secondi
         if (input <= 10) return Math.round(input * 60);
         return input > 0 ? Math.round(input) : 90;
     }
@@ -69,8 +69,18 @@ export function startTimer(durationInput, onTick, onComplete) {
         updateTimerUI(onTick, onComplete);
     }, 250);
 
-    document.removeEventListener("visibilitychange", handleVisibilityChange);
-    document.addEventListener("visibilitychange", () => handleVisibilityChange(onTick, onComplete));
+    // Rimuove il vecchio listener se registrato
+    if (boundVisibilityHandler) {
+        document.removeEventListener("visibilitychange", boundVisibilityHandler);
+    }
+
+    boundVisibilityHandler = () => {
+        if (document.visibilityState === "visible" && endTime) {
+            updateTimerUI(onTick, onComplete);
+        }
+    };
+
+    document.addEventListener("visibilitychange", boundVisibilityHandler);
 }
 
 /**
@@ -100,6 +110,11 @@ export function stopTimer() {
         timerInterval = null;
     }
     endTime = null;
+
+    if (boundVisibilityHandler) {
+        document.removeEventListener("visibilitychange", boundVisibilityHandler);
+        boundVisibilityHandler = null;
+    }
 }
 
 function updateTimerUI(onTick, onComplete) {
@@ -118,13 +133,10 @@ function updateTimerUI(onTick, onComplete) {
     }
 }
 
-function handleVisibilityChange(onTick, onComplete) {
-    if (document.visibilityState === "visible" && endTime) {
-        updateTimerUI(onTick, onComplete);
-    }
-}
-
 function triggerTimerAlert() {
+    // Esegue il beep acustico di fine tempo
+    playBeep(1700, 1.2, 'sine');
+
     if ("vibrate" in navigator) {
         try {
             navigator.vibrate([200, 100, 200, 100, 400]);

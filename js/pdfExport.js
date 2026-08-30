@@ -1,29 +1,38 @@
 // pdfExport.js
-import { state } from './state.js'; // <-- 1. Importato lo state globale
+import { state } from './state.js';
 
 export function exportWorkoutPDF(dayData = null, metadata = null) {
-    // 1. Recupera la classe jsPDF dallo scope globale di window
     const jsPDF = window.jsPDF || window.jspdf?.jsPDF;
 
     if (!jsPDF) {
         alert("Libreria jsPDF non trovata. Assicurati che sia inclusa in index.html.");
         return;
     }
-    // Se non vengono passati parametri espliciti, li ricava dallo state globale
+
+    // Fallback basato coerentemente su activeMesocycleIndex (0-based)
     if (!dayData) {
-        const currentMesoKey = state.currentMesocycle || 1;
+        const currentMesoIdx = state.activeMesocycleIndex !== undefined ? state.activeMesocycleIndex : 0;
         const currentWeekNum = state.activeWeek || 1;
         const currentDayNum = state.activeDay || 1;
         
         const yearData = state.workoutData?.history?.years?.[state.currentYear || new Date().getFullYear()];
-        const meso = yearData?.mesocycles?.[currentMesoKey - 1] || yearData?.mesocycles?.[currentMesoKey];
-        const week = meso?.weeks?.[currentWeekNum - 1] || meso?.weeks?.[currentWeekNum];
-        dayData = week?.days?.[currentDayNum - 1] || week?.days?.[currentDayNum];
+        const mesos = yearData?.mesocycles || [];
+        const meso = mesos[currentMesoIdx] || mesos[0];
+        
+        const weeks = meso?.weeks || [];
+        const week = Array.isArray(weeks) 
+            ? weeks[currentWeekNum - 1] 
+            : (weeks[currentWeekNum] || weeks[Object.keys(weeks)[currentWeekNum - 1]]);
+            
+        const days = week?.days || [];
+        dayData = Array.isArray(days) 
+            ? days[currentDayNum - 1] 
+            : (days[currentDayNum] || days[Object.keys(days)[0]]);
 
         metadata = {
-            mesocycleName: `Mesociclo ${currentMesoKey}`,
+            mesocycleName: meso?.name || `Mesociclo ${currentMesoIdx + 1}`,
             weekNumber: currentWeekNum,
-            dayName: dayData?.name || `Giorno ${currentDayNum}`,
+            dayName: dayData?.dayName || dayData?.name || `Giorno ${currentDayNum}`,
             dayDate: dayData?.date || '',
             coachNotes: week?.coachNotes || ''
         };
@@ -34,24 +43,21 @@ export function exportWorkoutPDF(dayData = null, metadata = null) {
         return;
     }
 
-    // 2. Uniformata la variabile per la compatibilità con il layout sottostante
     const selectedDay = dayData;
     metadata = metadata || {};
 
-    // Configurazione A4 Ultra-Compatto (210mm x 297mm)
     const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4'
     });
 
-    const pageWidth = doc.internal.pageSize.getWidth();   // 210 mm
-    const margin = 8;                                     // Margini ridotti a 8mm
-    const contentWidth = pageWidth - (margin * 2);        // 194 mm utili
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 8;
+    const contentWidth = pageWidth - (margin * 2);
     let y = 8;
 
-    // --- 1. INTESTAZIONE COMPATTA ---
-    doc.setFillColor(15, 23, 42); // Slate 900
+    doc.setFillColor(15, 23, 42);
     doc.roundedRect(margin, y, contentWidth, 14, 2, 2, 'F');
 
     doc.setFont("helvetica", "bold");
@@ -65,14 +71,13 @@ export function exportWorkoutPDF(dayData = null, metadata = null) {
     doc.setTextColor(148, 163, 184);
     const mesoText = metadata.mesocycleName || 'Mesociclo 1';
     const weekText = metadata.weekNumber ? `Settimana ${metadata.weekNumber}` : 'Sett. 1';
-    const athleteText = metadata.athlete || 'Atleta';
+    const athleteText = metadata.athlete || state.workoutData?.athlete?.email || 'Atleta';
     const dateText = metadata.dayDate || selectedDay.date || new Date().toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' });
 
     doc.text(`Atleta: ${athleteText}   |   Prog: ${mesoText} - ${weekText}   |   Data: ${dateText}`, margin + 4, y + 10.5);
 
     y += 17;
 
-    // --- 2. CICLO ESERCIZI ---
     const exercises = selectedDay.exercises || [];
     if (exercises.length === 0) {
         doc.setFont("helvetica", "italic");
@@ -91,8 +96,7 @@ export function exportWorkoutPDF(dayData = null, metadata = null) {
         const coachNotes = ex.notes ? ex.notes.trim() : '';
         const userNotes = ex.userNotes ? ex.userNotes.trim() : '';
 
-        // A. TITOLO ESERCIZIO
-        doc.setFillColor(2, 132, 199); // Sky 600
+        doc.setFillColor(2, 132, 199);
         doc.rect(margin, y, 2.5, 4.5, 'F');
 
         doc.setFont("helvetica", "bold");
@@ -102,7 +106,6 @@ export function exportWorkoutPDF(dayData = null, metadata = null) {
 
         y += 6;
 
-        // B. NOTE ALLENATORE (COMPATTE)
         if (coachNotes !== '') {
             const splitCoach = doc.splitTextToSize(coachNotes, contentWidth - 8);
             const coachBoxHeight = (splitCoach.length * 3.2) + 4;
@@ -125,15 +128,8 @@ export function exportWorkoutPDF(dayData = null, metadata = null) {
             y += coachBoxHeight + 2;
         }
 
-        // C. TABELLA DEI SET (RIGA RIDOTTA A 4.5mm)
-        const colWidths = {
-            set: 24,
-            kg: 55,
-            reps: 57,
-            rpe: 58  // Totale: 194 mm
-        };
+        const colWidths = { set: 24, kg: 55, reps: 57, rpe: 58 };
 
-        // Intestazione Tabella
         doc.setFillColor(241, 245, 249);
         doc.setDrawColor(203, 213, 225);
         doc.setLineWidth(0.2);
@@ -151,7 +147,6 @@ export function exportWorkoutPDF(dayData = null, metadata = null) {
 
         y += 4.5;
 
-        // Righe Dati
         if (validSets.length === 0) {
             doc.rect(margin, y, contentWidth, 4.5);
             doc.setFont("helvetica", "italic");
@@ -171,13 +166,11 @@ export function exportWorkoutPDF(dayData = null, metadata = null) {
 
                 const kgVal = (s.weight ?? s.kg ?? 0) !== 0 ? `${s.weight ?? s.kg} kg` : '-';
                 const repsVal = (s.reps && String(s.reps).trim() !== '') ? s.reps : '-';
-
-                let rawRpe = s.rpe || ex.targetRpe || ex.rpe || '';
+                const rawRpe = s.rpe || ex.targetRpe || ex.rpe || '';
                 const numericMatch = String(rawRpe).match(/[\d.]+/);
                 const rpeVal = numericMatch ? numericMatch[0] : '-';
 
                 xCurr = margin;
-
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(7.5);
                 doc.setTextColor(15, 23, 42);
@@ -192,7 +185,6 @@ export function exportWorkoutPDF(dayData = null, metadata = null) {
             });
         }
 
-        // D. NOTE ATLETA (COMPATTE)
         if (userNotes !== '') {
             y += 1.5;
             const splitUser = doc.splitTextToSize(userNotes, contentWidth - 8);
@@ -216,7 +208,7 @@ export function exportWorkoutPDF(dayData = null, metadata = null) {
             y += userBoxHeight + 1.5;
         }
 
-        y += 3.5; // Spazio minimo tra blocchi di esercizi
+        y += 3.5;
     });
 
     const sanitizedDay = dayTitle.toLowerCase().replace(/\s+/g, '_');

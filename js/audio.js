@@ -1,4 +1,4 @@
-// audio.js
+// js/audio.js
 let audioCtx = null;
 
 function getAudioContext() {
@@ -25,7 +25,7 @@ export function playBeep(frequency = 800, duration = 0.15, type = 'sine') {
         oscillator.type = type;
         oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
 
-        // Volume calibrato e pulito per evitare distorsioni
+        // Volume calibrato per evitare distorsioni
         gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
 
@@ -37,4 +37,30 @@ export function playBeep(frequency = 800, duration = 0.15, type = 'sine') {
     } catch (e) {
         console.warn("Riproduzione audio non riuscita:", e);
     }
+}
+
+export function initAudioUnlock() {
+    const unlockAudio = () => {
+        const ctx = getAudioContext(); 
+        
+        if (ctx) {
+            // Crea un impulso sonoro silenzioso al primo tocco per sbloccare l'AudioContext su Safari iOS
+            const oscillator = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            
+            gainNode.gain.value = 0; 
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            
+            oscillator.start(0);
+            oscillator.stop(0.1);
+        }
+
+        document.removeEventListener('touchstart', unlockAudio);
+        document.removeEventListener('click', unlockAudio);
+    };
+
+    document.addEventListener('touchstart', unlockAudio, { once: true });
+    document.addEventListener('click', unlockAudio, { once: true });
 }

@@ -4,6 +4,7 @@ import { saveAndSync } from './storage.js';
 import { formatExerciseSummary, getPlateBreakdown } from './helpers.js';
 import { startTimer, stopTimer, adjustTimer, parseRecoveryTime } from './timer.js';
 import { playBeep } from './audio.js';
+import { updateMesocycleUI } from './mesocycle.js';
 
 export const DOM = {
     appContainer: document.getElementById('app-container'),
@@ -44,6 +45,8 @@ export function renderWorkoutList() {
     const targetWeek = (meso.weeks || []).find(w => w.weekNumber === activeWeekNum) || meso.weeks?.[0];
 
     if (!targetWeek) return;
+
+    updateMesocycleUI();
 
     // 2. BANNER STORICO CONGELATO
     if (isPastMeso) {
@@ -429,6 +432,10 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
 // --- GESTIONE SWIPE ---
 export function enableCardSwipeGesture(cardElement, onSwipeLeft, onSwipeRight) {
     if (!cardElement) return;
+
+    // OTTIMIZZAZIONE: Forza il browser a gestire solo lo scroll verticale nativo.
+    // Blocca le gesture orizzontali di sistema (fondamentale per Safari iOS) per permettere lo swipe fluido delle card.
+    cardElement.style.touchAction = 'pan-y';
 
     let startX = 0;
     let startY = 0;

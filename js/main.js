@@ -1,84 +1,108 @@
 // main.js
 import { CONFIG } from './config.js';
 import { state } from './state.js';
-import { getFromLocalStorage, saveAndSync, clearLocalData } from './storage.js';
+// Importiamo le nuove funzioni di gestione coda
+import { getFromLocalStorage, saveToLocalStorage, hasPendingSync, processSyncQueue, clearLocalData } from './storage.js';
 import { pullDataFromSupabase } from './sync.js';
 import { renderWorkoutList } from './ui.js';
-import { startTimer, stopTimer, adjustTimer } from './timer.js';
 import { exportWorkoutPDF } from './pdfExport.js';
 import { exportToCSV, importWorkoutPlan, importProgressCSV } from './csvHandler.js';
 import { initTheme, toggleTheme } from './theme.js';
 import { renderStatsView, renderProgressView, renderMacroProgressView } from './dashboards.js';
 import { setupAuthListeners, handleLogout, checkSession } from './auth.js';
-import { deleteCurrentMesocycle, changeMesocycle} from './mesocycle.js';
+import { deleteCurrentMesocycle, changeMesocycle } from './mesocycle.js';
 import { setupBottomSheet } from './helpers.js';
 import { renderManualView } from './manual.js';
+import { initAudioUnlock } from './audio.js';
 
 window.handleLogout = handleLogout;
-
-// --- INIZIALIZZAZIONE APP ---
+window.state = state;
+// --- INIZIALIZZAZIONE APP E RISOLUZIONE CONFLITTI ---
 async function initApp() {
     console.log(`Avvio Advanced Workout Tracker v${CONFIG.APP_VERSION}`);
     
+    // 1. Registrazione Service Worker per il caching offline
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('Service Worker registrato:', reg.scope))
+            .catch(err => console.warn('Errore registrazione Service Worker:', err));
+    }
+
     initTheme();
     
-    // Carica i dati locali immediati per un avvio istantaneo
-    state.workoutData = getFromLocalStorage();
+    // 2. Caricamento immediato da LocalStorage (Zero lag)
+    const localData = getFromLocalStorage();
+    state.workoutData = localData;
     
-    // Controlla se c'è un utente autenticato
     const user = await checkSession();
 
     if (user && navigator.onLine) {
+        // 3. Se ci sono dati offline in sospeso, inviali PRIMA di scaricare quelli remoti
+        if (hasPendingSync()) {
+            console.log("Dati offline rilevati. Sincronizzazione in corso prima del fetch...");
+            await processSyncQueue();
+        }
+
+        // 4. Scarica i dati da Supabase
         const remoteData = await pullDataFromSupabase(user);
+        
         if (remoteData && remoteData.history) {
-            state.workoutData = remoteData;
-            saveAndSync(remoteData);
+            // 5. Risoluzione dei conflitti tramite Timestamp (Last-Write-Wins)
+            const localTime = new Date(localData.updatedAt || 0).getTime();
+            const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
+
+            if (remoteTime > localTime) {
+                console.log("Il cloud contiene dati più recenti. Aggiornamento locale in corso...");
+                state.workoutData = remoteData;
+                // Salva localmente senza ri-accodare la modifica per il cloud
+                saveToLocalStorage(remoteData); 
+            } else {
+                console.log("I dati locali sono già aggiornati o più recenti.");
+            }
         }
     }
     
     renderWorkoutList();
     setupEventListeners();
     setupAuthListeners();
+    // Inizializza l'ascoltatore per lo sblocco dell'audio su iOS/Safari
+    initAudioUnlock();
 }
 
 // --- COLLEGAMENTO EVENTI GLOBALI ---
 function setupEventListeners() {
-    // 1. Tema & Logout
     document.getElementById('theme-toggle-btn')?.addEventListener('click', toggleTheme);
     document.getElementById('user-info-bar')?.addEventListener('click', window.handleLogout);
 
-    // 2. Navigazione Mesociclo (Header fisso se presente)
     document.getElementById('prev-meso-btn')?.addEventListener('click', () => changeMesocycle(-1));
     document.getElementById('next-meso-btn')?.addEventListener('click', () => changeMesocycle(1));
 
-    // 3. Menu Analisi & Dashboard (Bottom Sheet)
     setupBottomSheet({
-    modalId: 'analytics-modal',
-    openBtnId: 'open-analytics-btn',
-    closeBtnId: 'close-analytics-btn',
-    timeoutMs: 6000,
-    onSelect: (viewId) => {
-        const workoutContainer = document.getElementById('workout-list-container');
-        if (workoutContainer) workoutContainer.style.display = 'none';
-        document.querySelectorAll('.day-view').forEach(el => el.style.display = 'none');
+        modalId: 'analytics-modal',
+        openBtnId: 'open-analytics-btn',
+        closeBtnId: 'close-analytics-btn',
+        timeoutMs: 6000,
+        onSelect: (viewId) => {
+            const workoutContainer = document.getElementById('workout-list-container');
+            if (workoutContainer) workoutContainer.style.display = 'none';
+            document.querySelectorAll('.day-view').forEach(el => el.style.display = 'none');
 
-        if (viewId === 'workout') {
-            state.activeView = 'workout';
-            renderWorkoutList();
-        } else {
-            state.activeView = viewId;
-            const targetView = document.getElementById(viewId);
-            if (targetView) {
-                targetView.style.display = 'block';
-                if (viewId === 'stats') renderStatsView();
-                if (viewId === 'progress') renderProgressView();
-                if (viewId === 'macro-progress') renderMacroProgressView();
+            if (viewId === 'workout') {
+                state.activeView = 'workout';
+                renderWorkoutList();
+            } else {
+                state.activeView = viewId;
+                const targetView = document.getElementById(viewId);
+                if (targetView) {
+                    targetView.style.display = 'block';
+                    if (viewId === 'stats') renderStatsView();
+                    if (viewId === 'progress') renderProgressView();
+                    if (viewId === 'macro-progress') renderMacroProgressView();
+                }
             }
-        }
         }
     });
 
-    // --- Bottom Sheet Strumenti & Gestione ---
     setupBottomSheet({
         modalId: 'tools-modal',
         openBtnId: 'open-tools-btn',
@@ -97,8 +121,7 @@ function setupEventListeners() {
                     break;
                 }
                 case 'export-pdf':
-                    // Chiama direttamente il modulo PDF
-                    exportWorkoutPDF(); 
+                    handlePdfExportFromState();
                     break;
                 case 'import-plan':
                     document.getElementById('import-plan-input')?.click();
@@ -119,7 +142,6 @@ function setupEventListeners() {
         }
     });
 
-    // 4. Manuale d'uso
     document.getElementById('manual-btn')?.addEventListener('click', () => {
         document.getElementById('workout-list-container').style.display = 'none';
         document.querySelectorAll('.day-view').forEach(el => el.style.display = 'none');
@@ -131,87 +153,100 @@ function setupEventListeners() {
         }
     });
 
-    // 5. Utility, Import/Export & PDF
-    document.getElementById('import-plan-input')?.addEventListener('change', (e) => importWorkoutPlan(e));
-    document.getElementById('export-csv-btn')?.addEventListener('click', () => exportToCSV(state.workoutData));
-    document.getElementById('import-history-input')?.addEventListener('change', (e) => importProgressCSV(e));
-    
-    document.getElementById('export-pdf-btn')?.addEventListener('click', () => {
-        const years = state.workoutData?.history?.years || {};
-        const yearKeys = Object.keys(years);
-        
-        if (yearKeys.length === 0) {
-            alert("Nessun dato storico presente per l'esportazione.");
-            return;
-        }
-
-        const activeYearKey = state.currentYear || yearKeys.sort().pop();
-        const yearObj = years[activeYearKey];
-        const activeMesoKey = state.currentMesocycle !== undefined ? state.currentMesocycle : 1;
-        const activeWeekNum = state.activeWeek || 1;
-        const activeDayNum = state.activeDay || 1;
-
-        let selectedWeek = null;
-        if (yearObj && yearObj.mesocycles) {
-            const mesos = yearObj.mesocycles;
-            let meso = Array.isArray(mesos)
-                ? (mesos[activeMesoKey - 1] || mesos[activeMesoKey] || mesos[0])
-                : (mesos[activeMesoKey] || mesos[String(activeMesoKey)] || mesos[Object.keys(mesos)[0]]);
-
-            if (meso && meso.weeks) {
-                const weeks = meso.weeks;
-                if (Array.isArray(weeks)) {
-                    selectedWeek = weeks[activeWeekNum - 1] || weeks[activeWeekNum];
-                } else if (typeof weeks === 'object') {
-                    selectedWeek = weeks[activeWeekNum] || weeks[String(activeWeekNum)] || weeks[Object.keys(weeks)[activeWeekNum - 1]];
-                }
-            }
-        }
-
-        if (!selectedWeek || !selectedWeek.days) {
-            alert("Nessun dato trovato per la settimana selezionata.");
-            return;
-        }
-
-        const days = selectedWeek.days;
-        let selectedDay = null;
-
-        if (Array.isArray(days)) {
-            selectedDay = days[activeDayNum - 1] || days[activeDayNum] || days[0];
-        } else if (typeof days === 'object') {
-            const dayKeys = Object.keys(days);
-            selectedDay = days[activeDayNum] || days[String(activeDayNum)] || days[dayKeys[activeDayNum - 1]] || days[dayKeys[0]];
-        }
-
-        if (!selectedDay) {
-            alert("Nessun giorno selezionato trovato.");
-            return;
-        }
-
-        const metadata = {
-            mesocycleName: `Mesociclo ${activeMesoKey}`,
-            weekNumber: activeWeekNum,
-            dayName: selectedDay.name || `Giorno ${activeDayNum}`,
-            dayDate: selectedDay.date || '',
-            coachNotes: selectedWeek.coachNotes || ''
+    // Gestione corretta della lettura file CSV per il Piano di Allenamento
+    document.getElementById('import-plan-input')?.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const result = importWorkoutPlan(event.target.result);
+            if (result.success) renderWorkoutList(); // Aggiorna la UI dopo l'import
+            alert(result.message || result.error);
         };
-
-        exportWorkoutPDF(selectedDay, metadata);
+        reader.readAsText(file);
+        e.target.value = ''; // Resetta l'input
     });
 
-    // 6. Zona Pericolosa & Timer
-    document.getElementById('reset-meso-btn')?.addEventListener('click', deleteCurrentMesocycle);
-    document.getElementById('clear-data-btn')?.addEventListener('click', clearLocalData);
-    document.getElementById('timer-minus-15')?.addEventListener('click', () => adjustTimer(-15));
-    document.getElementById('timer-plus-30')?.addEventListener('click', () => adjustTimer(30));
-    document.getElementById('stop-timer-btn')?.addEventListener('click', stopTimer);
-    document.getElementById('timer-display')?.addEventListener('click', () => startTimer(90));
+    // Gestione corretta della lettura file CSV per lo Storico
+    document.getElementById('import-history-input')?.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const result = importProgressCSV(event.target.result);
+            alert(result.message || result.error);
+        };
+        reader.readAsText(file);
+        e.target.value = ''; // Resetta l'input
+    });
 
-    // 7. Selettore Settimana
     document.getElementById('week-selector')?.addEventListener('change', (e) => {
         state.activeWeek = parseInt(e.target.value, 10);
         renderWorkoutList();
     });
+}
+
+function handlePdfExportFromState() {
+    const years = state.workoutData?.history?.years || {};
+    const yearKeys = Object.keys(years);
+    
+    if (yearKeys.length === 0) {
+        alert("Nessun dato storico presente per l'esportazione.");
+        return;
+    }
+
+    const activeYearKey = state.currentYear || yearKeys.sort().pop();
+    const yearObj = years[activeYearKey];
+    const activeMesoKey = state.currentMesocycle !== undefined ? state.currentMesocycle : (state.activeMesocycleIndex + 1);
+    const activeWeekNum = state.activeWeek || 1;
+    const activeDayNum = state.activeDay || 1;
+
+    let selectedWeek = null;
+    if (yearObj && yearObj.mesocycles) {
+        const mesos = yearObj.mesocycles;
+        let meso = Array.isArray(mesos)
+            ? (mesos[activeMesoKey - 1] || mesos[activeMesoKey] || mesos[0])
+            : (mesos[activeMesoKey] || mesos[String(activeMesoKey)] || mesos[Object.keys(mesos)[0]]);
+
+        if (meso && meso.weeks) {
+            const weeks = meso.weeks;
+            if (Array.isArray(weeks)) {
+                selectedWeek = weeks[activeWeekNum - 1] || weeks[activeWeekNum];
+            } else if (typeof weeks === 'object') {
+                selectedWeek = weeks[activeWeekNum] || weeks[String(activeWeekNum)] || weeks[Object.keys(weeks)[activeWeekNum - 1]];
+            }
+        }
+    }
+
+    if (!selectedWeek || !selectedWeek.days) {
+        alert("Nessun dato trovato per la settimana selezionata.");
+        return;
+    }
+
+    const days = selectedWeek.days;
+    let selectedDay = null;
+
+    if (Array.isArray(days)) {
+        selectedDay = days[activeDayNum - 1] || days[activeDayNum] || days[0];
+    } else if (typeof days === 'object') {
+        const dayKeys = Object.keys(days);
+        selectedDay = days[activeDayNum] || days[String(activeDayNum)] || days[dayKeys[activeDayNum - 1]] || days[dayKeys[0]];
+    }
+
+    if (!selectedDay) {
+        alert("Nessun giorno selezionato trovato.");
+        return;
+    }
+
+    const metadata = {
+        mesocycleName: `Mesociclo ${activeMesoKey}`,
+        weekNumber: activeWeekNum,
+        dayName: selectedDay.dayName || selectedDay.name || `Giorno ${activeDayNum}`,
+        dayDate: selectedDay.date || '',
+        coachNotes: selectedWeek.coachNotes || ''
+    };
+
+    exportWorkoutPDF(selectedDay, metadata);
 }
 
 document.addEventListener('DOMContentLoaded', initApp);

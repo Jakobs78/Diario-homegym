@@ -1,17 +1,11 @@
 // sync.js
 import { supabase, CONFIG } from './config.js';
 
-/**
- * Verifica se un'email è autorizzata tramite la whitelist in config.js
- */
 function isEmailWhitelisted(email) {
     if (!CONFIG.WHITELIST || CONFIG.WHITELIST.length === 0) return true;
     return CONFIG.WHITELIST.map(e => e.toLowerCase()).includes(email?.toLowerCase());
 }
 
-/**
- * Gestisce il login dell'utente con controllo Whitelist
- */
 export async function loginUser(email, password) {
     if (!supabase) {
         alert("Client Supabase non configurato correttamente in config.js.");
@@ -34,9 +28,6 @@ export async function loginUser(email, password) {
     }
 }
 
-/**
- * Gestisce la registrazione di un nuovo account con controllo Whitelist
- */
 export async function signupUser(email, password) {
     if (!supabase) {
         alert("Client Supabase non configurato correttamente in config.js.");
@@ -60,9 +51,6 @@ export async function signupUser(email, password) {
     }
 }
 
-/**
- * Scarica il payload JSON da Supabase accettando sia stringhe email che oggetti utente
- */
 export async function pullDataFromSupabase(userOrEmail) {
     if (!supabase) return null;
 
@@ -85,21 +73,24 @@ export async function pullDataFromSupabase(userOrEmail) {
 }
 
 /**
- * Salva/Aggiorna il payload JSON su Supabase ritornando uno stato booleano per la coda di storage.js
+ * Salva/Aggiorna il payload JSON su Supabase utilizzando il timestamp originario dell'azione
  */
-export async function pushDataToSupabase(userOrEmail, payload) {
+export async function pushDataToSupabase(userOrEmail, payload, actionTimestamp = null) {
     if (!supabase) return false;
 
     const email = typeof userOrEmail === 'object' ? userOrEmail?.email : userOrEmail;
     if (!email) return false;
 
     try {
+        // Usa il timestamp in cui l'azione è stata compiuta offline, oppure quello attuale se assente
+        const updatedAt = actionTimestamp ? new Date(actionTimestamp).toISOString() : new Date().toISOString();
+
         const { error } = await supabase
             .from('workouts')
             .upsert({ 
                 email: email, 
                 payload: payload, 
-                updated_at: new Date().toISOString() 
+                updated_at: updatedAt 
             }, { onConflict: 'email' });
 
         if (error) throw error;
@@ -110,9 +101,6 @@ export async function pushDataToSupabase(userOrEmail, payload) {
     }
 }
 
-/**
- * Esegue il logout
- */
 export async function logoutUser() {
     if (!supabase) return false;
     try {
@@ -126,13 +114,9 @@ export async function logoutUser() {
     }
 }
 
-/**
- * Elimina definitivamente il record dell'utente dalla tabella Supabase
- */
 export async function deleteCloudData(userOrEmail = null) {
     if (!supabase) return false;
 
-    // Recupera l'email dal parametro passato o direttamente dalla sessione Supabase attiva
     let email = typeof userOrEmail === 'object' ? userOrEmail?.email : userOrEmail;
 
     if (!email) {

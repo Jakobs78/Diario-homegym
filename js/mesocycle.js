@@ -20,10 +20,12 @@ export function changeMesocycle(delta) {
 
     if (delta < 0 && targetIndex < 0) return;
 
-    state.activeMesocycleIndex = targetIndex;
-    state.activeWeek = 1;
-    state.activeDay = 1;
-    renderWorkoutList();
+    if (targetIndex !== currentIndex) {
+        state.activeMesocycleIndex = targetIndex;
+        state.activeWeek = 1;
+        state.activeDay = 1;
+        renderWorkoutList();
+    }
 }
 
 /**
@@ -59,4 +61,24 @@ export function deleteCurrentMesocycle() {
     saveAndSync(state.workoutData);
     renderWorkoutList();
     showNotification("Mesociclo eliminato e numerazione riallineata!");
+}
+
+/**
+ * Aggiorna graficamente il contatore e lo stato dei pulsanti del mesociclo
+ */
+export function updateMesocycleUI() {
+    const currentYear = new Date().getFullYear().toString();
+    const mesos = state.workoutData?.history?.years?.[currentYear]?.mesocycles || [];
+    const currentIndex = state.activeMesocycleIndex || 0;
+    
+    const mesoDisplay = document.getElementById('meso-display');
+    const prevBtn = document.getElementById('prev-meso-btn');
+    const nextBtn = document.getElementById('next-meso-btn');
+
+    if (mesoDisplay) {
+        mesoDisplay.textContent = (mesos.length > 0) ? (currentIndex + 1) : 1;
+    }
+
+    if (prevBtn) prevBtn.disabled = (currentIndex <= 0 || mesos.length === 0);
+    if (nextBtn) nextBtn.disabled = (currentIndex >= mesos.length - 1 || mesos.length === 0);
 }
