@@ -1,7 +1,7 @@
 // js/auth.js
 import { supabase} from './config.js'
 import { state } from './state.js';
-import { saveAndSync } from './storage.js';
+import { saveAndSync, getFromLocalStorage } from './storage.js';
 import { pullDataFromSupabase, loginUser, logoutUser, signupUser } from './sync.js';
 import { renderWorkoutList } from './ui.js';
 import { showNotification } from './helpers.js';
@@ -23,8 +23,6 @@ export async function handleLogout() {
         
         const authOverlay = document.getElementById('auth-overlay');
         if (authOverlay) authOverlay.style.display = 'flex';
-        
-        showNotification('Sei uscito dall\'account.');
     }
 }
 
@@ -99,7 +97,6 @@ export function setupAuthListeners() {
                     saveAndSync(state.workoutData);
                 }
                 renderWorkoutList();
-                showNotification(`Bentornato ${user.email}!`);
             }
         }
     });
@@ -108,25 +105,50 @@ export function setupAuthListeners() {
  * Verifica se esiste una sessione Supabase attiva al ricaricamento della pagina.
  */
 export async function checkSession() {
-    // Se Supabase è configurato, recupera la sessione corrente
-    const { data: { session } } = await supabase.auth.getSession();
+    // 1. Se siamo OFFLINE, ripristina la sessione dall'ultimo utente salvato in locale
+    if (!navigator.onLine) {
+        const localData = getFromLocalStorage();
+        const localEmail = localData?.athlete?.email;
 
-    if (session?.user) {
-        state.currentUser = session.user.email;
-        state.workoutData.athlete.email = session.user.email;
+        if (localEmail) {
+            state.currentUser = localEmail;
+            state.workoutData = localData;
 
-        // Aggiorna la barra utente nell'interfaccia
-        const userInfoBar = document.getElementById('user-info-bar');
-        if (userInfoBar) userInfoBar.style.display = 'flex';
+            const userInfoBar = document.getElementById('user-info-bar');
+            if (userInfoBar) userInfoBar.style.display = 'flex';
 
-        const emailDisplay = document.getElementById('user-email-display');
-        if (emailDisplay) emailDisplay.textContent = session.user.email;
+            const emailDisplay = document.getElementById('user-email-display');
+            if (emailDisplay) emailDisplay.textContent = localEmail;
 
-        // Nascondi il modal di login
-        const authOverlay = document.getElementById('auth-overlay');
-        if (authOverlay) authOverlay.style.display = 'none';
+            const authOverlay = document.getElementById('auth-overlay');
+            if (authOverlay) authOverlay.style.display = 'none';
 
-        return session.user;
+            return { email: localEmail };
+        }
+        return null;
+    }
+
+    // 2. Se siamo ONLINE, verifica normalmente su Supabase
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (session?.user) {
+            state.currentUser = session.user.email;
+            state.workoutData.athlete.email = session.user.email;
+
+            const userInfoBar = document.getElementById('user-info-bar');
+            if (userInfoBar) userInfoBar.style.display = 'flex';
+
+            const emailDisplay = document.getElementById('user-email-display');
+            if (emailDisplay) emailDisplay.textContent = session.user.email;
+
+            const authOverlay = document.getElementById('auth-overlay');
+            if (authOverlay) authOverlay.style.display = 'none';
+
+            return session.user;
+        }
+    } catch (err) {
+        console.warn("⚠️ Verifica sessione Supabase fallita (offline/errore):", err.message);
     }
     
     return null;

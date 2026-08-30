@@ -125,3 +125,33 @@ export async function logoutUser() {
         return false;
     }
 }
+
+/**
+ * Elimina definitivamente il record dell'utente dalla tabella Supabase
+ */
+export async function deleteCloudData(userOrEmail = null) {
+    if (!supabase) return false;
+
+    // Recupera l'email dal parametro passato o direttamente dalla sessione Supabase attiva
+    let email = typeof userOrEmail === 'object' ? userOrEmail?.email : userOrEmail;
+
+    if (!email) {
+        const { data } = await supabase.auth.getUser();
+        email = data?.user?.email;
+    }
+
+    if (!email) return false;
+
+    try {
+        const { error } = await supabase
+            .from('workouts')
+            .delete()
+            .eq('email', email);
+
+        if (error) throw error;
+        return true;
+    } catch (err) {
+        console.error("❌ Errore durante l'eliminazione da Supabase:", err.message);
+        throw err;
+    }
+}

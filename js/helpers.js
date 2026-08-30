@@ -157,9 +157,11 @@ export function setupBottomSheet({
         if (e.target === modal) closeSheet();
     });
 
+    // Gestione click sulle opzioni
     sheetItems?.forEach(item => {
         item.addEventListener('click', (e) => {
-            const val = e.currentTarget.dataset.view || e.currentTarget.dataset.value;
+            // Legge data-action, data-view o data-value
+            const val = e.currentTarget.dataset.action || e.currentTarget.dataset.view || e.currentTarget.dataset.value;
 
             if (typeof onSelect === 'function') {
                 onSelect(val, e);

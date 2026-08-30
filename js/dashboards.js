@@ -188,23 +188,3 @@ export function renderMacroProgressView() {
 
     render1RMChart('chart-1rm-canvas', 'Panca Piana');
 }
-
-/**
- * Renderizza il Manuale di Istruzioni (#manual-content)
- */
-export function renderManualView() {
-    const container = document.getElementById('manual-content');
-    if (!container) return;
-
-    container.innerHTML = `
-        <div style="font-size: 0.85rem; line-height: 1.5; color: var(--text-color);">
-            <h4 style="color: var(--accent-color); margin-top: 0;">Come utilizzare il diario:</h4>
-            <ul>
-                <li><strong>Seleziona Settimana e Giorno:</strong> Naviga tramite i pulsanti in alto per accedere ai tuoi workout.</li>
-                <li><strong>Log dei Set:</strong> Inserisci Peso e Ripetizioni. Spunta il checkbox per confermare la serie eseguita.</li>
-                <li><strong>Timer Automatizzato:</strong> Il timer parte automaticamente alla spunta di ogni serie completata.</li>
-                <li><strong>Import/Export CSV:</strong> Usa il pannello strumenti per fare backup o caricare nuove schede.</li>
-            </ul>
-        </div>
-    `;
-}

@@ -8,10 +8,11 @@ import { startTimer, stopTimer, adjustTimer } from './timer.js';
 import { exportWorkoutPDF } from './pdfExport.js';
 import { exportToCSV, importWorkoutPlan, importProgressCSV } from './csvHandler.js';
 import { initTheme, toggleTheme } from './theme.js';
-import { renderStatsView, renderProgressView, renderMacroProgressView, renderManualView } from './dashboards.js';
+import { renderStatsView, renderProgressView, renderMacroProgressView } from './dashboards.js';
 import { setupAuthListeners, handleLogout, checkSession } from './auth.js';
 import { deleteCurrentMesocycle, changeMesocycle} from './mesocycle.js';
 import { setupBottomSheet } from './helpers.js';
+import { renderManualView } from './manual.js';
 
 window.handleLogout = handleLogout;
 
@@ -76,7 +77,48 @@ function setupEventListeners() {
         }
         }
     });
-    
+
+    // --- Bottom Sheet Strumenti & Gestione ---
+    setupBottomSheet({
+        modalId: 'tools-modal',
+        openBtnId: 'open-tools-btn',
+        closeBtnId: 'close-tools-btn',
+        timeoutMs: 6000,
+        onSelect: (action) => {
+            switch (action) {
+                case 'manual': {
+                    document.getElementById('workout-list-container').style.display = 'none';
+                    document.querySelectorAll('.day-view').forEach(el => el.style.display = 'none');
+                    const manualView = document.getElementById('manual');
+                    if (manualView) {
+                        manualView.style.display = 'block';
+                        renderManualView();
+                    }
+                    break;
+                }
+                case 'export-pdf':
+                    // Chiama direttamente il modulo PDF
+                    exportWorkoutPDF(); 
+                    break;
+                case 'import-plan':
+                    document.getElementById('import-plan-input')?.click();
+                    break;
+                case 'export-csv':
+                    exportToCSV(state.workoutData);
+                    break;
+                case 'import-history':
+                    document.getElementById('import-history-input')?.click();
+                    break;
+                case 'reset-meso':
+                    deleteCurrentMesocycle();
+                    break;
+                case 'clear-data':
+                    clearLocalData();
+                    break;
+            }
+        }
+    });
+
     // 4. Manuale d'uso
     document.getElementById('manual-btn')?.addEventListener('click', () => {
         document.getElementById('workout-list-container').style.display = 'none';

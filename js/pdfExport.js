@@ -1,15 +1,42 @@
 // pdfExport.js
-export function exportWorkoutPDF(selectedDay, metadata = {}) {
-    const { jsPDF } = window.jspdf;
+import { state } from './state.js'; // <-- 1. Importato lo state globale
+
+export function exportWorkoutPDF(dayData = null, metadata = null) {
+    // 1. Recupera la classe jsPDF dallo scope globale di window
+    const jsPDF = window.jsPDF || window.jspdf?.jsPDF;
+
     if (!jsPDF) {
-        alert("Libreria jsPDF non caricata correttamente.");
+        alert("Libreria jsPDF non trovata. Assicurati che sia inclusa in index.html.");
         return;
     }
+    // Se non vengono passati parametri espliciti, li ricava dallo state globale
+    if (!dayData) {
+        const currentMesoKey = state.currentMesocycle || 1;
+        const currentWeekNum = state.activeWeek || 1;
+        const currentDayNum = state.activeDay || 1;
+        
+        const yearData = state.workoutData?.history?.years?.[state.currentYear || new Date().getFullYear()];
+        const meso = yearData?.mesocycles?.[currentMesoKey - 1] || yearData?.mesocycles?.[currentMesoKey];
+        const week = meso?.weeks?.[currentWeekNum - 1] || meso?.weeks?.[currentWeekNum];
+        dayData = week?.days?.[currentDayNum - 1] || week?.days?.[currentDayNum];
 
-    if (!selectedDay) {
+        metadata = {
+            mesocycleName: `Mesociclo ${currentMesoKey}`,
+            weekNumber: currentWeekNum,
+            dayName: dayData?.name || `Giorno ${currentDayNum}`,
+            dayDate: dayData?.date || '',
+            coachNotes: week?.coachNotes || ''
+        };
+    }
+
+    if (!dayData) {
         alert("Nessun giorno selezionato o dati non validi.");
         return;
     }
+
+    // 2. Uniformata la variabile per la compatibilità con il layout sottostante
+    const selectedDay = dayData;
+    metadata = metadata || {};
 
     // Configurazione A4 Ultra-Compatto (210mm x 297mm)
     const doc = new jsPDF({

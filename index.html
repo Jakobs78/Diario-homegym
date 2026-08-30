@@ -83,59 +83,41 @@
                         </div>
                     </div>
                 </div>
+            
+                <!-- Pulsante di apertura menu strumenti e gestione -->
+        <button id="open-tools-btn" class="tools-trigger-btn">
+            ⚙️ Strumenti & Gestione
+        </button>
 
-            <!-- Menu Strumenti & Gestione Scheda -->
-            <div class="control-row" style="border-top: 1px solid var(--border-color); padding-top: 8px;">
-                <details class="tools-details" id="tools-details">
-                    <summary class="tools-summary">
-                        <span>📁 Manuale d'uso e gestione schede</span>
-                        <span style="font-size: 0.7rem; color: var(--text-muted);">▼</span>
-                    </summary>
-                    
-                    <div class="tools-content">
-                        <!-- Pulsante Manuale -->
-                        <div>
-                            <button class="btn btn-secondary" id="manual-btn" style="font-size: 0.85rem; padding: 6px 10px; width: 100%; background-color: #4ade80; color: #065f46; font-weight: 600;">📖 Leggimi: Manuale d'uso</button>
-                        </div>
+        <!-- Hidden file inputs per la gestione CSV -->
+        <input type="file" id="import-plan-input" accept=".csv" style="display: none;">
+        <input type="file" id="import-history-input" accept=".csv" style="display: none;">
 
-                        <!-- Griglia Utility -->
-                        <div class="tools-grid">
-                            <label class="btn btn-secondary" style="font-size: 0.75rem; padding: 6px; cursor: pointer; text-align: center;">
-                                📂 Importa scheda CSV mesociclo 
-                                <input type="file" id="import-plan-input" accept=".csv" style="display: none;">
-                            </label>
-                            <button class="btn btn-secondary" id="export-csv-btn" style="font-size: 0.75rem; padding: 6px;">💾 Backup storico</button>
-                            <label class="btn btn-secondary" style="font-size: 0.75rem; padding: 6px; cursor: pointer; text-align: center;">
-                                📥 Import storico
-                                <input type="file" id="import-history-input" accept=".csv" style="display: none;">
-                            </label>
-                            <button class="btn btn-secondary" id="export-pdf-btn" style="font-size: 0.75rem; padding: 6px;" title="Stampa o Salva PDF">🖨️ PDF giornaliero</button>
-                        </div>
+        <!-- Bottom Sheet Strumenti & Gestione -->
+        <div id="tools-modal" class="bottom-sheet-overlay hidden">
+            <div class="bottom-sheet-content">
+                <div class="bottom-sheet-header">
+                    <span>⚙️ Strumenti & Gestione</span>
+                    <button id="close-tools-btn" class="close-sheet">&times;</button>
+                </div>
+                <div class="bottom-sheet-menu">
+                    <button class="sheet-item" data-action="manual">📖 Manuale d'uso</button>
+                    <button class="sheet-item" data-action="export-pdf">🖨️ PDF giornaliero</button>
+                    <button class="sheet-item" data-action="import-plan">📂 Importa scheda CSV mesociclo</button>
+                    <button class="sheet-item" data-action="export-csv">💾 Backup storico CSV</button>
+                    <button class="sheet-item" data-action="import-history">📥 Import storico CSV</button>
 
-                        <!-- Zona Pericolosa -->
-                        <div class="tools-danger-zone">
-                            <button class="btn btn-danger" id="reset-meso-btn" style="font-size: 0.75rem; padding: 6px; display: flex; align-items: center; justify-content: center; gap: 4px;" title="Elimina scheda e mesociclo selezionato">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <polyline points="3 6 5 6 21 6"></polyline>
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                    <line x1="10" y1="11" x2="10" y2="17"></line>
-                                    <line x1="14" y1="11" x2="14" y2="17"></line>
-                                </svg>
-                                Elimina scheda mesociclo selezionato
-                            </button>
-                            <button class="btn btn-danger" id="clear-data-btn" style="font-size: 0.75rem; padding: 6px; display: flex; align-items: center; justify-content: center; gap: 4px; background-color: #991b1b;" title="Cancella tutto inclusi mesocicli e piani">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M3 6h18"></path>
-                                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                                    <line x1="10" y1="11" x2="14" y2="15"></line>
-                                    <line x1="14" y1="11" x2="10" y2="15"></line>
-                                </svg>
-                                Elimina tutto!
-                            </button>
-                        </div>
-                    </div>
-                </details>
+                    <!-- Separatore Zona Pericolosa -->
+                    <hr class="sheet-divider">
+                    <span class="sheet-section-title">Zona Pericolosa</span>
+
+                    <button class="sheet-item sheet-item-danger" data-action="reset-meso">
+                        🗑️ Elimina scheda mesociclo
+                    </button>
+                    <button class="sheet-item sheet-item-danger-critical" data-action="clear-data">
+                        ⚠️ Elimina tutto!
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -201,5 +183,17 @@
 
     <!-- Script Entry Point ES6 Modulare -->
     <script type="module" src="js/main.js"></script>
+
+    <!-- Registrazione Service Worker per supporto Offline completo -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js')
+            .then(() => console.log('✅ Service Worker attivo: webapp pronta per l\'uso offline'))
+            .catch(err => console.error('❌ Errore Service Worker:', err));
+        });
+      }
+    </script>
+    
 </body>
 </html>
