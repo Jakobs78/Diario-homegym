@@ -5,9 +5,11 @@ const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/css/style.css',
-  '/js/app.js',
+  '/js/main.js',
   '/js/ui.js',
-  '/js/vector/jspdf.min.js'
+  '/js/vector/jspdf.js',
+  '/js/vector/chart.js',
+  '/js/vector/supabase.js',
   // Aggiungi qui gli altri moduli JS o asset statici essenziali
 ];
 
