@@ -49,10 +49,11 @@ export async function checkSession() {
         if (session && session.user) {
             state.currentUser = session.user;
             localStorage.setItem('user_email', session.user.email);
+            hideAuthOverlay(); // Nasconde il login
             return true;
         }
     } catch (err) {
-        console.warn("Connessione Supabase non disponibile o errore sessione. Attivazione modalità offline...", err);
+        console.warn("Connessione Supabase non disponibile, modalità offline...", err);
     }
 
     // Fallback offline sicuro su LocalStorage
@@ -60,30 +61,23 @@ export async function checkSession() {
         const rawData = localStorage.getItem(CONFIG.STORAGE_KEY);
         const cachedEmail = localStorage.getItem('user_email');
 
-        if (rawData) {
-            const parsed = JSON.parse(rawData);
-            
-            const offlineEmail = parsed?.athlete?.email 
-                || parsed?.user?.email 
-                || cachedEmail 
-                || (CONFIG.WHITELIST && CONFIG.WHITELIST[0]) 
-                || 'atleta.offline@local.app';
-
-            state.currentUser = {
-                id: parsed?.athlete?.id || 'offline-user-id',
-                email: offlineEmail,
-                isOffline: true
-            };
-            return true;
-        } else if (cachedEmail) {
-            state.currentUser = { email: cachedEmail, isOffline: true };
+        if (rawData || cachedEmail) {
+            state.currentUser = { email: cachedEmail || 'atleta.offline@local.app', isOffline: true };
+            hideAuthOverlay(); // Nasconde il login anche in offline
             return true;
         }
     } catch (parseErr) {
-        console.error("Errore critico nel parsing della sessione offline da LocalStorage:", parseErr);
+        console.error("Errore parsing sessione offline:", parseErr);
     }
 
     return false;
+}
+
+function hideAuthOverlay() {
+    const overlay = document.getElementById('auth-overlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
 }
 export function setupAuthListeners() {
     supabase.auth.onAuthStateChange((event, session) => {
