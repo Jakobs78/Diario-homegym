@@ -85,3 +85,12 @@ export async function checkSession() {
 
     return false;
 }
+export function setupAuthListeners() {
+    supabase.auth.onAuthStateChange((event, session) => {
+        if (session && session.user) {
+            state.currentUser = session.user;
+        } else {
+            state.currentUser = null;
+        }
+    });
+}
