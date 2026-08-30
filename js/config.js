@@ -1,5 +1,5 @@
 // config.js
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/module/index.js';
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 // Inserisci i tuoi dati Supabase
 const SUPABASE_URL = 'https://fcuywiijylvgrutwioak.supabase.co';
