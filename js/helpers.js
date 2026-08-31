@@ -25,28 +25,43 @@ export function assignMuscleGroup(exerciseName) {
 }
 
 /**
+/**
  * Genera il riassunto dell'esercizio formattato per la scheda
  */
 export function formatExerciseSummary(ex) {
+    if (!ex) return '-';
+
     const formatVal = (val) => (!val || val === '0' || val === 0) ? '-' : val;
 
-    const kgMin = formatVal(ex.kgMin);
-    const kgMax = formatVal(ex.kgMax);
-    const sets = formatVal(ex.sets);
-    const reps = formatVal(ex.reps);
-    const rpe = formatVal(ex.rpe);
-    const rest = formatVal(ex.restTime);
-    const topset = formatVal(ex.topset);
+    // Recupera il primo set di riferimento per i dati di base del blocco
+    const firstSet = Array.isArray(ex.sets) && ex.sets.length > 0 ? ex.sets[0] : {};
 
+    // 1. Gestione Pesi: usa kgMin/kgMax se presenti, altrimenti legge weight dal primo set
     let kgStr = '-';
-    if (kgMin !== '-' || kgMax !== '-') {
-        kgStr = kgMin === kgMax ? `${kgMin}kg` : `${kgMin}-${kgMax}kg`;
+    if (ex.kgMin || ex.kgMax) {
+        const kgMin = formatVal(ex.kgMin);
+        const kgMax = formatVal(ex.kgMax);
+        kgStr = (kgMin === kgMax) ? `${kgMin}kg` : `${kgMin}-${kgMax}kg`;
+    } else if (firstSet.weight) {
+        kgStr = firstSet.weight;
     }
 
-    const kgHtml = `<span style="color: #ef4444; font-weight: 700;">${kgStr}</span>`;
-    const topsetHtml = `<span style="color: #ef4444; font-weight: 700;">${topset}${topset !== '-' ? 'kg' : ''}</span>`;
+    // 2. Conteggio Serie, Reps ed RPE
+    const setsCount = Array.isArray(ex.sets) ? `${ex.sets.length} set` : formatVal(ex.sets);
+    const reps = formatVal(ex.reps || firstSet.reps);
+    const rpe = formatVal(ex.targetRpe || ex.rpe || firstSet.rpe);
 
-    return `${kgHtml} | ${sets} ${reps} ${rpe} | rest ${rest} | Topset ${topsetHtml}`;
+    // 3. Recupero e Topset
+    const rest = formatVal(ex.rest || ex.restTime);
+    const topset = formatVal(ex.topset);
+
+    // Formattazione HTML
+    const kgHtml = `<span style="color: #ef4444; font-weight: 700;">${kgStr}</span>`;
+    const topsetHtml = `<span style="color: #ef4444; font-weight: 700;">${topset}${topset !== '-' && !String(topset).toLowerCase().includes('kg') ? 'kg' : ''}</span>`;
+
+    const rpeStr = (rpe !== '-') ? ` ${rpe}` : '';
+
+    return `${kgHtml} | ${setsCount} ${reps}${rpeStr} | rest ${rest} | Topset ${topsetHtml}`;
 }
 
 /**

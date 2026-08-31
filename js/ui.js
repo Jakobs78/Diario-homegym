@@ -154,20 +154,20 @@ export function renderWorkoutList() {
         (ex.loggedSets || []).forEach((setObj, setIdx) => {
             const isLocked = setObj.isLocked || false;
             const isDisabled = isLocked || isPastMeso;
-
+            // Se si clicca su una cella col device, apre immediatamente la tastiera con i numeri
             cardHtml += `
                 <tr style="border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 6px; text-align: center; border-right: 1px solid #e2e8f0;">
                         <span style="font-weight: 600; color: #334155;">${setIdx + 1}</span>
                     </td>
                     <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                        <input type="text" class="set-input set-kg" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.weight || ''}" placeholder="-" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
+                        <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" class="set-input set-kg" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.weight || ''}" placeholder="Kg" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
                     </td>
                     <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                        <input type="text" class="set-input set-reps" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.reps || ''}" placeholder="reps" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
+                        <input type="text" inputmode="numeric" autocomplete="off" autocorrect="off" class="set-input set-reps" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.reps || ''}" placeholder="reps" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
                     </td>
                     <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                        <input type="text" class="set-input set-rpe" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.rpe || ex.targetRpe || ex.rpe || ''}" placeholder="RPE" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
+                        <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" class="set-input set-rpe" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.rpe || ex.targetRpe || ex.rpe || ''}" placeholder="RPE" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
                     </td>
                     <td style="padding: 4px; text-align: center;">
                         <input type="checkbox" class="set-lock-check" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''} style="width: 18px; height: 18px; cursor: pointer;">
@@ -233,6 +233,11 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
     if (!DOM.workoutListContainer) return;
 
     DOM.workoutListContainer.querySelectorAll('.set-input, .ex-user-notes').forEach(input => {
+        // 'focus' serve per cliccare e attivare subito la tastiera del device
+        input.addEventListener('focus', (e) => {
+            e.target.select();
+        });
+        
         input.addEventListener('input', (e) => {
             const exIdx = e.target.dataset.ex;
             const ex = currentDay.exercises[exIdx];
