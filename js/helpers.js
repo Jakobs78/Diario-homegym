@@ -31,82 +31,62 @@ export function assignMuscleGroup(exerciseName) {
 export function formatExerciseSummary(ex) {
     if (!ex) return '';
 
-    // Estrae il valore cercando tra qualsiasi variante di nome chiave (maiuscole, minuscole, singolare/plurale)
-    const getField = (...keys) => {
+    // Funzione di utilità per leggere la cella in modo case-insensitive
+    const getCell = (...keys) => {
         const objKeys = Object.keys(ex);
         for (const k of keys) {
             const found = objKeys.find(key => key.toLowerCase() === k.toLowerCase());
-            if (found !== undefined) {
+            if (found !== undefined && ex[found] !== undefined && ex[found] !== null) {
                 const val = ex[found];
-                if (val !== undefined && val !== null && typeof val !== 'object') {
-                    const str = String(val).trim();
-                    if (str !== '' && str !== '-') {
-                        return str;
+                if (typeof val === 'object') {
+                    if (Array.isArray(val)) {
+                        return val.map(item => (item && typeof item === 'object' ? (item.reps || item.rip || item.value || '') : String(item))).filter(Boolean).join('-');
                     }
+                    return val.value || val.reps || val.set || '';
                 }
+                const str = String(val).trim();
+                return str !== '[object Object]' ? str : '';
             }
         }
         return '';
     };
 
-    // 1. GESTIONE PESO (KgMin-KgMax o Topset)
-    const kgMin = getField('kgmin', 'minkg', 'weightmin', 'min_kg');
-    const kgMax = getField('kgmax', 'maxkg', 'weightmax', 'max_kg');
-    const topset = getField('topset', 'topsetweight', 'weight', 'carico');
+    const kgMin = getCell('kgmin', 'minkg', 'min_kg');
+    const kgMax = getCell('kgmax', 'maxkg', 'max_kg');
+    const topset = getCell('topset', 'topsetweight');
+    
+    const sets = getCell('set', 'sets');
+    const reps = getCell('reps', 'rep', 'rip', 'ripetizioni');
+    const rpe = getCell('rpe');
+    const recupero = getCell('recupero', 'rest', 'recovery');
 
+    // 1. Gestione Peso (Controlla se c'è un range KgMin-KgMax valido oppure un Topset)
     let weightPart = '';
-    if (kgMin && kgMax) {
-        const minClean = kgMin.replace(/kg/gi, '').trim();
-        const maxClean = kgMax.replace(/kg/gi, '').trim();
-        weightPart = `${minClean}-${maxClean} kg`;
-    } else if (kgMin) {
-        const minClean = kgMin.replace(/kg/gi, '').trim();
-        weightPart = `${minClean} kg`;
-    } else if (topset) {
-        const topClean = topset.replace(/kg/gi, '').trim();
-        if (topClean && topClean !== '0' && topClean !== '0,0' && topClean !== '0.0') {
-            weightPart = `Topset ${topClean} kg`;
-        } else {
-            weightPart = 'Topset';
-        }
+    const hasKgRange = kgMin && kgMax && kgMin !== '-' && kgMax !== '-' && kgMin !== '0' && kgMax !== '0';
+    const hasTopset = topset && topset !== '-' && topset !== '0' && topset !== '0,0' && topset !== '0.0';
+
+    if (hasKgRange) {
+        weightPart = `${kgMin}-${kgMax}`;
+    } else if (hasTopset) {
+        weightPart = topset.toLowerCase().includes('topset') ? topset : `Topset ${topset}`;
     } else {
         weightPart = 'Topset';
     }
 
-    // 2. GESTIONE SET (cerca 'set', 'sets', 'targetsets', 'nset')
-    let rawSets = getField('set', 'sets', 'targetsets', 'nset');
-    // Se trova ad es. "2 set", estrae il numero, altrimenti se c'è un numero lo usa, sennò fallback a '-'
-    let setsVal = '-';
-    if (rawSets) {
-        const match = rawSets.match(/\d+/);
-        setsVal = match ? match[0] : rawSets.replace(/sets?/gi, '').trim() || '-';
+    // 2. Gestione Set, Reps e RPE
+    const setsVal = sets || '-';
+    const repsVal = reps || '-';
+    
+    let setRepsPart = `${setsVal} x ${repsVal}`;
+    if (rpe && rpe !== '-' && rpe !== '0') {
+        setRepsPart += ` ${rpe.startsWith('@') ? rpe : '@' + rpe}`;
     }
 
-    // 3. GESTIONE REPS (cerca 'reps', 'rep', 'rip', 'ripetizioni', 'targetreps')
-    let rawReps = getField('reps', 'rep', 'targetreps', 'rip', 'ripetizioni');
-    if (!rawReps && Array.isArray(ex.reps)) {
-        rawReps = ex.reps.join('-');
-    }
-    let repsVal = rawReps ? rawReps.replace(/(reps?|ripetizioni|rip)/gi, '').trim() : '-';
-    if (!repsVal) repsVal = '-';
+    // 3. Gestione Recupero
+    const restVal = recupero && recupero !== '-' ? recupero : '';
+    const restPart = restVal ? `rest ${restVal}` : '';
 
-    // 4. GESTIONE RPE
-    let rpeVal = getField('rpe', 'targetrpe', 'RPE');
-    let rpePart = '';
-    if (rpeVal) {
-        const cleanRpe = rpeVal.replace(/^@+/, '').trim();
-        if (cleanRpe) {
-            rpePart = ` @${cleanRpe}`;
-        }
-    }
-
-    const setRepsPart = `${setsVal} set x ${repsVal}${rpePart}`;
-
-    // 5. GESTIONE RECUPERO (Legge direttamente la cella Recupero o Rest)
-    let restVal = getField('recupero', 'rest', 'recovery', 'tempo', 'pause') || '2min';
-    const restPart = `rest ${restVal}`;
-
-    return `${weightPart} | ${setRepsPart} | ${restPart}`;
+    return [weightPart, setRepsPart, restPart].filter(Boolean).join(' | ');
 }
 /**
  * Distingue lo stimolo dell'esercizio (Forza vs Ipertrofia) basandosi sul target reps
