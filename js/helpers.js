@@ -31,18 +31,17 @@ export function assignMuscleGroup(exerciseName) {
 export function formatExerciseSummary(ex) {
     if (!ex) return '';
 
-    // Cerca la chiave in modo case-insensitive bypassando la differenza maiuscole/minuscole
-    const getRawVal = (...keys) => {
-        const exKeys = Object.keys(ex);
+    // Estrae il valore cercando tra qualsiasi variante di nome chiave (maiuscole, minuscole, singolare/plurale)
+    const getField = (...keys) => {
+        const objKeys = Object.keys(ex);
         for (const k of keys) {
-            const actualKey = exKeys.find(key => key.toLowerCase() === k.toLowerCase());
-            if (actualKey !== undefined) {
-                let v = ex[actualKey];
-                if (v !== undefined && v !== null && typeof v !== 'object') {
-                    v = String(v).trim();
-                    // Ignora i trattini o gli zeri che indicano cella vuota nel CSV
-                    if (v !== '' && v !== '-' && v !== '0' && v.toLowerCase() !== '0 kg' && v !== '0,0' && v !== '0.0' && v.toLowerCase() !== 'nan') {
-                        return v;
+            const found = objKeys.find(key => key.toLowerCase() === k.toLowerCase());
+            if (found !== undefined) {
+                const val = ex[found];
+                if (val !== undefined && val !== null && typeof val !== 'object') {
+                    const str = String(val).trim();
+                    if (str !== '' && str !== '-') {
+                        return str;
                     }
                 }
             }
@@ -50,52 +49,62 @@ export function formatExerciseSummary(ex) {
         return '';
     };
 
-    // Rimuove SOLO le unità di misura alla fine della stringa, preservando i numeri
-    const cleanUnit = (val, unitString) => {
-        if (!val) return '';
-        // Toglie " kg", "kg", " set", "set", " rep", "rep" (ignorando maiuscole/minuscole)
-        const regex = new RegExp(`\\s*${unitString}s?\\s*$`, 'i');
-        return val.replace(regex, '').trim();
-    };
-
-    // 1. GESTIONE PESO
-    let kgMin = cleanUnit(getRawVal('kgmin', 'minkg', 'weightmin'), 'kg');
-    let kgMax = cleanUnit(getRawVal('kgmax', 'maxkg', 'weightmax'), 'kg');
-    let topset = cleanUnit(getRawVal('topset', 'topsetweight', 'weight'), 'kg');
+    // 1. GESTIONE PESO (KgMin-KgMax o Topset)
+    const kgMin = getField('kgmin', 'minkg', 'weightmin', 'min_kg');
+    const kgMax = getField('kgmax', 'maxkg', 'weightmax', 'max_kg');
+    const topset = getField('topset', 'topsetweight', 'weight', 'carico');
 
     let weightPart = '';
     if (kgMin && kgMax) {
-        weightPart = `${kgMin}-${kgMax} kg`;
+        const minClean = kgMin.replace(/kg/gi, '').trim();
+        const maxClean = kgMax.replace(/kg/gi, '').trim();
+        weightPart = `${minClean}-${maxClean} kg`;
     } else if (kgMin) {
-        weightPart = `${kgMin} kg`;
+        const minClean = kgMin.replace(/kg/gi, '').trim();
+        weightPart = `${minClean} kg`;
     } else if (topset) {
-        weightPart = `Topset ${topset} kg`;
+        const topClean = topset.replace(/kg/gi, '').trim();
+        if (topClean && topClean !== '0' && topClean !== '0,0' && topClean !== '0.0') {
+            weightPart = `Topset ${topClean} kg`;
+        } else {
+            weightPart = 'Topset';
+        }
     } else {
         weightPart = 'Topset';
     }
 
-    // 2. GESTIONE SET
-    let sets = getRawVal('set', 'sets', 'targetsets');
-    if (!sets && Array.isArray(ex.loggedSets)) sets = ex.loggedSets.length.toString();
-    sets = cleanUnit(sets, 'set');
-    if (!sets) sets = '-';
+    // 2. GESTIONE SET (cerca 'set', 'sets', 'targetsets', 'nset')
+    let rawSets = getField('set', 'sets', 'targetsets', 'nset');
+    // Se trova ad es. "2 set", estrae il numero, altrimenti se c'è un numero lo usa, sennò fallback a '-'
+    let setsVal = '-';
+    if (rawSets) {
+        const match = rawSets.match(/\d+/);
+        setsVal = match ? match[0] : rawSets.replace(/sets?/gi, '').trim() || '-';
+    }
 
-    // 3. GESTIONE REPS (cerca in 'reps', 'rep', 'rip', 'ripetizioni')
-    let reps = getRawVal('reps', 'rep', 'targetreps', 'rip', 'ripetizioni');
-    if (!reps && Array.isArray(ex.reps)) reps = ex.reps.join('-');
-    // Pulisce varianti come "rep", "reps", "rip"
-    reps = reps.replace(/\s*(reps?|ripetizioni|rip)\s*$/i, '').trim();
-    if (!reps) reps = '-';
+    // 3. GESTIONE REPS (cerca 'reps', 'rep', 'rip', 'ripetizioni', 'targetreps')
+    let rawReps = getField('reps', 'rep', 'targetreps', 'rip', 'ripetizioni');
+    if (!rawReps && Array.isArray(ex.reps)) {
+        rawReps = ex.reps.join('-');
+    }
+    let repsVal = rawReps ? rawReps.replace(/(reps?|ripetizioni|rip)/gi, '').trim() : '-';
+    if (!repsVal) repsVal = '-';
 
     // 4. GESTIONE RPE
-    let rpe = getRawVal('rpe', 'targetrpe');
-    let rpePart = rpe ? ` @${rpe.replace(/^@+/, '')}` : '';
+    let rpeVal = getField('rpe', 'targetrpe', 'RPE');
+    let rpePart = '';
+    if (rpeVal) {
+        const cleanRpe = rpeVal.replace(/^@+/, '').trim();
+        if (cleanRpe) {
+            rpePart = ` @${cleanRpe}`;
+        }
+    }
 
-    const setRepsPart = `${sets} set x ${reps}${rpePart}`;
+    const setRepsPart = `${setsVal} set x ${repsVal}${rpePart}`;
 
-    // 5. GESTIONE RECUPERO
-    let rest = getRawVal('recupero', 'rest', 'recovery', 'tempo', 'pause') || '2min';
-    let restPart = `rest ${rest}`;
+    // 5. GESTIONE RECUPERO (Legge direttamente la cella Recupero o Rest)
+    let restVal = getField('recupero', 'rest', 'recovery', 'tempo', 'pause') || '2min';
+    const restPart = `rest ${restVal}`;
 
     return `${weightPart} | ${setRepsPart} | ${restPart}`;
 }
