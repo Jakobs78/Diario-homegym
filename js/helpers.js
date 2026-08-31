@@ -29,41 +29,76 @@ export function assignMuscleGroup(exerciseName) {
  * Genera il riassunto dell'esercizio formattato per la scheda
  */
 export function formatExerciseSummary(ex) {
-    if (!ex) return '-';
+    if (!ex) return '';
 
-    const formatVal = (val) => (!val || val === '0' || val === 0) ? '-' : val;
+    // Cerca la chiave in modo case-insensitive bypassando la differenza maiuscole/minuscole
+    const getRawVal = (...keys) => {
+        const exKeys = Object.keys(ex);
+        for (const k of keys) {
+            const actualKey = exKeys.find(key => key.toLowerCase() === k.toLowerCase());
+            if (actualKey !== undefined) {
+                let v = ex[actualKey];
+                if (v !== undefined && v !== null && typeof v !== 'object') {
+                    v = String(v).trim();
+                    // Ignora i trattini o gli zeri che indicano cella vuota nel CSV
+                    if (v !== '' && v !== '-' && v !== '0' && v.toLowerCase() !== '0 kg' && v !== '0,0' && v !== '0.0' && v.toLowerCase() !== 'nan') {
+                        return v;
+                    }
+                }
+            }
+        }
+        return '';
+    };
 
-    // Recupera il primo set di riferimento per i dati di base del blocco
-    const firstSet = Array.isArray(ex.sets) && ex.sets.length > 0 ? ex.sets[0] : {};
+    // Rimuove SOLO le unità di misura alla fine della stringa, preservando i numeri
+    const cleanUnit = (val, unitString) => {
+        if (!val) return '';
+        // Toglie " kg", "kg", " set", "set", " rep", "rep" (ignorando maiuscole/minuscole)
+        const regex = new RegExp(`\\s*${unitString}s?\\s*$`, 'i');
+        return val.replace(regex, '').trim();
+    };
 
-    // 1. Gestione Pesi: usa kgMin/kgMax se presenti, altrimenti legge weight dal primo set
-    let kgStr = '-';
-    if (ex.kgMin || ex.kgMax) {
-        const kgMin = formatVal(ex.kgMin);
-        const kgMax = formatVal(ex.kgMax);
-        kgStr = (kgMin === kgMax) ? `${kgMin}kg` : `${kgMin}-${kgMax}kg`;
-    } else if (firstSet.weight) {
-        kgStr = firstSet.weight;
+    // 1. GESTIONE PESO
+    let kgMin = cleanUnit(getRawVal('kgmin', 'minkg', 'weightmin'), 'kg');
+    let kgMax = cleanUnit(getRawVal('kgmax', 'maxkg', 'weightmax'), 'kg');
+    let topset = cleanUnit(getRawVal('topset', 'topsetweight', 'weight'), 'kg');
+
+    let weightPart = '';
+    if (kgMin && kgMax) {
+        weightPart = `${kgMin}-${kgMax} kg`;
+    } else if (kgMin) {
+        weightPart = `${kgMin} kg`;
+    } else if (topset) {
+        weightPart = `Topset ${topset} kg`;
+    } else {
+        weightPart = 'Topset';
     }
 
-    // 2. Conteggio Serie, Reps ed RPE
-    const setsCount = Array.isArray(ex.sets) ? `${ex.sets.length} set` : formatVal(ex.sets);
-    const reps = formatVal(ex.reps || firstSet.reps);
-    const rpe = formatVal(ex.targetRpe || ex.rpe || firstSet.rpe);
+    // 2. GESTIONE SET
+    let sets = getRawVal('set', 'sets', 'targetsets');
+    if (!sets && Array.isArray(ex.loggedSets)) sets = ex.loggedSets.length.toString();
+    sets = cleanUnit(sets, 'set');
+    if (!sets) sets = '-';
 
-    // 3. Recupero e Topset
-    const rest = formatVal(ex.rest || ex.restTime);
-    const topset = formatVal(ex.topset);
+    // 3. GESTIONE REPS (cerca in 'reps', 'rep', 'rip', 'ripetizioni')
+    let reps = getRawVal('reps', 'rep', 'targetreps', 'rip', 'ripetizioni');
+    if (!reps && Array.isArray(ex.reps)) reps = ex.reps.join('-');
+    // Pulisce varianti come "rep", "reps", "rip"
+    reps = reps.replace(/\s*(reps?|ripetizioni|rip)\s*$/i, '').trim();
+    if (!reps) reps = '-';
 
-    // Formattazione HTML
-    const kgHtml = `<span style="color: #ef4444; font-weight: 700;">${kgStr}</span>`;
-    const topsetHtml = `<span style="color: #ef4444; font-weight: 700;">${topset}${topset !== '-' && !String(topset).toLowerCase().includes('kg') ? 'kg' : ''}</span>`;
+    // 4. GESTIONE RPE
+    let rpe = getRawVal('rpe', 'targetrpe');
+    let rpePart = rpe ? ` @${rpe.replace(/^@+/, '')}` : '';
 
-    const rpeStr = (rpe !== '-') ? ` ${rpe}` : '';
+    const setRepsPart = `${sets} set x ${reps}${rpePart}`;
 
-    return `${kgHtml} | ${setsCount} ${reps}${rpeStr} | rest ${rest} | Topset ${topsetHtml}`;
+    // 5. GESTIONE RECUPERO
+    let rest = getRawVal('recupero', 'rest', 'recovery', 'tempo', 'pause') || '2min';
+    let restPart = `rest ${rest}`;
+
+    return `${weightPart} | ${setRepsPart} | ${restPart}`;
 }
-
 /**
  * Distingue lo stimolo dell'esercizio (Forza vs Ipertrofia) basandosi sul target reps
  */

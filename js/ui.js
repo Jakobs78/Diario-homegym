@@ -350,14 +350,15 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                 if (!timerDisplay) {
                     timerDisplay = document.createElement('div');
                     timerDisplay.id = 'floating-timer-display';
-                    timerDisplay.style.cssText = 'position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #ffffff; padding: 10px 18px; border-radius: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); z-index: 9999; display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 0.95rem; border: 2px solid #0284c7; flex-wrap: wrap; justify-content: center;';
+                    // Larghezza fissa adattiva per mobile (92% dello schermo) e spaziatura distribuita
+                    timerDisplay.style.cssText = 'position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #ffffff; padding: 12px 18px; border-radius: 35px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); z-index: 9999; display: flex; align-items: center; justify-content: space-between; width: 92%; max-width: 420px; box-sizing: border-box; font-weight: 700; font-size: 1rem; border: 2px solid #0284c7;';
                     
                     timerDisplay.innerHTML = `
-                        <span id="timer-text-content">⏱️ Recupero: <span style="color: #38bdf8; font-family: monospace;">0:00</span></span>
-                        <div style="display: flex; gap: 5px; align-items: center;">
-                            <button id="timer-minus-15" style="background: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: bold;">-15s</button>
-                            <button id="timer-plus-30" style="background: #0284c7; color: white; border: none; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: bold;">+30s</button>
-                            <button id="timer-close" style="background: #ef4444; color: white; border: none; padding: 4px 7px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: bold;">✕</button>
+                        <span id="timer-text-content" style="white-space: nowrap;">⏱️ <span style="color: #38bdf8; font-family: monospace; font-size: 1.1rem;">0:00</span></span>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <button id="timer-minus-15" style="background: #0284c7; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: bold;">-15s</button>
+                            <button id="timer-plus-30" style="background: #0284c7; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: bold;">+30s</button>
+                            <button id="timer-close" style="background: #ef4444; color: white; border: none; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: bold;">✕</button>
                         </div>
                     `;
                     document.body.appendChild(timerDisplay);
