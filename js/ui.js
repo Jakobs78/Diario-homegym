@@ -1,10 +1,17 @@
 // ui.js
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
-import { formatExerciseSummary, getPlateBreakdown } from './helpers.js';
+import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise } from './helpers.js';
 import { startTimer, stopTimer, adjustTimer, parseRecoveryTime } from './timer.js';
 import { playBeep } from './audio.js';
 import { updateMesocycleUI } from './mesocycle.js';
+
+// Funzione per estrarre solo la parte numerica (es. da "3 reps" a "3")
+function cleanNumericReps(val) {
+    if (!val) return '';
+    const match = val.toString().match(/\d+/);
+    return match ? match[0] : val;
+}
 
 export const DOM = {
     appContainer: document.getElementById('app-container'),
@@ -151,23 +158,62 @@ export function renderWorkoutList() {
                 <tbody>
         `;
 
+        // Recupera l'esercizio precedente omologo per la precompilazione e il trend
+        const prevExercise = findPreviousExercise(state.workoutData, mesoIndex, targetWeek.weekNumber, activeDayNum - 1, ex.name);
+
         (ex.loggedSets || []).forEach((setObj, setIdx) => {
             const isLocked = setObj.isLocked || false;
             const isDisabled = isLocked || isPastMeso;
-            // Se si clicca su una cella col device, apre immediatamente la tastiera con i numeri
+
+            // Dati della sessione precedente per questo specifico set
+            const prevSet = prevExercise?.loggedSets?.[setIdx];
+            const prevKg = prevSet ? parseFloat(prevSet.weight) || 0 : 0;
+            const prevReps = prevSet ? parseInt(prevSet.reps) || 0 : 0;
+            
+            const currentKg = parseFloat(setObj.weight) || 0;
+            const currentReps = parseInt(setObj.reps) || 0;
+
+            // Calcolo del trend (🔼 verde / 🔻 rosso)
+            let trendHtml = '';
+            if (prevSet && (currentKg > 0 || currentReps > 0)) {
+                const currentVolume = currentKg * currentReps;
+                const prevVolume = prevKg * prevReps;
+                
+                if (currentVolume > prevVolume || (currentKg === prevKg && currentReps > prevReps)) {
+                    trendHtml = `<span style="color: #16a34a; font-size: 0.75rem; font-weight: 800;" title="Migliorato rispetto all'ultima volta">🔼</span>`;
+                } else if (currentVolume < prevVolume || (currentKg === prevKg && currentReps < prevReps)) {
+                    trendHtml = `<span style="color: #dc2626; font-size: 0.75rem; font-weight: 800;" title="In calo rispetto all'ultima volta">🔻</span>`;
+                }
+            }
+
+            // Valori da mostrare (se vuoti, usano quelli precedenti come placeholder)
+           // Determina se il target attuale è un range (es. 6-8) o un valore fisso
+            const isRangeTarget = (ex.minReps && ex.maxReps) || (ex.reps && typeof ex.reps === 'string' && ex.reps.includes('-'));
+            
+            let rawTargetReps = ex.reps || ex.targetReps || '';
+            let defaultTargetReps = isRangeTarget ? (prevSet?.reps || '') : cleanNumericReps(rawTargetReps);
+
+            // Valori da mostrare (se a range usa lo storico, se fisso pulisce la stringa del target)
+            const displayWeight = setObj.weight !== undefined && setObj.weight !== '' ? setObj.weight : (prevSet?.weight || '');
+            const displayReps = setObj.reps !== undefined && setObj.reps !== '' ? setObj.reps : defaultTargetReps;
+            const displayRpe = setObj.rpe !== undefined && setObj.rpe !== '' ? setObj.rpe : (ex.targetRpe || ex.rpe || '');
+
             cardHtml += `
                 <tr style="border-bottom: 1px solid #e2e8f0;">
                     <td style="padding: 6px; text-align: center; border-right: 1px solid #e2e8f0;">
-                        <span style="font-weight: 600; color: #334155;">${setIdx + 1}</span>
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                            <span style="font-weight: 600; color: #334155;">${setIdx + 1}</span>
+                            ${trendHtml}
+                        </div>
                     </td>
                     <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                        <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" class="set-input set-kg" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.weight || ''}" placeholder="Kg" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
+                        <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" class="set-input set-kg" data-ex="${exIdx}" data-set="${setIdx}" value="${displayWeight}" placeholder="${prevSet?.weight || 'Kg'}" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'}; color: ${!setObj.weight && prevSet?.weight && !isLocked ? '#94a3b8' : '#0f172a'};">
                     </td>
                     <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                        <input type="text" inputmode="numeric" autocomplete="off" autocorrect="off" class="set-input set-reps" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.reps || ''}" placeholder="reps" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
+                        <input type="text" inputmode="numeric" autocomplete="off" autocorrect="off" class="set-input set-reps" data-ex="${exIdx}" data-set="${setIdx}" value="${displayReps}" placeholder="${prevSet?.reps || 'reps'}" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'}; color: ${!setObj.reps && prevSet?.reps && !isLocked ? '#94a3b8' : '#0f172a'};">
                     </td>
                     <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                        <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" class="set-input set-rpe" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.rpe || ex.targetRpe || ex.rpe || ''}" placeholder="RPE" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
+                        <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" class="set-input set-rpe" data-ex="${exIdx}" data-set="${setIdx}" value="${displayRpe}" placeholder="RPE" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
                     </td>
                     <td style="padding: 4px; text-align: center;">
                         <input type="checkbox" class="set-lock-check" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''} style="width: 18px; height: 18px; cursor: pointer;">
@@ -175,7 +221,6 @@ export function renderWorkoutList() {
                 </tr>
             `;
         });
-
         cardHtml += `
                 </tbody>
             </table>
@@ -303,6 +348,24 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
 
             const isChecked = e.target.checked;
             setObj.isLocked = isChecked;
+
+            // Assicura che se l'utente spunta il check al volo, i valori precompilati vengano salvati nello state
+            const rowCard = DOM.workoutListContainer.querySelector(`.exercise-card[data-ex="${exIdx}"]`);
+            const kgInput = rowCard?.querySelector(`.set-kg[data-set="${setIdx}"]`);
+            const repsInput = rowCard?.querySelector(`.set-reps[data-set="${setIdx}"]`);
+            const rpeInput = rowCard?.querySelector(`.set-rpe[data-set="${setIdx}"]`);
+
+            if (isChecked) {
+                if (!setObj.weight && kgInput && kgInput.value) {
+                    setObj.weight = parseFloat(kgInput.value.replace(',', '.')) || 0;
+                }
+                if (!setObj.reps && repsInput && repsInput.value) {
+                    setObj.reps = repsInput.value;
+                }
+                if (!setObj.rpe && rpeInput && rpeInput.value) {
+                    setObj.rpe = rpeInput.value;
+                }
+            }
 
             if (isChecked && setIdx === 0) {
                 ['weight', 'reps', 'rpe'].forEach(prop => {

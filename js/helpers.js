@@ -1,5 +1,6 @@
 // helpers.js
 export function slugify(text) {
+    if (!text) return '';
     return text.toString().toLowerCase()
         .trim()
         .replace(/\s+/g, '-')           
@@ -212,3 +213,40 @@ export function setupBottomSheet({
     });
 }
 // Fine BOTTOM SHEET / MENU DAL BASSO
+
+export function findPreviousExercise(workoutData, currentMesoIdx, currentWeekNum, currentDayIdx, exerciseName) {
+    if (!workoutData?.history?.years) return null;
+    
+    const currentYear = new Date().getFullYear().toString();
+    const yearData = workoutData.history.years[currentYear];
+    if (!yearData || !yearData.mesocycles) return null;
+
+    const meso = yearData.mesocycles[currentMesoIdx];
+    if (!meso || !meso.weeks) return null;
+
+    // Cerca nella settimana precedente dello stesso mesociclo
+    const prevWeekNum = currentWeekNum - 1;
+    if (prevWeekNum > 0) {
+        const prevWeek = meso.weeks.find(w => w.weekNumber === prevWeekNum);
+        if (prevWeek && prevWeek.days && prevWeek.days[currentDayIdx]) {
+            const day = prevWeek.days[currentDayIdx];
+            const foundEx = (day.exercises || []).find(ex => slugify(ex.name) === slugify(exerciseName));
+            if (foundEx) return foundEx;
+        }
+    }
+
+    // Se siamo alla settimana 1, cerca nell'ultimo mesociclo concluso (stessa settimana e giorno)
+    if (currentMesoIdx > 0) {
+        const prevMeso = yearData.mesocycles[currentMesoIdx - 1];
+        if (prevMeso && prevMeso.weeks) {
+            const sameWeek = prevMeso.weeks.find(w => w.weekNumber === currentWeekNum) || prevMeso.weeks[prevMeso.weeks.length - 1];
+            if (sameWeek && sameWeek.days && sameWeek.days[currentDayIdx]) {
+                const day = sameWeek.days[currentDayIdx];
+                const foundEx = (day.exercises || []).find(ex => slugify(ex.name) === slugify(exerciseName));
+                if (foundEx) return foundEx;
+            }
+        }
+    }
+
+    return null;
+}
