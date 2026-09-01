@@ -24,7 +24,6 @@ const EMPTY_WORKOUT_DATA = {
     updatedAt: null
 };
 
-// --- INIZIALIZZAZIONE APP E RISOLUZIONE CONFLITTI ---
 async function initApp() {
     console.log(`Avvio Advanced Workout Tracker v${CONFIG.APP_VERSION}`);
     
@@ -36,17 +35,16 @@ async function initApp() {
 
     initTheme();
     
-    const localData = getFromLocalStorage();
+    // 1. Carichiamo intanto i dati locali per sicurezza
+    let localData = getFromLocalStorage();
     state.workoutData = localData;
-    
-    // Aggiorna subito lo stato visivo della sync all'avvio
     updateSyncStatusUI();
     
     try {
         const user = await checkSession();
 
         if (user) {
-            state.currentUser = user; // Salviamo lo user nello state globale
+            state.currentUser = user;
             const userInfoBar = document.getElementById('user-info-bar');
             const userEmailDisplay = document.getElementById('user-email-display');
             const authOverlay = document.getElementById('auth-overlay');
@@ -56,15 +54,15 @@ async function initApp() {
             if (authOverlay) authOverlay.style.display = 'none';
 
             if (navigator.onLine) {
-                // 1. Se ci sono modifiche locali in sospeso, prova a svuotare la coda
                 if (hasPendingSync()) {
                     await processSyncQueue();
                 }
 
-                // 2. SCARICA SEMPRE DAL CLOUD ALL'AVVIO SE ONLINE
                 const remoteData = await pullDataFromSupabase(user);
                 
-                if (remoteData) {
+                // CORREZIONE CRITICA: Aggiorniamo i dati remoti solo se ESISTONO davvero.
+                // Se remoteData è vuoto o null, NON dobbiamo mai azzerare i dati locali dell'utente!
+                if (remoteData && remoteData.history && Object.keys(remoteData.history.years || {}).length > 0) {
                     const localTime = new Date(localData.updatedAt || 0).getTime();
                     const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
 
@@ -73,9 +71,7 @@ async function initApp() {
                         saveToLocalStorage(remoteData); 
                     }
                 } else {
-                    // CASO CRITICO: Il cloud è vuoto (es. eliminato tutto dall'altro device)
-                    state.workoutData = EMPTY_WORKOUT_DATA;
-                    saveToLocalStorage(EMPTY_WORKOUT_DATA);
+                    console.log("⚠️ Cloud vuoto o non raggiungibile: mantengo i dati locali in sicurezza.");
                 }
             }
         }
@@ -83,11 +79,12 @@ async function initApp() {
         console.warn("Impossibile connettersi a Supabase, avvio in modalità offline:", err);
     }
     
+    // 2. SOLO ORA, a dati definitivi caricati (Locali o Cloud che siano), generiamo la UI
     renderWorkoutList();
     setupEventListeners();
     setupAuthListeners();
     initAudioUnlock();
-    updateSyncStatusUI(); // Controllo finale sullo stato UI
+    updateSyncStatusUI();
 }
 
 // --- COLLEGAMENTO EVENTI GLOBALI ---

@@ -86,14 +86,43 @@ export function renderWorkoutList() {
     const currentDay = targetWeek.days?.[activeDayNum - 1] || targetWeek.days?.[0];
     if (!currentDay) return;
 
-    // INTESTAZIONE GIORNO
+    // CONTEGGIO TEMPO TOTALE DELLA SESSIONE (con l'elemento #live-session-timer integrato)
     const dayHeader = document.createElement('div');
-    dayHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;';
+    dayHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 8px;';
     dayHeader.innerHTML = `
         <h2 style="margin: 0; color: #0284c7; font-size: 1.4rem;">${currentDay.dayName || 'Giorno ' + activeDayNum}</h2>
-        <span style="font-size: 0.85rem; color: #64748b; font-weight: 500;">Mesociclo ${mesoIndex + 1} - Settimana ${targetWeek.weekNumber}</span>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span id="live-session-timer" style="font-size: 0.85rem; font-weight: 700; padding: 4px 8px; border-radius: 6px; background: #e0f2fe; color: #0369a1;">⏱️ 0:00</span>
+            <span style="font-size: 0.85rem; color: #64748b; font-weight: 500;">Mesociclo ${mesoIndex + 1} - Settimana ${targetWeek.weekNumber}</span>
+        </div>
     `;
     DOM.workoutListContainer.appendChild(dayHeader);
+
+    // --- GESTIONE TIMER E SESSIONI LASCIATE IN SOSPESO ---
+    if (currentDay.sessionStart) {
+        const startDate = new Date(currentDay.sessionStart).toDateString();
+        const todayDate = new Date().toDateString();
+        if (startDate !== todayDate && !currentDay.completed) {
+            currentDay.sessionStart = null;
+        }
+    }
+
+    if (window._sessionTimerInterval) {
+        clearInterval(window._sessionTimerInterval);
+    }
+
+    window._sessionTimerInterval = setInterval(() => {
+        const timerEl = document.getElementById('live-session-timer');
+        if (!timerEl || !currentDay.sessionStart || currentDay.completed) return;
+        
+        const elapsedSecs = Math.floor((Date.now() - currentDay.sessionStart) / 1000);
+        const mins = Math.floor(elapsedSecs / 60);
+        const secs = elapsedSecs % 60;
+        timerEl.textContent = `⏱️ ${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    }, 1000);
+
+    // Aggiorna l'interfaccia della testata del timer e gestisce la comparsa del tasto "Termina"
+    updateSessionHeaderUI(currentDay);
 
     // RENDER ESERCIZI
     (currentDay.exercises || []).forEach((ex, exIdx) => {
@@ -158,14 +187,12 @@ export function renderWorkoutList() {
                 <tbody>
         `;
 
-        // Recupera l'esercizio precedente omologo per la precompilazione e il trend
         const prevExercise = findPreviousExercise(state.workoutData, mesoIndex, targetWeek.weekNumber, activeDayNum - 1, ex.name);
 
         (ex.loggedSets || []).forEach((setObj, setIdx) => {
             const isLocked = setObj.isLocked || false;
             const isDisabled = isLocked || isPastMeso;
 
-            // Dati della sessione precedente per questo specifico set
             const prevSet = prevExercise?.loggedSets?.[setIdx];
             const prevKg = prevSet ? parseFloat(prevSet.weight) || 0 : 0;
             const prevReps = prevSet ? parseInt(prevSet.reps) || 0 : 0;
@@ -173,7 +200,6 @@ export function renderWorkoutList() {
             const currentKg = parseFloat(setObj.weight) || 0;
             const currentReps = parseInt(setObj.reps) || 0;
 
-            // Calcolo del trend (🔼 verde / 🔻 rosso)
             let trendHtml = '';
             if (prevSet && (currentKg > 0 || currentReps > 0)) {
                 const currentVolume = currentKg * currentReps;
@@ -186,14 +212,10 @@ export function renderWorkoutList() {
                 }
             }
 
-            // Valori da mostrare (se vuoti, usano quelli precedenti come placeholder)
-           // Determina se il target attuale è un range (es. 6-8) o un valore fisso
             const isRangeTarget = (ex.minReps && ex.maxReps) || (ex.reps && typeof ex.reps === 'string' && ex.reps.includes('-'));
-            
             let rawTargetReps = ex.reps || ex.targetReps || '';
             let defaultTargetReps = isRangeTarget ? (prevSet?.reps || '') : cleanNumericReps(rawTargetReps);
 
-            // Valori da mostrare (se a range usa lo storico, se fisso pulisce la stringa del target)
             const displayWeight = setObj.weight !== undefined && setObj.weight !== '' ? setObj.weight : (prevSet?.weight || '');
             const displayReps = setObj.reps !== undefined && setObj.reps !== '' ? setObj.reps : defaultTargetReps;
             const displayRpe = setObj.rpe !== undefined && setObj.rpe !== '' ? setObj.rpe : (ex.targetRpe || ex.rpe || '');
@@ -273,12 +295,100 @@ export function updatePlatesBadgeUI(exIdx) {
     }
 }
 
+// Gestisce l'avvio del timer alla prima spunta e la chiusura all'ultima
+function updateSessionAndCompletionState(currentDay) {
+    const exercises = currentDay.exercises || [];
+    if (exercises.length === 0) return;
+
+    let totalSets = 0;
+    let completedSets = 0;
+
+    exercises.forEach(ex => {
+        if (ex.isExcluded) return;
+        (ex.loggedSets || []).forEach(set => {
+            totalSets++;
+            if (set.isLocked) completedSets++;
+        });
+    });
+
+    if (completedSets > 0 && !currentDay.sessionStart && !currentDay.completed) {
+        currentDay.sessionStart = Date.now();
+        console.log("⏱️ Prima serie spuntata: cronometro di sessione avviato e salvato!");
+    }
+
+    if (totalSets > 0 && completedSets === totalSets) {
+        if (currentDay.completed) return;
+
+        const now = Date.now();
+        const startTime = currentDay.sessionStart || now;
+        const durationMinutes = Math.round((now - startTime) / 60000);
+
+        currentDay.date = new Date().toISOString().split('T')[0];
+        currentDay.totalDurationMinutes = durationMinutes;
+        currentDay.completed = true;
+
+        currentDay.sessionStart = null; 
+        console.log(`🎉 Allenamento completato in ${durationMinutes} minuti.`);
+    } else if (completedSets < totalSets && currentDay.completed) {
+        currentDay.completed = false;
+        currentDay.totalDurationMinutes = undefined;
+    }
+}
+
+function updateSessionHeaderUI(currentDay) {
+    const timerEl = document.getElementById('live-session-timer');
+    if (!timerEl) return;
+
+    let timerWrapper = timerEl.parentElement;
+    if (!timerWrapper.classList.contains('session-timer-wrapper')) {
+        timerWrapper.style.display = 'flex';
+        timerWrapper.style.alignItems = 'center';
+        timerWrapper.style.gap = '6px';
+        timerWrapper.classList.add('session-timer-wrapper');
+        
+        const resetSessionBtn = document.createElement('button');
+        resetSessionBtn.id = 'reset-session-timer-btn';
+        resetSessionBtn.innerHTML = '⏹️ Termina';
+        resetSessionBtn.title = 'Resetta o interrompi sessione';
+        resetSessionBtn.style.cssText = 'background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 0.75rem; font-weight: 700; display: none;';
+        
+        resetSessionBtn.onclick = () => {
+            if (confirm("Vuoi azzerare il timer e sbloccare la sessione per questo giorno?")) {
+                currentDay.sessionStart = null;
+                currentDay.completed = false;
+                currentDay.totalDurationMinutes = undefined;
+                saveAndSync(state.workoutData);
+                renderWorkoutList();
+            }
+        };
+        
+        timerEl.after(resetSessionBtn);
+    }
+
+    const resetBtn = document.getElementById('reset-session-timer-btn');
+
+    if (currentDay.completed && currentDay.totalDurationMinutes !== undefined) {
+        timerEl.style.background = '#dcfce7';
+        timerEl.style.color = '#166534';
+        timerEl.textContent = `✅ ${currentDay.totalDurationMinutes} min`;
+        if (resetBtn) resetBtn.style.display = 'inline-block';
+    } else {
+        timerEl.style.background = '#e0f2fe';
+        timerEl.style.color = '#0369a1';
+        if (!currentDay.sessionStart) {
+            timerEl.textContent = `⏱️ 0:00`;
+            if (resetBtn) resetBtn.style.display = 'none';
+        } else {
+            if (resetBtn) resetBtn.style.display = 'inline-block';
+        }
+    }
+}
+
 // --- ASSOCIAZIONE EVENTI TABELLA ---
 function bindWorkoutTableEvents(currentDay, isPastMeso) {
     if (!DOM.workoutListContainer) return;
 
     DOM.workoutListContainer.querySelectorAll('.set-input, .ex-user-notes').forEach(input => {
-        // 'focus' serve per cliccare e attivare subito la tastiera del device
         input.addEventListener('focus', (e) => {
             e.target.select();
         });
@@ -349,7 +459,6 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
             const isChecked = e.target.checked;
             setObj.isLocked = isChecked;
 
-            // Assicura che se l'utente spunta il check al volo, i valori precompilati vengano salvati nello state
             const rowCard = DOM.workoutListContainer.querySelector(`.exercise-card[data-ex="${exIdx}"]`);
             const kgInput = rowCard?.querySelector(`.set-kg[data-set="${setIdx}"]`);
             const repsInput = rowCard?.querySelector(`.set-reps[data-set="${setIdx}"]`);
@@ -386,6 +495,8 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                 });
             }
 
+            updateSessionAndCompletionState(currentDay);
+            updateSessionHeaderUI(currentDay);
             saveAndSync(state.workoutData);
 
             const card = DOM.workoutListContainer.querySelector(`.exercise-card[data-ex="${exIdx}"]`);
@@ -413,7 +524,6 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                 if (!timerDisplay) {
                     timerDisplay = document.createElement('div');
                     timerDisplay.id = 'floating-timer-display';
-                    // Larghezza fissa adattiva per mobile (92% dello schermo) e spaziatura distribuita
                     timerDisplay.style.cssText = 'position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #ffffff; padding: 12px 18px; border-radius: 35px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); z-index: 9999; display: flex; align-items: center; justify-content: space-between; width: 92%; max-width: 420px; box-sizing: border-box; font-weight: 700; font-size: 1rem; border: 2px solid #0284c7;';
                     
                     timerDisplay.innerHTML = `
@@ -428,12 +538,10 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                 }
 
                 const beepedSeconds = new Set();
-
                 const updateTick = (remainingSeconds) => {
                     const mins = Math.floor(remainingSeconds / 60);
                     const secs = remainingSeconds % 60;
                     const timeStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-                    
                     const textSpan = timerDisplay.querySelector('#timer-text-content');
                     if (textSpan) {
                         textSpan.innerHTML = `⏱️ Recupero: <span style="color: #38bdf8; font-family: monospace;">${timeStr}</span>`;
@@ -441,7 +549,6 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                     timerDisplay.style.display = 'flex';
 
                     if (remainingSeconds > 5) beepedSeconds.clear();
-
                     if (remainingSeconds <= 5 && remainingSeconds > 0) {
                         if (!beepedSeconds.has(remainingSeconds)) {
                             playBeep(800, 0.15, 'sine');
@@ -457,7 +564,6 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                     }
                     beepedSeconds.clear();
                     playBeep(1700, 1.5, 'sine');
-
                     setTimeout(() => {
                         timerDisplay.style.display = 'none';
                     }, 3000);
@@ -502,8 +608,6 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
 export function enableCardSwipeGesture(cardElement, onSwipeLeft, onSwipeRight) {
     if (!cardElement) return;
 
-    // OTTIMIZZAZIONE: Forza il browser a gestire solo lo scroll verticale nativo.
-    // Blocca le gesture orizzontali di sistema (fondamentale per Safari iOS) per permettere lo swipe fluido delle card.
     cardElement.style.touchAction = 'pan-y';
 
     let startX = 0;
