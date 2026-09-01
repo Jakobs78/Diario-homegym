@@ -17,6 +17,13 @@ import { initAudioUnlock } from './audio.js';
 
 window.logoutUser = logoutUser;
 window.state = state;
+
+const EMPTY_WORKOUT_DATA = {
+    athlete: { email: null },
+    history: { years: {} },
+    updatedAt: null
+};
+
 // --- INIZIALIZZAZIONE APP E RISOLUZIONE CONFLITTI ---
 async function initApp() {
     console.log(`Avvio Advanced Workout Tracker v${CONFIG.APP_VERSION}`);
@@ -39,6 +46,7 @@ async function initApp() {
         const user = await checkSession();
 
         if (user) {
+            state.currentUser = user; // Salviamo lo user nello state globale
             const userInfoBar = document.getElementById('user-info-bar');
             const userEmailDisplay = document.getElementById('user-email-display');
             const authOverlay = document.getElementById('auth-overlay');
@@ -48,24 +56,26 @@ async function initApp() {
             if (authOverlay) authOverlay.style.display = 'none';
 
             if (navigator.onLine) {
-                // 1. Se ci sono modifiche locali in sospeso, prima svuotiamo la coda verso Supabase
+                // 1. Se ci sono modifiche locali in sospeso, prova a svuotare la coda
                 if (hasPendingSync()) {
                     await processSyncQueue();
                 }
 
-                // 2. Scarichiamo i dati dal cloud SOLO SE non ci sono più code pendenti
-                // e se il cloud è effettivamente più recente del nostro locale
+                // 2. SCARICA SEMPRE DAL CLOUD ALL'AVVIO SE ONLINE
                 const remoteData = await pullDataFromSupabase(user);
                 
-                if (remoteData && remoteData.history) {
+                if (remoteData) {
                     const localTime = new Date(localData.updatedAt || 0).getTime();
                     const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
 
-                    // AGGIUNTO && !hasPendingSync() per blindare la protezione dei dati offline
                     if (remoteTime > localTime && !hasPendingSync()) {
                         state.workoutData = remoteData;
                         saveToLocalStorage(remoteData); 
                     }
+                } else {
+                    // CASO CRITICO: Il cloud è vuoto (es. eliminato tutto dall'altro device)
+                    state.workoutData = EMPTY_WORKOUT_DATA;
+                    saveToLocalStorage(EMPTY_WORKOUT_DATA);
                 }
             }
         }
@@ -79,6 +89,7 @@ async function initApp() {
     initAudioUnlock();
     updateSyncStatusUI(); // Controllo finale sullo stato UI
 }
+
 // --- COLLEGAMENTO EVENTI GLOBALI ---
 function setupEventListeners() {
     document.getElementById('theme-toggle-btn')?.addEventListener('click', toggleTheme);
@@ -163,7 +174,7 @@ function setupEventListeners() {
         }
     });
 
-    // Gestione lettura file CSV per il Piano di Allenamento (con supporto automatico UTF-8 / UTF-16)
+    // Gestione lettura file CSV per il Piano di Allenamento
     document.getElementById('import-plan-input')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -175,7 +186,7 @@ function setupEventListeners() {
         e.target.value = '';
     });
 
-    // Gestione lettura file CSV per lo Storico (con supporto automatico UTF-8 / UTF-16)
+    // Gestione lettura file CSV per lo Storico
     document.getElementById('import-history-input')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
