@@ -24,9 +24,8 @@ export function assignMuscleGroup(exerciseName) {
     return 'Altro';
 }
 
-/**
-/**
- * Genera il riassunto dell'esercizio formattato per la scheda
+
+ /* Genera il riassunto dell'esercizio formattato per la scheda (Senza scritta TARGET e in rosso)
  */
 export function formatExerciseSummary(ex) {
     if (!ex) return '';
@@ -60,17 +59,20 @@ export function formatExerciseSummary(ex) {
     const rpe = getCell('rpe');
     const recupero = getCell('recupero', 'rest', 'recovery');
 
-    // 1. Gestione Peso (Controlla se c'è un range KgMin-KgMax valido oppure un Topset)
+    // 1. Gestione Peso (Range Kg o Topset oppure "--" in rosso se mancanti/uguali a 0 o -)
     let weightPart = '';
-    const hasKgRange = kgMin && kgMax && kgMin !== '-' && kgMax !== '-' && kgMin !== '0' && kgMax !== '0';
-    const hasTopset = topset && topset !== '-' && topset !== '0' && topset !== '0,0' && topset !== '0.0';
+    const isValidVal = (val) => val && String(val).trim() !== '' && String(val).trim() !== '-' && String(val).trim() !== '0' && String(val).trim() !== '0,0' && String(val).trim() !== '0.0';
+    
+    const hasKgRange = isValidVal(kgMin) && isValidVal(kgMax);
+    const hasTopset = isValidVal(topset);
 
     if (hasKgRange) {
-        weightPart = `${kgMin}-${kgMax}`;
+        weightPart = `<span style="color: #dc2626; font-weight: 700;">${kgMin}-${kgMax} kg</span>`;
     } else if (hasTopset) {
-        weightPart = topset.toLowerCase().includes('topset') ? topset : `Topset ${topset}`;
+        const cleanTopset = topset.toLowerCase().includes('topset') ? topset : `Topset ${topset}`;
+        weightPart = `<span style="color: #dc2626; font-weight: 700;">${cleanTopset}</span>`;
     } else {
-        weightPart = 'Topset';
+        weightPart = `<span style="color: #dc2626; font-weight: 700;">--</span>`;
     }
 
     // 2. Gestione Set, Reps e RPE

@@ -6,7 +6,7 @@ import { getFromLocalStorage, saveToLocalStorage, hasPendingSync, processSyncQue
 import { pullDataFromSupabase } from './sync.js';
 import { renderWorkoutList } from './ui.js';
 import { exportWorkoutPDF } from './pdfExport.js';
-import { exportToCSV, importWorkoutPlan, importProgressCSV } from './csvHandler.js';
+import { exportToCSV, importWorkoutPlan, importProgressCSV, readCsvFile } from './csvHandler.js';
 import { initTheme, toggleTheme } from './theme.js';
 import { renderStatsView, renderProgressView, renderMacroProgressView } from './dashboards.js';
 import { setupAuthListeners, logoutUser, checkSession } from './auth.js';
@@ -147,31 +147,27 @@ function setupEventListeners() {
         }
     });
 
-    // Gestione corretta della lettura file CSV per il Piano di Allenamento
+    // Gestione lettura file CSV per il Piano di Allenamento (con supporto automatico UTF-8 / UTF-16)
     document.getElementById('import-plan-input')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const result = importWorkoutPlan(event.target.result);
-            if (result.success) renderWorkoutList(); // Aggiorna la UI dopo l'import
+        readCsvFile(file, (text) => {
+            const result = importWorkoutPlan(text);
+            if (result.success) renderWorkoutList();
             alert(result.message || result.error);
-        };
-        reader.readAsText(file);
-        e.target.value = ''; // Resetta l'input
+        });
+        e.target.value = '';
     });
 
-    // Gestione corretta della lettura file CSV per lo Storico
+    // Gestione lettura file CSV per lo Storico (con supporto automatico UTF-8 / UTF-16)
     document.getElementById('import-history-input')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const result = importProgressCSV(event.target.result);
+        readCsvFile(file, (text) => {
+            const result = importProgressCSV(text);
             alert(result.message || result.error);
-        };
-        reader.readAsText(file);
-        e.target.value = ''; // Resetta l'input
+        });
+        e.target.value = '';
     });
 
     document.getElementById('week-selector')?.addEventListener('change', (e) => {

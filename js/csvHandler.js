@@ -150,9 +150,16 @@ export function importWorkoutPlan(csvText) {
                 });
             }
 
-            weeksMap[weekNum].daysMap[dayNum].exercises.push({
+           weeksMap[weekNum].daysMap[dayNum].exercises.push({
                 block: blockNum,
                 name: exName,
+                set: `${setsCount} set`,
+                reps: repsVal,
+                kgMin: kgMin,
+                kgMax: kgMax,
+                topset: topset,
+                rpe: rpeVal,
+                recupero: restVal,
                 targetRpe: rpeVal,
                 rest: restVal,
                 notes: notesVal,
@@ -337,4 +344,26 @@ export function exportToCSV(workoutData) {
         console.error("Errore durante l'esportazione CSV:", err);
         alert("Errore durante l'esportazione del file CSV.");
     }
+}
+
+/**
+ * Legge un file CSV gestendo automaticamente la codifica (UTF-8 / UTF-16 di Numbers)
+ */
+export function readCsvFile(file, callback) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const buffer = e.target.result;
+        let text = '';
+        
+        try {
+            const decoderUtf8 = new TextDecoder('utf-8', { fatal: true });
+            text = decoderUtf8.decode(buffer);
+        } catch (err) {
+            const decoderUtf16 = new TextDecoder('utf-16le');
+            text = decoderUtf16.decode(buffer);
+        }
+        
+        callback(text);
+    };
+    reader.readAsArrayBuffer(file);
 }
