@@ -268,23 +268,42 @@ export function clearLocalData() {
 }
 
 /**
- * Aggiorna il badge di stato nell'header (#sync-status)
+ * Aggiorna il badge di stato nell'header (#sync-status) e gestisce l'avviso di sicurezza interattivo
  */
 export function updateSyncStatusUI() {
     const syncBadge = document.getElementById('sync-status');
     if (!syncBadge) return;
 
     if (!navigator.onLine) {
-        syncBadge.textContent = '🔴 Offline';
+        syncBadge.textContent = '🔴 Offline (Modifiche in locale)';
         syncBadge.title = 'Nessuna connessione internet. I dati sono salvati sul dispositivo in attesa di rete.';
+        syncBadge.style.cursor = 'default';
     } else if (hasPendingSync()) {
-        syncBadge.textContent = '🟠 Sincronizzazione...';
-        syncBadge.title = 'Sincronizzazione della coda locale verso Supabase in corso...';
+        syncBadge.textContent = '⚠️ Sincronizza prima di cambiare device!';
+        syncBadge.title = 'Hai modifiche non sincronizzate! Clicca qui per forzare la sincronizzazione prima di usare un altro dispositivo.';
+        syncBadge.style.cursor = 'pointer';
+        syncBadge.style.background = '#f59e0b'; // Colore di allerta arancione
+        syncBadge.style.color = '#000';
+        syncBadge.style.padding = '2px 8px';
+        syncBadge.style.borderRadius = '4px';
+        syncBadge.style.fontWeight = 'bold';
     } else {
         syncBadge.textContent = '🟢 Sincronizzato';
-        syncBadge.title = 'Tutti i dati sono allineati con il cloud';
+        syncBadge.title = 'Tutti i dati sono allineati con il cloud. Puoi passare ad altri device in sicurezza.';
+        syncBadge.style.cursor = 'default';
+        syncBadge.style.background = '';
+        syncBadge.style.color = '';
+        syncBadge.style.padding = '';
     }
 }
+
+// Permette all'utente di forzare la sincronizzazione cliccando sul badge di avviso
+document.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'sync-status' && hasPendingSync() && navigator.onLine) {
+        console.log("Forzatura sincronizzazione manuale richiesta dall'utente...");
+        processSyncQueue();
+    }
+});
 
 // --- LISTENER AUTOMATICI DI RETE ---
 

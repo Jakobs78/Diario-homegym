@@ -2,7 +2,7 @@
 import { CONFIG } from './config.js';
 import { state } from './state.js';
 // Importiamo le nuove funzioni di gestione coda
-import { getFromLocalStorage, saveToLocalStorage, hasPendingSync, processSyncQueue, clearLocalData } from './storage.js';
+import { getFromLocalStorage, saveToLocalStorage, hasPendingSync, processSyncQueue, clearLocalData, updateSyncStatusUI } from './storage.js';
 import { pullDataFromSupabase } from './sync.js';
 import { renderWorkoutList } from './ui.js';
 import { exportWorkoutPDF } from './pdfExport.js';
@@ -32,23 +32,40 @@ async function initApp() {
     const localData = getFromLocalStorage();
     state.workoutData = localData;
     
+    // Aggiorna subito lo stato visivo della sync all'avvio
+    updateSyncStatusUI();
+    
     try {
         const user = await checkSession();
 
-        if (user && navigator.onLine) {
-            if (hasPendingSync()) {
-                await processSyncQueue();
-            }
+        if (user) {
+            const userInfoBar = document.getElementById('user-info-bar');
+            const userEmailDisplay = document.getElementById('user-email-display');
+            const authOverlay = document.getElementById('auth-overlay');
 
-            const remoteData = await pullDataFromSupabase(user);
-            
-            if (remoteData && remoteData.history) {
-                const localTime = new Date(localData.updatedAt || 0).getTime();
-                const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
+            if (userInfoBar) userInfoBar.style.display = 'flex';
+            if (userEmailDisplay && user.email) userEmailDisplay.textContent = user.email;
+            if (authOverlay) authOverlay.style.display = 'none';
 
-                if (remoteTime > localTime) {
-                    state.workoutData = remoteData;
-                    saveToLocalStorage(remoteData); 
+            if (navigator.onLine) {
+                // 1. Se ci sono modifiche locali in sospeso, prima svuotiamo la coda verso Supabase
+                if (hasPendingSync()) {
+                    await processSyncQueue();
+                }
+
+                // 2. Scarichiamo i dati dal cloud SOLO SE non ci sono più code pendenti
+                // e se il cloud è effettivamente più recente del nostro locale
+                const remoteData = await pullDataFromSupabase(user);
+                
+                if (remoteData && remoteData.history) {
+                    const localTime = new Date(localData.updatedAt || 0).getTime();
+                    const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
+
+                    // AGGIUNTO && !hasPendingSync() per blindare la protezione dei dati offline
+                    if (remoteTime > localTime && !hasPendingSync()) {
+                        state.workoutData = remoteData;
+                        saveToLocalStorage(remoteData); 
+                    }
                 }
             }
         }
@@ -56,13 +73,12 @@ async function initApp() {
         console.warn("Impossibile connettersi a Supabase, avvio in modalità offline:", err);
     }
     
-    // QUESTI DEVONO ESSERE SEMPRE ESEGUITI, ANCHE SE IL CLOUD FALLISCE
     renderWorkoutList();
     setupEventListeners();
     setupAuthListeners();
     initAudioUnlock();
+    updateSyncStatusUI(); // Controllo finale sullo stato UI
 }
-
 // --- COLLEGAMENTO EVENTI GLOBALI ---
 function setupEventListeners() {
     document.getElementById('theme-toggle-btn')?.addEventListener('click', toggleTheme);
