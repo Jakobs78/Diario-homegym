@@ -267,3 +267,61 @@ function handlePdfExportFromState() {
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
+// --- ASCOLTO RISVEGLIO DA STANDBY / CAMBIO TAB ---
+document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible') {
+        console.log("🔄 App tornata in primo piano dal standby. Controllo aggiornamenti...");
+
+        if (navigator.onLine) {
+            try {
+                const user = await checkSession();
+                if (!user) return;
+
+                const remoteData = await pullDataFromSupabase(user);
+                
+                if (remoteData) {
+                    const localData = getFromLocalStorage();
+                    const localTime = new Date(localData.updatedAt || 0).getTime();
+                    const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
+
+                    // Se il cloud ha dati più freschi, aggiorniamo e avvisiamo
+                    if (remoteTime > localTime) {
+                        console.log("✨ Trovati dati più recenti sul cloud al risveglio! Aggiornamento UI...");
+                        state.workoutData = remoteData;
+                        saveToLocalStorage(remoteData);
+                        
+                        if (typeof renderWorkoutList === 'function') {
+                            renderWorkoutList();
+                        }
+                        if (typeof updateSyncStatusUI === 'function') {
+                            updateSyncStatusUI();
+                        }
+
+                        // Mostra il toast che scompare dopo 2 secondi
+                        showSyncToast("Dati aggiornati dal cloud ✨");
+                    }
+                }
+            } catch (err) {
+                console.warn("Impossibile sincronizzare al risveglio da standby:", err);
+            }
+        }
+    }
+});
+
+// Funzione di supporto per generare il popup a scomparsa rapida
+function showSyncToast(message) {
+    let toast = document.getElementById('sync-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'sync-toast';
+        toast.style.cssText = "position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.85); color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; z-index: 9999; transition: opacity 0.3s ease; opacity: 0; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.2);";
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.style.opacity = '1';
+    
+    // Lo fa sparire dopo 2 secondi
+    setTimeout(() => {
+        toast.style.opacity = '0';
+    }, 2000);
+}
