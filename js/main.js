@@ -10,7 +10,7 @@ import { exportToCSV, importWorkoutPlan, importProgressCSV, readCsvFile } from '
 import { initTheme, toggleTheme } from './theme.js';
 import { renderStatsView, renderProgressView, renderMacroProgressView } from './dashboards.js';
 import { setupAuthListeners, logoutUser, checkSession } from './auth.js';
-import { deleteCurrentMesocycle, changeMesocycle } from './mesocycle.js';
+import { deleteCurrentMesocycle, changeMesocycle, toggleCurrentMesocycleLock, } from './mesocycle.js';
 import { setupBottomSheet } from './helpers.js';
 import { renderManualView } from './manual.js';
 import { initAudioUnlock } from './audio.js';
@@ -94,6 +94,8 @@ function setupEventListeners() {
 
     document.getElementById('prev-meso-btn')?.addEventListener('click', () => changeMesocycle(-1));
     document.getElementById('next-meso-btn')?.addEventListener('click', () => changeMesocycle(1));
+    // PULSANTE DI BLOCCO/SBLOCCO MESOCICLO
+    document.getElementById('toggle-lock-meso-btn')?.addEventListener('click', toggleCurrentMesocycleLock);
 
     setupBottomSheet({
         modalId: 'analytics-modal',
@@ -157,17 +159,6 @@ function setupEventListeners() {
                     clearLocalData();
                     break;
             }
-        }
-    });
-
-    document.getElementById('manual-btn')?.addEventListener('click', () => {
-        document.getElementById('workout-list-container').style.display = 'none';
-        document.querySelectorAll('.day-view').forEach(el => el.style.display = 'none');
-
-        const manualView = document.getElementById('manual');
-        if (manualView) {
-            manualView.style.display = 'block';
-            renderManualView();
         }
     });
 

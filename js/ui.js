@@ -4,7 +4,65 @@ import { saveAndSync } from './storage.js';
 import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise } from './helpers.js';
 import { startTimer, stopTimer, adjustTimer, parseRecoveryTime } from './timer.js';
 import { playBeep } from './audio.js';
-import { updateMesocycleUI } from './mesocycle.js';
+import { updateMesocycleUI, updateMesocycleLockUI } from './mesocycle.js';
+
+// --- GESTIONE TIMER DI RECUPERO FLOTTANTE (STATICO) ---
+let beepedSeconds = new Set();
+
+function formatTimerTime(totalSeconds) {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
+
+function handleTick(remainingSeconds) {
+    const floatingTimerEl = document.getElementById('floating-timer');
+    const timerDisplayEl = document.getElementById('timer-display') || document.getElementById('floating-timer-text');
+    
+    if (!floatingTimerEl) return;
+    floatingTimerEl.classList.add('active'); 
+    
+    if (timerDisplayEl) {
+        timerDisplayEl.textContent = formatTimerTime(remainingSeconds);
+    }
+
+    if (remainingSeconds > 5) beepedSeconds.clear();
+    if (remainingSeconds <= 5 && remainingSeconds > 0) {
+        if (!beepedSeconds.has(remainingSeconds)) {
+            playBeep(800, 0.15, 'sine');
+            beepedSeconds.add(remainingSeconds);
+        }
+    }
+}
+
+function handleComplete() {
+    const floatingTimerEl = document.getElementById('floating-timer');
+    const timerDisplayEl = document.getElementById('timer-display') || document.getElementById('floating-timer-text');
+    
+    if (!floatingTimerEl) return;
+    if (timerDisplayEl) {
+        timerDisplayEl.textContent = "Recupero Terminato!";
+    }
+    beepedSeconds.clear();
+    playBeep(1700, 1.5, 'sine');
+    setTimeout(() => {
+        floatingTimerEl.classList.remove('active');
+    }, 3000);
+}
+
+// Event delegation per i pulsanti del timer statico
+document.addEventListener('click', (e) => {
+    if (!e.target) return;
+    if (e.target.id === 'timer-minus-15') {
+        adjustTimer(-15, handleTick, handleComplete);
+    } else if (e.target.id === 'timer-plus-30') {
+        adjustTimer(30, handleTick, handleComplete);
+    } else if (e.target.id === 'stop-timer-btn' || e.target.id === 'timer-close') {
+        stopTimer();
+        const floatingTimerEl = document.getElementById('floating-timer');
+        if (floatingTimerEl) floatingTimerEl.classList.remove('active');
+    }
+});
 
 // Funzione per estrarre solo la parte numerica (es. da "3 reps" a "3")
 function cleanNumericReps(val) {
@@ -47,19 +105,20 @@ export function renderWorkoutList() {
 
     const mesoIndex = state.activeMesocycleIndex || 0;
     const meso = yearData.mesocycles[mesoIndex] || yearData.mesocycles[0];
-    const isPastMeso = mesoIndex > 0;
+    const isPastMeso = meso.locked || false;
     const activeWeekNum = state.activeWeek || 1;
     const targetWeek = (meso.weeks || []).find(w => w.weekNumber === activeWeekNum) || meso.weeks?.[0];
 
     if (!targetWeek) return;
 
     updateMesocycleUI();
+    updateMesocycleLockUI();
 
-    // 2. BANNER STORICO CONGELATO
+   // 2. BANNER MESOCICLO BLOCCATO
     if (isPastMeso) {
         const archiveBadge = document.createElement('div');
         archiveBadge.style.cssText = 'background: #fffbebf1; border: 1px solid #fcd34d; color: #b45309; padding: 8px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; gap: 6px;';
-        archiveBadge.innerHTML = '🔒 <span><strong>Mesociclo Concluso:</strong> I dati storici sono congelati in sola lettura per evitare modifiche accidentali.</span>';
+        archiveBadge.innerHTML = '🔒 <span><strong>Mesociclo Bloccato:</strong> I dati sono congelati in sola lettura. Clicca sul lucchetto in alto per sbloccarlo.</span>';
         DOM.workoutListContainer.appendChild(archiveBadge);
     }
 
@@ -86,24 +145,24 @@ export function renderWorkoutList() {
     const currentDay = targetWeek.days?.[activeDayNum - 1] || targetWeek.days?.[0];
     if (!currentDay) return;
 
-    // CONTEGGIO TEMPO TOTALE DELLA SESSIONE (con l'elemento #live-session-timer integrato)
+    // CONTEGGIO TEMPO TOTALE DELLA SESSIONE
     const dayHeader = document.createElement('div');
     dayHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 8px;';
     dayHeader.innerHTML = `
         <h2 style="margin: 0; color: #0284c7; font-size: 1.4rem;">${currentDay.dayName || 'Giorno ' + activeDayNum}</h2>
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <span id="live-session-timer" style="font-size: 0.85rem; font-weight: 700; padding: 4px 8px; border-radius: 6px; background: #e0f2fe; color: #0369a1;">⏱️ 0:00</span>
             <span style="font-size: 0.85rem; color: #64748b; font-weight: 500;">Mesociclo ${mesoIndex + 1} - Settimana ${targetWeek.weekNumber}</span>
         </div>
     `;
     DOM.workoutListContainer.appendChild(dayHeader);
 
-    // --- GESTIONE TIMER E SESSIONI LASCIATE IN SOSPESO ---
     if (currentDay.sessionStart) {
         const startDate = new Date(currentDay.sessionStart).toDateString();
         const todayDate = new Date().toDateString();
         if (startDate !== todayDate && !currentDay.completed) {
             currentDay.sessionStart = null;
+            currentDay.accumulatedSeconds = 0;
+            currentDay.isPaused = false;
         }
     }
 
@@ -113,15 +172,15 @@ export function renderWorkoutList() {
 
     window._sessionTimerInterval = setInterval(() => {
         const timerEl = document.getElementById('live-session-timer');
-        if (!timerEl || !currentDay.sessionStart || currentDay.completed) return;
+        if (!timerEl || currentDay.completed || currentDay.isPaused || !currentDay.sessionStart) return;
         
-        const elapsedSecs = Math.floor((Date.now() - currentDay.sessionStart) / 1000);
-        const mins = Math.floor(elapsedSecs / 60);
-        const secs = elapsedSecs % 60;
-        timerEl.textContent = `⏱️ ${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        const activeSegmentSecs = Math.floor((Date.now() - currentDay.sessionStart) / 1000);
+        const totalSecs = (currentDay.accumulatedSeconds || 0) + activeSegmentSecs;
+        const mins = Math.floor(totalSecs / 60);
+        const secs = totalSecs % 60;
+        timerEl.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
     }, 1000);
 
-    // Aggiorna l'interfaccia della testata del timer e gestisce la comparsa del tasto "Termina"
     updateSessionHeaderUI(currentDay);
 
     // RENDER ESERCIZI
@@ -135,7 +194,10 @@ export function renderWorkoutList() {
 
         let cardHtml = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <div style="font-size: 0.75rem; font-weight: 700; color: #64748b; letter-spacing: 0.5px;">BLOCCO ${exIdx + 1}</div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="font-size: 0.75rem; font-weight: 700; color: #64748b; letter-spacing: 0.5px;">BLOCCO ${exIdx + 1}</div>
+                    ${!isExExcluded ? '<span style="font-size: 0.7rem; color: #94a3b8; font-style: italic;">(Doppio click o swipe per escludere dai massimali / warmup)</span>' : ''}
+                </div>
                 ${isExExcluded ? '<span style="font-size: 0.7rem; background: #ef4444; color: #ffffff; padding: 2px 8px; border-radius: 12px; font-weight: 800;">ESCLUSO DAI MASSIMALI</span>' : ''}
             </div>
             
@@ -143,14 +205,13 @@ export function renderWorkoutList() {
                 <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a;">${exIdx + 1}. ${ex.name}</h3>
                 
                 <div style="display: flex; gap: 6px; align-items: center;">
-                    <select class="bar-select" data-ex="${exIdx}" style="font-size: 0.75rem; padding: 4px 6px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc;" ${isPastMeso ? 'disabled' : ''}>
+                    <select class="bar-select" data-ex="${exIdx}" style="font-size: 0.75rem; padding: 4px 6px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc;; color: #0f172a;" ${isPastMeso ? 'disabled' : ''}>
                         <option value="20">Bil 20kg</option>
                         <option value="15">Bil 15kg</option>
                         <option value="12">Bil 12kg</option>
                         <option value="10">Bil 10kg</option>
                         <option value="9">Bil 9kg</option>
                         <option value="6">Bil 6kg</option>
-                        <option value="0">Manubri / Macchina</option>
                     </select>
             
                     <div class="plates-badge" data-ex="${exIdx}" style="font-size: 0.75rem; padding: 4px 10px; border-radius: 6px; background: #f8fafc; border: 1px solid #e2e8f0; color: #64748b; font-weight: 700; font-family: monospace;">
@@ -311,23 +372,25 @@ function updateSessionAndCompletionState(currentDay) {
         });
     });
 
-    if (completedSets > 0 && !currentDay.sessionStart && !currentDay.completed) {
+    if (completedSets > 0 && !currentDay.sessionStart && !currentDay.completed && !currentDay.isPaused) {
         currentDay.sessionStart = Date.now();
+        currentDay.accumulatedSeconds = currentDay.accumulatedSeconds || 0;
         console.log("⏱️ Prima serie spuntata: cronometro di sessione avviato e salvato!");
     }
 
     if (totalSets > 0 && completedSets === totalSets) {
         if (currentDay.completed) return;
 
-        const now = Date.now();
-        const startTime = currentDay.sessionStart || now;
-        const durationMinutes = Math.round((now - startTime) / 60000);
+        const activeSegmentSecs = currentDay.sessionStart ? Math.floor((Date.now() - currentDay.sessionStart) / 1000) : 0;
+        const totalSecs = (currentDay.accumulatedSeconds || 0) + activeSegmentSecs;
+        const durationMinutes = Math.round(totalSecs / 60);
 
         currentDay.date = new Date().toISOString().split('T')[0];
-        currentDay.totalDurationMinutes = durationMinutes;
+        currentDay.totalDurationMinutes = Math.max(1, durationMinutes);
         currentDay.completed = true;
 
         currentDay.sessionStart = null; 
+        currentDay.isPaused = false;
         console.log(`🎉 Allenamento completato in ${durationMinutes} minuti.`);
     } else if (completedSets < totalSets && currentDay.completed) {
         currentDay.completed = false;
@@ -346,6 +409,29 @@ function updateSessionHeaderUI(currentDay) {
         timerWrapper.style.gap = '6px';
         timerWrapper.classList.add('session-timer-wrapper');
         
+        const pauseSessionBtn = document.createElement('button');
+        pauseSessionBtn.id = 'pause-session-timer-btn';
+        pauseSessionBtn.style.cssText = 'background: #fefce8; border: 1px solid #fef08a; color: #ca8a04; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 0.75rem; font-weight: 700; display: none;';
+        
+        pauseSessionBtn.onclick = () => {
+            if (currentDay.completed) return;
+            if (currentDay.isPaused) {
+                // Riprendi
+                currentDay.isPaused = false;
+                currentDay.sessionStart = Date.now();
+            } else {
+                // Metti in pausa
+                if (currentDay.sessionStart) {
+                    const activeSegmentSecs = Math.floor((Date.now() - currentDay.sessionStart) / 1000);
+                    currentDay.accumulatedSeconds = (currentDay.accumulatedSeconds || 0) + activeSegmentSecs;
+                    currentDay.sessionStart = null;
+                }
+                currentDay.isPaused = true;
+            }
+            saveAndSync(state.workoutData);
+            updateSessionHeaderUI(currentDay);
+        };
+
         const resetSessionBtn = document.createElement('button');
         resetSessionBtn.id = 'reset-session-timer-btn';
         resetSessionBtn.innerHTML = '⏹️ Termina';
@@ -355,6 +441,8 @@ function updateSessionHeaderUI(currentDay) {
         resetSessionBtn.onclick = () => {
             if (confirm("Vuoi azzerare il timer e sbloccare la sessione per questo giorno?")) {
                 currentDay.sessionStart = null;
+                currentDay.accumulatedSeconds = 0;
+                currentDay.isPaused = false;
                 currentDay.completed = false;
                 currentDay.totalDurationMinutes = undefined;
                 saveAndSync(state.workoutData);
@@ -363,23 +451,37 @@ function updateSessionHeaderUI(currentDay) {
         };
         
         timerEl.after(resetSessionBtn);
+        resetSessionBtn.after(pauseSessionBtn);
     }
 
     const resetBtn = document.getElementById('reset-session-timer-btn');
+    const pauseBtn = document.getElementById('pause-session-timer-btn');
 
     if (currentDay.completed && currentDay.totalDurationMinutes !== undefined) {
         timerEl.style.background = '#dcfce7';
         timerEl.style.color = '#166534';
         timerEl.textContent = `✅ ${currentDay.totalDurationMinutes} min`;
         if (resetBtn) resetBtn.style.display = 'inline-block';
+        if (pauseBtn) pauseBtn.style.display = 'none';
     } else {
-        timerEl.style.background = '#e0f2fe';
-        timerEl.style.color = '#0369a1';
-        if (!currentDay.sessionStart) {
-            timerEl.textContent = `⏱️ 0:00`;
+        timerEl.style.background = currentDay.isPaused ? '#fefce8' : '#e0f2fe';
+        timerEl.style.color = currentDay.isPaused ? '#ca8a04' : '#0369a1';
+        
+        const totalSecs = (currentDay.accumulatedSeconds || 0) + (currentDay.sessionStart ? Math.floor((Date.now() - currentDay.sessionStart) / 1000) : 0);
+        const mins = Math.floor(totalSecs / 60);
+        const secs = totalSecs % 60;
+
+        if (!currentDay.sessionStart && !currentDay.accumulatedSeconds && !currentDay.isPaused) {
+            timerEl.textContent = `0:00`;
             if (resetBtn) resetBtn.style.display = 'none';
+            if (pauseBtn) pauseBtn.style.display = 'none';
         } else {
+            timerEl.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
             if (resetBtn) resetBtn.style.display = 'inline-block';
+            if (pauseBtn) {
+                pauseBtn.style.display = 'inline-block';
+                pauseBtn.innerHTML = currentDay.isPaused ? '▶️ Riprendi' : '⏸️ Pausa';
+            }
         }
     }
 }
@@ -519,64 +621,8 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                     }
                 }
                 const recoveryTime = parseRecoveryTime(rawRecovery);
-
-                let timerDisplay = document.getElementById('floating-timer-display');
-                if (!timerDisplay) {
-                    timerDisplay = document.createElement('div');
-                    timerDisplay.id = 'floating-timer-display';
-                    timerDisplay.style.cssText = 'position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #ffffff; padding: 12px 18px; border-radius: 35px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); z-index: 9999; display: flex; align-items: center; justify-content: space-between; width: 92%; max-width: 420px; box-sizing: border-box; font-weight: 700; font-size: 1rem; border: 2px solid #0284c7;';
-                    
-                    timerDisplay.innerHTML = `
-                        <span id="timer-text-content" style="white-space: nowrap;">⏱️ <span style="color: #38bdf8; font-family: monospace; font-size: 1.1rem;">0:00</span></span>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <button id="timer-minus-15" style="background: #0284c7; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: bold;">-15s</button>
-                            <button id="timer-plus-30" style="background: #0284c7; color: white; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: bold;">+30s</button>
-                            <button id="timer-close" style="background: #ef4444; color: white; border: none; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: bold;">✕</button>
-                        </div>
-                    `;
-                    document.body.appendChild(timerDisplay);
-                }
-
-                const beepedSeconds = new Set();
-                const updateTick = (remainingSeconds) => {
-                    const mins = Math.floor(remainingSeconds / 60);
-                    const secs = remainingSeconds % 60;
-                    const timeStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-                    const textSpan = timerDisplay.querySelector('#timer-text-content');
-                    if (textSpan) {
-                        textSpan.innerHTML = `⏱️ Recupero: <span style="color: #38bdf8; font-family: monospace;">${timeStr}</span>`;
-                    }
-                    timerDisplay.style.display = 'flex';
-
-                    if (remainingSeconds > 5) beepedSeconds.clear();
-                    if (remainingSeconds <= 5 && remainingSeconds > 0) {
-                        if (!beepedSeconds.has(remainingSeconds)) {
-                            playBeep(800, 0.15, 'sine');
-                            beepedSeconds.add(remainingSeconds);
-                        }
-                    }
-                };
-
-                const updateComplete = () => {
-                    const textSpan = timerDisplay.querySelector('#timer-text-content');
-                    if (textSpan) {
-                        textSpan.innerHTML = `✅ Recupero Terminato!`;
-                    }
-                    beepedSeconds.clear();
-                    playBeep(1700, 1.5, 'sine');
-                    setTimeout(() => {
-                        timerDisplay.style.display = 'none';
-                    }, 3000);
-                };
-
-                timerDisplay.querySelector('#timer-minus-15').onclick = () => adjustTimer(-15, updateTick, updateComplete);
-                timerDisplay.querySelector('#timer-plus-30').onclick = () => adjustTimer(30, updateTick, updateComplete);
-                timerDisplay.querySelector('#timer-close').onclick = () => {
-                    stopTimer();
-                    timerDisplay.style.display = 'none';
-                };
-
-                startTimer(recoveryTime, updateTick, updateComplete);
+                
+                startTimer(recoveryTime, handleTick, handleComplete);
             }
         });
     });
@@ -616,7 +662,7 @@ export function enableCardSwipeGesture(cardElement, onSwipeLeft, onSwipeRight) {
     let currentY = 0;
     let isSwiping = false;
 
-    const MIN_SWIPE_DISTANCE = 50; 
+    const MIN_SWIPE_DISTANCE = 120; 
 
     cardElement.addEventListener('touchstart', (e) => {
         const touch = e.touches[0];
@@ -651,7 +697,6 @@ export function enableCardSwipeGesture(cardElement, onSwipeLeft, onSwipeRight) {
 
     cardElement.addEventListener('touchend', () => {
         cardElement.style.transition = 'transform 0.25s ease-out, opacity 0.25s ease-out';
-
         const deltaX = currentX - startX;
         const deltaY = currentY - startY;
         const absX = Math.abs(deltaX);

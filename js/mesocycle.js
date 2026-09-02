@@ -5,6 +5,16 @@ import { renderWorkoutList } from './ui.js';
 import { showNotification } from './helpers.js';
 
 /**
+ * Recupera l'oggetto del mesociclo attualmente attivo
+ */
+export function getActiveMesocycleObject() {
+    const currentYear = new Date().getFullYear().toString();
+    const mesocycles = state.workoutData.history?.years?.[currentYear]?.mesocycles || [];
+    const currentIndex = state.activeMesocycleIndex || 0;
+    return mesocycles[currentIndex] || null;
+}
+
+/**
  * Gestisce lo scorrimento dei mesocicli (-1 o +1) con controlli sui limiti
  */
 export function changeMesocycle(delta) {
@@ -81,4 +91,49 @@ export function updateMesocycleUI() {
 
     if (prevBtn) prevBtn.disabled = (currentIndex <= 0 || mesos.length === 0);
     if (nextBtn) nextBtn.disabled = (currentIndex >= mesos.length - 1 || mesos.length === 0);
+}
+
+// Logica di blocco e sblocco manuale del mesociclo
+export function toggleCurrentMesocycleLock() {
+    const currentMeso = getActiveMesocycleObject();
+    if (!currentMeso) return;
+
+    currentMeso.locked = !currentMeso.locked;
+    
+    // Salva e sincronizza subito lo stato di blocco
+    saveAndSync(state.workoutData);
+    updateMesocycleLockUI();
+    renderWorkoutList();
+}
+
+export function updateMesocycleLockUI() {
+    const currentMeso = getActiveMesocycleObject();
+    const container = document.getElementById('workout-list-container');
+    const lockBtn = document.getElementById('toggle-lock-meso-btn');
+
+    if (!currentMeso) return;
+
+    if (currentMeso.locked) {
+        if (container) {
+            container.setAttribute('inert', '');
+            container.style.opacity = '0.85';
+        }
+        if (lockBtn) {
+            lockBtn.innerHTML = '🔒 Bloccato';
+            lockBtn.style.background = '#fef2f2'; // Sfondo rosso chiaro di avviso
+            lockBtn.style.borderColor = '#fca5a5';
+            lockBtn.style.color = '#991b1b';
+        }
+    } else {
+        if (container) {
+            container.removeAttribute('inert');
+            container.style.opacity = '1';
+        }
+        if (lockBtn) {
+            lockBtn.innerHTML = '🔓 Sbloccato';
+            lockBtn.style.background = ''; // Ripristina lo stile originale del bottone
+            lockBtn.style.borderColor = '';
+            lockBtn.style.color = '';
+        }
+    }
 }

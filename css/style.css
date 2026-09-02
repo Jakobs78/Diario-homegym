@@ -1042,3 +1042,112 @@ body.dark-mode .sheet-divider,
     to { opacity: 1; }
 }
 /* --- Fine Overlay di Pericolo a Schermo Intero --- */
+/* ==========================================================================
+   STILI PER IL MANUALE D'USO (#manual)
+   ========================================================================== */
+
+.manual-section {
+    background: var(--block-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow-sm);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.manual-section h3 {
+    color: var(--accent-color);
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.manual-section p {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--text-color);
+    margin: 0 0 8px 0;
+}
+
+.manual-section ul {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.825rem;
+    color: var(--text-muted);
+}
+
+.manual-section li {
+    margin-bottom: 6px;
+    line-height: 1.45;
+}
+
+.manual-section code {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--accent-color);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+/* Stili per la Pillola del Timer */
+.timer-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #475569;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    transition: all 0.3s ease;
+}
+
+/* Supporto per il tema scuro (se attivo data-theme="dark") */
+[data-theme="dark"] .timer-pill {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+}
+
+/* Stato attivo/in esecuzione con effetto pulse verde */
+.timer-pill.is-active {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #166534;
+}
+
+[data-theme="dark"] .timer-pill.is-active {
+    background: rgba(20, 83, 45, 0.4);
+    border-color: rgba(34, 197, 94, 0.4);
+    color: #4ade80;
+}
+
+.timer-pill .timer-dot {
+    width: 6px;
+    height: 6px;
+    background-color: #cbd5e1;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+}
+
+.timer-pill.is-active .timer-dot {
+    background-color: #22c55e;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+    animation: pulse-dot 1.5s infinite;
+}
+
+@keyframes pulse-dot {
+    0% { transform: scale(0.95); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.6; }
+    100% { transform: scale(0.95); opacity: 1; }
+}
