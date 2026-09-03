@@ -94,7 +94,6 @@ function setupEventListeners() {
 
     document.getElementById('prev-meso-btn')?.addEventListener('click', () => changeMesocycle(-1));
     document.getElementById('next-meso-btn')?.addEventListener('click', () => changeMesocycle(1));
-    // PULSANTE DI BLOCCO/SBLOCCO MESOCICLO
     document.getElementById('toggle-lock-meso-btn')?.addEventListener('click', toggleCurrentMesocycleLock);
 
     setupBottomSheet({
@@ -144,7 +143,8 @@ function setupEventListeners() {
                     handlePdfExportFromState();
                     break;
                 case 'import-plan':
-                    document.getElementById('import-plan-input')?.click();
+                    // Apre la nuova modale di importazione scheda
+                    document.getElementById('import-plan-modal')?.classList.remove('hidden');
                     break;
                 case 'export-csv':
                     exportToCSV(state.workoutData);
@@ -162,13 +162,40 @@ function setupEventListeners() {
         }
     });
 
-    // Gestione lettura file CSV per il Piano di Allenamento
-    document.getElementById('import-plan-input')?.addEventListener('change', (e) => {
+    // Chiusura Modale Importazione Scheda
+    document.getElementById('close-import-modal-btn')?.addEventListener('click', () => {
+        document.getElementById('import-plan-modal')?.classList.add('hidden');
+    });
+
+    // Gestione invio testo copiato da PDF/Excel nella Modale
+    document.getElementById('btn-submit-import')?.addEventListener('click', () => {
+        const pasteArea = document.getElementById('import-paste-textarea');
+        const text = pasteArea ? pasteArea.value.trim() : '';
+
+        if (!text) {
+            alert("Incolla prima il testo della scheda o seleziona un file CSV!");
+            return;
+        }
+
+        const result = importWorkoutPlan(text);
+        if (result.success) {
+            if (pasteArea) pasteArea.value = '';
+            document.getElementById('import-plan-modal')?.classList.add('hidden');
+            renderWorkoutList();
+        }
+        alert(result.message || result.error);
+    });
+
+    // Gestione caricamento file facoltativo dentro la Modale
+    document.getElementById('import-file-fallback')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
         readCsvFile(file, (text) => {
             const result = importWorkoutPlan(text);
-            if (result.success) renderWorkoutList();
+            if (result.success) {
+                document.getElementById('import-plan-modal')?.classList.add('hidden');
+                renderWorkoutList();
+            }
             alert(result.message || result.error);
         });
         e.target.value = '';

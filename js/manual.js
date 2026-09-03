@@ -25,18 +25,29 @@ const manualContent = `
 </div>
 
 <div class="manual-section" style="margin-bottom: 20px;">
-    <h3 style="color: var(--primary); margin-bottom: 8px;">⏱️ Gestione dei Tempi di Recupero</h3>
-    <p>Il sistema interpreta automaticamente diverse notazioni per i tempi di recupero inseriti negli esercizi:</p>
+    <h3 style="color: var(--primary); margin-bottom: 8px;">⏱️ Gestione dei Tempi di Recupero e Sessione</h3>
+    <p>Il cronometro di sessione si avvia automaticamente spuntando la prima serie. Dalla barra superiore puoi:</p>
     <ul style="padding-left: 20px; line-height: 1.6; margin-top: 6px;">
-        <li><strong>Numeri puri &le; 10:</strong> Interpretati come minuti e moltiplicati per 60 (es. <code>2</code> = 120 secondi)[cite: 18].</li>
-        <li><strong>Numeri puri &gt; 10:</strong> Considerati direttamente in secondi (es. <code>90</code> = 90 secondi)[cite: 18].</li>
-        <li><strong>Notazione con due punti (<code>:</code>):</strong> Converte minuti e secondi separati dal simbolo (es. <code>1:30</code> = 90 secondi)[cite: 18].</li>
-        <li><strong>Etichette di minuti:</strong> Stringhe contenenti <code>min</code>, o terminanti con <code>m</code> o <code>'</code> (es. <code>2min</code>, <code>2m</code>, <code>2'</code>)[cite: 18].</li>
-        <li><strong>Etichette di secondi:</strong> Stringhe contenenti <code>s</code>, <code>sec</code> o terminanti con <code>"</code> (es. <code>90s</code>, <code>90sec</code>)[cite: 18].</li>
-        <li><strong>Notazione con punto (<code>.</code>):</strong> Se minore o uguale a 10 con decimali validi, convertita in minuti e secondi (es. <code>1.30</code> = 90 secondi)[cite: 18].</li>
-        <li><strong>Valori assenti o non validi:</strong> Viene applicato un valore predefinito di 90 secondi[cite: 18].</li>
+        <li><strong>Pausa / Riprendi (⏸️/▶️):</strong> Congela temporaneamente il conteggio del tempo accumulato senza perdere i secondi trascorsi.</li>
+        <li><strong>Termina (⏹️):</strong> Azzera il timer e sblocca la sessione per il giorno corrente in caso di necessità.</li>
     </ul>
-    <p style="margin-top: 8px;">Durante la sessione, il <strong>Timer Fluttuante</strong> permette di gestire il recupero con comandi rapidi (<code>-15s</code>, <code>+30s</code>) e monitorare il tempo di sessione live.</p>
+    <p style="margin-top: 10px;">Il sistema interpreta inoltre automaticamente diverse notazioni per i tempi di recupero dei singoli esercizi:</p>
+    <ul style="padding-left: 20px; line-height: 1.6; margin-top: 6px;">
+        <li><strong>Numeri puri &le; 10:</strong> Minuti moltiplicati per 60 (es. <code>2</code> = 120s).</li>
+        <li><strong>Numeri puri &gt; 10:</strong> Secondi diretti (es. <code>90</code> = 90s).</li>
+        <li><strong>Notazione con due punti (<code>:</code>):</strong> Minuti e secondi (es. <code>1:30</code> = 90s).</li>
+        <li><strong>Etichette testuali:</strong> Formati con <code>min</code>, <code>m</code>, <code>'</code>, <code>s</code>, <code>sec</code> o <code>"</code>.</li>
+        <li><strong>Valori assenti:</strong> Viene applicato un default di 90 secondi.</li>
+    </ul>
+    <p style="margin-top: 8px;">Durante la sessione, il <strong>Timer Fluttuante</strong> permette di gestire il recupero con comandi rapidi (<code>-15s</code>, <code>+30s</code>).</p>
+</div>
+
+<div class="manual-section" style="margin-bottom: 20px;">
+    <h3 style="color: var(--primary); margin-bottom: 8px;">🛡️ Gestione Esercizi (Warmup e Massimali)</h3>
+    <ul style="padding-left: 20px; line-height: 1.6;">
+        <li><strong>Esclusione Blocco:</strong> Puoi escludere un esercizio (utile per esercizi di riscaldamento o complementari di warmup) dal conteggio dei massimali e del completamento sessione.</li>
+        <li><strong>Come attivarla:</strong> Esegui un <strong>doppio click</strong> sull'intestazione della scheda dell'esercizio oppure effettua uno <strong>swipe laterale</strong> sul blocco. I dati inseriti resteranno salvati ma la scheda apparirà opacizzata e marcata come esclusa.</li>
+    </ul>
 </div>
 
 <div class="manual-section" style="margin-bottom: 20px;">
@@ -52,11 +63,18 @@ const manualContent = `
 
 <div class="manual-section">
     <h3 style="color: var(--primary); margin-bottom: 8px;">⚙️ Strumenti & Gestione</h3>
-    <p>Il menu <strong>Strumenti & Gestione</strong> raccoglie le funzionalità di manutenzione e backup:</p>
+    <p>Il menu <strong>Strumenti & Gestione</strong> raccoglie le funzionalità di manutenzione, importazione e backup:</p>
     <ul style="padding-left: 20px; line-height: 1.6; margin-top: 6px;">
         <li><strong>📖 Manuale d'uso:</strong> Visualizza questa guida interattiva.</li>
         <li><strong>🖨️ PDF giornaliero:</strong> Esporta il report della scheda giornaliera in formato PDF.</li>
-        <li><strong>📂 Importa scheda CSV mesociclo:</strong> Carica un piano di allenamento tramite file CSV.</li>
+        <li>
+            <strong>📂 Importa scheda CSV mesociclo:</strong> Carica un nuovo piano di allenamento da CSV o testo copiato (Excel/PDF).
+            <ul style="margin-top: 4px; padding-left: 18px;">
+                <li><strong>Protezione Mesociclo Attivo:</strong> Se il mesociclo in corso non risulta completato, l'app mostra un avviso di conferma prima dell'importazione.</li>
+                <li><strong>Riconoscimento Tecniche:</strong> Riconosce automaticamente <em>Triset</em>, <em>Dropset</em> e <em>Superset</em> nelle note raggruppando i blocchi (es. 1A, 1B, 1C).</li>
+                <li><strong>Sanitizzazione Unità:</strong> Rimuove automaticamente le diciture duplicate (es. <code>kg</code>) dai target di peso importati.</li>
+            </ul>
+        </li>
         <li><strong>💾 Backup storico CSV:</strong> Esporta una copia di sicurezza completa dello storico.</li>
         <li><strong>📥 Import storico CSV:</strong> Ripristina o importa dati storici da file CSV.</li>
     </ul>

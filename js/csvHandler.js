@@ -3,11 +3,16 @@ import { state } from './state.js';
 import { saveAndSync } from './storage.js';
 
 /**
- * Parser CSV universale (gestisce virgolette, a capo nei campi ed escaped quotes)
+ * Parser universale per CSV e tabelle copiate (gestisce tabulazioni da PDF/Excel, virgolette e a capo)
  */
 export function parseCSV(text) {
     const sampleLine = text.split(/\r\n|\n/).find(l => l.trim().length > 0) || '';
-    const delimiter = sampleLine.includes(';') ? ';' : ',';
+    let delimiter = ',';
+    if (sampleLine.includes('\t')) {
+        delimiter = '\t';
+    } else if (sampleLine.includes(';')) {
+        delimiter = ';';
+    }
 
     const result = [];
     let row = [];
@@ -52,15 +57,13 @@ export function parseCSV(text) {
 }
 
 /**
- * Helper per trovare l'indice di una colonna evitando falsi positivi (es. "set" in "settimana")
+ * Helper per trovare l'indice di una colonna evitando falsi positivi
  */
 function findColumnIndex(headers, targets) {
     for (const target of targets) {
-        // 1. Cerca corrispondenza esatta
         let idx = headers.indexOf(target);
         if (idx !== -1) return idx;
 
-        // 2. Cerca corrispondenza parziale escludendo falsi positivi noti
         idx = headers.findIndex(h => {
             if (target === 'set' || target === 'serie') {
                 if (h.includes('settimana')) return false;
@@ -73,16 +76,63 @@ function findColumnIndex(headers, targets) {
 }
 
 /**
- * Importa il piano di allenamento da CSV strutturato
+ * Verifica se tutti gli esercizi/set del mesociclo sono stati completati
+ */
+function isMesocycleCompleted(meso) {
+    if (!meso || !meso.weeks || meso.weeks.length === 0) return true;
+
+    for (const week of meso.weeks) {
+        for (const day of week.days || []) {
+            for (const ex of day.exercises || []) {
+                const sets = ex.loggedSets || ex.sets || [];
+                const isExIncomplete = sets.some(s => !s.isLocked && (!s.weight || !s.reps));
+                if (isExIncomplete) return false;
+            }
+        }
+    }
+    return true;
+}
+
+/**
+ * Raggruppa e unisce automaticamente gli esercizi se nelle note è presente Triset, Dropset o Superset
+ */
+function applyTrisetDropsetGrouping(daysArray) {
+    daysArray.forEach(day => {
+        const exercises = day.exercises;
+        if (!exercises || exercises.length === 0) return;
+
+        let i = 0;
+        while (i < exercises.length) {
+            const ex = exercises[i];
+            const notes = (ex.notes || '').toLowerCase();
+            
+            const isTriset = notes.includes('triset') || notes.includes('tri-set');
+            const isDropset = notes.includes('dropset') || notes.includes('drop-set');
+            const isSuperset = notes.includes('superset') || notes.includes('super-set');
+
+            if (isTriset || isDropset || isSuperset) {
+                let groupSize = isTriset ? 3 : 2;
+                const baseBlock = String(ex.block || '1').replace(/[A-Za-z]/g, '');
+                const letters = ['A', 'B', 'C', 'D', 'E'];
+                
+                for (let j = 0; j < groupSize && (i + j) < exercises.length; j++) {
+                    exercises[i + j].block = `${baseBlock || '1'}${letters[j] || (j + 1)}`;
+                }
+                i += groupSize;
+            } else {
+                const baseBlock = String(ex.block || '1').replace(/[A-Za-z]/g, '');
+                ex.block = baseBlock || '1';
+                i++;
+            }
+        }
+    });
+}
+
+/**
+ * Importa il piano di allenamento da CSV strutturato o testo copiato (PDF/Excel)
  */
 export function importWorkoutPlan(csvText) {
     try {
-        const rows = parseCSV(csvText);
-        if (rows.length < 2) throw new Error("Il file CSV è vuoto o non contiene intestazioni valide.");
-
-        const headers = rows[0].map(h => h.toLowerCase());
-        const dataRows = rows.slice(1);
-
         const currentYear = state.currentYear || new Date().getFullYear();
         if (!state.workoutData.history) state.workoutData.history = {};
         if (!state.workoutData.history.years) state.workoutData.history.years = {};
@@ -91,6 +141,28 @@ export function importWorkoutPlan(csvText) {
         }
 
         const currentMesos = state.workoutData.history.years[currentYear].mesocycles;
+        const activeMeso = currentMesos[state.activeMesocycleIndex];
+
+        // --- CONTROLLO MESOCICLO IN CORSO ---
+        if (activeMeso && !isMesocycleCompleted(activeMeso)) {
+            const proceed = confirm(
+                `⚠️ Attenzione: Il mesociclo attuale (${activeMeso.name}) non risulta ancora completato!\n\n` +
+                `Vuoi comunque caricare il nuovo mesociclo ed impostarlo come attivo?`
+            );
+            
+            if (!proceed) {
+                return { 
+                    success: false, 
+                    error: "Importazione annullata. Completa prima il mesociclo in corso." 
+                };
+            }
+        }
+
+        const rows = parseCSV(csvText);
+        if (rows.length < 2) throw new Error("Il file o il testo incollato è vuoto o non contiene intestazioni valide.");
+
+        const headers = rows[0].map(h => h.toLowerCase());
+        const dataRows = rows.slice(1);
         const nextMesoNumber = currentMesos.length + 1;
 
         const newMesocycle = {
@@ -114,8 +186,13 @@ export function importWorkoutPlan(csvText) {
             const exName = getVal(['esercizio', 'exercise', 'name']) || 'Esercizio';
             const setsCount = parseInt(getVal(['set', 'serie'])) || 3;
             const repsVal = getVal(['reps', 'ripetizioni']) || '8';
-            const kgMin = getVal(['kgmin', 'min']);
-            const kgMax = getVal(['kgmax', 'max']);
+            
+            // Sanitizzazione unità 'kg' da kgMin e kgMax
+            const rawKgMin = getVal(['kgmin', 'min']);
+            const rawKgMax = getVal(['kgmax', 'max']);
+            const kgMin = rawKgMin.replace(/kg/gi, '').trim();
+            const kgMax = rawKgMax.replace(/kg/gi, '').trim();
+
             const topset = getVal(['topset']);
             const rpeVal = getVal(['rpe']) || '';
             const restVal = getVal(['recupero', 'rest']) || '90';
@@ -128,17 +205,6 @@ export function importWorkoutPlan(csvText) {
                 weeksMap[weekNum].daysMap[dayNum] = { dayNumber: dayNum, dayName: `Giorno ${dayNum}`, exercises: [] };
             }
 
-            const isValidVal = (val) => val && val.trim() !== '-' && val.trim() !== '0';
-            const hasMinMax = isValidVal(kgMin) && isValidVal(kgMax);
-            const hasTopset = isValidVal(topset);
-
-            let displayWeight = '-';
-            if (hasMinMax) {
-                displayWeight = `${kgMin} - ${kgMax}`;
-            } else if (hasTopset) {
-                displayWeight = topset;
-            }
-            // Cosi lascia le celle del peso e delle ripetizioni vuote.
             const sets = [];
             for (let s = 1; s <= setsCount; s++) {
                 sets.push({
@@ -150,7 +216,7 @@ export function importWorkoutPlan(csvText) {
                 });
             }
 
-           weeksMap[weekNum].daysMap[dayNum].exercises.push({
+            weeksMap[weekNum].daysMap[dayNum].exercises.push({
                 block: blockNum,
                 name: exName,
                 set: `${setsCount} set`,
@@ -170,6 +236,8 @@ export function importWorkoutPlan(csvText) {
 
         Object.values(weeksMap).forEach(w => {
             const daysArray = Object.values(w.daysMap);
+            applyTrisetDropsetGrouping(daysArray);
+
             newMesocycle.weeks.push({
                 weekNumber: w.weekNumber,
                 coachNotes: w.coachNotes,
@@ -189,7 +257,7 @@ export function importWorkoutPlan(csvText) {
             message: `Mesociclo ${nextMesoNumber} importato con successo!` 
         };
     } catch (err) {
-        console.error("Errore importazione piano CSV:", err);
+        console.error("Errore importazione piano:", err);
         return { success: false, error: err.message };
     }
 }
@@ -282,7 +350,7 @@ export function importProgressCSV(csvText) {
 
         return {
             success: true,
-            message: `Storico importato con successo: aggiunti ${Object.keys(recordsByDateAndEx).length} record di allenamento utilizzabili nei grafici 1RM.`
+            message: `Storico importato con successo: aggiunti ${Object.keys(recordsByDateAndEx).length} record.`
         };
     } catch (err) {
         console.error("Errore nell'importazione del CSV di progresso:", err);
@@ -291,7 +359,7 @@ export function importProgressCSV(csvText) {
 }
 
 /**
- * Esporta lo stato attuale o lo storico dei mesocicli in un formato CSV
+ * Esporta lo stato attuale o lo storico dei mesocicli in formato CSV
  */
 export function exportToCSV(workoutData) {
     try {

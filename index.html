@@ -101,7 +101,8 @@
                 <div class="bottom-sheet-menu">
                     <button class="sheet-item" data-action="manual">📖 Manuale d'uso</button>
                     <button class="sheet-item" data-action="export-pdf">🖨️ PDF giornaliero</button>
-                    <button class="sheet-item" data-action="import-plan">📂 Importa scheda CSV mesociclo</button>
+                    <!-- Tasto Importazione aggiornato -->
+                    <button class="sheet-item" data-action="import-plan">📋 Importa scheda (Copia-Incolla / CSV)</button>
                     <button class="sheet-item" data-action="export-csv">💾 Backup storico CSV</button>
                     <button class="sheet-item" data-action="import-history">📥 Import storico CSV</button>
 
@@ -119,6 +120,36 @@
             </div>
         </div>
 
+        <!-- Hidden file inputs per la gestione CSV Storico -->
+        <input type="file" id="import-history-input" accept=".csv" style="display: none;">
+
+        <!-- MODALE DI IMPORTAZIONE SCHEDA (Copia-Incolla PDF / Excel / CSV) -->
+        <div id="import-plan-modal" class="bottom-sheet-overlay hidden" style="z-index: 10000;">
+            <div class="bottom-sheet-content" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div class="bottom-sheet-header">
+                    <span>📋 Importa Scheda Coach</span>
+                    <button id="close-import-modal-btn" class="close-sheet">&times;</button>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
+                        Copia la tabella dal PDF o dal file del coach e incollala qui sotto, oppure carica un file CSV.
+                    </p>
+                    
+                    <textarea id="import-paste-textarea" rows="8" placeholder="Incolla qui il testo o la tabella copiata dal PDF/Excel..." style="width: 100%; padding: 10px; border-radius: 8px; background: var(--bg-card); color: var(--text-color); border: 1px solid var(--border-color); font-family: monospace; font-size: 0.8rem; resize: vertical;"></textarea>
+
+                    <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                        <label for="import-file-fallback" class="btn btn-secondary" style="font-size: 0.8rem; cursor: pointer; padding: 8px 12px;">
+                            📁 Oppure seleziona File CSV
+                            <input type="file" id="import-file-fallback" accept=".csv, .txt" style="display: none;">
+                        </label>
+                        <button id="btn-submit-import" class="btn" style="padding: 8px 16px; font-weight: bold;">
+                            🚀 Importa nella Webapp
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Contenitore della barra di navigazione (Settimana + Giorni) -->
         <div class="tabs" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <div style="display: flex; gap: 4px; align-items: center; background: var(--bg-card); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color);">
@@ -130,7 +161,7 @@
                     <option value="4">4</option>
                 </select>
             </div>
-            
+
             <!-- ⏱️ TIMER DI SESSIONE A PILLOLA -->
             <div id="workout-timer-pill" class="timer-pill">
                 <span class="timer-dot"></span>
