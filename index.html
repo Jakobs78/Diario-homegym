@@ -10,8 +10,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Chart.js per le Dashboard e i Grafici -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
-    <!-- Per navigare correttamente nella gerarchia dei dati Anni-mesocicli-settimane ecc... -->
+    <!-- jsPDF per esportazione report -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- SheetJS per la lettura nativa dei file Excel della scheda allenamento (.xlsx, .xls) e CSV -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -48,7 +50,6 @@
 
         <!-- Barra Controlli -->
         <div class="controls-bar">
-            <!-- Riga Principale: Data, Mesociclo e Analytics -->
             <div class="control-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                 <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
                     <div style="display: flex; gap: 6px; align-items: center;">
@@ -56,102 +57,26 @@
                         <button class="btn btn-secondary" id="prev-meso-btn" style="padding: 2px 6px;">-</button>
                         <span id="meso-display" style="font-weight: 700; font-size: 0.9rem;">1</span>
                         <button class="btn btn-secondary" id="next-meso-btn" style="padding: 2px 6px;">+</button>
-                        <!-- Pulsante Blocca/Sblocca Mesociclo -->
                         <button class="btn btn-secondary" id="toggle-lock-meso-btn" style="padding: 2px 8px;" title="Blocca/Sblocca Mesociclo">🔓</button>
                     </div>
                 </div>
 
-                <!-- Pulsante per aprire il menu analisi allenamenti -->
-                <button id="open-analytics-btn" class="analytics-trigger-btn">
-                    📊 Analisi & Dashboards
-                </button>
-
-                <!-- Bottom Sheet (Menu da basso) -->
-                <div id="analytics-modal" class="bottom-sheet-overlay hidden">
-                    <div class="bottom-sheet-content">
-                        <div class="bottom-sheet-header">
-                            <span>Seleziona Vista</span>
-                            <button id="close-analytics-btn" class="close-sheet">&times;</button>
-                        </div>
-                        <div class="bottom-sheet-menu">
-                            <button class="sheet-item" data-view="workout">🏋️ Allenamento</button>
-                            <button class="sheet-item" data-view="stats">📈 Statistiche</button>
-                            <button class="sheet-item" data-view="progress">🎯 Progressi</button>
-                            <button class="sheet-item" data-view="macro-progress">📊 Macro Progressi</button>
-                        </div>
-                    </div>
-                </div>
-            
-                <!-- Pulsante di apertura menu strumenti e gestione -->
-        <button id="open-tools-btn" class="tools-trigger-btn">
-            ⚙️ Strumenti & Gestione
-        </button>
-
-        <!-- Hidden file inputs per la gestione CSV -->
-        <input type="file" id="import-plan-input" accept=".csv" style="display: none;">
-        <input type="file" id="import-history-input" accept=".csv" style="display: none;">
-
-        <!-- Bottom Sheet Strumenti & Gestione -->
-        <div id="tools-modal" class="bottom-sheet-overlay hidden">
-            <div class="bottom-sheet-content">
-                <div class="bottom-sheet-header">
-                    <span>⚙️ Strumenti & Gestione</span>
-                    <button id="close-tools-btn" class="close-sheet">&times;</button>
-                </div>
-                <div class="bottom-sheet-menu">
-                    <button class="sheet-item" data-action="manual">📖 Manuale d'uso</button>
-                    <button class="sheet-item" data-action="export-pdf">🖨️ PDF giornaliero</button>
-                    <!-- Tasto Importazione aggiornato -->
-                    <button class="sheet-item" data-action="import-plan">📋 Importa scheda (Copia-Incolla / CSV)</button>
-                    <button class="sheet-item" data-action="export-csv">💾 Backup storico CSV</button>
-                    <button class="sheet-item" data-action="import-history">📥 Import storico CSV</button>
-
-                    <!-- Separatore Zona Pericolosa -->
-                    <hr class="sheet-divider">
-                    <span class="sheet-section-title">Zona Pericolosa</span>
-
-                    <button class="sheet-item sheet-item-danger" data-action="reset-meso">
-                        🗑️ Elimina scheda mesociclo
+                <div style="display: flex; gap: 8px;">
+                    <button id="open-analytics-btn" class="analytics-trigger-btn">
+                        📊 Analisi & Dashboards
                     </button>
-                    <button class="sheet-item sheet-item-danger-critical" data-action="clear-data">
-                        ⚠️ Elimina tutto!
+                    <button id="open-tools-btn" class="tools-trigger-btn">
+                        ⚙️ Strumenti & Gestione
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Hidden file inputs per la gestione CSV Storico -->
+        <!-- Hidden file input per importazione storico -->
         <input type="file" id="import-history-input" accept=".csv" style="display: none;">
-
-        <!-- MODALE DI IMPORTAZIONE SCHEDA (Copia-Incolla PDF / Excel / CSV) -->
-        <div id="import-plan-modal" class="bottom-sheet-overlay hidden" style="z-index: 10000;">
-            <div class="bottom-sheet-content" style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                <div class="bottom-sheet-header">
-                    <span>📋 Importa Scheda Coach</span>
-                    <button id="close-import-modal-btn" class="close-sheet">&times;</button>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
-                    <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
-                        Copia la tabella dal PDF o dal file del coach e incollala qui sotto, oppure carica un file CSV.
-                    </p>
-                    
-                    <textarea id="import-paste-textarea" rows="8" placeholder="Incolla qui il testo o la tabella copiata dal PDF/Excel..." style="width: 100%; padding: 10px; border-radius: 8px; background: var(--bg-card); color: var(--text-color); border: 1px solid var(--border-color); font-family: monospace; font-size: 0.8rem; resize: vertical;"></textarea>
-
-                    <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
-                        <label for="import-file-fallback" class="btn btn-secondary" style="font-size: 0.8rem; cursor: pointer; padding: 8px 12px;">
-                            📁 Oppure seleziona File CSV
-                            <input type="file" id="import-file-fallback" accept=".csv, .txt" style="display: none;">
-                        </label>
-                        <button id="btn-submit-import" class="btn" style="padding: 8px 16px; font-weight: bold;">
-                            🚀 Importa nella Webapp
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- Contenitore della barra di navigazione (Settimana + Giorni) -->
-        <div class="tabs" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <div class="tabs" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 15px;">
             <div style="display: flex; gap: 4px; align-items: center; background: var(--bg-card); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color);">
                 <label for="week-selector" style="font-size: 0.75rem; font-weight: 700;">Settimana:</label>
                 <select id="week-selector" style="font-size: 0.75rem; padding: 2px 4px;">
@@ -162,7 +87,7 @@
                 </select>
             </div>
 
-            <!-- ⏱️ TIMER DI SESSIONE A PILLOLA -->
+            <!-- Timer di Sessione -->
             <div id="workout-timer-pill" class="timer-pill">
                 <span class="timer-dot"></span>
                 <span class="timer-icon">⏱️</span>
@@ -204,6 +129,95 @@
         </div>
     </div>
 
+    <!-- MODALI E BOTTOM SHEETS -->
+    
+    <!-- Bottom Sheet Analytics -->
+    <div id="analytics-modal" class="bottom-sheet-overlay hidden">
+        <div class="bottom-sheet-content">
+            <div class="bottom-sheet-header">
+                <span>Seleziona Vista</span>
+                <button id="close-analytics-btn" class="close-sheet">&times;</button>
+            </div>
+            <div class="bottom-sheet-menu">
+                <button class="sheet-item" data-view="workout">🏋️ Allenamento</button>
+                <button class="sheet-item" data-view="stats">📈 Statistiche</button>
+                <button class="sheet-item" data-view="progress">🎯 Progressi</button>
+                <button class="sheet-item" data-view="macro-progress">📊 Macro Progressi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Sheet Strumenti & Gestione -->
+    <div id="tools-modal" class="bottom-sheet-overlay hidden">
+        <div class="bottom-sheet-content">
+            <div class="bottom-sheet-header">
+                <span>⚙️ Strumenti & Gestione</span>
+                <button id="close-tools-btn" class="close-sheet">&times;</button>
+            </div>
+            <div class="bottom-sheet-menu">
+                <button class="sheet-item" data-action="manual">📖 Manuale d'uso</button>
+                <button class="sheet-item" data-action="export-pdf">🖨️ PDF giornaliero</button>
+                <button class="sheet-item" data-action="import-plan">📥 Importa scheda allenamento</button>
+                <button class="sheet-item" data-action="export-csv">💾 Backup storico CSV</button>
+                <button class="sheet-item" data-action="import-history">📥 Import storico CSV</button>
+
+                <hr class="sheet-divider">
+                <span class="sheet-section-title">Zona Pericolosa</span>
+
+                <button class="sheet-item sheet-item-danger" data-action="reset-meso">
+                    🗑️ Elimina scheda mesociclo
+                </button>
+                <button class="sheet-item sheet-item-danger-critical" data-action="clear-data">
+                    ⚠️ Elimina tutto!
+                </button>
+            </div>
+        </div>
+    </div>
+
+   <!-- Modale Importazione Scheda Excel / CSV -->
+    <div id="import-plan-modal" class="modal-overlay hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.65); overflow-y: auto; padding: 20px 0;">
+        <div class="modal-content" style="max-width: 520px; width: 90%; padding: 24px; margin: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; color: var(--primary, #007bff); display: flex; align-items: center; gap: 8px;">
+                    📥 Importa Scheda Allenamento
+                </h3>
+                <button id="close-import-modal-btn" class="btn-icon" style="background:none; border:none; font-size:1.2rem; cursor:pointer;">✕</button>
+            </div>
+
+            <!-- Procedura Guidata -->
+            <div style="background: var(--bg-subtle, #f8fafc); border: 1px solid var(--border, #e2e8f0); border-radius: 8px; padding: 14px; font-size: 0.85rem; line-height: 1.5; margin-bottom: 18px; color: var(--text, #334155);">
+                <p style="margin: 0 0 8px 0; font-weight: 700;">📋 Procedura di Importazione Sicura:</p>
+                <ol style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px;">
+                    <li><strong>Usa il Modello Standard:</strong> Scarica il file Excel modello per avere la certezza che la struttura venga letta senza errori.</li>
+                    <li><strong>Incolla le colonne del coach:</strong> Copia i dati dal foglio del tuo preparatore nelle colonne corrispondenti del modello scaricato.</li>
+                    <li><strong>Salva il file:</strong> Quando salvi il file, puoi anche esportarlo nel formato <strong>.csv</strong> Per. es "mese.csv"</li>
+                    <li><strong>Carica il file:</strong> Seleziona il file salvato in formato <strong>.xlsx</strong>, <strong>.xls</strong> o <strong>.csv</strong>.</li>
+                </ol>
+            </div>
+
+            <!-- Passo 1: Scarica Modello -->
+            <div style="margin-bottom: 16px; padding: 12px; border: 1px stroke var(--border, #cbd5e1); border-radius: 6px; background: rgba(0,123,255,0.03);">
+                <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 6px;">
+                    Passo 1: Scarica la tabella excel di esempio
+                </label>
+                <button id="btn-download-template" class="btn btn-secondary" style="width: 100%; padding: 8px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                    ⬇️ Scarica Modello Excel (.xlsx)
+                </button>
+            </div>
+
+            <!-- Passo 2: Carica File -->
+            <div style="margin-bottom: 20px;">
+                <label for="import-file-input" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 6px;">
+                    Passo 2: Carica il tuo file Excel compilato (.xlsx, .xls, .csv)
+                </label>
+                <input type="file" id="import-file-input" accept=".xlsx, .xls, .csv" style="font-size: 0.85rem; width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px;">
+            </div>
+
+            <!-- Stato elaborazione -->
+            <div id="import-status-msg" style="display: none; margin-bottom: 15px; font-size: 0.85rem; font-weight: 600;"></div>
+        </div>
+    </div>
+
     <!-- Timer Mobile Flottante -->
     <div id="floating-timer">
         <div>
@@ -220,7 +234,7 @@
     <!-- Script Entry Point ES6 Modulare -->
     <script type="module" src="js/main.js"></script>
 
-    <!-- Registrazione Service Worker per supporto Offline completo -->
+    <!-- Registrazione Service Worker -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {

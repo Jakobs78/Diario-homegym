@@ -6,6 +6,8 @@ import { saveAndSync } from './storage.js';
  * Parser universale per CSV e tabelle copiate (gestisce tabulazioni da PDF/Excel, virgolette e a capo)
  */
 export function parseCSV(text) {
+    if (!text) return [];
+
     const sampleLine = text.split(/\r\n|\n/).find(l => l.trim().length > 0) || '';
     let delimiter = ',';
     if (sampleLine.includes('\t')) {
@@ -31,11 +33,13 @@ export function parseCSV(text) {
                 inQuotes = !inQuotes;
             }
         } else if (char === delimiter && !inQuotes) {
-            row.push(currentField.trim().replace(/^"|"$/g, ''));
+            const cleaned = currentField.replace(/[\r\n]+/g, ' ').trim().replace(/^"|"$/g, '');
+            row.push(cleaned);
             currentField = '';
         } else if ((char === '\r' || char === '\n') && !inQuotes) {
             if (char === '\r' && nextChar === '\n') i++;
-            row.push(currentField.trim().replace(/^"|"$/g, ''));
+            const cleaned = currentField.replace(/[\r\n]+/g, ' ').trim().replace(/^"|"$/g, '');
+            row.push(cleaned);
             if (row.some(field => field.length > 0)) {
                 result.push(row);
             }
@@ -47,7 +51,8 @@ export function parseCSV(text) {
     }
 
     if (currentField || row.length > 0) {
-        row.push(currentField.trim().replace(/^"|"$/g, ''));
+        const cleaned = currentField.replace(/[\r\n]+/g, ' ').trim().replace(/^"|"$/g, '');
+        row.push(cleaned);
         if (row.some(field => field.length > 0)) {
             result.push(row);
         }
@@ -94,7 +99,7 @@ function isMesocycleCompleted(meso) {
 }
 
 /**
- * Raggruppa e unisce automaticamente gli esercizi se nelle note è presente Triset, Dropset o Superset
+ * Assegna i tag visivi per Triset, Superset e Dropset SENZA alterare gli oggetti esercizio
  */
 function applyTrisetDropsetGrouping(daysArray) {
     daysArray.forEach(day => {
@@ -105,23 +110,36 @@ function applyTrisetDropsetGrouping(daysArray) {
         while (i < exercises.length) {
             const ex = exercises[i];
             const notes = (ex.notes || '').toLowerCase();
+            const name = (ex.name || '').toLowerCase();
+            const combinedText = `${name} ${notes}`;
             
-            const isTriset = notes.includes('triset') || notes.includes('tri-set');
-            const isDropset = notes.includes('dropset') || notes.includes('drop-set');
-            const isSuperset = notes.includes('superset') || notes.includes('super-set');
+            const isTriset = combinedText.includes('triset') || combinedText.includes('tri-set') || combinedText.includes('tri set') || combinedText.includes('triserie') || combinedText.includes('tri serie') || combinedText.includes('tri-serie');
+            const isDropset = combinedText.includes('dropset') || combinedText.includes('drop-set') || combinedText.includes('drop set') || combinedText.includes('dropserie') || combinedText.includes('drop serie') || combinedText.includes('drop-serie');
+            const isSuperset = combinedText.includes('superset') || combinedText.includes('super-set') || combinedText.includes('super set') || combinedText.includes('superserie') || combinedText.includes('super serie') || combinedText.includes('super-serie');
 
-            if (isTriset || isDropset || isSuperset) {
+            if (isDropset) {
+                ex.isDropset = true;
+                const baseBlock = String(ex.block || (i + 1)).replace(/[A-Za-z]/g, '');
+                ex.block = baseBlock || String(i + 1);
+                i++;
+            } else if (isTriset || isSuperset) {
                 let groupSize = isTriset ? 3 : 2;
-                const baseBlock = String(ex.block || '1').replace(/[A-Za-z]/g, '');
+                const baseBlock = String(ex.block || (i + 1)).replace(/[A-Za-z]/g, '');
                 const letters = ['A', 'B', 'C', 'D', 'E'];
+                const groupType = isTriset ? 'triset' : 'superset';
                 
                 for (let j = 0; j < groupSize && (i + j) < exercises.length; j++) {
-                    exercises[i + j].block = `${baseBlock || '1'}${letters[j] || (j + 1)}`;
+                    const targetEx = exercises[i + j];
+                    targetEx.block = `${baseBlock || (i + 1)}${letters[j] || (j + 1)}`;
+                    targetEx.groupType = groupType;
+                    targetEx.groupBase = baseBlock || String(i + 1);
+                    // Flag per sapere se è l'ultimo esercizio del blocco (per attivare il timer)
+                    targetEx.isGroupLast = (j === groupSize - 1) || ((i + j) === exercises.length - 1);
                 }
                 i += groupSize;
             } else {
-                const baseBlock = String(ex.block || '1').replace(/[A-Za-z]/g, '');
-                ex.block = baseBlock || '1';
+                const baseBlock = String(ex.block || (i + 1)).replace(/[A-Za-z]/g, '');
+                ex.block = baseBlock || String(i + 1);
                 i++;
             }
         }
@@ -161,7 +179,7 @@ export function importWorkoutPlan(csvText) {
         const rows = parseCSV(csvText);
         if (rows.length < 2) throw new Error("Il file o il testo incollato è vuoto o non contiene intestazioni valide.");
 
-        const headers = rows[0].map(h => h.toLowerCase());
+        const headers = rows[0].map(h => h.trim().toLowerCase());
         const dataRows = rows.slice(1);
         const nextMesoNumber = currentMesos.length + 1;
 

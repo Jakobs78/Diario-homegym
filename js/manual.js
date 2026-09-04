@@ -61,7 +61,7 @@ const manualContent = `
     </ul>
 </div>
 
-<div class="manual-section">
+<div class="manual-section" style="margin-bottom: 20px;">
     <h3 style="color: var(--primary); margin-bottom: 8px;">⚙️ Strumenti & Gestione</h3>
     <p>Il menu <strong>Strumenti & Gestione</strong> raccoglie le funzionalità di manutenzione, importazione e backup:</p>
     <ul style="padding-left: 20px; line-height: 1.6; margin-top: 6px;">
@@ -82,6 +82,17 @@ const manualContent = `
     <ul style="padding-left: 20px; line-height: 1.6;">
         <li><strong>Elimina scheda mesociclo:</strong> Rimuove la programmazione del mesociclo corrente.</li>
         <li><strong>Elimina tutto!:</strong> Cancella permanentemente tutti i dati salvati (richiede conferma esplicita).</li>
+    </ul>
+</div>
+
+<div class="manual-section" style="margin-top: 20px;">
+    <h3 style="color: var(--primary); margin-bottom: 8px;">✨ Ultime Novità & Aggiornamenti</h3>
+    <ul style="padding-left: 20px; line-height: 1.6;">
+        <li><strong>⚡ Riconoscimento Automatico Tecniche Speciali:</strong> Durante l'importazione della scheda, l'app individua automaticamente note contenenti <em>Superset</em>, <em>Triset</em> o <em>Dropset</em>, evidenziando e raggruppando graficamente i blocchi correlati (es. 1A, 1B, 1C) per un'esecuzione guidata.</li>
+        <li><strong>📊 Supporto Nativo Excel (.xlsx / .xls):</strong> Importazione diretta di file Excel formattati senza bisogno di convertirli manualmente in CSV, con possibilità di scaricare un modello di esempio pronto all'uso.</li>
+        <li><strong>🔒 Blocco di Sicurezza Mesociclo:</strong> Pulsante <code>🔒/🔓</code> per congelare il mesociclo attivo e prevenire sovrascritture, modifiche involontarie o cancellazioni accidentali durante l'allenamento.</li>
+        <li><strong>🔄 Sincronizzazione al Risveglio da Standby:</strong> Rilevamento automatico delle modifiche effettuate su altri dispositivi non appena la pagina viene riaperta o lo smartphone si risveglia dallo standby.</li>
+        <li><strong>🎯 Pre-compilazione Intelligente Target:</strong> Calcolo dinamico e suggerimento dei carichi di partenza (Topset, Kg min/max) sui nuovi mesocicli basato sulle prestazioni storiche registrate.</li>
     </ul>
 </div>
 `;

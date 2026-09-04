@@ -1151,3 +1151,64 @@ body.dark-mode .sheet-divider,
     50% { transform: scale(1.2); opacity: 0.6; }
     100% { transform: scale(0.95); opacity: 1; }
 }
+/* --- FIX VISIBILITÀ E CONTRASTO MODALE IMPORTAZIONE --- */
+#import-plan-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.75); /* Sfondo scuro semi-trasparente */
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+}
+
+#import-plan-modal.hidden {
+    display: none !important;
+}
+
+/* Contenitore interno della finestra modale */
+#import-plan-modal .modal-content {
+    background-color: var(--card-bg, #ffffff) !important;
+    color: var(--text-color, #0f172a) !important;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+/* Forza la leggibilità di tutti gli elementi di testo interni */
+#import-plan-modal h2, 
+#import-plan-modal h3, 
+#import-plan-modal h4, 
+#import-plan-modal p, 
+#import-plan-modal label, 
+#import-plan-modal li,
+#import-plan-modal span {
+    color: var(--text-color, #0f172a) !important;
+}
+
+/* Pulsante X di chiusura */
+#close-import-modal-btn {
+    color: var(--text-color, #64748b) !important;
+    font-size: 1.5rem;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    line-height: 1;
+}
+
+#close-import-modal-btn:hover {
+    color: #ef4444 !important;
+}
+
+/* Messaggio di stato durante la lettura */
+#import-status-msg {
+    font-weight: 600;
+    margin-top: 10px;
+}
