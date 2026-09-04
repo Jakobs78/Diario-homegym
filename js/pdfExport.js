@@ -212,5 +212,39 @@ export function exportWorkoutPDF(dayData = null, metadata = null) {
     });
 
     const sanitizedDay = dayTitle.toLowerCase().replace(/\s+/g, '_');
-    doc.save(`report_${sanitizedDay}.pdf`);
+    const filename = `report_${sanitizedDay}.pdf`;
+
+    // 1. Estrazione del Blob con MIME Type PDF nativo
+    const pdfBlob = doc.output('blob');
+
+    // 2. Creazione dell'oggetto File per i gestori di sistema
+    const pdfFile = new File([pdfBlob], filename, {
+        type: 'application/pdf',
+        lastModified: Date.now()
+    });
+
+    // 3. Condivisione nativa Mobile (iOS / Android)
+    if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        navigator.share({
+            files: [pdfFile],
+            title: `Report Allenamento: ${dayTitle}`,
+            text: 'Ecco la tua scheda di allenamento in formato PDF.'
+        }).catch(err => {
+            if (err.name !== 'AbortError') {
+                console.error('Errore durante la condivisione PDF:', err);
+            }
+        });
+        return;
+    }
+
+    // 4. Fallback per Desktop / Browser standard
+    const shareUrl = URL.createObjectURL(pdfBlob);
+    const link = document.createElement('a');
+    link.href = shareUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(shareUrl), 1000);
 }

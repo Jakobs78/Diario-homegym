@@ -96,38 +96,122 @@
             <div id="dynamic-day-tabs" style="display: flex; gap: 4px; align-items: center;"></div>
         </div>
 
-        <!-- Lista e Contenitori Allenamento -->
+       <!-- Lista e Contenitori Allenamento -->
         <div id="workout-list-container"></div>
 
-        <!-- Viste Dashboard -->
-        <div class="day-view" id="stats" style="display: none;">
+        <!-- NUOVA SEZIONE ANALISI & DASHBOARD UNIFICATA -->
+        <div class="day-view" id="analytics" style="display: none;">
             <div class="day-card">
-                <div class="day-title"><span>Dashboard Volume Muscolare</span></div>
-                <div id="stats-content"></div>
+                
+                <!-- Filtri Temporali Rapidi -->
+                <div class="analytics-filter-bar">
+                    <button class="filter-btn active" data-range="meso">Mesociclo Corrente</button>
+                    <button class="filter-btn" data-range="3m">3 Mesi</button>
+                    <button class="filter-btn" data-range="1y">1 Anno</button>
+                    <button class="filter-btn" data-range="all">Storico Completo</button>
+                </div>
+
+                <!-- Sub-Tab di Navigazione -->
+                <div class="sub-tabs">
+                    <button class="sub-tab-btn active" onclick="switchAnalyticsTab('subtab-macro')">📊 Macro Mesociclo</button>
+                    <button class="sub-tab-btn" onclick="switchAnalyticsTab('subtab-micro')">🎯 Micro Esercizio & PR</button>
+                    <button class="sub-tab-btn" onclick="switchAnalyticsTab('subtab-compare')">🔄 Confronto Mesocicli</button>
+                </div>
+
+                <!-- SUB-TAB 1: MACRO MESOCICLO -->
+                <div id="subtab-macro" class="sub-tab-content active">
+                    <div class="kpi-grid">
+                        <div class="kpi-card">
+                            <span class="kpi-title">🎯 Aderenza Piano</span>
+                            <span id="kpi-adherence" class="kpi-value">--%</span>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-title">🏋️ Volume Netto Totale</span>
+                            <span id="kpi-volume" class="kpi-value">-- Ton</span>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-title">⚡ Indice Fatica (RPE)</span>
+                            <span id="kpi-fatigue" class="kpi-value">--</span>
+                            <span id="fatigue-status-badge" class="status-badge">🟢 Calcolo...</span>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <h4>Set Allenanti Settimanali per Distretto Muscolare (Soglie Coach)</h4>
+                        <canvas id="chart-muscle-volume"></canvas>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB 2: MICRO ESERCIZIO & PR -->
+                <div id="subtab-micro" class="sub-tab-content">
+                    <div class="exercise-selector-wrapper" style="margin-bottom: 12px;">
+                        <label for="analytics-ex-select" style="font-size: 0.8rem;"><strong>Seleziona Esercizio:</strong></label>
+                        <select id="analytics-ex-select" class="analytics-select" style="width: 100%; margin-top: 4px;">
+                            <!-- Popolato Dinamicamente via JS -->
+                        </select>
+                    </div>
+
+                    <!-- Badge PR Automatici -->
+                    <div class="pr-grid">
+                        <div class="pr-card">
+                            <span class="pr-icon">🏆</span>
+                            <div class="pr-info">
+                                <span class="pr-label">Max Carico Storico</span>
+                                <strong id="pr-max-weight">-- kg</strong>
+                            </div>
+                        </div>
+                        <div class="pr-card">
+                            <span class="pr-icon">💥</span>
+                            <div class="pr-info">
+                                <span class="pr-label">Max Tonnellaggio Serie</span>
+                                <strong id="pr-max-set-vol">-- kg</strong>
+                            </div>
+                        </div>
+                        <div class="pr-card">
+                            <span class="pr-icon">🔥</span>
+                            <div class="pr-info">
+                                <span class="pr-label">Max Reps a Carico Target</span>
+                                <strong id="pr-max-reps">-- reps</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Grafico Doppio Asse Carico vs RPE -->
+                    <div class="chart-card">
+                        <h4>Qualità Esecuzione: Trend Carico (Kg) vs Sforzo Percepito (RPE)</h4>
+                        <canvas id="chart-load-rpe"></canvas>
+                    </div>
+                </div>
+
+                <!-- SUB-TAB 3: CONFRONTO MESOCICLI -->
+                <div id="subtab-compare" class="sub-tab-content">
+                    <div class="compare-selectors">
+                        <div style="flex: 1;">
+                            <label style="font-size: 0.75rem;">Mesociclo A:</label>
+                            <select id="compare-meso-a" class="analytics-select" style="width: 100%;"></select>
+                        </div>
+                        <strong style="margin-top: 15px;">VS</strong>
+                        <div style="flex: 1;">
+                            <label style="font-size: 0.75rem;">Mesociclo B:</label>
+                            <select id="compare-meso-b" class="analytics-select" style="width: 100%;"></select>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h4>Confronto Sovrapposto Volume & Intensità</h4>
+                        <canvas id="chart-compare-mesos"></canvas>
+                    </div>
+                </div>
+
             </div>
         </div>
 
-        <div class="day-view" id="progress" style="display: none;">
-            <div class="day-card">
-                <div class="day-title"><span>Progressi & Analitiche Mesociclo</span></div>
-                <div id="progress-content"></div>
-            </div>
-        </div>
-
-        <div class="day-view" id="macro-progress" style="display: none;">
-            <div class="day-card">
-                <div class="day-title"><span>Macro Progressione Pluriennale (1RM)</span></div>
-                <div id="macro-progress-content"></div>
-            </div>
-        </div>
-
+        <!-- MANUALE DI ISTRUZIONI -->
         <div class="day-view" id="manual" style="display: none;">
             <div class="day-card">
                 <div class="day-title"><span>Manuale di Istruzioni</span></div>
                 <div id="manual-content"></div>
             </div>
         </div>
-    </div>
 
     <!-- MODALI E BOTTOM SHEETS -->
     

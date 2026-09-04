@@ -8,15 +8,40 @@ import { exportWorkoutPDF } from './pdfExport.js';
 import { downloadExcelTemplate, parseExcelFile } from './importer.js';
 import { importWorkoutPlan, readCsvFile, importProgressCSV } from './csvHandler.js';
 import { initTheme, toggleTheme } from './theme.js';
-import { renderStatsView, renderProgressView, renderMacroProgressView } from './dashboards.js';
 import { setupAuthListeners, logoutUser, checkSession } from './auth.js';
 import { deleteCurrentMesocycle, changeMesocycle, toggleCurrentMesocycleLock } from './mesocycle.js';
 import { setupBottomSheet } from './helpers.js';
 import { renderManualView } from './manual.js';
 import { initAudioUnlock } from './audio.js';
+import { renderMacroKPIs, initAnalyticsEvents } from './analytics.js';
 
 window.logoutUser = logoutUser;
 window.state = state;
+
+window.switchAnalyticsTab = function(tabId) {
+    document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.sub-tab-content').forEach(content => content.classList.remove('active'));
+
+    const selectedContent = document.getElementById(tabId);
+    if (selectedContent) selectedContent.classList.add('active');
+
+    const activeBtn = Array.from(document.querySelectorAll('.sub-tab-btn'))
+        .find(btn => btn.getAttribute('onclick')?.includes(tabId));
+    if (activeBtn) activeBtn.classList.add('active');
+};
+
+// --- GESTORE SUB-TAB ANALISI ---
+window.switchAnalyticsTab = function(tabId) {
+    document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.sub-tab-content').forEach(content => content.classList.remove('active'));
+
+    const selectedContent = document.getElementById(tabId);
+    if (selectedContent) selectedContent.classList.add('active');
+
+    const activeBtn = Array.from(document.querySelectorAll('.sub-tab-btn'))
+        .find(btn => btn.getAttribute('onclick')?.includes(tabId));
+    if (activeBtn) activeBtn.classList.add('active');
+};
 
 const EMPTY_WORKOUT_DATA = {
     athlete: { email: null },
@@ -115,15 +140,26 @@ function setupEventListeners() {
 
             if (viewId === 'workout') {
                 state.activeView = 'workout';
+                if (workoutContainer) workoutContainer.style.display = 'block';
                 renderWorkoutList();
             } else {
-                state.activeView = viewId;
-                const targetView = document.getElementById(viewId);
-                if (targetView) {
-                    targetView.style.display = 'block';
-                    if (viewId === 'stats') renderStatsView();
-                    if (viewId === 'progress') renderProgressView();
-                    if (viewId === 'macro-progress') renderMacroProgressView();
+                state.activeView = 'analytics';
+                const analyticsView = document.getElementById('analytics');
+                if (analyticsView) {
+                    analyticsView.style.display = 'block';
+                    
+                    // Reindirizza la selezione verso i nuovi Sub-Tab
+                    if (viewId === 'stats' || viewId === 'macro-progress') {
+                        window.switchAnalyticsTab('subtab-macro');
+                    } else if (viewId === 'progress') {
+                        window.switchAnalyticsTab('subtab-micro');
+                    }
+
+                    // Renderizza i KPI e i dati aggiornati
+                    if (state.workoutData) {
+                        renderMacroKPIs(state.workoutData);
+                        initAnalyticsEvents(state.workoutData);
+                    }
                 }
             }
         }
