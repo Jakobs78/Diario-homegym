@@ -131,16 +131,30 @@ function setupEventListeners() {
     document.getElementById('theme-toggle-btn')?.addEventListener('click', toggleTheme);
     document.getElementById('user-info-bar')?.addEventListener('click', window.logoutUser);
 
-    // Apertura diretta del Manuale d'Uso dall'Header
-    document.getElementById('btn-user-manual')?.addEventListener('click', () => {
-        const workoutContainer = document.getElementById('workout-list-container');
-        if (workoutContainer) workoutContainer.style.display = 'none';
-        document.querySelectorAll('.day-view').forEach(el => el.style.display = 'none');
-        
+    // Toggle (Apertura / Chiusura) del Manuale d'Uso dall'Header
+    document.getElementById('btn-user-manual')?.addEventListener('click', (e) => {
+        const btnManual = e.currentTarget;
         const manualView = document.getElementById('manual');
-        if (manualView) {
-            manualView.style.display = 'block';
-            renderManualView();
+        const workoutContainer = document.getElementById('workout-list-container');
+
+        // Controlla se la vista del manuale è attualmente aperta
+        const isOpen = manualView && manualView.style.display === 'block';
+
+        if (isOpen) {
+            // CHIUDI MANUALE -> Torna alla vista allenamento
+            if (manualView) manualView.style.display = 'none';
+            if (workoutContainer) workoutContainer.style.display = 'block';
+            btnManual.textContent = "📖 Manuale d'uso";
+        } else {
+            // APRI MANUALE
+            if (workoutContainer) workoutContainer.style.display = 'none';
+            document.querySelectorAll('.day-view').forEach(el => el.style.display = 'none');
+            
+            if (manualView) {
+                manualView.style.display = 'block';
+                renderManualView();
+            }
+            btnManual.textContent = "✖️ Chiudi Manuale";
         }
     });
 
@@ -154,6 +168,8 @@ function setupEventListeners() {
         closeBtnId: 'close-analytics-btn',
         timeoutMs: 6000,
         onSelect: (targetId) => {
+            const btnManual = document.getElementById('btn-user-manual');
+            if (btnManual) btnManual.textContent = "📖 Manuale d'uso";
             const workoutContainer = document.getElementById('workout-list-container');
             if (workoutContainer) workoutContainer.style.display = 'none';
             document.querySelectorAll('.day-view').forEach(el => el.style.display = 'none');
@@ -180,6 +196,8 @@ function setupEventListeners() {
         closeBtnId: 'close-tools-btn',
         timeoutMs: 6000,
         onSelect: (action) => {
+            const btnManual = document.getElementById('btn-user-manual');
+            if (btnManual) btnManual.textContent = "📖 Manuale d'uso";
             switch (action) {
                 case 'export-pdf':
                     handlePdfExportFromState();
