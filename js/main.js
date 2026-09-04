@@ -1,12 +1,12 @@
 // main.js
-import { CONFIG } from './config.js';
+import { CONFIG, supabase } from './config.js';
 import { state } from './state.js';
 import { getFromLocalStorage, saveToLocalStorage, hasPendingSync, processSyncQueue, clearLocalData, updateSyncStatusUI } from './storage.js';
 import { pullDataFromSupabase } from './sync.js';
 import { renderWorkoutList } from './ui.js';
 import { exportWorkoutPDF } from './pdfExport.js';
 import { downloadExcelTemplate, parseExcelFile } from './importer.js';
-import { importWorkoutPlan, readCsvFile, importProgressCSV } from './csvHandler.js';
+import { importWorkoutPlan, readCsvFile, importProgressCSV, exportToCSV } from './csvHandler.js';
 import { initTheme, toggleTheme } from './theme.js';
 import { setupAuthListeners, logoutUser, checkSession } from './auth.js';
 import { deleteCurrentMesocycle, changeMesocycle, toggleCurrentMesocycleLock } from './mesocycle.js';
@@ -14,6 +14,24 @@ import { setupBottomSheet } from './helpers.js';
 import { renderManualView } from './manual.js';
 import { initAudioUnlock } from './audio.js';
 import { renderMacroKPIs, initAnalyticsEvents, renderMuscleVolumeChart, renderMesoComparisonChart } from './analytics.js';
+
+// Ascolto stato autenticazione Supabase
+supabase.auth.onAuthStateChange(async (event, session) => {
+    if (session?.user) {
+        try {
+            const remoteData = await pullDataFromSupabase(session.user);
+            if (remoteData) {
+                state.workoutData = remoteData;
+                saveToLocalStorage(remoteData);
+                renderWorkoutList();
+            }
+        } catch (err) {
+            console.warn("Errore caricamento dati da cloud all'auth change:", err);
+        }
+    } else {
+        console.log("⚠️ Utente non autenticato: uso localStorage.");
+    }
+});
 
 window.logoutUser = logoutUser;
 window.state = state;
@@ -26,12 +44,10 @@ window.switchAnalyticsTab = function(tabId) {
     const selectedContent = document.getElementById(tabId);
     if (selectedContent) selectedContent.classList.add('active');
 
-    // Trova e attiva il pulsante corrispondente
     const activeBtn = Array.from(document.querySelectorAll('.sub-tab-btn'))
         .find(btn => btn.getAttribute('onclick')?.includes(tabId));
     if (activeBtn) activeBtn.classList.add('active');
 
-    // Innesca il re-render dei grafici e dei selettori quando il tab diventa visibile
     if (state.workoutData) {
         if (tabId === 'subtab-macro') {
             renderMacroKPIs(state.workoutData);
@@ -44,13 +60,6 @@ window.switchAnalyticsTab = function(tabId) {
     }
 };
 
-const EMPTY_WORKOUT_DATA = {
-    athlete: { email: null },
-    history: { years: {} },
-    updatedAt: null
-};
-
-// Helper per chiudere e resettare lo stato del modale d'importazione
 function closeImportModal() {
     const importModal = document.getElementById('import-plan-modal');
     if (importModal) {
@@ -70,7 +79,6 @@ async function initApp() {
 
     initTheme();
     
-    // 1. Carichiamo i dati locali per sicurezza
     let localData = getFromLocalStorage();
     state.workoutData = localData;
     updateSyncStatusUI();
@@ -112,7 +120,6 @@ async function initApp() {
         console.warn("Impossibile connettersi a Supabase, avvio in modalità offline:", err);
     }
     
-    // 2. Generiamo la UI
     renderWorkoutList();
     setupEventListeners();
     setupAuthListeners();
@@ -120,7 +127,6 @@ async function initApp() {
     updateSyncStatusUI();
 }
 
-// --- COLLEGAMENTO EVENTI GLOBALI ---
 function setupEventListeners() {
     document.getElementById('theme-toggle-btn')?.addEventListener('click', toggleTheme);
     document.getElementById('user-info-bar')?.addEventListener('click', window.logoutUser);
@@ -148,8 +154,6 @@ function setupEventListeners() {
                 const analyticsView = document.getElementById('analytics');
                 if (analyticsView) {
                     analyticsView.style.display = 'block';
-
-                    // Mappatura diretta al sub-tab richiesto
                     const subtabToActivate = targetId || 'subtab-macro';
                     window.switchAnalyticsTab(subtabToActivate);
                 }
@@ -180,14 +184,9 @@ function setupEventListeners() {
                 case 'import-plan': {
                     const importModal = document.getElementById('import-plan-modal');
                     if (importModal) {
-                        // 1. Mostra la modale
                         importModal.classList.remove('hidden');
                         importModal.style.display = 'flex';
-                        
-                        // 2. Forza lo scroll della finestra in cima alla pagina
                         window.scrollTo({ top: 0, behavior: 'smooth' });
-                        
-                        // 3. Resetta lo scroll interno del contenitore modale
                         const modalContent = importModal.querySelector('.modal-content');
                         if (modalContent) modalContent.scrollTop = 0;
                     }
@@ -209,22 +208,16 @@ function setupEventListeners() {
         }
     });
 
-    // Chiusura Modale Importazione Scheda via pulsante "X"
     document.getElementById('close-import-modal-btn')?.addEventListener('click', closeImportModal);
 
-    // Chiusura Modale al click sullo sfondo oscuro
     document.getElementById('import-plan-modal')?.addEventListener('click', (e) => {
-        if (e.target.id === 'import-plan-modal') {
-            closeImportModal();
-        }
+        if (e.target.id === 'import-plan-modal') closeImportModal();
     });
 
-    // Passo 1: Download Modello Excel Standard
     document.getElementById('btn-download-template')?.addEventListener('click', () => {
         downloadExcelTemplate();
     });
 
-    // Passo 2: Caricamento ed elaborazione nativa file Excel (.xlsx, .xls, .csv)
     document.getElementById('import-file-input')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -244,7 +237,6 @@ function setupEventListeners() {
                 return;
             }
 
-            // Elabora i dati trasformati in CSV dal motore SheetJS
             const result = importWorkoutPlan(res.csvData);
 
             if (result.success) {
@@ -260,7 +252,6 @@ function setupEventListeners() {
         });
     });
 
-    // Gestione lettura file CSV per lo Storico
     document.getElementById('import-history-input')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -342,47 +333,33 @@ function handlePdfExportFromState() {
 
 document.addEventListener('DOMContentLoaded', initApp);
 
-// --- ASCOLTO RISVEGLIO DA STANDBY / CAMBIO TAB ---
 document.addEventListener('visibilitychange', async () => {
-    if (document.visibilityState === 'visible') {
-        console.log("🔄 App tornata in primo piano dal standby. Controllo aggiornamenti...");
+    if (document.visibilityState === 'visible' && navigator.onLine) {
+        try {
+            const user = await checkSession();
+            if (!user) return;
 
-        if (navigator.onLine) {
-            try {
-                const user = await checkSession();
-                if (!user) return;
+            const remoteData = await pullDataFromSupabase(user);
+            if (remoteData) {
+                const localData = getFromLocalStorage();
+                const localTime = new Date(localData.updatedAt || 0).getTime();
+                const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
 
-                const remoteData = await pullDataFromSupabase(user);
-                
-                if (remoteData) {
-                    const localData = getFromLocalStorage();
-                    const localTime = new Date(localData.updatedAt || 0).getTime();
-                    const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
-
-                    if (remoteTime > localTime) {
-                        console.log("✨ Trovati dati più recenti sul cloud al risveglio! Aggiornamento UI...");
-                        state.workoutData = remoteData;
-                        saveToLocalStorage(remoteData);
-                        
-                        if (typeof renderWorkoutList === 'function') {
-                            renderWorkoutList();
-                        }
-                        if (typeof updateSyncStatusUI === 'function') {
-                            updateSyncStatusUI();
-                        }
-
-                        showSyncToast("Dati aggiornati dal cloud ✨");
-                    }
+                if (remoteTime > localTime) {
+                    state.workoutData = remoteData;
+                    saveToLocalStorage(remoteData);
+                    renderWorkoutList();
+                    updateSyncStatusUI();
+                    showSyncToast("Dati aggiornati dal cloud ✨");
                 }
-            } catch (err) {
-                console.warn("Impossibile sincronizzare al risveglio da standby:", err);
             }
+        } catch (err) {
+            console.warn("Impossibile sincronizzare al risveglio da standby:", err);
         }
     }
 });
 
 let syncToastTimer = null;
-
 function showSyncToast(message) {
     let toast = document.getElementById('sync-toast');
     if (!toast) {
@@ -395,8 +372,5 @@ function showSyncToast(message) {
     toast.style.opacity = '1';
     
     if (syncToastTimer) clearTimeout(syncToastTimer);
-    
-    syncToastTimer = setTimeout(() => {
-        toast.style.opacity = '0';
-    }, 2000);
+    syncToastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 2000);
 }

@@ -9,6 +9,5 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 export const CONFIG = {
     STORAGE_KEY: 'workoutApp_data',
-    WHITELIST: ['h725-25@hotmail.it'], // Aggiungi le email a cui vuoi permettere l'accesso
     APP_VERSION: '1.0.0'
 };

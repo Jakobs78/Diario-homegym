@@ -4,12 +4,6 @@ import { state } from './state.js';
 
 export async function loginUser(email, password) {
     try {
-        if (CONFIG.WHITELIST && CONFIG.WHITELIST.length > 0) {
-            if (!CONFIG.WHITELIST.includes(email.trim().toLowerCase())) {
-                throw new Error("Accesso negato: email non presente nella whitelist autorizzata.");
-            }
-        }
-
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
@@ -18,7 +12,7 @@ export async function loginUser(email, password) {
         try {
             localStorage.setItem('user_email', data.user.email);
         } catch (e) {
-            console.warn("Impossibile salvare l'email in localStorage (Storage disabilitato o Pieno).");
+            console.warn("Impossibile salvare l'email in localStorage.");
         }
         
         return { success: true, user: data.user };
@@ -34,7 +28,7 @@ export async function logoutUser() {
         state.currentUser = null;
         try {
             localStorage.removeItem('user_email');
-        } catch (e) {} // Silenzia errori in caso di incognito mode
+        } catch (e) {}
         window.location.reload();
     } catch (error) {
         console.error("Errore durante il logout:", error.message);
@@ -49,21 +43,20 @@ export async function checkSession() {
         if (session && session.user) {
             state.currentUser = session.user;
             localStorage.setItem('user_email', session.user.email);
-            hideAuthOverlay(); // Nasconde il login
+            hideAuthOverlay();
             return true;
         }
     } catch (err) {
         console.warn("Connessione Supabase non disponibile, modalità offline...", err);
     }
 
-    // Fallback offline sicuro su LocalStorage
     try {
         const rawData = localStorage.getItem(CONFIG.STORAGE_KEY);
         const cachedEmail = localStorage.getItem('user_email');
 
         if (rawData || cachedEmail) {
             state.currentUser = { email: cachedEmail || 'atleta.offline@local.app', isOffline: true };
-            hideAuthOverlay(); // Nasconde il login anche in offline
+            hideAuthOverlay();
             return true;
         }
     } catch (parseErr) {
@@ -79,8 +72,8 @@ function hideAuthOverlay() {
         overlay.style.display = 'none';
     }
 }
+
 export function setupAuthListeners() {
-    // 1. Gestione dei cambiamenti di stato di Supabase (mantiene allineato l'utente)
     supabase.auth.onAuthStateChange((event, session) => {
         const authOverlay = document.getElementById('auth-overlay');
         
@@ -93,7 +86,6 @@ export function setupAuthListeners() {
         }
     });
 
-    // 2. Gestione del click sul pulsante di login/accesso (usa 'auth-submit-btn' come da index.html)
     const submitBtn = document.getElementById('auth-submit-btn');
     const emailInput = document.getElementById('auth-email');
     const passwordInput = document.getElementById('auth-password');
@@ -103,7 +95,6 @@ export function setupAuthListeners() {
 
     let isRegistering = false;
 
-    // Gestione del testo per alternare Login / Registrazione dal link testuale
     if (toggleText) {
         toggleText.addEventListener('click', () => {
             isRegistering = !isRegistering;
@@ -119,7 +110,6 @@ export function setupAuthListeners() {
         });
     }
 
-    // Azione al click sul pulsante principale (funziona perfettamente anche con i touch events di Safari mobile)
     if (submitBtn) {
         submitBtn.addEventListener('click', async (e) => {
             e.preventDefault();
@@ -137,7 +127,6 @@ export function setupAuthListeners() {
             if (errorDiv) errorDiv.style.display = 'none';
 
             if (isRegistering) {
-                // Logica di Registrazione
                 try {
                     const { data, error } = await supabase.auth.signUp({ email, password });
                     if (error) throw error;
@@ -152,7 +141,6 @@ export function setupAuthListeners() {
                     }
                 }
             } else {
-                // Logica di Login
                 const result = await loginUser(email, password);
                 if (result.success) {
                     const authOverlay = document.getElementById('auth-overlay');

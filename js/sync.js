@@ -1,55 +1,5 @@
-// sync.js
-import { supabase, CONFIG } from './config.js';
-
-function isEmailWhitelisted(email) {
-    if (!CONFIG.WHITELIST || CONFIG.WHITELIST.length === 0) return true;
-    return CONFIG.WHITELIST.map(e => e.toLowerCase()).includes(email?.toLowerCase());
-}
-
-export async function loginUser(email, password) {
-    if (!supabase) {
-        alert("Client Supabase non configurato correttamente in config.js.");
-        return null;
-    }
-
-    if (!isEmailWhitelisted(email)) {
-        alert("Accesso negato: Indirizzo email non autorizzato.");
-        return null;
-    }
-
-    try {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        return data.user;
-    } catch (err) {
-        console.error("Errore durante il login:", err.message);
-        alert(`Errore di login: ${err.message}`);
-        return null;
-    }
-}
-
-export async function signupUser(email, password) {
-    if (!supabase) {
-        alert("Client Supabase non configurato correttamente in config.js.");
-        return null;
-    }
-
-    if (!isEmailWhitelisted(email)) {
-        alert("Registrazione non consentita per questo indirizzo email.");
-        return null;
-    }
-
-    try {
-        const { data, error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        alert("Registrazione completata! Controlla la tua email o effettua il login.");
-        return data.user;
-    } catch (err) {
-        console.error("Errore durante la registrazione:", err.message);
-        alert(`Errore di registrazione: ${err.message}`);
-        return null;
-    }
-}
+// js/sync.js
+import { supabase } from './config.js';
 
 export async function pullDataFromSupabase(userOrEmail) {
     if (!supabase) return null;
@@ -73,44 +23,60 @@ export async function pullDataFromSupabase(userOrEmail) {
 }
 
 /**
- * Salva/Aggiorna il payload JSON su Supabase utilizzando il timestamp originario dell'azione
+ * Salva il payload su Supabase.
+ * Se la prova dei 15 giorni è scaduta, la policy RLS del DB blocca la richiesta e mostra un alert.
  */
-export async function pushDataToSupabase(userOrEmail, payload, actionTimestamp = null) {
+export async function pushDataToSupabase(userOrEmail, payload) {
     if (!supabase) return false;
 
     const email = typeof userOrEmail === 'object' ? userOrEmail?.email : userOrEmail;
     if (!email) return false;
 
     try {
-        // Usa il timestamp in cui l'azione è stata compiuta offline, oppure quello attuale se assente
-        const updatedAt = actionTimestamp ? new Date(actionTimestamp).toISOString() : new Date().toISOString();
-
+        // updated_at viene aggiornato automaticamente dal trigger PostgreSQL del server
         const { error } = await supabase
             .from('workouts')
             .upsert({ 
                 email: email, 
-                payload: payload, 
-                updated_at: updatedAt 
+                payload: payload 
             }, { onConflict: 'email' });
 
         if (error) throw error;
         return true;
     } catch (err) {
         console.error("Errore nel salvataggio su Supabase:", err.message);
+        
+        // Intercetta il blocco della Policy RLS per trial scaduto (Codice errore 42501 o violazione policy)
+        if (err.code === '42501' || err.message?.includes('row-level security')) {
+            alert("⚠️ Periodo di prova scaduto! Il tuo periodo di 15 giorni è terminato. Attiva un abbonamento per continuare a salvare i tuoi allenamenti sul Cloud.");
+        } else {
+            alert(`Impossibile salvare sul Cloud: ${err.message}`);
+        }
         return false;
     }
 }
 
-export async function logoutUser() {
-    if (!supabase) return false;
+/**
+ * Recupera lo stato dell'abbonamento dell'utente corrente dal DB
+ */
+export async function getUserSubscriptionStatus(userOrEmail) {
+    if (!supabase) return null;
+
+    const email = typeof userOrEmail === 'object' ? userOrEmail?.email : userOrEmail;
+    if (!email) return null;
+
     try {
-        const { error } = await supabase.auth.signOut();
+        const { data, error } = await supabase
+            .from('user_subscriptions')
+            .select('status, trial_ends_at')
+            .eq('email', email)
+            .maybeSingle();
+
         if (error) throw error;
-        return true;
+        return data;
     } catch (err) {
-        console.error("Errore durante il logout:", err.message);
-        alert(`Errore di logout: ${err.message}`);
-        return false;
+        console.error("Errore recupero abbonamento:", err.message);
+        return null;
     }
 }
 

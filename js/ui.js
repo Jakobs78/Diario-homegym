@@ -453,15 +453,28 @@ function updateSessionHeaderUI(currentDay) {
         const pauseSessionBtn = document.createElement('button');
         pauseSessionBtn.id = 'pause-session-timer-btn';
         pauseSessionBtn.style.cssText = 'background: #fefce8; border: 1px solid #fef08a; color: #ca8a04; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 0.75rem; font-weight: 700; display: none;';
+
+        const resetSessionBtn = document.createElement('button');
+        resetSessionBtn.id = 'reset-session-timer-btn';
+        resetSessionBtn.innerHTML = '⏹️ Termina';
+        resetSessionBtn.title = 'Resetta o interrompi sessione';
+        resetSessionBtn.style.cssText = 'background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 0.75rem; font-weight: 700; display: none;';
         
-        pauseSessionBtn.onclick = () => {
+        timerEl.after(resetSessionBtn);
+        resetSessionBtn.after(pauseSessionBtn);
+    }
+
+    const resetBtn = document.getElementById('reset-session-timer-btn');
+    const pauseBtn = document.getElementById('pause-session-timer-btn');
+
+    // ✅ FIX STALE CLOSURE: Aggiornamento dinamico delle azioni sul giorno attivo corrente
+    if (pauseBtn) {
+        pauseBtn.onclick = () => {
             if (currentDay.completed) return;
             if (currentDay.isPaused) {
-                // Riprendi
                 currentDay.isPaused = false;
                 currentDay.sessionStart = Date.now();
             } else {
-                // Metti in pausa
                 if (currentDay.sessionStart) {
                     const activeSegmentSecs = Math.floor((Date.now() - currentDay.sessionStart) / 1000);
                     currentDay.accumulatedSeconds = (currentDay.accumulatedSeconds || 0) + activeSegmentSecs;
@@ -472,14 +485,10 @@ function updateSessionHeaderUI(currentDay) {
             saveAndSync(state.workoutData);
             updateSessionHeaderUI(currentDay);
         };
+    }
 
-        const resetSessionBtn = document.createElement('button');
-        resetSessionBtn.id = 'reset-session-timer-btn';
-        resetSessionBtn.innerHTML = '⏹️ Termina';
-        resetSessionBtn.title = 'Resetta o interrompi sessione';
-        resetSessionBtn.style.cssText = 'background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 0.75rem; font-weight: 700; display: none;';
-        
-        resetSessionBtn.onclick = () => {
+    if (resetBtn) {
+        resetBtn.onclick = () => {
             if (confirm("Vuoi azzerare il timer e sbloccare la sessione per questo giorno?")) {
                 currentDay.sessionStart = null;
                 currentDay.accumulatedSeconds = 0;
@@ -490,13 +499,7 @@ function updateSessionHeaderUI(currentDay) {
                 renderWorkoutList();
             }
         };
-        
-        timerEl.after(resetSessionBtn);
-        resetSessionBtn.after(pauseSessionBtn);
     }
-
-    const resetBtn = document.getElementById('reset-session-timer-btn');
-    const pauseBtn = document.getElementById('pause-session-timer-btn');
 
     if (currentDay.completed && currentDay.totalDurationMinutes !== undefined) {
         timerEl.style.background = '#dcfce7';
@@ -532,15 +535,15 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
     if (!DOM.workoutListContainer) return;
 
     DOM.workoutListContainer.querySelectorAll('.set-input, .ex-user-notes').forEach(input => {
-        input.addEventListener('focus', (e) => {
-            e.target.select();
-        });
-        
+        // 1. Evidenzia automaticamente tutto il testo al tocco/focus per sovrascrittura rapida
+        input.addEventListener('focus', (e) => e.target.select());
+
         input.addEventListener('input', (e) => {
             const exIdx = e.target.dataset.ex;
             const ex = currentDay.exercises[exIdx];
             if (!ex) return;
 
+            // Gestione note utente dell'esercizio
             if (e.target.classList.contains('ex-user-notes')) {
                 ex.userNotes = e.target.value;
                 saveAndSync(state.workoutData);
@@ -556,14 +559,20 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
             const isReps = e.target.classList.contains('set-reps');
             const isRpe = e.target.classList.contains('set-rpe');
 
-            if (isKg) setObj.weight = parseFloat(val.replace(',', '.')) || 0;
+            // ✅ FIX CAMPO VUOTO: salva stringa vuota '' se svuotato, evitando lo '0' forzato
+            if (isKg) {
+                const raw = val.trim();
+                setObj.weight = raw === '' ? '' : (parseFloat(raw.replace(',', '.')) || 0);
+            }
             if (isReps) setObj.reps = val;
             if (isRpe) setObj.rpe = val;
 
+            // Aggiorna la grafica dei dischi se modifichi il peso del primo set
             if (setIdx === 0 && isKg) {
                 updatePlatesBadgeUI(exIdx);
             }
 
+            // Colorazione rossa di avviso se il valore esce dal range KgMin - KgMax dell'allenatore
             if (isKg) {
                 const numVal = parseFloat(val.replace(',', '.')) || 0;
                 const kgMin = parseFloat(ex.kgMin) || 0;
