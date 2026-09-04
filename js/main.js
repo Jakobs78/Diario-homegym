@@ -13,22 +13,10 @@ import { deleteCurrentMesocycle, changeMesocycle, toggleCurrentMesocycleLock } f
 import { setupBottomSheet } from './helpers.js';
 import { renderManualView } from './manual.js';
 import { initAudioUnlock } from './audio.js';
-import { renderMacroKPIs, initAnalyticsEvents } from './analytics.js';
+import { renderMacroKPIs, initAnalyticsEvents, renderMuscleVolumeChart, renderMesoComparisonChart } from './analytics.js';
 
 window.logoutUser = logoutUser;
 window.state = state;
-
-window.switchAnalyticsTab = function(tabId) {
-    document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.sub-tab-content').forEach(content => content.classList.remove('active'));
-
-    const selectedContent = document.getElementById(tabId);
-    if (selectedContent) selectedContent.classList.add('active');
-
-    const activeBtn = Array.from(document.querySelectorAll('.sub-tab-btn'))
-        .find(btn => btn.getAttribute('onclick')?.includes(tabId));
-    if (activeBtn) activeBtn.classList.add('active');
-};
 
 // --- GESTORE SUB-TAB ANALISI ---
 window.switchAnalyticsTab = function(tabId) {
@@ -38,9 +26,22 @@ window.switchAnalyticsTab = function(tabId) {
     const selectedContent = document.getElementById(tabId);
     if (selectedContent) selectedContent.classList.add('active');
 
+    // Trova e attiva il pulsante corrispondente
     const activeBtn = Array.from(document.querySelectorAll('.sub-tab-btn'))
         .find(btn => btn.getAttribute('onclick')?.includes(tabId));
     if (activeBtn) activeBtn.classList.add('active');
+
+    // Innesca il re-render dei grafici e dei selettori quando il tab diventa visibile
+    if (state.workoutData) {
+        if (tabId === 'subtab-macro') {
+            renderMacroKPIs(state.workoutData);
+            renderMuscleVolumeChart('chart-muscle-volume', state.workoutData);
+        } else if (tabId === 'subtab-micro') {
+            initAnalyticsEvents(state.workoutData);
+        } else if (tabId === 'subtab-compare') {
+            renderMesoComparisonChart('chart-compare-mesos', null, null);
+        }
+    }
 };
 
 const EMPTY_WORKOUT_DATA = {
@@ -133,12 +134,12 @@ function setupEventListeners() {
         openBtnId: 'open-analytics-btn',
         closeBtnId: 'close-analytics-btn',
         timeoutMs: 6000,
-        onSelect: (viewId) => {
+        onSelect: (targetId) => {
             const workoutContainer = document.getElementById('workout-list-container');
             if (workoutContainer) workoutContainer.style.display = 'none';
             document.querySelectorAll('.day-view').forEach(el => el.style.display = 'none');
 
-            if (viewId === 'workout') {
+            if (targetId === 'workout') {
                 state.activeView = 'workout';
                 if (workoutContainer) workoutContainer.style.display = 'block';
                 renderWorkoutList();
@@ -147,19 +148,10 @@ function setupEventListeners() {
                 const analyticsView = document.getElementById('analytics');
                 if (analyticsView) {
                     analyticsView.style.display = 'block';
-                    
-                    // Reindirizza la selezione verso i nuovi Sub-Tab
-                    if (viewId === 'stats' || viewId === 'macro-progress') {
-                        window.switchAnalyticsTab('subtab-macro');
-                    } else if (viewId === 'progress') {
-                        window.switchAnalyticsTab('subtab-micro');
-                    }
 
-                    // Renderizza i KPI e i dati aggiornati
-                    if (state.workoutData) {
-                        renderMacroKPIs(state.workoutData);
-                        initAnalyticsEvents(state.workoutData);
-                    }
+                    // Mappatura diretta al sub-tab richiesto
+                    const subtabToActivate = targetId || 'subtab-macro';
+                    window.switchAnalyticsTab(subtabToActivate);
                 }
             }
         }

@@ -176,7 +176,10 @@ export function setupBottomSheet({
     let autoCloseTimer = null;
 
     const closeSheet = () => {
-        modal?.classList.add('hidden');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.classList.remove('show');
+        modal.style.display = 'none';
         if (autoCloseTimer) {
             clearTimeout(autoCloseTimer);
             autoCloseTimer = null;
@@ -184,7 +187,10 @@ export function setupBottomSheet({
     };
 
     const openSheet = () => {
-        modal?.classList.remove('hidden');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        modal.classList.add('show');
+        modal.style.display = 'flex';
 
         if (autoCloseTimer) clearTimeout(autoCloseTimer);
         if (timeoutMs > 0) {
@@ -199,16 +205,18 @@ export function setupBottomSheet({
         if (e.target === modal) closeSheet();
     });
 
-    // Gestione click sulle opzioni
     sheetItems?.forEach(item => {
         item.addEventListener('click', (e) => {
-            // Legge data-action, data-view o data-value
-            const val = e.currentTarget.dataset.action || e.currentTarget.dataset.view || e.currentTarget.dataset.value;
+            const ds = e.currentTarget.dataset;
+            // Supporta data-subtab, data-action, data-view, data-value
+            const val = ds.subtab || ds.action || ds.view || ds.value;
+
+            // Chiudi il pannello prima di eseguire la logica di cambio vista
+            closeSheet();
 
             if (typeof onSelect === 'function') {
                 onSelect(val, e);
             }
-            closeSheet();
         });
     });
 }

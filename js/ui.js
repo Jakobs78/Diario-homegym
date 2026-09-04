@@ -312,9 +312,9 @@ function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, 
             const prevVolume = prevKg * prevReps;
             
             if (currentVolume > prevVolume || (currentKg === prevKg && currentReps > prevReps)) {
-                trendHtml = `<span style="color: #16a34a; font-size: 0.75rem; font-weight: 800;" title="Migliorato rispetto all'ultima volta">🔼</span>`;
+                trendHtml = `<span style="color: #16a34a; font-size: 0.75rem; font-weight: 800;" title="Migliorato rispetto all'ultima volta">▲</span>`;
             } else if (currentVolume < prevVolume || (currentKg === prevKg && currentReps < prevReps)) {
-                trendHtml = `<span style="color: #dc2626; font-size: 0.75rem; font-weight: 800;" title="In calo rispetto all'ultima volta">🔻</span>`;
+                trendHtml = `<span style="color: #dc2626; font-size: 0.75rem; font-weight: 800;" title="In calo rispetto all'ultima volta">▼</span>`;
             }
         }
 
@@ -669,6 +669,7 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                     startTimer(recoveryTime, handleTick, handleComplete);
                 }
             }
+            renderWorkoutList();
         });
     });
 
