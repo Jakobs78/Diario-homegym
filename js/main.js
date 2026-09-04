@@ -131,6 +131,19 @@ function setupEventListeners() {
     document.getElementById('theme-toggle-btn')?.addEventListener('click', toggleTheme);
     document.getElementById('user-info-bar')?.addEventListener('click', window.logoutUser);
 
+    // Apertura diretta del Manuale d'Uso dall'Header
+    document.getElementById('btn-user-manual')?.addEventListener('click', () => {
+        const workoutContainer = document.getElementById('workout-list-container');
+        if (workoutContainer) workoutContainer.style.display = 'none';
+        document.querySelectorAll('.day-view').forEach(el => el.style.display = 'none');
+        
+        const manualView = document.getElementById('manual');
+        if (manualView) {
+            manualView.style.display = 'block';
+            renderManualView();
+        }
+    });
+
     document.getElementById('prev-meso-btn')?.addEventListener('click', () => changeMesocycle(-1));
     document.getElementById('next-meso-btn')?.addEventListener('click', () => changeMesocycle(1));
     document.getElementById('toggle-lock-meso-btn')?.addEventListener('click', toggleCurrentMesocycleLock);
@@ -168,16 +181,6 @@ function setupEventListeners() {
         timeoutMs: 6000,
         onSelect: (action) => {
             switch (action) {
-                case 'manual': {
-                    document.getElementById('workout-list-container').style.display = 'none';
-                    document.querySelectorAll('.day-view').forEach(el => el.style.display = 'none');
-                    const manualView = document.getElementById('manual');
-                    if (manualView) {
-                        manualView.style.display = 'block';
-                        renderManualView();
-                    }
-                    break;
-                }
                 case 'export-pdf':
                     handlePdfExportFromState();
                     break;

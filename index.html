@@ -32,7 +32,10 @@
     <div class="container">
         <!-- Header Principale -->
         <header>
-            <h1>🏋️ HomeGym Diary</h1>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <h1 style="margin: 0;">🏋️ HomeGym Diary</h1>
+                <button class="btn btn-secondary" id="btn-user-manual" style="padding: 4px 10px; font-size: 0.8rem; white-space: nowrap;">📖 Manuale d'uso</button>
+            </div>
             <div style="display: flex; gap: 6px; align-items: center;">
                 <span id="sync-status" class="sync-badge" title="Stato sincronizzazione cloud">🟢 Sincronizzato</span>
                 <span id="user-email-display" style="font-size: 0.8rem; color: var(--text-muted);"></span>    
@@ -239,7 +242,6 @@
                 <button id="close-tools-btn" class="close-sheet">&times;</button>
             </div>
             <div class="bottom-sheet-menu">
-                <button class="sheet-item" data-action="manual">📖 Manuale d'uso</button>
                 <button class="sheet-item" data-action="export-pdf">🖨️ PDF giornaliero</button>
                 <button class="sheet-item" data-action="import-plan">📥 Importa scheda allenamento</button>
                 <button class="sheet-item" data-action="export-csv">💾 Backup storico CSV</button>

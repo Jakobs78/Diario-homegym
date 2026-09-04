@@ -1366,3 +1366,82 @@ body.dark-mode .sheet-divider,
     gap: 8px;
     margin-bottom: 14px;
 }
+
+/* --- SFUMATURA VERDE PER TAB / PULSANTE MANUALE D'USO --- */
+#btn-user-manual,
+.tab-btn-manual {
+    background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%) !important;
+    color: #ffffff !important;
+    border: 1px solid #15803d !important;
+    box-shadow: 0 2px 8px rgba(34, 197, 94, 0.35);
+    transition: all 0.2s ease;
+}
+
+#btn-user-manual:hover,
+.tab-btn-manual:hover {
+    background: linear-gradient(135deg, #15803d 0%, #16a34a 100%) !important;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.5);
+    transform: translateY(-1px);
+}
+
+#btn-user-manual:active,
+.tab-btn-manual:active {
+    transform: scale(0.96);
+}
+
+/* --- TABELLA DI COMPARAZIONE PER ANALISI AVANZATA --- */
+.compare-table-container {
+    width: 100%;
+    overflow-x: auto;
+    margin-top: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    background: var(--card-bg);
+    text-align: center;
+}
+
+.compare-table th, 
+.compare-table td {
+    padding: 10px 8px;
+    border: 1px solid var(--border-color);
+}
+
+.compare-table th {
+    background: var(--block-bg);
+    color: var(--text-muted);
+    font-weight: 700;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.compare-table td:first-child {
+    font-weight: 600;
+    text-align: left;
+    color: var(--text-color);
+    background: var(--block-bg);
+}
+
+.compare-table .val-diff {
+    font-weight: 700;
+}
+
+.compare-table .diff-positive {
+    color: var(--success-color);
+}
+
+.compare-table .diff-negative {
+    color: #dc2626;
+}
+
+[data-theme="dark"] .compare-table .diff-negative,
+body.dark-mode .compare-table .diff-negative {
+    color: #f87171;
+}
