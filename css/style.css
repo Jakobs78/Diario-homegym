@@ -1445,3 +1445,31 @@ body.dark-mode .sheet-divider,
 body.dark-mode .compare-table .diff-negative {
     color: #f87171;
 }
+/* --- GESTIONE TIMER E PULSANTE RESET TIME NELL'HEADER --- */
+.session-timer-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap; /* Va a capo in modo pulito su schermi piccoli */
+}
+
+.btn-reset-time {
+    background: #fef3c7 !important;
+    border: 1px solid #f59e0b !important;
+    color: #d97706 !important;
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.btn-reset-time:hover {
+    background: #fde68a !important;
+}
+
+[data-theme="dark"] .btn-reset-time {
+    background: rgba(245, 158, 11, 0.15) !important;
+    border-color: rgba(245, 158, 11, 0.4) !important;
+    color: #fbbf24 !important;
+}

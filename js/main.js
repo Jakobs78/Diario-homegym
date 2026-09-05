@@ -95,6 +95,8 @@ async function initApp() {
             if (userInfoBar) userInfoBar.style.display = 'flex';
             if (userEmailDisplay && user.email) userEmailDisplay.textContent = user.email;
             if (authOverlay) authOverlay.style.display = 'none';
+            // 🔍 CONTROLLO ABBONAMENTO / TRIAL 45 GIORNI
+            await checkSubscriptionStatus(user);
 
             if (navigator.onLine) {
                 if (hasPendingSync()) {
@@ -394,4 +396,110 @@ function showSyncToast(message) {
     
     if (syncToastTimer) clearTimeout(syncToastTimer);
     syncToastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+}
+/**
+ * Mostra un popup temporaneo in alto
+ */
+function showTrialToast(message) {
+    const toast = document.getElementById('trial-toast');
+    if (!toast) return;
+
+    toast.textContent = message;
+    toast.style.display = 'block';
+
+    setTimeout(() => { toast.style.opacity = '1'; }, 50);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => { toast.style.display = 'none'; }, 500);
+    }, 3500);
+}
+
+/**
+ * Mostra la schermata di blocco con titolo e messaggio personalizzati
+ */
+function showExpiredOverlay(title, message) {
+    const overlay = document.getElementById('trial-expired-overlay');
+    const titleEl = document.getElementById('trial-expired-title');
+    const msgEl = document.getElementById('trial-expired-msg');
+
+    if (titleEl) titleEl.textContent = title;
+    if (msgEl) msgEl.innerHTML = message;
+    if (overlay) overlay.style.display = 'flex';
+}
+
+/**
+ * Verifica completa dello stato della licenza e gestione scadenze
+ */
+async function checkSubscriptionStatus(user) {
+    if (!user) return;
+
+    // Listener per il pulsante di logout in caso di blocco
+    const logoutBtn = document.getElementById('trial-logout-btn');
+    if (logoutBtn && !logoutBtn.dataset.hasListener) {
+        logoutBtn.addEventListener('click', async () => {
+            if (supabase) await supabase.auth.signOut();
+            window.location.reload();
+        });
+        logoutBtn.dataset.hasListener = "true";
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('user_subscriptions')
+            .select('status, trial_ends_at, expires_at')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+        if (error || !data) return;
+
+        const now = new Date();
+
+        // 1. Licenza a vita: nessun controllo o blocco
+        if (data.status === 'lifetime') return;
+
+        // 2. Abbonamento Pagato / Attivo
+        if (data.status === 'active') {
+            if (data.expires_at) {
+                const endDate = new Date(data.expires_at);
+                const diffDays = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+
+                if (diffDays <= 0) {
+                    showExpiredOverlay(
+                        "Abbonamento Scaduto",
+                        "Il tuo abbonamento annuale è scaduto.<br>Rinnova la tua licenza per continuare a utilizzare il Diario HomeGym e salvare i tuoi dati sul Cloud."
+                    );
+                } else if (diffDays <= 7) {
+                    showTrialToast(`⚠️ Il tuo abbonamento scade tra ${diffDays} giorn${diffDays === 1 ? 'o' : 'i'}!`);
+                }
+            }
+            return;
+        }
+
+        // 3. Periodo di Prova (Trial)
+        if (data.status === 'trial') {
+            const endDate = new Date(data.trial_ends_at);
+            const diffDays = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+
+            if (diffDays <= 0) {
+                showExpiredOverlay(
+                    "Periodo di Prova Terminato",
+                    "I tuoi giorni di prova gratuita sono terminati.<br>Attiva l'abbonamento per continuare ad utilizzare il Diario HomeGym senza perdere i tuoi dati."
+                );
+            } else {
+                showTrialToast(`⏳ Periodo di prova attivo: restano ${diffDays} giorn${diffDays === 1 ? 'o' : 'i'}`);
+            }
+            return;
+        }
+
+        // 4. Licenza Scaduta o Annullata
+        if (data.status === 'expired' || data.status === 'canceled') {
+            showExpiredOverlay(
+                "Licenza Non Attiva",
+                "La tua sottoscrizione è risultata scaduta o annullata.<br>Rinnova l'abbonamento per sbloccare l'accesso."
+            );
+        }
+    } catch (err) {
+        console.warn("Errore durante la verifica dell'abbonamento:", err);
+    }
 }

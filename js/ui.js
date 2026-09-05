@@ -270,15 +270,66 @@ function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, 
         </div>
     `;
 
-    if (ex.notes) {
-        cardHtml += `
-            <div style="background: #f0f9ff; border: 1px solid #e0f2fe; border-radius: 8px; padding: 10px; margin-bottom: 12px;">
-                <div style="font-size: 0.75rem; font-weight: 800; color: #0369a1; margin-bottom: 2px;">NOTE ALLENATORE</div>
-                <div style="font-size: 0.85rem; color: #0f172a; line-height: 1.3;">${ex.notes}</div>
-            </div>
-        `;
+    // 1. ESTRAZIONE DATI DELL'ULTIMA SESSIONE ESEGUITA
+    const prevExercise = findPreviousExercise(state.workoutData, mesoIndex, targetWeek.weekNumber, activeDayNum - 1, ex.name);
+    let lastSessionSummary = '';
+
+    if (prevExercise && prevExercise.loggedSets && prevExercise.loggedSets.length > 0) {
+        const validSets = prevExercise.loggedSets.filter(s => s.weight || s.reps);
+        if (validSets.length > 0) {
+            const lastSet = validSets[validSets.length - 1];
+            const weightVal = lastSet.weight || 0;
+            const rpeVal = lastSet.rpe ? ` @ RPE ${lastSet.rpe}` : '';
+
+            // 2. DISTINZIONE REPS RANGE VS REPS FISSE
+            const rangeStr = (prevExercise.minReps && prevExercise.maxReps) 
+                ? `${prevExercise.minReps}-${prevExercise.maxReps}`
+                : ((typeof prevExercise.reps === 'string' && prevExercise.reps.includes('-')) ? prevExercise.reps : null);
+
+            let repsStr = '';
+            if (rangeStr) {
+                // Reps a range
+                if (lastSet.reps && lastSet.reps !== rangeStr) {
+                    repsStr = `${lastSet.reps} reps (range ${rangeStr})`;
+                } else {
+                    repsStr = `${rangeStr} reps`;
+                }
+            } else {
+                // Reps fisse
+                const fixedReps = lastSet.reps || prevExercise.reps || '';
+                repsStr = `${fixedReps} reps`;
+            }
+
+            lastSessionSummary = `${weightVal} kg x ${repsStr}${rpeVal}`;
+        }
     }
 
+    // RENDERING BOX NOTE ALLENATORE + ULTIMA SESSIONE
+    if (ex.notes || lastSessionSummary) {
+        cardHtml += `<div style="background: #f0f9ff; border: 1px solid #e0f2fe; border-radius: 8px; padding: 10px; margin-bottom: 12px;">`;
+        
+        if (ex.notes) {
+            cardHtml += `
+                <div style="font-size: 0.75rem; font-weight: 800; color: #0369a1; margin-bottom: 2px;">NOTE ALLENATORE</div>
+                <div style="font-size: 0.85rem; color: #0f172a; line-height: 1.3; ${lastSessionSummary ? 'margin-bottom: 8px;' : ''}">${ex.notes}</div>
+            `;
+        }
+
+        if (lastSessionSummary) {
+            const divider = ex.notes ? `<div style="height: 1px; background: #bae6fd; margin-bottom: 6px;"></div>` : '';
+            cardHtml += `
+                ${divider}
+                <div style="font-size: 0.75rem; font-weight: 800; color: #0284c7; margin-bottom: 2px;">ULTIMA SESSIONE PRECEDENTE</div>
+                <div style="font-size: 0.85rem; color: #0f172a; line-height: 1.3; font-weight: 600;">
+                    <span style="background: #e0f2fe; padding: 2px 6px; border-radius: 4px; color: #0369a1;">${lastSessionSummary}</span>
+                </div>
+            `;
+        }
+
+        cardHtml += `</div>`;
+    }
+
+    // 3. TABELLA SET (PRECOMPILAZIONE INALTERATA)
     cardHtml += `
         <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 10px;">
             <thead>
@@ -293,62 +344,68 @@ function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, 
             <tbody>
     `;
 
-    const prevExercise = findPreviousExercise(state.workoutData, mesoIndex, targetWeek.weekNumber, activeDayNum - 1, ex.name);
+   // --- DENTRO IL CICLO FOR-EACH DEI SET IN ui.js ---
+(ex.loggedSets || []).forEach((setObj, setIdx) => {
+    const isLocked = setObj.isLocked || false;
+    const isDisabled = isLocked || isPastMeso;
 
-    (ex.loggedSets || []).forEach((setObj, setIdx) => {
-        const isLocked = setObj.isLocked || false;
-        const isDisabled = isLocked || isPastMeso;
+    // 1. Recupero dati del set corrispondente dalla sessione precedente del mesociclo
+    const prevSet = prevExercise?.loggedSets?.[setIdx];
+    const prevKg = prevSet ? parseFloat(prevSet.weight) || 0 : 0;
 
-        const prevSet = prevExercise?.loggedSets?.[setIdx];
-        const prevKg = prevSet ? parseFloat(prevSet.weight) || 0 : 0;
-        const prevReps = prevSet ? parseInt(prevSet.reps) || 0 : 0;
-        
-        const currentKg = parseFloat(setObj.weight) || 0;
-        const currentReps = parseInt(setObj.reps) || 0;
+    // Distinzione Reps Fisse vs Range per determinare il valore di riferimento precedente
+    const isRangeTarget = (ex.minReps && ex.maxReps) || (typeof ex.reps === 'string' && ex.reps.includes('-'));
+    const prevReps = prevSet ? parseInt(prevSet.reps) || 0 : 0;
+    
+    const currentKg = parseFloat(setObj.weight) || 0;
+    const currentReps = parseInt(setObj.reps) || 0;
 
-        let trendHtml = '';
-        if (prevSet && (currentKg > 0 || currentReps > 0)) {
-            const currentVolume = currentKg * currentReps;
-            const prevVolume = prevKg * prevReps;
-            
-            if (currentVolume > prevVolume || (currentKg === prevKg && currentReps > prevReps)) {
-                trendHtml = `<span style="color: #16a34a; font-size: 0.75rem; font-weight: 800;" title="Migliorato rispetto all'ultima volta">▲</span>`;
-            } else if (currentVolume < prevVolume || (currentKg === prevKg && currentReps < prevReps)) {
-                trendHtml = `<span style="color: #dc2626; font-size: 0.75rem; font-weight: 800;" title="In calo rispetto all'ultima volta">▼</span>`;
-            }
+    // 2. Calcolo Trend Volume Totale del Singolo Set (Kg x Reps)
+    let trendHtml = '';
+    if (prevSet && currentKg > 0 && currentReps > 0 && prevKg > 0 && prevReps > 0) {
+        const currentVolume = currentKg * currentReps;
+        const prevVolume = prevKg * prevReps;
+        const volDiff = currentVolume - prevVolume;
+
+        if (volDiff > 0) {
+            trendHtml = `<span style="color: #16a34a; font-size: 0.7rem; font-weight: 800; white-space: nowrap;" title="Volume aumentato di ${volDiff} kg rispetto alla sessione precedente">▲ +${volDiff} kg</span>`;
+        } else if (volDiff < 0) {
+            trendHtml = `<span style="color: #dc2626; font-size: 0.7rem; font-weight: 800; white-space: nowrap;" title="Volume calato di ${Math.abs(volDiff)} kg rispetto alla sessione precedente">▼ -${Math.abs(volDiff)} kg</span>`;
         }
+    }
 
-        const isRangeTarget = (ex.minReps && ex.maxReps) || (ex.reps && typeof ex.reps === 'string' && ex.reps.includes('-'));
-        let rawTargetReps = ex.reps || ex.targetReps || '';
-        let defaultTargetReps = isRangeTarget ? (prevSet?.reps || '') : cleanNumericReps(rawTargetReps);
+    // Gestione dei valori di default e dei placeholder per le celle
+    let rawTargetReps = ex.reps || ex.targetReps || '';
+    let defaultTargetReps = isRangeTarget ? (prevSet?.reps || '') : cleanNumericReps(rawTargetReps);
 
-        const displayWeight = setObj.weight !== undefined && setObj.weight !== '' ? setObj.weight : (prevSet?.weight || '');
-        const displayReps = setObj.reps !== undefined && setObj.reps !== '' ? setObj.reps : defaultTargetReps;
-        const displayRpe = setObj.rpe !== undefined && setObj.rpe !== '' ? setObj.rpe : (ex.targetRpe || ex.rpe || '');
+    const displayWeight = setObj.weight !== undefined && setObj.weight !== '' ? setObj.weight : (prevSet?.weight || '');
+    const displayReps = setObj.reps !== undefined && setObj.reps !== '' ? setObj.reps : defaultTargetReps;
+    const displayRpe = setObj.rpe !== undefined && setObj.rpe !== '' ? setObj.rpe : (ex.targetRpe || ex.rpe || '');
 
-        cardHtml += `
-            <tr style="border-bottom: 1px solid #e2e8f0;">
-                <td style="padding: 6px; text-align: center; border-right: 1px solid #e2e8f0;">
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-                        <span style="font-weight: 600; color: #334155;">${setIdx + 1}</span>
-                        ${trendHtml}
-                    </div>
-                </td>
-                <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                    <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" class="set-input set-kg" data-ex="${exIdx}" data-set="${setIdx}" value="${displayWeight}" placeholder="${prevSet?.weight || 'Kg'}" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'}; color: ${!setObj.weight && prevSet?.weight && !isLocked ? '#94a3b8' : '#0f172a'};">
-                </td>
-                <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                    <input type="text" inputmode="numeric" autocomplete="off" autocorrect="off" class="set-input set-reps" data-ex="${exIdx}" data-set="${setIdx}" value="${displayReps}" placeholder="${prevSet?.reps || 'reps'}" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'}; color: ${!setObj.reps && prevSet?.reps && !isLocked ? '#94a3b8' : '#0f172a'};">
-                </td>
-                <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                    <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" class="set-input set-rpe" data-ex="${exIdx}" data-set="${setIdx}" value="${displayRpe}" placeholder="RPE" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
-                </td>
-                <td style="padding: 4px; text-align: center;">
-                    <input type="checkbox" class="set-lock-check" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''} style="width: 18px; height: 18px; cursor: pointer;">
-                </td>
-            </tr>
-        `;
-    });
+    // Layout della riga della tabella (Colonna SET aggiornata per contenere il badge del trend)
+    cardHtml += `
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 6px; text-align: center; border-right: 1px solid #e2e8f0;">
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;">
+                    <span style="font-weight: 600; color: #334155;">${setIdx + 1}</span>
+                    ${trendHtml}
+                </div>
+            </td>
+            <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
+                <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" class="set-input set-kg" data-ex="${exIdx}" data-set="${setIdx}" value="${displayWeight}" placeholder="${prevSet?.weight || 'Kg'}" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'}; color: ${!setObj.weight && prevSet?.weight && !isLocked ? '#94a3b8' : '#0f172a'};">
+            </td>
+            <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
+                <input type="text" inputmode="numeric" autocomplete="off" autocorrect="off" class="set-input set-reps" data-ex="${exIdx}" data-set="${setIdx}" value="${displayReps}" placeholder="${prevSet?.reps || 'reps'}" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'}; color: ${!setObj.reps && prevSet?.reps && !isLocked ? '#94a3b8' : '#0f172a'};">
+            </td>
+            <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
+                <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" class="set-input set-rpe" data-ex="${exIdx}" data-set="${setIdx}" value="${displayRpe}" placeholder="RPE" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
+            </td>
+            <td style="padding: 4px; text-align: center;">
+                <input type="checkbox" class="set-lock-check" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''} style="width: 18px; height: 18px; cursor: pointer;">
+            </td>
+        </tr>
+    `;
+});
 
     cardHtml += `
             </tbody>
@@ -452,22 +509,20 @@ function updateSessionHeaderUI(currentDay) {
         
         const pauseSessionBtn = document.createElement('button');
         pauseSessionBtn.id = 'pause-session-timer-btn';
-        pauseSessionBtn.style.cssText = 'background: #fefce8; border: 1px solid #fef08a; color: #ca8a04; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 0.75rem; font-weight: 700; display: none;';
+        pauseSessionBtn.className = 'btn btn-secondary';
+        pauseSessionBtn.style.cssText = 'padding: 4px 8px; font-size: 0.75rem; display: none;';
 
-        const resetSessionBtn = document.createElement('button');
-        resetSessionBtn.id = 'reset-session-timer-btn';
-        resetSessionBtn.innerHTML = '⏹️ Termina';
-        resetSessionBtn.title = 'Resetta o interrompi sessione';
-        resetSessionBtn.style.cssText = 'background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 0.75rem; font-weight: 700; display: none;';
+        const actionSessionBtn = document.createElement('button');
+        actionSessionBtn.id = 'reset-session-timer-btn'; 
+        actionSessionBtn.style.cssText = 'padding: 4px 8px; font-size: 0.75rem; font-weight: 700; display: none;';
         
-        timerEl.after(resetSessionBtn);
-        resetSessionBtn.after(pauseSessionBtn);
+        timerEl.after(actionSessionBtn);
+        actionSessionBtn.after(pauseSessionBtn);
     }
 
-    const resetBtn = document.getElementById('reset-session-timer-btn');
+    const actionBtn = document.getElementById('reset-session-timer-btn');
     const pauseBtn = document.getElementById('pause-session-timer-btn');
 
-    // ✅ FIX STALE CLOSURE: Aggiornamento dinamico delle azioni sul giorno attivo corrente
     if (pauseBtn) {
         pauseBtn.onclick = () => {
             if (currentDay.completed) return;
@@ -487,41 +542,85 @@ function updateSessionHeaderUI(currentDay) {
         };
     }
 
-    if (resetBtn) {
-        resetBtn.onclick = () => {
-            if (confirm("Vuoi azzerare il timer e sbloccare la sessione per questo giorno?")) {
-                currentDay.sessionStart = null;
-                currentDay.accumulatedSeconds = 0;
-                currentDay.isPaused = false;
-                currentDay.completed = false;
-                currentDay.totalDurationMinutes = undefined;
-                saveAndSync(state.workoutData);
-                renderWorkoutList();
+    // Verifica se tutti i set validi (non esclusi) sono spuntati (isLocked)
+    const exercises = currentDay.exercises || [];
+    let totalSets = 0;
+    let completedSets = 0;
+    exercises.forEach(ex => {
+        if (ex.isExcluded) return;
+        (ex.loggedSets || []).forEach(set => {
+            totalSets++;
+            if (set.isLocked) completedSets++;
+        });
+    });
+
+    const isAllChecked = totalSets > 0 && completedSets === totalSets;
+
+    if (actionBtn) {
+        if (isAllChecked) {
+            // Attiva lo stile e l'azione "Reset time"
+            actionBtn.innerHTML = '🔄 Reset time';
+            actionBtn.className = 'btn-reset-time';
+            actionBtn.title = 'Resetta il timer per ripetere la sessione';
+            actionBtn.style.display = 'inline-block';
+            
+            actionBtn.onclick = () => {
+                if (confirm("Vuoi azzerare il timer per ripetere la sessione?")) {
+                    currentDay.sessionStart = Date.now();
+                    currentDay.accumulatedSeconds = 0;
+                    currentDay.isPaused = false;
+                    currentDay.completed = false;
+                    currentDay.totalDurationMinutes = undefined;
+                    
+                    // Sblocca i set per consentire un nuovo giro
+                    exercises.forEach(ex => (ex.loggedSets || []).forEach(s => s.isLocked = false));
+                    
+                    saveAndSync(state.workoutData);
+                    renderWorkoutList();
+                }
+            };
+        } else {
+            // Comportamento standard: tasto Termina/Interrompi sessione
+            actionBtn.innerHTML = '⏹️ Termina';
+            actionBtn.className = 'btn btn-danger';
+            actionBtn.style.cssText = 'padding: 4px 8px; font-size: 0.75rem;';
+            actionBtn.title = 'Resetta o interrompi sessione';
+            
+            if (currentDay.sessionStart || currentDay.accumulatedSeconds > 0) {
+                actionBtn.style.display = 'inline-block';
+            } else {
+                actionBtn.style.display = 'none';
             }
-        };
+
+            actionBtn.onclick = () => {
+                if (confirm("Vuoi azzerare il timer e sbloccare la sessione per questo giorno?")) {
+                    currentDay.sessionStart = null;
+                    currentDay.accumulatedSeconds = 0;
+                    currentDay.isPaused = false;
+                    currentDay.completed = false;
+                    currentDay.totalDurationMinutes = undefined;
+                    saveAndSync(state.workoutData);
+                    renderWorkoutList();
+                }
+            };
+        }
     }
 
     if (currentDay.completed && currentDay.totalDurationMinutes !== undefined) {
-        timerEl.style.background = '#dcfce7';
-        timerEl.style.color = '#166534';
+        timerEl.style.background = 'var(--block-bg)';
+        timerEl.style.color = 'var(--success-color)';
         timerEl.textContent = `✅ ${currentDay.totalDurationMinutes} min`;
-        if (resetBtn) resetBtn.style.display = 'inline-block';
         if (pauseBtn) pauseBtn.style.display = 'none';
     } else {
-        timerEl.style.background = currentDay.isPaused ? '#fefce8' : '#e0f2fe';
-        timerEl.style.color = currentDay.isPaused ? '#ca8a04' : '#0369a1';
-        
         const totalSecs = (currentDay.accumulatedSeconds || 0) + (currentDay.sessionStart ? Math.floor((Date.now() - currentDay.sessionStart) / 1000) : 0);
         const mins = Math.floor(totalSecs / 60);
         const secs = totalSecs % 60;
 
         if (!currentDay.sessionStart && !currentDay.accumulatedSeconds && !currentDay.isPaused) {
             timerEl.textContent = `0:00`;
-            if (resetBtn) resetBtn.style.display = 'none';
             if (pauseBtn) pauseBtn.style.display = 'none';
         } else {
             timerEl.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-            if (resetBtn) resetBtn.style.display = 'inline-block';
             if (pauseBtn) {
                 pauseBtn.style.display = 'inline-block';
                 pauseBtn.innerHTML = currentDay.isPaused ? '▶️ Riprendi' : '⏸️ Pausa';

@@ -330,6 +330,28 @@
         });
       }
     </script>
-    
+    <!-- POPUP NOTIFICA TRIAL (Visualizzato per 3 secondi all'accesso) -->
+    <div id="trial-toast" style="display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #d97706; color: #ffffff; padding: 12px 22px; border-radius: 30px; font-size: 0.88rem; font-weight: 600; z-index: 10001; box-shadow: 0 4px 15px rgba(0,0,0,0.4); transition: opacity 0.5s ease; opacity: 0; pointer-events: none;">
+        ⏳ Ti restano 45 giorni di prova gratuita
+    </div>
+
+    <!-- OVERLAY BLOCCO TRIAL / ABBONAMENTO SCADUTO -->
+<div id="trial-expired-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; background: rgba(0,0,0,0.88); backdrop-filter: blur(4px); align-items: center; justify-content: center;">
+    <div class="auth-card" style="text-align: center; max-width: 420px; padding: 32px; border: 1px solid var(--border-color, #333);">
+        <div style="font-size: 3rem; margin-bottom: 12px;">⏳</div>
+        <h2 id="trial-expired-title" style="margin-top: 0; color: #ef4444; font-size: 1.4rem;">Periodo di Prova Terminato</h2>
+        <p id="trial-expired-msg" style="font-size: 0.88rem; color: var(--text-muted, #aaa); margin: 16px 0 20px 0; line-height: 1.5;">
+            I tuoi giorni di prova gratuita sono terminati.<br>
+            Rinnova l'abbonamento per continuare ad utilizzare il Diario HomeGym senza perdere i tuoi dati.
+        </p>
+        
+        <!-- PULSANTE PAGAMENTO STRIPE -->
+        <a href="https://buy.stripe.com/test_14A14n8l24LQ6Np2fSfnO00" target="_blank" class="btn" style="display: block; width: 100%; padding: 12px; font-weight: 600; text-decoration: none; text-align: center; margin-bottom: 12px; box-sizing: border-box;">
+            💳 Attiva Abbonamento (15 €/anno)
+        </a>
+
+        <button class="btn btn-secondary" id="trial-logout-btn" style="width: 100%; padding: 10px; font-weight: 600;">Esci dall'Account</button>
+    </div>
+</div>
 </body>
 </html>

@@ -24,7 +24,7 @@ export async function pullDataFromSupabase(userOrEmail) {
 
 /**
  * Salva il payload su Supabase.
- * Se la prova dei 15 giorni è scaduta, la policy RLS del DB blocca la richiesta e mostra un alert.
+ * Se la prova dei 45 giorni è scaduta, la policy RLS del DB blocca la richiesta e mostra un alert.
  */
 export async function pushDataToSupabase(userOrEmail, payload) {
     if (!supabase) return false;
@@ -33,7 +33,6 @@ export async function pushDataToSupabase(userOrEmail, payload) {
     if (!email) return false;
 
     try {
-        // updated_at viene aggiornato automaticamente dal trigger PostgreSQL del server
         const { error } = await supabase
             .from('workouts')
             .upsert({ 
@@ -46,9 +45,8 @@ export async function pushDataToSupabase(userOrEmail, payload) {
     } catch (err) {
         console.error("Errore nel salvataggio su Supabase:", err.message);
         
-        // Intercetta il blocco della Policy RLS per trial scaduto (Codice errore 42501 o violazione policy)
         if (err.code === '42501' || err.message?.includes('row-level security')) {
-            alert("⚠️ Periodo di prova scaduto! Il tuo periodo di 15 giorni è terminato. Attiva un abbonamento per continuare a salvare i tuoi allenamenti sul Cloud.");
+            alert("⚠️ Licenza o periodo di prova scaduto! Attiva o rinnova l'abbonamento per continuare a salvare i tuoi allenamenti sul Cloud.");
         } else {
             alert(`Impossibile salvare sul Cloud: ${err.message}`);
         }
@@ -56,21 +54,24 @@ export async function pushDataToSupabase(userOrEmail, payload) {
     }
 }
 
-/**
- * Recupera lo stato dell'abbonamento dell'utente corrente dal DB
- */
 export async function getUserSubscriptionStatus(userOrEmail) {
     if (!supabase) return null;
 
     const email = typeof userOrEmail === 'object' ? userOrEmail?.email : userOrEmail;
-    if (!email) return null;
+    const userId = typeof userOrEmail === 'object' ? userOrEmail?.id : null;
 
     try {
-        const { data, error } = await supabase
-            .from('user_subscriptions')
-            .select('status, trial_ends_at')
-            .eq('email', email)
-            .maybeSingle();
+        let query = supabase.from('user_subscriptions').select('status, trial_ends_at, expires_at');
+        
+        if (userId) {
+            query = query.eq('user_id', userId);
+        } else if (email) {
+            query = query.eq('email', email);
+        } else {
+            return null;
+        }
+
+        const { data, error } = await query.maybeSingle();
 
         if (error) throw error;
         return data;
@@ -79,7 +80,6 @@ export async function getUserSubscriptionStatus(userOrEmail) {
         return null;
     }
 }
-
 export async function deleteCloudData(userOrEmail = null) {
     if (!supabase) return false;
 
