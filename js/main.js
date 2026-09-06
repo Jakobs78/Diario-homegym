@@ -18,7 +18,7 @@ import { renderMacroKPIs, initAnalyticsEvents, renderMuscleVolumeChart, renderMe
 // Ascolto stato autenticazione Supabase
 supabase.auth.onAuthStateChange(async (event, session) => {
     if (session?.user) {
-        // Mostra la barra e imposta l'email non appena l'utente è autenticato
+        // Mostra la barra utente e imposta l'email
         const userInfoBar = document.getElementById('user-info-bar');
         const userEmailDisplay = document.getElementById('user-email-display');
         
@@ -452,17 +452,7 @@ function showExpiredOverlay(title, message) {
  * Verifica completa dello stato della licenza e gestione scadenze
  */
 async function checkSubscriptionStatus(user) {
-    if (!user) return;
-
-    // Listener per il pulsante di logout in caso di blocco
-    const logoutBtn = document.getElementById('trial-logout-btn');
-    if (logoutBtn && !logoutBtn.dataset.hasListener) {
-        logoutBtn.addEventListener('click', async () => {
-            if (supabase) await supabase.auth.signOut();
-            window.location.reload();
-        });
-        logoutBtn.dataset.hasListener = "true";
-    }
+    if (!user || !user.id) return;
 
     try {
         const { data, error } = await supabase
@@ -471,55 +461,52 @@ async function checkSubscriptionStatus(user) {
             .eq('user_id', user.id)
             .maybeSingle();
 
-        if (error || !data) return;
+        if (error) {
+            console.warn("⚠️ Errore lettura abbonamento:", error.message);
+            return;
+        }
+
+        if (!data) {
+            console.warn("⚠️ Nessun abbonamento trovato per questo utente.");
+            return;
+        }
+
+        // 1. SE È LIFETIME (WHITELIST), FERMATI SUBITO
+        if (data.status === 'lifetime') {
+            console.log("✅ Utente Lifetime riconosciuto: nessun limite applicato.");
+            return;
+        }
 
         const now = new Date();
 
-        // 1. Licenza a vita: nessun controllo o blocco
-        if (data.status === 'lifetime') return;
-
-        // 2. Abbonamento Pagato / Attivo
+        // 2. GESTIONE ABBONAMENTO ATTIVO
         if (data.status === 'active') {
-            if (data.expires_at) {
-                const endDate = new Date(data.expires_at);
-                const diffDays = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
-
-                if (diffDays <= 0) {
-                    showExpiredOverlay(
-                        "Abbonamento Scaduto",
-                        "Il tuo abbonamento annuale è scaduto.<br>Rinnova la tua licenza per continuare a utilizzare il Diario HomeGym e salvare i tuoi dati sul Cloud."
-                    );
-                } else if (diffDays <= 7) {
-                    showTrialToast(`⚠️ Il tuo abbonamento scade tra ${diffDays} giorn${diffDays === 1 ? 'o' : 'i'}!`);
-                }
+            if (!data.expires_at) return;
+            const endDate = new Date(data.expires_at);
+            const diffDays = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+            
+            if (diffDays <= 0) {
+                showExpiredOverlay("Abbonamento Scaduto", "Il tuo abbonamento annuale è scaduto.");
+            } else if (diffDays <= 7) {
+                showTrialToast(`⚠️ Il tuo abbonamento scade tra ${diffDays} giorni!`);
             }
             return;
         }
 
-        // 3. Periodo di Prova (Trial)
+        // 3. GESTIONE TRIAL 45 GIORNI
         if (data.status === 'trial') {
+            if (!data.trial_ends_at) return;
             const endDate = new Date(data.trial_ends_at);
             const diffDays = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
-
+            
             if (diffDays <= 0) {
-                showExpiredOverlay(
-                    "Periodo di Prova Terminato",
-                    "I tuoi giorni di prova gratuita sono terminati.<br>Attiva l'abbonamento per continuare ad utilizzare il Diario HomeGym senza perdere i tuoi dati."
-                );
+                showExpiredOverlay("Periodo di Prova Terminato", "I tuoi 45 giorni di prova gratuita sono terminati.");
             } else {
-                showTrialToast(`⏳ Periodo di prova attivo: restano ${diffDays} giorn${diffDays === 1 ? 'o' : 'i'}`);
+                showTrialToast(`⏳ Periodo di prova attivo: restano ${diffDays} giorni`);
             }
             return;
         }
-
-        // 4. Licenza Scaduta o Annullata
-        if (data.status === 'expired' || data.status === 'canceled') {
-            showExpiredOverlay(
-                "Licenza Non Attiva",
-                "La tua sottoscrizione è risultata scaduta o annullata.<br>Rinnova l'abbonamento per sbloccare l'accesso."
-            );
-        }
     } catch (err) {
-        console.warn("Errore durante la verifica dell'abbonamento:", err);
+        console.warn("Eccezione durante il controllo abbonamento:", err);
     }
 }
