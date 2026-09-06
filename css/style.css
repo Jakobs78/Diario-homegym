@@ -1473,3 +1473,39 @@ body.dark-mode .compare-table .diff-negative {
     border-color: rgba(245, 158, 11, 0.4) !important;
     color: #fbbf24 !important;
 }
+/* ==========================================================================
+   OTTIMIZZAZIONE ACCESSIBILITÀ E SCHERMI PICCOLI (Celle piú alte e Font XL)
+   ========================================================================== */
+
+/* Contenitore della tabella/serie: ridotto margine orizzontale, aumentata altezza */
+.set-table td {
+    padding: 6px 2px !important;
+}
+
+/* Celle di input KG e REPS: più strette orizzontalmente ma più alte e leggibili */
+.set-table input[type="text"] {
+    font-size: 1.25rem !important; /* Font nettamente più grande per lettura a distanza */
+    font-weight: 800 !important;
+    min-height: 48px !important;   /* Target touch comodo e ben visibile */
+    padding: 4px 0 !important;
+    border-radius: 8px !important;
+}
+
+/* Ingrandimento del checkbox di completamento serie */
+.check-input {
+    width: 36px !important;
+    height: 36px !important;
+    margin: 0 auto;
+    display: block;
+}
+
+/* Intestazione dell'esercizio corrente (Titoli e target più leggibili) */
+.ex-name {
+    font-size: 1.15rem !important;
+    font-weight: 800 !important;
+    line-height: 1.3;
+}
+
+.ex-target {
+    font-size: 0.85rem !important;
+}

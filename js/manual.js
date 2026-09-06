@@ -2,14 +2,31 @@
 
 const manualContent = `
 <div class="manual-section" style="margin-bottom: 20px; background: rgba(0, 123, 255, 0.08); padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary, #007bff);">
-    <h3 style="color: var(--primary, #007bff); margin-bottom: 8px; margin-top: 0;">📲 Installazione come App Mobile (PWA)</h3>
-    <p style="margin-bottom: 8px;">Per la migliore esperienza d'uso in palestra, puoi installare <strong>HomeGym Diary</strong> direttamente sulla schermata home del tuo smartphone come un'app nativa:</p>
+    <h3 style="color: var(--primary, #007bff); margin-bottom: 8px; margin-top: 0;">📲 Utilizzo come Vera App Mobile (PWA)</h3>
+    <p style="margin-bottom: 8px;">Per la migliore esperienza d'uso in palestra, è <strong>fortemente consigliato installare HomeGym Diary come vera e propria app</strong> sulla schermata home del tuo smartphone. Questo garantisce la visualizzazione a schermo intero, un avvio immediato e massima stabilità:</p>
     <ul style="padding-left: 20px; line-height: 1.6; margin-bottom: 0;">
         <li><strong>iPhone / iOS (Safari):</strong> Tocca l'icona di condivisione 📤 in basso e seleziona <strong>"Aggiungi alla schermata Home"</strong>.</li>
         <li><strong>Android (Chrome):</strong> Tocca i tre pallini in alto a destra <code>⋮</code> e seleziona <strong>"Installa app"</strong> oppure <strong>"Aggiungi a schermata Home"</strong>.</li>
     </ul>
 </div>
 
+<div class="manual-section" style="margin-bottom: 20px; background: rgba(245, 158, 11, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b;">
+    <h3 style="color: #b45309; margin-bottom: 8px; margin-top: 0;">⚡ Architettura Offline-First</h3>
+    <p style="margin-bottom: 8px; line-height: 1.5;"><strong>HomeGym Diary</strong> è progettata con un'architettura <em>Offline-First</em>: tutti i tuoi progressi, set ed esercizi vengono salvati **istantaneamente sulla memoria locale del browser (<code>localStorage</code>)**, permettendoti di allenarti senza alcuna interruzione anche in assenza di segnale o Wi-Fi.</p>
+    <ul style="padding-left: 20px; line-height: 1.6; margin-bottom: 0;">
+        <li><strong>Dispositivo ad uso personale:</strong> Poiché la memoria locale è legata al browser dello smartphone per garantire la continuità offline, l'app è intesa per l'utilizzo su un <strong>dispositivo personale</strong>. Evita di alternare account diversi sullo stesso dispositivo per non mescolare i dati presenti nella cache locale prima del sync.</li>
+        <li><strong>Sincronizzazione Cloud:</strong> Non appena il dispositivo torna online, i dati locali vengono sincronizzati in background sul tuo account cloud protetto da Supabase.</li>
+    </ul>
+</div>
+<div class="manual-section" style="margin-bottom: 20px; background: rgba(16, 185, 129, 0.08); padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
+    <h3 style="color: #059669; margin-bottom: 8px; margin-top: 0;">🛡️ Sincronizzazione Cloud e Pulizia del Browser (PWA)</h3>
+    <p style="margin-bottom: 8px; line-height: 1.5;"><strong>I tuoi dati sono al sicuro!</strong> Poiché HomeGym Diary salva i tuoi progressi sul cloud tramite Supabase, lo storico dei tuoi allenamenti non andrà mai perso. Tuttavia, se decidi di svuotare la cache o la memoria dello smartphone, è fondamentale seguire una semplice precauzione:</p>
+    <ul style="padding-left: 20px; line-height: 1.6; margin-bottom: 0;">
+        <li><strong>Sincronizza sempre prima di pulire:</strong> Prima di effettuare qualsiasi operazione di pulizia del browser, apri l'app con una connessione Internet attiva e assicurati che l'indicatore in alto mostri lo stato 🟢 <em>Sincronizzato</em>. Questo garantisce che anche gli ultimi dati registrati offline siano inviati al server.</li>
+        <li><strong>Dati protetti online:</strong> Tutti gli allenamenti già inviati al cloud rimangono perfettamente conservati ed esenti da qualsiasi pulizia locale del dispositivo.</li>
+        <li><strong>Cosa succede dopo la pulizia:</strong> La rimozione dei dati locali disconnetterà temporaneamente il tuo account. Al riavvio successivo ti basterà avere la connessione attiva per effettuare il login: l'app riscaricherà automaticamente l'intera scheda e lo storico dal cloud.</li>
+    </ul>
+</div>
 <div class="manual-section" style="margin-bottom: 20px;">
     <h3 style="color: var(--primary); margin-bottom: 8px;">📖 Benvenuto in HomeGym Diary</h3>
     <p><strong>HomeGym Diary</strong> è un'applicazione web avanzata progettata per la programmazione, il tracciamento e l'analisi dei tuoi allenamenti in home gym. L'app combina la flessibilità di un'architettura offline-first con la sicurezza della sincronizzazione cloud tramite Supabase.</p>
@@ -88,12 +105,11 @@ const manualContent = `
 <div class="manual-section" style="margin-top: 20px;">
     <h3 style="color: var(--primary); margin-bottom: 8px;">✨ Ultime Novità & Aggiornamenti</h3>
     <ul style="padding-left: 20px; line-height: 1.6;">
-        <li><strong>📊 Hub Analitico Unificato (<code>analytics.js</code>):</strong> Nuova architettura snella e ultra-veloce organizzata in 3 Sub-Tab (Macro Mesociclo, Micro Esercizio/PR e Confronto Radar) interamente elaborata in memoria locale.</li>
+        <li><strong>📱 Esperienza PWA Nausea-Free:</strong> Pieno supporto all'installazione su schermata Home con salvataggio offline locale istantaneo.</li>
+        <li><strong>📊 Hub Analitico Unificato (<code>analytics.js</code>):</strong> Nuova architettura organizzata in 3 Sub-Tab (Macro Mesociclo, Micro Esercizio/PR e Confronto Radar) elaborata in locale.</li>
         <li><strong>🛡️ Filtro Automatico Warmup:</strong> Esclusione nativa di tutte le serie di riscaldamento dai conteggi di volume, tonnellaggio e record personali.</li>
         <li><strong>📈 Grafico Doppio Asse Carico vs RPE:</strong> Visualizzazione coordinata tra carichi massimi sollevati ed RPE percepito sessione per sessione.</li>
-        <li><strong>📊 Supporto Nativo Excel (.xlsx / .xls):</strong> Caricamento diretto delle schede senza conversione manuale e possibilità di scaricare un modello pronto all'uso.</li>
         <li><strong>🔒 Blocco di Sicurezza Mesociclo:</strong> Pulsante <code>🔒/🔓</code> per congelare il mesociclo attivo e prevenire sovrascritture involontarie.</li>
-        <li><strong>🔄 Sincronizzazione al Risveglio:</strong> Rilevamento automatico dei dati più recenti sul cloud al rientro dallo standby dello smartphone.</li>
     </ul>
 </div>
 `;
