@@ -30,24 +30,32 @@
     </div>
 
     <div class="container">
-        <!-- Header Principale -->
+       <!-- Header Principale -->
+    <!-- Header Principale -->
         <header>
             <div style="display: flex; align-items: center; gap: 10px;">
                 <h1 style="margin: 0;">🏋️ HomeGym Diary</h1>
                 <button class="btn btn-secondary" id="btn-user-manual" style="padding: 4px 10px; font-size: 0.8rem; white-space: nowrap;">📖 Manuale d'uso</button>
             </div>
-            <div style="display: flex; gap: 6px; align-items: center;">
+           
+            <div style="display: flex; gap: 8px; align-items: center;">
                 <span id="sync-status" class="sync-badge" title="Stato sincronizzazione cloud">🟢 Sincronizzato</span>
-                <span id="user-email-display" style="font-size: 0.8rem; color: var(--text-muted);"></span>    
+                
+                <!-- Barra Info Utente (Solo Email e Pulsante Esci) -->
+                <div id="user-info-bar" style="display: none; align-items: center; gap: 6px; font-size: 0.8rem; background: rgba(255, 255, 255, 0.08); padding: 4px 10px; border-radius: 20px; cursor: pointer;" title="Clicca per uscire dall'account">
+                    <span id="user-email-display" style="font-weight: 500; margin-right: 2px;"></span>
+                    <span style="opacity: 0.3; margin: 0 2px;">|</span>
+                    <span style="display: inline-flex; align-items: center; gap: 4px; color: #ef4444; font-weight: 600;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                        Esci
+                    </span>
+                </div>
+
                 <button class="btn btn-secondary" id="theme-toggle-btn">🌙 Dark</button>
-                <button class="btn btn-secondary" id="user-info-bar" style="display: none; align-items: center; gap: 6px;" title="Esci">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                        <polyline points="16 17 21 12 16 7"></polyline>
-                        <line x1="21" y1="12" x2="9" y2="12"></line>
-                    </svg>
-                    Esci
-                </button>
             </div>
         </header>
 

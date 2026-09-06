@@ -18,6 +18,13 @@ import { renderMacroKPIs, initAnalyticsEvents, renderMuscleVolumeChart, renderMe
 // Ascolto stato autenticazione Supabase
 supabase.auth.onAuthStateChange(async (event, session) => {
     if (session?.user) {
+        // Mostra la barra e imposta l'email non appena l'utente è autenticato
+        const userInfoBar = document.getElementById('user-info-bar');
+        const userEmailDisplay = document.getElementById('user-email-display');
+        
+        if (userInfoBar) userInfoBar.style.display = 'flex';
+        if (userEmailDisplay) userEmailDisplay.textContent = session.user.email;
+
         try {
             const remoteData = await pullDataFromSupabase(session.user);
             if (remoteData) {
