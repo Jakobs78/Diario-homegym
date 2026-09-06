@@ -1524,3 +1524,17 @@ body.dark-mode .compare-table .diff-negative {
     border: 1px solid rgba(255, 255, 255, 0.1);
     cursor: pointer; /* Utile se cliccandoci sopra l'utente fa il logout */
 }
+/* Evidenzia il campo in rosso tenue quando il valore esce dal target CSV */
+.input-out-of-range {
+    border: 2px solid #ef4444 !important;
+    background-color: #fef2f2 !important;
+    color: #991b1b !important;
+}
+
+/* Adattamento per la Dark Mode */
+[data-theme="dark"] .input-out-of-range,
+body.dark-mode .input-out-of-range {
+    border-color: #ef4444 !important;
+    background-color: rgba(239, 68, 68, 0.2) !important;
+    color: #fca5a5 !important;
+}

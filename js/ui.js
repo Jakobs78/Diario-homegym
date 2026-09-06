@@ -1,10 +1,11 @@
 // ui.js
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
-import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise } from './helpers.js';
+import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange } from './helpers.js';
 import { startTimer, stopTimer, adjustTimer, parseRecoveryTime } from './timer.js';
 import { playBeep } from './audio.js';
 import { updateMesocycleUI, updateMesocycleLockUI } from './mesocycle.js';
+import { calculateSetVolumeTrend } from './helpers.js';
 
 // --- GESTIONE TIMER DI RECUPERO FLOTTANTE (STATICO) ---
 let beepedSeconds = new Set();
@@ -114,7 +115,7 @@ export function renderWorkoutList() {
     updateMesocycleUI();
     updateMesocycleLockUI();
 
-    // 2. BANNER MESOCICLO BLOCCATO
+    // BANNER MESOCICLO BLOCCATO
     if (isPastMeso) {
         const archiveBadge = document.createElement('div');
         archiveBadge.style.cssText = 'background: #fffbebf1; border: 1px solid #fcd34d; color: #b45309; padding: 8px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; gap: 6px;';
@@ -122,7 +123,7 @@ export function renderWorkoutList() {
         DOM.workoutListContainer.appendChild(archiveBadge);
     }
 
-    // 3. BARRA NAVIGAZIONE GIORNI
+    // BARRA NAVIGAZIONE GIORNI
     const dayTabsContainer = document.createElement('div');
     dayTabsContainer.className = 'day-tabs';
     dayTabsContainer.style.cssText = 'display: flex; gap: 8px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px;';
@@ -183,7 +184,7 @@ export function renderWorkoutList() {
 
     updateSessionHeaderUI(currentDay);
 
-    // RENDER ESERCIZI CON RAGGRUPPAMENTO VISIVO (TRISET / SUPERSET / DROPSET)
+    // RENDER ESERCIZI CON RAGGRUPPAMENTO VISIVO
     const exercises = currentDay.exercises || [];
     let i = 0;
 
@@ -270,58 +271,53 @@ function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, 
         </div>
     `;
 
-    // 1. ESTRAZIONE DATI DELL'ULTIMA SESSIONE ESEGUITA
-    const prevExercise = findPreviousExercise(state.workoutData, mesoIndex, targetWeek.weekNumber, activeDayNum - 1, ex.name);
-    let lastSessionSummary = '';
+    // ESTRAZIONE DATI RIASSUNTIVI DI TUTTI I SET DELL'ULTIMA SESSIONE ESEGUITA
+    const prevExercise = findPreviousExercise(state.workoutData, mesoIndex, targetWeek.weekNumber, activeDayNum - 1, ex);
+    let lastSessionSetsHtml = '';
 
     if (prevExercise && prevExercise.loggedSets && prevExercise.loggedSets.length > 0) {
         const validSets = prevExercise.loggedSets.filter(s => s.weight || s.reps);
+        
         if (validSets.length > 0) {
-            const lastSet = validSets[validSets.length - 1];
-            const weightVal = lastSet.weight || 0;
-            const rpeVal = lastSet.rpe ? ` @ RPE ${lastSet.rpe}` : '';
-
-            // 2. DISTINZIONE REPS RANGE VS REPS FISSE
             const rangeStr = (prevExercise.minReps && prevExercise.maxReps) 
                 ? `${prevExercise.minReps}-${prevExercise.maxReps}`
                 : ((typeof prevExercise.reps === 'string' && prevExercise.reps.includes('-')) ? prevExercise.reps : null);
 
-            let repsStr = '';
-            if (rangeStr) {
-                // Reps a range
-                if (lastSet.reps && lastSet.reps !== rangeStr) {
-                    repsStr = `${lastSet.reps} reps (range ${rangeStr})`;
+            lastSessionSetsHtml = validSets.map((s, idx) => {
+                const kg = s.weight ? `${s.weight}kg` : '-';
+                
+                let repsFormatted = '-';
+                if (rangeStr) {
+                    repsFormatted = (s.reps && s.reps !== rangeStr) ? `${s.reps} reps (target ${rangeStr})` : `${rangeStr} reps`;
                 } else {
-                    repsStr = `${rangeStr} reps`;
+                    repsFormatted = `${s.reps || prevExercise.reps || '-'} reps`;
                 }
-            } else {
-                // Reps fisse
-                const fixedReps = lastSet.reps || prevExercise.reps || '';
-                repsStr = `${fixedReps} reps`;
-            }
 
-            lastSessionSummary = `${weightVal} kg x ${repsStr}${rpeVal}`;
+                const rpeFormatted = s.rpe ? `, con ${s.rpe} rpe` : '';
+
+                return `<div style="font-size: 0.8rem; margin-top: 2px;"><strong>${idx + 1}° set:</strong> ${kg}, ${repsFormatted}${rpeFormatted}</div>`;
+            }).join('');
         }
     }
 
     // RENDERING BOX NOTE ALLENATORE + ULTIMA SESSIONE
-    if (ex.notes || lastSessionSummary) {
+    if (ex.notes || lastSessionSetsHtml) {
         cardHtml += `<div style="background: #f0f9ff; border: 1px solid #e0f2fe; border-radius: 8px; padding: 10px; margin-bottom: 12px;">`;
         
         if (ex.notes) {
             cardHtml += `
                 <div style="font-size: 0.75rem; font-weight: 800; color: #0369a1; margin-bottom: 2px;">NOTE ALLENATORE</div>
-                <div style="font-size: 0.85rem; color: #0f172a; line-height: 1.3; ${lastSessionSummary ? 'margin-bottom: 8px;' : ''}">${ex.notes}</div>
+                <div style="font-size: 0.85rem; color: #0f172a; line-height: 1.3; ${lastSessionSetsHtml ? 'margin-bottom: 8px;' : ''}">${ex.notes}</div>
             `;
         }
 
-        if (lastSessionSummary) {
-            const divider = ex.notes ? `<div style="height: 1px; background: #bae6fd; margin-bottom: 6px;"></div>` : '';
+        if (lastSessionSetsHtml) {
+            const divider = ex.notes ? `<div style="height: 1px; background: #bae6fd; margin-bottom: 6px; margin-top: 6px;"></div>` : '';
             cardHtml += `
                 ${divider}
-                <div style="font-size: 0.75rem; font-weight: 800; color: #0284c7; margin-bottom: 2px;">ULTIMA SESSIONE PRECEDENTE</div>
-                <div style="font-size: 0.85rem; color: #0f172a; line-height: 1.3; font-weight: 600;">
-                    <span style="background: #e0f2fe; padding: 2px 6px; border-radius: 4px; color: #0369a1;">${lastSessionSummary}</span>
+                <div style="font-size: 0.75rem; font-weight: 800; color: #0284c7; margin-bottom: 4px;">ULTIMA SESSIONE PRECEDENTE</div>
+                <div style="color: #0f172a; line-height: 1.4;">
+                    ${lastSessionSetsHtml}
                 </div>
             `;
         }
@@ -329,7 +325,7 @@ function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, 
         cardHtml += `</div>`;
     }
 
-    // 3. TABELLA SET (PRECOMPILAZIONE INALTERATA)
+    // TABELLA SET
     cardHtml += `
         <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 10px;">
             <thead>
@@ -344,68 +340,75 @@ function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, 
             <tbody>
     `;
 
-   // --- DENTRO IL CICLO FOR-EACH DEI SET IN ui.js ---
-(ex.loggedSets || []).forEach((setObj, setIdx) => {
-    const isLocked = setObj.isLocked || false;
-    const isDisabled = isLocked || isPastMeso;
+    (ex.loggedSets || []).forEach((setObj, setIdx) => {
+        const isLocked = setObj.isLocked || false;
+        const isDisabled = isLocked || isPastMeso;
 
-    // 1. Recupero dati del set corrispondente dalla sessione precedente del mesociclo
-    const prevSet = prevExercise?.loggedSets?.[setIdx];
-    const prevKg = prevSet ? parseFloat(prevSet.weight) || 0 : 0;
+        const prevSet = prevExercise?.loggedSets?.[setIdx];
+        const prevKg = prevSet ? parseFloat(prevSet.weight) || 0 : 0;
 
-    // Distinzione Reps Fisse vs Range per determinare il valore di riferimento precedente
-    const isRangeTarget = (ex.minReps && ex.maxReps) || (typeof ex.reps === 'string' && ex.reps.includes('-'));
-    const prevReps = prevSet ? parseInt(prevSet.reps) || 0 : 0;
-    
-    const currentKg = parseFloat(setObj.weight) || 0;
-    const currentReps = parseInt(setObj.reps) || 0;
+        const isRangeTarget = (ex.minReps && ex.maxReps) || (typeof ex.reps === 'string' && ex.reps.includes('-'));
+        const prevReps = prevSet ? parseInt(prevSet.reps) || 0 : 0;
+        
+        const currentKg = parseFloat(setObj.weight) || 0;
+        const currentReps = parseInt(setObj.reps) || 0;
 
-    // 2. Calcolo Trend Volume Totale del Singolo Set (Kg x Reps)
-    let trendHtml = '';
-    if (prevSet && currentKg > 0 && currentReps > 0 && prevKg > 0 && prevReps > 0) {
-        const currentVolume = currentKg * currentReps;
-        const prevVolume = prevKg * prevReps;
-        const volDiff = currentVolume - prevVolume;
+        let trendHtml = '';
+        const trend = calculateSetVolumeTrend(
+            { weight: currentKg, reps: currentReps }, 
+            { weight: prevKg, reps: prevReps }
+        );
 
-        if (volDiff > 0) {
-            trendHtml = `<span style="color: #16a34a; font-size: 0.7rem; font-weight: 800; white-space: nowrap;" title="Volume aumentato di ${volDiff} kg rispetto alla sessione precedente">▲ +${volDiff} kg</span>`;
-        } else if (volDiff < 0) {
-            trendHtml = `<span style="color: #dc2626; font-size: 0.7rem; font-weight: 800; white-space: nowrap;" title="Volume calato di ${Math.abs(volDiff)} kg rispetto alla sessione precedente">▼ -${Math.abs(volDiff)} kg</span>`;
+        if (trend) {
+            if (trend.isPositive) {
+                trendHtml = `<span style="color: #16a34a; font-size: 0.7rem; font-weight: 800; white-space: nowrap;" title="Volume aumentato di ${trend.volDiff} kg rispetto alla sessione precedente">${trend.text}</span>`;
+            } else if (trend.isNegative) {
+                trendHtml = `<span style="color: #dc2626; font-size: 0.7rem; font-weight: 800; white-space: nowrap;" title="Volume calato di ${Math.abs(trend.volDiff)} kg rispetto alla sessione precedente">${trend.text}</span>`;
+            }
         }
-    }
 
-    // Gestione dei valori di default e dei placeholder per le celle
-    let rawTargetReps = ex.reps || ex.targetReps || '';
-    let defaultTargetReps = isRangeTarget ? (prevSet?.reps || '') : cleanNumericReps(rawTargetReps);
+        let rawTargetReps = ex.reps || ex.targetReps || '';
+        let defaultTargetReps = isRangeTarget ? (prevSet?.reps || '') : cleanNumericReps(rawTargetReps);
 
-    const displayWeight = setObj.weight !== undefined && setObj.weight !== '' ? setObj.weight : (prevSet?.weight || '');
-    const displayReps = setObj.reps !== undefined && setObj.reps !== '' ? setObj.reps : defaultTargetReps;
-    const displayRpe = setObj.rpe !== undefined && setObj.rpe !== '' ? setObj.rpe : (ex.targetRpe || ex.rpe || '');
+        const displayWeight = setObj.weight !== undefined && setObj.weight !== '' ? setObj.weight : (prevSet?.weight || '');
+        const displayReps = setObj.reps !== undefined && setObj.reps !== '' ? setObj.reps : defaultTargetReps;
+        const displayRpe = setObj.rpe !== undefined && setObj.rpe !== '' ? setObj.rpe : (ex.targetRpe || ex.rpe || '');
 
-    // Layout della riga della tabella (Colonna SET aggiornata per contenere il badge del trend)
-    cardHtml += `
-        <tr style="border-bottom: 1px solid #e2e8f0;">
-            <td style="padding: 6px; text-align: center; border-right: 1px solid #e2e8f0;">
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;">
-                    <span style="font-weight: 600; color: #334155;">${setIdx + 1}</span>
-                    ${trendHtml}
-                </div>
-            </td>
-            <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" class="set-input set-kg" data-ex="${exIdx}" data-set="${setIdx}" value="${displayWeight}" placeholder="${prevSet?.weight || 'Kg'}" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'}; color: ${!setObj.weight && prevSet?.weight && !isLocked ? '#94a3b8' : '#0f172a'};">
-            </td>
-            <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                <input type="text" inputmode="numeric" autocomplete="off" autocorrect="off" class="set-input set-reps" data-ex="${exIdx}" data-set="${setIdx}" value="${displayReps}" placeholder="${prevSet?.reps || 'reps'}" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'}; color: ${!setObj.reps && prevSet?.reps && !isLocked ? '#94a3b8' : '#0f172a'};">
-            </td>
-            <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" class="set-input set-rpe" data-ex="${exIdx}" data-set="${setIdx}" value="${displayRpe}" placeholder="RPE" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
-            </td>
-            <td style="padding: 4px; text-align: center;">
-                <input type="checkbox" class="set-lock-check" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''} style="width: 18px; height: 18px; cursor: pointer;">
-            </td>
-        </tr>
-    `;
-});
+        // Valutazione fuori range per stilizzazione iniziale
+        const isRepsOutOfRange = isValueOutOfRange(displayReps, ex.minReps, ex.maxReps);
+        const isKgOutOfRange = isValueOutOfRange(displayWeight, ex.kgMin, ex.kgMax);
+
+        const repsStyle = isRepsOutOfRange 
+            ? 'border: 2px solid #ef4444 !important; background-color: #fef2f2 !important; color: #dc2626 !important;' 
+            : `background: ${isDisabled ? '#f1f5f9' : '#ffffff'}; color: ${!setObj.reps && prevSet?.reps && !isLocked ? '#94a3b8' : '#0f172a'}; border: 1px solid #cbd5e1;`;
+
+        const kgStyle = isKgOutOfRange 
+            ? 'border: 2px solid #ef4444 !important; background-color: #fef2f2 !important; color: #dc2626 !important;' 
+            : `background: ${isDisabled ? '#f1f5f9' : '#ffffff'}; color: ${!setObj.weight && prevSet?.weight && !isLocked ? '#94a3b8' : '#0f172a'}; border: 1px solid #cbd5e1;`;
+
+        cardHtml += `
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="padding: 6px; text-align: center; border-right: 1px solid #e2e8f0;">
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;">
+                        <span style="font-weight: 600; color: #334155;">${setIdx + 1}</span>
+                        ${trendHtml}
+                    </div>
+                </td>
+                <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
+                    <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" class="set-input set-kg" data-ex="${exIdx}" data-set="${setIdx}" value="${displayWeight}" placeholder="${prevSet?.weight || 'Kg'}" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border-radius: 4px; padding: 4px; font-weight: 800; ${kgStyle}">
+                </td>
+                <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
+                    <input type="text" inputmode="numeric" autocomplete="off" autocorrect="off" class="set-input set-reps" data-ex="${exIdx}" data-set="${setIdx}" value="${displayReps}" placeholder="${prevSet?.reps || 'reps'}" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border-radius: 4px; padding: 4px; font-weight: 800; ${repsStyle}">
+                </td>
+                <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
+                    <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" class="set-input set-rpe" data-ex="${exIdx}" data-set="${setIdx}" value="${displayRpe}" placeholder="RPE" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
+                </td>
+                <td style="padding: 4px; text-align: center;">
+                    <input type="checkbox" class="set-lock-check" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''} style="width: 18px; height: 18px; cursor: pointer;">
+                </td>
+            </tr>
+        `;
+    });
 
     cardHtml += `
             </tbody>
@@ -473,7 +476,6 @@ function updateSessionAndCompletionState(currentDay) {
     if (completedSets > 0 && !currentDay.sessionStart && !currentDay.completed && !currentDay.isPaused) {
         currentDay.sessionStart = Date.now();
         currentDay.accumulatedSeconds = currentDay.accumulatedSeconds || 0;
-        console.log("⏱️ Prima serie spuntata: cronometro di sessione avviato e salvato!");
     }
 
     if (totalSets > 0 && completedSets === totalSets) {
@@ -489,7 +491,6 @@ function updateSessionAndCompletionState(currentDay) {
 
         currentDay.sessionStart = null; 
         currentDay.isPaused = false;
-        console.log(`🎉 Allenamento completato in ${durationMinutes} minuti.`);
     } else if (completedSets < totalSets && currentDay.completed) {
         currentDay.completed = false;
         currentDay.totalDurationMinutes = undefined;
@@ -542,7 +543,6 @@ function updateSessionHeaderUI(currentDay) {
         };
     }
 
-    // Verifica se tutti i set validi (non esclusi) sono spuntati (isLocked)
     const exercises = currentDay.exercises || [];
     let totalSets = 0;
     let completedSets = 0;
@@ -558,7 +558,6 @@ function updateSessionHeaderUI(currentDay) {
 
     if (actionBtn) {
         if (isAllChecked) {
-            // Attiva lo stile e l'azione "Reset time"
             actionBtn.innerHTML = '🔄 Reset time';
             actionBtn.className = 'btn-reset-time';
             actionBtn.title = 'Resetta il timer per ripetere la sessione';
@@ -572,7 +571,6 @@ function updateSessionHeaderUI(currentDay) {
                     currentDay.completed = false;
                     currentDay.totalDurationMinutes = undefined;
                     
-                    // Sblocca i set per consentire un nuovo giro
                     exercises.forEach(ex => (ex.loggedSets || []).forEach(s => s.isLocked = false));
                     
                     saveAndSync(state.workoutData);
@@ -580,7 +578,6 @@ function updateSessionHeaderUI(currentDay) {
                 }
             };
         } else {
-            // Comportamento standard: tasto Termina/Interrompi sessione
             actionBtn.innerHTML = '⏹️ Termina';
             actionBtn.className = 'btn btn-danger';
             actionBtn.style.cssText = 'padding: 4px 8px; font-size: 0.75rem;';
@@ -634,7 +631,6 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
     if (!DOM.workoutListContainer) return;
 
     DOM.workoutListContainer.querySelectorAll('.set-input, .ex-user-notes').forEach(input => {
-        // 1. Evidenzia automaticamente tutto il testo al tocco/focus per sovrascrittura rapida
         input.addEventListener('focus', (e) => e.target.select());
 
         input.addEventListener('input', (e) => {
@@ -642,7 +638,6 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
             const ex = currentDay.exercises[exIdx];
             if (!ex) return;
 
-            // Gestione note utente dell'esercizio
             if (e.target.classList.contains('ex-user-notes')) {
                 ex.userNotes = e.target.value;
                 saveAndSync(state.workoutData);
@@ -658,7 +653,6 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
             const isReps = e.target.classList.contains('set-reps');
             const isRpe = e.target.classList.contains('set-rpe');
 
-            // ✅ FIX CAMPO VUOTO: salva stringa vuota '' se svuotato, evitando lo '0' forzato
             if (isKg) {
                 const raw = val.trim();
                 setObj.weight = raw === '' ? '' : (parseFloat(raw.replace(',', '.')) || 0);
@@ -666,25 +660,34 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
             if (isReps) setObj.reps = val;
             if (isRpe) setObj.rpe = val;
 
-            // Aggiorna la grafica dei dischi se modifichi il peso del primo set
             if (setIdx === 0 && isKg) {
                 updatePlatesBadgeUI(exIdx);
             }
 
-            // Colorazione rossa di avviso se il valore esce dal range KgMin - KgMax dell'allenatore
+            // CONTROLLO FUORI RANGE LIVE (KG E REPS)
             if (isKg) {
-                const numVal = parseFloat(val.replace(',', '.')) || 0;
-                const kgMin = parseFloat(ex.kgMin) || 0;
-                const kgMax = parseFloat(ex.kgMax) || Infinity;
-
-                if (numVal > 0 && (numVal < kgMin || numVal > kgMax)) {
-                    e.target.style.backgroundColor = '#fef2f2';
-                    e.target.style.borderColor = '#ef4444';
-                    e.target.style.color = '#dc2626';
+                const isOut = isValueOutOfRange(val.replace(',', '.'), ex.kgMin, ex.kgMax);
+                if (isOut) {
+                    e.target.style.setProperty('border', '2px solid #ef4444', 'important');
+                    e.target.style.setProperty('background-color', '#fef2f2', 'important');
+                    e.target.style.setProperty('color', '#dc2626', 'important');
                 } else {
-                    e.target.style.backgroundColor = '#ffffff';
+                    e.target.style.background = '#ffffff';
                     e.target.style.borderColor = '#cbd5e1';
-                    e.target.style.color = '#000000';
+                    e.target.style.color = '#0f172a';
+                }
+            }
+
+            if (isReps) {
+                const isOut = isValueOutOfRange(val, ex.minReps, ex.maxReps);
+                if (isOut) {
+                    e.target.style.setProperty('border', '2px solid #ef4444', 'important');
+                    e.target.style.setProperty('background-color', '#fef2f2', 'important');
+                    e.target.style.setProperty('color', '#dc2626', 'important');
+                } else {
+                    e.target.style.background = '#ffffff';
+                    e.target.style.borderColor = '#cbd5e1';
+                    e.target.style.color = '#0f172a';
                 }
             }
 
@@ -715,18 +718,32 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
             const repsInput = rowCard?.querySelector(`.set-reps[data-set="${setIdx}"]`);
             const rpeInput = rowCard?.querySelector(`.set-rpe[data-set="${setIdx}"]`);
 
+            // CONFERMA E ACCETTAZIONE DEI VALORI (INCLUSI I PLACEHOLDER)
             if (isChecked) {
-                if (!setObj.weight && kgInput && kgInput.value) {
-                    setObj.weight = parseFloat(kgInput.value.replace(',', '.')) || 0;
+                if (setObj.weight === undefined || setObj.weight === '') {
+                    const val = kgInput?.value || kgInput?.placeholder;
+                    if (val && val !== 'Kg') {
+                        setObj.weight = parseFloat(val.replace(',', '.')) || 0;
+                        if (kgInput) kgInput.value = setObj.weight;
+                    }
                 }
-                if (!setObj.reps && repsInput && repsInput.value) {
-                    setObj.reps = repsInput.value;
+                if (!setObj.reps) {
+                    const val = repsInput?.value || repsInput?.placeholder;
+                    if (val && val !== 'reps') {
+                        setObj.reps = val;
+                        if (repsInput) repsInput.value = setObj.reps;
+                    }
                 }
-                if (!setObj.rpe && rpeInput && rpeInput.value) {
-                    setObj.rpe = rpeInput.value;
+                if (!setObj.rpe) {
+                    const val = rpeInput?.value || rpeInput?.placeholder;
+                    if (val && val !== 'RPE') {
+                        setObj.rpe = val;
+                        if (rpeInput) rpeInput.value = setObj.rpe;
+                    }
                 }
             }
 
+            // Propagazione ai set successivi
             if (isChecked && setIdx === 0) {
                 ['weight', 'reps', 'rpe'].forEach(prop => {
                     const val = setObj[prop];
@@ -735,33 +752,44 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                         const setRows = DOM.workoutListContainer.querySelectorAll(`${targetClass}[data-ex="${exIdx}"]`);
 
                         setRows.forEach((rowInput, idx) => {
-                            if (idx > 0 && (!rowInput.value || rowInput.value.trim() === '')) {
+                            if (idx > 0 && (!ex.loggedSets[idx][prop])) {
                                 rowInput.value = val;
-                                if (ex.loggedSets[idx]) {
-                                    ex.loggedSets[idx][prop] = val;
-                                }
+                                ex.loggedSets[idx][prop] = val;
                             }
                         });
                     }
                 });
             }
 
-            updateSessionAndCompletionState(currentDay);
-            updateSessionHeaderUI(currentDay);
-            saveAndSync(state.workoutData);
-
-            const card = DOM.workoutListContainer.querySelector(`.exercise-card[data-ex="${exIdx}"]`);
-            if (card) {
-                card.querySelectorAll('.set-input').forEach(inp => {
+            // Aggiornamento visivo al momento del blocco/sblocco
+            if (rowCard) {
+                rowCard.querySelectorAll('.set-input').forEach(inp => {
                     const sIdx = parseInt(inp.dataset.set, 10);
                     const isRowLocked = ex.loggedSets[sIdx]?.isLocked || false;
                     inp.disabled = isRowLocked;
-                    inp.style.background = isRowLocked ? '#f1f5f9' : '#ffffff';
+
+                    // Mantiene la colorazione rossa anche a campo disabilitato se è fuori range
+                    const isKgField = inp.classList.contains('set-kg');
+                    const isRepsField = inp.classList.contains('set-reps');
+                    let isOut = false;
+
+                    if (isKgField) isOut = isValueOutOfRange(inp.value, ex.kgMin, ex.kgMax);
+                    if (isRepsField) isOut = isValueOutOfRange(inp.value, ex.minReps, ex.maxReps);
+
+                    if (isOut) {
+                        inp.style.setProperty('border', '2px solid #ef4444', 'important');
+                        inp.style.setProperty('background-color', '#fef2f2', 'important');
+                        inp.style.setProperty('color', '#dc2626', 'important');
+                    } else {
+                        inp.style.background = isRowLocked ? '#f1f5f9' : '#ffffff';
+                        inp.style.borderColor = '#cbd5e1';
+                        inp.style.color = '#0f172a';
+                    }
                 });
             }
 
+            // Timer di recupero
             if (isChecked) {
-                // Avvia il timer SOLO se l'esercizio non è in mezzo a un Triset/Superset
                 const isMiddleOfGroup = ex.groupType && !ex.isGroupLast;
 
                 if (!isMiddleOfGroup) {
@@ -777,10 +805,15 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                     startTimer(recoveryTime, handleTick, handleComplete);
                 }
             }
+
+            updateSessionAndCompletionState(currentDay);
+            updateSessionHeaderUI(currentDay);
+            saveAndSync(state.workoutData);
             renderWorkoutList();
         });
     });
 
+    // Gestione Eventi sulle Card Esercizio (Doppio Click e Swipe)
     DOM.workoutListContainer.querySelectorAll('.exercise-card').forEach(card => {
         const exIdx = card.dataset.ex;
 

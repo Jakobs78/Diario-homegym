@@ -1,4 +1,5 @@
 // helpers.js
+
 export function slugify(text) {
     if (!text) return '';
     return text.toString().toLowerCase()
@@ -25,8 +26,8 @@ export function assignMuscleGroup(exerciseName) {
     return 'Altro';
 }
 
-
- /* Genera il riassunto dell'esercizio formattato per la scheda (Senza scritta TARGET e in rosso)
+/**
+ * Genera il riassunto dell'esercizio formattato per la scheda (Senza scritta TARGET e in rosso)
  */
 export function formatExerciseSummary(ex) {
     if (!ex) return '';
@@ -91,16 +92,30 @@ export function formatExerciseSummary(ex) {
 
     return [weightPart, setRepsPart, restPart].filter(Boolean).join(' | ');
 }
+
 /**
- * Distingue lo stimolo dell'esercizio (Forza vs Ipertrofia) basandosi sul target reps
+ * Determina se l'esercizio ha un target a Range (es. 6-8) o a Reps Fisse (es. 8)
+ */
+export function isRangeExercise(ex) {
+    if (!ex) return false;
+    if (ex.minReps && ex.maxReps && ex.minReps !== ex.maxReps) return true;
+    const repsStr = String(ex.reps || ex.targetReps || '').trim();
+    return repsStr.includes('-');
+}
+
+/**
+ * Genera la firma dell'esercizio includendo la modalità di esecuzione (range vs fisse)
  */
 export function getExerciseSignature(ex) {
-    const slug = slugify(ex.name || '');
-    const repsStr = String(ex.reps || '');
-    const firstNum = parseInt(repsStr.match(/\d+/)?.[0] || '8', 10);
+    if (!ex) return '';
+    const name = typeof ex === 'string' ? ex : (ex.name || '');
+    const slug = slugify(name);
     
-    const type = firstNum <= 5 ? 'strength' : 'hypertrophy';
-    return `${slug}_${type}`;
+    // Se passiamo solo il nome (stringa), ritorna lo slug base
+    if (typeof ex === 'string') return slug;
+
+    const mode = isRangeExercise(ex) ? 'range' : 'fixed';
+    return `${slug}_${mode}`;
 }
 
 /**
@@ -135,30 +150,7 @@ export function showNotification(message, type = 'info') {
 }
 
 /**
- * ==============================================================================
- * PROMEMORIA UTILIZZO BOTTOM SHEET / MENU DAL BASSO
- * ==============================================================================
- * Funzione riutilizzabile per qualsiasi menu a comparsa dal basso con auto-chiusura.
- * 
- * ESEMPIO HTML REQUISITO:
- * <button id="mio-btn-apri">Apri Menu</button>
- * 
- * <div id="mio-modal" class="bottom-sheet-overlay hidden">
- *   <div class="bottom-sheet-content">
- *     <button id="mio-btn-chiudi">&times;</button>
- *     <button class="sheet-item" data-view="opzione1">Opzione 1</button>
- *     <button class="sheet-item" data-value="opzione2">Opzione 2</button>
- *   </div>
- * </div>
- * 
- * PARAMETRI CONFIG:
- * @param {string} config.modalId       - ID del container overlay (es. 'analytics-modal')
- * @param {string} config.openBtnId     - ID del pulsante di apertura (es. 'open-analytics-btn')
- * @param {string} config.closeBtnId    - ID del pulsante di chiusura (es. 'close-analytics-btn')
- * @param {string} [config.itemSelector='.sheet-item'] - (Opzionale) Selettore per le opzioni
- * @param {number} [config.timeoutMs=6000]             - (Opzionale) Millisecondi prima della chiusura (0 = disattivo)
- * @param {Function} config.onSelect    - Callback eseguita alla selezione: (valore, evento) => {}
- * ==============================================================================
+ * Bottom Sheet / Menu dal basso
  */
 export function setupBottomSheet({
     modalId,
@@ -208,10 +200,8 @@ export function setupBottomSheet({
     sheetItems?.forEach(item => {
         item.addEventListener('click', (e) => {
             const ds = e.currentTarget.dataset;
-            // Supporta data-subtab, data-action, data-view, data-value
             const val = ds.subtab || ds.action || ds.view || ds.value;
 
-            // Chiudi il pannello prima di eseguire la logica di cambio vista
             closeSheet();
 
             if (typeof onSelect === 'function') {
@@ -220,10 +210,12 @@ export function setupBottomSheet({
         });
     });
 }
-// Fine BOTTOM SHEET / MENU DAL BASSO
 
-export function findPreviousExercise(workoutData, currentMesoIdx, currentWeekNum, currentDayIdx, exerciseName) {
-    if (!workoutData?.history?.years) return null;
+/**
+ * Cerca la sessione precedente considerando la signature univoca (range vs fisse)
+ */
+export function findPreviousExercise(workoutData, currentMesoIdx, currentWeekNum, currentDayIdx, currentExercise) {
+    if (!workoutData?.history?.years || !currentExercise) return null;
     
     const currentYear = new Date().getFullYear().toString();
     const yearData = workoutData.history.years[currentYear];
@@ -232,29 +224,89 @@ export function findPreviousExercise(workoutData, currentMesoIdx, currentWeekNum
     const meso = yearData.mesocycles[currentMesoIdx];
     if (!meso || !meso.weeks) return null;
 
-    // Cerca nella settimana precedente dello stesso mesociclo
-    const prevWeekNum = currentWeekNum - 1;
-    if (prevWeekNum > 0) {
-        const prevWeek = meso.weeks.find(w => w.weekNumber === prevWeekNum);
+    const currentSig = getExerciseSignature(currentExercise);
+
+    // 1. Cerca nelle settimane precedenti DELLO STESSO MESOCICLO (dalla sett W-1 a ritroso fino alla 1)
+    for (let w = currentWeekNum - 1; w >= 1; w--) {
+        const prevWeek = meso.weeks.find(item => item.weekNumber === w);
         if (prevWeek && prevWeek.days && prevWeek.days[currentDayIdx]) {
             const day = prevWeek.days[currentDayIdx];
-            const foundEx = (day.exercises || []).find(ex => slugify(ex.name) === slugify(exerciseName));
-            if (foundEx) return foundEx;
+            const foundEx = (day.exercises || []).find(ex => getExerciseSignature(ex) === currentSig);
+            
+            if (foundEx && foundEx.loggedSets && foundEx.loggedSets.some(s => s.weight || s.reps)) {
+                return foundEx;
+            }
         }
     }
 
-    // Se siamo alla settimana 1, cerca nell'ultimo mesociclo concluso (stessa settimana e giorno)
+    // 2. Se siamo alla settimana 1, cerca nell'ultimo mesociclo concluso (stesso giorno)
     if (currentMesoIdx > 0) {
         const prevMeso = yearData.mesocycles[currentMesoIdx - 1];
         if (prevMeso && prevMeso.weeks) {
-            const sameWeek = prevMeso.weeks.find(w => w.weekNumber === currentWeekNum) || prevMeso.weeks[prevMeso.weeks.length - 1];
-            if (sameWeek && sameWeek.days && sameWeek.days[currentDayIdx]) {
-                const day = sameWeek.days[currentDayIdx];
-                const foundEx = (day.exercises || []).find(ex => slugify(ex.name) === slugify(exerciseName));
-                if (foundEx) return foundEx;
+            for (let w = prevMeso.weeks.length; w >= 1; w--) {
+                const prevWeek = prevMeso.weeks[w - 1];
+                if (prevWeek && prevWeek.days && prevWeek.days[currentDayIdx]) {
+                    const day = prevWeek.days[currentDayIdx];
+                    const foundEx = (day.exercises || []).find(ex => getExerciseSignature(ex) === currentSig);
+                    if (foundEx && foundEx.loggedSets && foundEx.loggedSets.some(s => s.weight || s.reps)) {
+                        return foundEx;
+                    }
+                }
             }
         }
     }
 
     return null;
+}
+
+/**
+ * Calcola il trend del volume (Kg x Reps) tra il set corrente e quello della sessione precedente.
+ */
+export function calculateSetVolumeTrend(currentSet, prevSet) {
+    if (!currentSet || !prevSet) return null;
+
+    const currentKg = parseFloat(currentSet.weight || currentSet.kg || 0);
+    const currentReps = parseFloat(currentSet.reps || 0);
+    const prevKg = parseFloat(prevSet.weight || prevSet.kg || 0);
+    const prevReps = parseFloat(prevSet.reps || 0);
+
+    if (currentKg > 0 && currentReps > 0 && prevKg > 0 && prevReps > 0) {
+        const currentVolume = currentKg * currentReps;
+        const prevVolume = prevKg * prevReps;
+        const volDiff = currentVolume - prevVolume;
+
+        if (volDiff > 0) {
+            return {
+                volDiff,
+                text: `▲ +${volDiff} kg`,
+                isPositive: true,
+                isNegative: false
+            };
+        } else if (volDiff < 0) {
+            const absDiff = Math.abs(volDiff);
+            return {
+                volDiff,
+                text: `▼ -${absDiff} kg`,
+                isPositive: false,
+                isNegative: true
+            };
+        }
+    }
+
+    return null;
+}
+/**
+ * Verifica se le ripetizioni o il peso inseriti rispettano i limiti prescritti dal CSV
+ */
+export function isValueOutOfRange(value, minTarget, maxTarget) {
+    const val = parseFloat(value);
+    if (isNaN(val) || val === 0) return false; // Non evidenziare se vuoto
+
+    const min = parseFloat(minTarget);
+    const max = parseFloat(maxTarget);
+
+    if (!isNaN(min) && val < min) return true;
+    if (!isNaN(max) && val > max) return true;
+
+    return false;
 }

@@ -139,7 +139,10 @@ async function initApp() {
 function setupEventListeners() {
     document.getElementById('theme-toggle-btn')?.addEventListener('click', toggleTheme);
     document.getElementById('user-info-bar')?.addEventListener('click', window.logoutUser);
-
+    // Listener per il pulsante di logout nella schermata di blocco trial/abbonamento
+    document.getElementById('trial-logout-btn')?.addEventListener('click', () => {
+    window.logoutUser();
+    });
     // Gestore Scorrimento automatico al Focus per evitare la copertina della tastiera Mobile
     document.addEventListener('focusin', (e) => {
         if (e.target && e.target.matches('.set-table input[type="text"]')) {
