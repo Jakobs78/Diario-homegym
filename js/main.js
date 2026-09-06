@@ -378,12 +378,19 @@ function handlePdfExportFromState() {
 
 document.addEventListener('DOMContentLoaded', initApp);
 
+// main.js (sostituisci il blocco visibilitychange esistente in fondo al file)
 document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible' && navigator.onLine) {
         try {
             const user = await checkSession();
             if (!user) return;
 
+            // 1. PUSH: Se ci sono modifiche offline locali non sincronizzate, inviale subito
+            if (hasPendingSync()) {
+                await processSyncQueue();
+            }
+
+            // 2. PULL: Confronta i dati cloud con il localStorage
             const remoteData = await pullDataFromSupabase(user);
             if (remoteData) {
                 const localData = getFromLocalStorage();
@@ -402,6 +409,15 @@ document.addEventListener('visibilitychange', async () => {
             console.warn("Impossibile sincronizzare al risveglio da standby:", err);
         }
     }
+});
+
+// Backup per riconnessione e riattivazione focus su browser mobile
+window.addEventListener('online', () => {
+    document.dispatchEvent(new Event('visibilitychange'));
+});
+
+window.addEventListener('focus', () => {
+    document.dispatchEvent(new Event('visibilitychange'));
 });
 
 let syncToastTimer = null;
