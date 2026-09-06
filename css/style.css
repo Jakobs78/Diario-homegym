@@ -1509,3 +1509,8 @@ body.dark-mode .compare-table .diff-negative {
 .ex-target {
     font-size: 0.85rem !important;
 }
+/* Crea uno spazio di sicurezza quando l'elemento viene messo a fuoco */
+.set-table td,
+.set-table input[type="text"] {
+    scroll-margin-bottom: 40vh; /* Mantiene la cella ben al di sopra della tastiera */
+}

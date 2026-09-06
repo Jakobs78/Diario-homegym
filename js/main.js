@@ -133,6 +133,18 @@ function setupEventListeners() {
     document.getElementById('theme-toggle-btn')?.addEventListener('click', toggleTheme);
     document.getElementById('user-info-bar')?.addEventListener('click', window.logoutUser);
 
+    // Gestore Scorrimento automatico al Focus per evitare la copertina della tastiera Mobile
+    document.addEventListener('focusin', (e) => {
+        if (e.target && e.target.matches('.set-table input[type="text"]')) {
+            setTimeout(() => {
+                e.target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            }, 300);
+        }
+    });
+
     // Toggle (Apertura / Chiusura) del Manuale d'Uso dall'Header
     document.getElementById('btn-user-manual')?.addEventListener('click', (e) => {
         const btnManual = e.currentTarget;
@@ -397,6 +409,7 @@ function showSyncToast(message) {
     if (syncToastTimer) clearTimeout(syncToastTimer);
     syncToastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 2000);
 }
+
 /**
  * Mostra un popup temporaneo in alto
  */
