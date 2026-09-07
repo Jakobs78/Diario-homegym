@@ -1,4 +1,4 @@
-// modal.js - Gestione dei pannelli a scomparsa (Bottom Sheet) e modali
+//  - Gestione dei pannelli a scomparsa (Bottom Sheet) e modali
 
 export function setupBottomSheet({ modalId, openBtnId, closeBtnId, onSelect }) {
     const modal = document.getElementById(modalId);

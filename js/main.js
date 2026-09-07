@@ -12,7 +12,7 @@ import {
     updateSyncStatusUI 
 } from './storage.js';
 import { pullDataFromSupabase } from './sync.js';
-import { renderWorkoutList, setupBottomSheet } from './ui.js';
+import { renderWorkoutList } from './ui.js';
 import { exportWorkoutPDF } from './pdfExport.js';
 import { downloadExcelTemplate, parseExcelFile } from './importer.js';
 import { importWorkoutPlan, readCsvFile, importProgressCSV, exportToCSV } from './csvHandler.js';
@@ -27,10 +27,12 @@ import {
     renderMuscleVolumeChart, 
     renderMesoComparisonChart 
 } from './analytics.js';
+import { setupBottomSheet } from './bottomSheet.js';
 
 // Esposizione globale per eventi inline / retrocompatibilità
 window.logoutUser = logoutUser;
 window.state = state;
+window.bottomSheet = setupBottomSheet;
 
 // ==========================================
 // 2. GESTIONE AUTENTICAZIONE & STATO
