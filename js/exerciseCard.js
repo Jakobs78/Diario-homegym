@@ -183,18 +183,19 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     return exCard;
 }
 
-export function updatePlatesBadgeUI(exIdx, workoutListContainer) {
-    const container = workoutListContainer;
-    if (!container) return;
+export function updatePlatesBadgeUI(exIdx) {
+    // Cerca direttamente la card dell'esercizio nel DOM globale usando l'indice
+    const card = document.querySelector(`.exercise-card[data-ex="${exIdx}"]`);
+    if (!card) return;
 
-    const barSelect = container.querySelector(`.bar-select[data-ex="${exIdx}"]`);
-    const set1Input = container.querySelector(`.set-kg[data-ex="${exIdx}"][data-set="0"]`);
-    const badge = container.querySelector(`.plates-badge[data-ex="${exIdx}"]`);
+    const barSelect = card.querySelector('.bar-select');
+    const set1Input = card.querySelector('.set-kg[data-set="0"]');
+    const badge = card.querySelector('.plates-badge');
 
     if (!badge) return;
 
     const barWeight = parseFloat(barSelect?.value || 20);
-    const totalKg = parseFloat(set1Input?.value.replace(',', '.')) || 0;
+    const totalKg = parseFloat(set1Input?.value?.replace(',', '.')) || 0;
 
     if (barWeight === 0) {
         badge.innerHTML = `🏋️ Manubri / Macchina`;

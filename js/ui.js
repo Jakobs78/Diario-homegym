@@ -5,13 +5,7 @@
 // ==========================================
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
-import { 
-    formatExerciseSummary, 
-    getPlateBreakdown, 
-    findPreviousExercise, 
-    isValueOutOfRange, 
-    calculateSetVolumeTrend 
-} from './helpers.js';
+import { isValueOutOfRange } from './helpers.js';
 import { 
     startTimer, 
     stopTimer, 
