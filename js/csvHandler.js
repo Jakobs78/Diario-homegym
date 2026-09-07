@@ -298,12 +298,19 @@ export function importProgressCSV(csvText) {
         const headers = rows[0].map(h => h.trim().toLowerCase());
         const dataRows = rows.slice(1);
 
+        // Mappatura flessibile delle colonne per supportare sia il vecchio formato che il nuovo backup completo
+        const idxMeso = findColumnIndex(headers, ['mesociclo', 'meso']);
+        const idxWeek = findColumnIndex(headers, ['settimana', 'week']);
+        const idxDay = findColumnIndex(headers, ['giorno', 'day']);
         const idxDate = findColumnIndex(headers, ['data', 'date']);
+        const idxBlock = findColumnIndex(headers, ['blocco', 'block']);
         const idxEx = findColumnIndex(headers, ['esercizio', 'exercise', 'name']);
         const idxSet = findColumnIndex(headers, ['set', 'serie']);
-        const idxWeight = findColumnIndex(headers, ['kg', 'peso', 'weight']);
-        const idxReps = findColumnIndex(headers, ['rep', 'ripetizioni']);
+        const idxWeight = findColumnIndex(headers, ['kg_reali', 'kg', 'peso', 'weight']);
+        const idxReps = findColumnIndex(headers, ['reps_reali', 'rep', 'ripetizioni']);
+        const idxCompleted = findColumnIndex(headers, ['completato', 'completed']);
         const idxRpe = findColumnIndex(headers, ['rpe', 'sforzo']);
+        const idxNotes = findColumnIndex(headers, ['note_esercizio', 'note']);
 
         if (!state.workoutData.history) state.workoutData.history = {};
         if (!state.workoutData.history.years) state.workoutData.history.years = {};
@@ -313,67 +320,95 @@ export function importProgressCSV(csvText) {
             state.workoutData.history.years[currentYear] = { mesocycles: [] };
         }
 
-        let historyMeso = state.workoutData.history.years[currentYear].mesocycles.find(m => m.name === "Storico Importato");
-        if (!historyMeso) {
-            historyMeso = { name: "Storico Importato", weeks: [] };
-            state.workoutData.history.years[currentYear].mesocycles.push(historyMeso);
-        }
-
-        const recordsByDateAndEx = {};
+        const mesocyclesList = state.workoutData.history.years[currentYear].mesocycles;
+        const importedMesosMap = {};
 
         dataRows.forEach(row => {
             if (row.length < 2) return;
-            const dateVal = idxDate !== -1 ? row[idxDate]?.trim() : (row[0]?.trim() || new Date().toISOString().split('T')[0]);
-            const exNameVal = idxEx !== -1 ? row[idxEx]?.trim() : (row[1]?.trim() || 'Esercizio Storico');
-            const rawWeight = idxWeight !== -1 ? row[idxWeight] : row[3];
-            const normalizedWeight = String(rawWeight || '').replace(',', '.');
-            const weightVal = parseFloat(normalizedWeight.replace(/[^0-9.]/g, '')) || 0;
-            const repsVal = parseFloat(String(idxReps !== -1 ? row[idxReps] : row[4]).replace(/[^0-9.]/g, '')) || 0;
-            const rpeVal = idxRpe !== -1 ? row[idxRpe] : row[5] || '';
-            const setNum = idxSet !== -1 ? parseInt(row[idxSet]) : 0;
 
-            if (!exNameVal) return;
+            const mesoName = idxMeso !== -1 && row[idxMeso] ? row[idxMeso].trim() : "Storico Importato";
+            const weekNum = idxWeek !== -1 && row[idxWeek] ? parseInt(row[idxWeek]) || 1 : 1;
+            const dayNum = idxDay !== -1 && row[idxDay] ? parseInt(row[idxDay]) || 1 : 1;
+            const dateVal = idxDate !== -1 && row[idxDate] ? row[idxDate].trim() : new Date().toISOString().split('T')[0];
+            const blockNum = idxBlock !== -1 && row[idxBlock] ? row[idxBlock].trim() : "1";
+            const exNameVal = idxEx !== -1 && row[idxEx] ? row[idxEx].trim() : 'Esercizio';
+            const setNum = idxSet !== -1 && row[idxSet] ? parseInt(row[idxSet]) || 1 : 1;
+            
+            const rawWeight = idxWeight !== -1 ? row[idxWeight] : '';
+            const normalizedWeight = String(rawWeight || '').replace(',', '.').replace(/[^0-9.]/g, '');
+            const weightVal = normalizedWeight !== '' ? parseFloat(normalizedWeight) : '';
 
-            const key = `${dateVal}_${exNameVal}`;
-            if (!recordsByDateAndEx[key]) {
-                recordsByDateAndEx[key] = {
-                    date: dateVal,
-                    name: exNameVal,
-                    loggedSets: []
-                };
+            const rawReps = idxReps !== -1 ? row[idxReps] : '';
+            const repsVal = rawReps !== '' ? rawReps.trim() : '';
+
+            const completedVal = idxCompleted !== -1 && row[idxCompleted] ? row[idxCompleted].trim().toUpperCase() : 'SI';
+            const isLocked = completedVal === 'SI' || completedVal === 'TRUE' || completedVal === '1';
+
+            const rpeVal = idxRpe !== -1 && row[idxRpe] ? row[idxRpe].trim() : '';
+            const notesVal = idxNotes !== -1 && row[idxNotes] ? row[idxNotes].trim() : '';
+
+            // Organizzazione gerarchica: Mesociclo -> Settimana -> Giorno -> Esercizio -> Serie
+            if (!importedMesosMap[mesoName]) {
+                let existingMeso = mesocyclesList.find(m => m.name === mesoName);
+                if (!existingMeso) {
+                    existingMeso = {
+                        id: `meso_imp_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                        name: mesoName,
+                        importedAt: new Date().toISOString(),
+                        weeks: []
+                    };
+                    mesocyclesList.push(existingMeso);
+                }
+                importedMesosMap[mesoName] = existingMeso;
             }
 
-            recordsByDateAndEx[key].loggedSets.push({
-                setNumber: setNum || recordsByDateAndEx[key].loggedSets.length + 1,
+            const currentMesoObj = importedMesosMap[mesoName];
+
+            let weekObj = currentMesoObj.weeks.find(w => w.weekNumber === weekNum);
+            if (!weekObj) {
+                weekObj = { weekNumber: weekNum, coachNotes: '', days: [] };
+                currentMesoObj.weeks.push(weekObj);
+            }
+
+            let dayObj = weekObj.days.find(d => d.dayNumber === dayNum || d.date === dateVal);
+            if (!dayObj) {
+                dayObj = {
+                    dayNumber: dayNum,
+                    dayName: `Giorno ${dayNum}`,
+                    date: dateVal,
+                    exercises: []
+                };
+                weekObj.days.push(dayObj);
+            }
+
+            let exObj = dayObj.exercises.find(e => e.name === exNameVal);
+            if (!exObj) {
+                exObj = {
+                    block: blockNum,
+                    name: exNameVal,
+                    notes: notesVal,
+                    loggedSets: [],
+                    sets: []
+                };
+                dayObj.exercises.push(exObj);
+            }
+
+            // Inserisce o aggiorna la serie effettiva
+            exObj.loggedSets.push({
+                setNumber: setNum,
                 weight: weightVal,
                 reps: repsVal,
                 rpe: rpeVal,
-                isLocked: true
+                isLocked: isLocked
             });
         });
 
-        const weekObj = {
-            weekNumber: historyMeso.weeks.length + 1,
-            days: []
-        };
-
-        Object.values(recordsByDateAndEx).forEach(record => {
-            weekObj.days.push({
-                date: record.date,
-                dayName: `Sessione ${record.date}`,
-                exercises: [{
-                    name: record.name,
-                    loggedSets: record.loggedSets
-                }]
-            });
-        });
-
-        historyMeso.weeks.push(weekObj);
+        // Sincronizza lo stato aggiornato su localStorage e di conseguenza su Supabase
         saveAndSync(state.workoutData);
 
         return {
             success: true,
-            message: `Storico importato con successo: aggiunti ${Object.keys(recordsByDateAndEx).length} record.`
+            message: "Storico completo importato e sincronizzato con successo su Supabase!"
         };
     } catch (err) {
         console.error("Errore nell'importazione del CSV di progresso:", err);
@@ -391,24 +426,33 @@ export function exportToCSV(workoutData) {
             return;
         }
 
-        let csvContent = "Settimana,Giorno,Blocco,Esercizio,Serie,Reps,KgMin,KgMax,Rpe,Recupero,Note\n";
+        // Intestazione arricchita con i campi reali compilati dall'utente
+        let csvContent = "Mesociclo,Settimana,Giorno,Data,Blocco,Esercizio,Serie,Kg_Reali,Reps_Reali,Completato,Rpe,Recupero,Note_Esercizio\n";
 
         mesocycles.forEach(meso => {
             meso.weeks?.forEach(week => {
                 week.days?.forEach(day => {
                     day.exercises?.forEach(ex => {
-                        ex.sets?.forEach(set => {
-                            const weightStr = `"${(set.weight ?? 0).toString().replace(/"/g, '""')}"`;
+                        // Dà priorità a loggedSets (i dati reali inseriti dall'utente), con fallback su sets
+                        const setsToExport = ex.loggedSets && ex.loggedSets.length > 0 ? ex.loggedSets : (ex.sets || []);
+                        
+                        setsToExport.forEach(set => {
+                            const weightVal = set.weight !== undefined && set.weight !== '' ? set.weight : '';
+                            const repsVal = set.reps !== undefined && set.reps !== '' ? set.reps : '';
+                            const isCompleted = set.isLocked ? 'SI' : 'NO';
+
                             const row = [
+                                `"${(meso.name || '').replace(/"/g, '""')}"`,
                                 week.weekNumber || 1,
                                 day.dayNumber || 1,
+                                `"${(day.date || '').replace(/"/g, '""')}"`,
                                 ex.block || 1,
                                 `"${(ex.name || '').replace(/"/g, '""')}"`,
                                 set.setNumber || 1,
-                                `"${(set.reps || '').toString().replace(/"/g, '""')}"`,
-                                weightStr,
-                                weightStr,
-                                `"${(set.rpe || '').toString().replace(/"/g, '""')}"`,
+                                `"${weightVal}"`,
+                                `"${repsVal}"`,
+                                isCompleted,
+                                `"${(set.rpe || ex.rpe || '').toString().replace(/"/g, '""')}"`,
                                 `"${(ex.rest || '').replace(/"/g, '""')}"`,
                                 `"${(ex.notes || '').replace(/"/g, '""')}"`
                             ];
@@ -423,13 +467,13 @@ export function exportToCSV(workoutData) {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.setAttribute('href', url);
-        link.setAttribute('download', `workout_plan_${currentYear}.csv`);
+        link.setAttribute('download', `storico_completo_workout_${currentYear}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
 
     } catch (err) {
-        console.error("Errore durante l'esportazione CSV:", err);
+        console.error("Errore durante l'esportazione dello storico CSV:", err);
         alert("Errore durante l'esportazione del file CSV.");
     }
 }
