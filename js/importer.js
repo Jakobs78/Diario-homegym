@@ -1,9 +1,8 @@
-// importer.js
 /* global XLSX */
 
-/**
- * Genera e scarica automaticamente un file Excel (.xlsx) con la struttura corretta.
- */
+// ==========================================
+// 1. GENERAZIONE E DOWNLOAD TEMPLATE EXCEL
+// ==========================================
 /**
  * Genera e scarica automaticamente un file Excel (.xlsx) con la struttura corretta
  * inclusi esempi per Drop Set e Triset/Super Set.
@@ -45,6 +44,9 @@ export function downloadExcelTemplate() {
     XLSX.writeFile(workbook, "Modello_Scheda_HomeGym.xlsx");
 }
 
+// ==========================================
+// 2. PARSING ED ESTRAZIONE FILE EXCEL
+// ==========================================
 /**
  * Legge direttamente file .xlsx, .xls e .csv convertendoli in testo CSV standard per l'app.
  */

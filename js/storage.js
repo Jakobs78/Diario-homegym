@@ -1,10 +1,12 @@
-// storage.js
+// ==========================================
+// 1. IMPORT & COSTANTI
+// ==========================================
 import { CONFIG } from './config.js';
 import { state, resetState } from './state.js';
 import { pushDataToSupabase, deleteCloudData } from './sync.js';
 import { exportToCSV } from './csvHandler.js';
 
-const QUEUE_KEY = `${CONFIG.STORAGE_KEY}_sync_queue`; // Nuova chiave per la coda offline
+const QUEUE_KEY = `${CONFIG.STORAGE_KEY}_sync_queue`;
 
 const DEFAULT_WORKOUT_DATA = {
     athlete: { email: null },
@@ -15,9 +17,9 @@ const DEFAULT_WORKOUT_DATA = {
 let syncDebounceTimer = null;
 let isSyncing = false;
 
-/**
- * Gestione della Coda Offline
- */
+// ==========================================
+// 2. GESTIONE CODA OFFLINE (SYNC QUEUE)
+// ==========================================
 function getQueue() {
     const queue = localStorage.getItem(QUEUE_KEY);
     return queue ? JSON.parse(queue) : [];
@@ -37,9 +39,9 @@ export function hasPendingSync() {
     return getQueue().length > 0;
 }
 
-/**
- * Salvataggio immediato e sincrono in LocalStorage
- */
+// ==========================================
+// 3. OPERAZIONI LOCALSTORAGE
+// ==========================================
 export function saveToLocalStorage(data) {
     try {
         data.updatedAt = new Date().toISOString();
@@ -50,9 +52,6 @@ export function saveToLocalStorage(data) {
     }
 }
 
-/**
- * Recupero dati da LocalStorage
- */
 export function getFromLocalStorage() {
     try {
         const data = localStorage.getItem(CONFIG.STORAGE_KEY);
@@ -63,13 +62,12 @@ export function getFromLocalStorage() {
     }
 }
 
-/**
- * Salvataggio locale + Inserimento in coda + Avvio Sincronizzazione
- */
+// ==========================================
+// 4. SINCRONIZZAZIONE CLOUD & CODA
+// ==========================================
 export async function saveAndSync(data, actionType = 'UPDATE_WORKOUT') {
     saveToLocalStorage(data);
     
-    // Registra lo snapshot dei dati in coda con ID e Timestamp
     enqueueAction({
         id: crypto.randomUUID(),
         type: actionType,
@@ -90,9 +88,6 @@ export async function saveAndSync(data, actionType = 'UPDATE_WORKOUT') {
     }, 1500);
 }
 
-/**
- * Processamento sequenziale della coda verso Supabase
- */
 export async function processSyncQueue() {
     if (isSyncing || !state.currentUser || !navigator.onLine) {
         updateSyncStatusUI();
@@ -109,19 +104,15 @@ export async function processSyncQueue() {
         isSyncing = true;
         updateSyncStatusUI();
         
-        // Ordina rigorosamente dal più vecchio al più recente
         queue.sort((a, b) => a.timestamp - b.timestamp);
 
-        // Processa ogni azione in sequenza
         for (const action of queue) {
-            // Passiamo anche il timestamp dell'azione per mantenere l'esattezza cronologica su DB
             const success = await pushDataToSupabase(state.currentUser, action.payload, action.timestamp);
             if (!success) {
                 throw new Error(`Sincronizzazione fallita per l'azione ${action.id}`);
             }
         }
         
-        // Se tutte le chiamate hanno successo, svuota la coda
         clearQueue();
     } catch (error) {
         console.error("❌ Errore durante la sincronizzazione cloud (i dati restano in coda):", error);
@@ -131,9 +122,59 @@ export async function processSyncQueue() {
     }
 }
 
-/**
- * PROCEDURA DI ELIMINAZIONE TOTALE
- */
+// ==========================================
+// 5. UI & BADGE STATO SINCRONIZZAZIONE
+// ==========================================
+export function updateSyncStatusUI() {
+    const syncBadge = document.getElementById('sync-status');
+    if (!syncBadge) return;
+
+    if (!navigator.onLine) {
+        syncBadge.textContent = '🔴 Offline (Modifiche in locale)';
+        syncBadge.title = 'Nessuna connessione internet. I dati sono salvati sul dispositivo in attesa di rete.';
+        syncBadge.style.cursor = 'default';
+        syncBadge.style.background = '';
+        syncBadge.style.color = '';
+        syncBadge.style.padding = '';
+    } else if (hasPendingSync()) {
+        syncBadge.textContent = '⚠️ Sincronizza prima di cambiare device!';
+        syncBadge.title = 'Hai modifiche non sincronizzate! Clicca qui per forzare la sincronizzazione prima di usare un altro dispositivo.';
+        syncBadge.style.cursor = 'pointer';
+        syncBadge.style.background = '#f59e0b';
+        syncBadge.style.color = '#000';
+        syncBadge.style.padding = '2px 8px';
+        syncBadge.style.borderRadius = '4px';
+        syncBadge.style.fontWeight = 'bold';
+    } else {
+        syncBadge.textContent = '🟢 Sincronizzato';
+        syncBadge.title = 'Tutti i dati sono allineati con il cloud. Puoi passare ad altri device in sicurezza.';
+        syncBadge.style.cursor = 'default';
+        syncBadge.style.background = '';
+        syncBadge.style.color = '';
+        syncBadge.style.padding = '';
+    }
+}
+
+// Listener per forzatura manuale sincronizzazione via badge UI
+document.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'sync-status' && hasPendingSync() && navigator.onLine) {
+        console.log("Forzatura sincronizzazione manuale richiesta dall'utente...");
+        processSyncQueue();
+    }
+});
+
+// Listener di rete
+window.addEventListener('online', () => {
+    updateSyncStatusUI();
+    if (hasPendingSync()) processSyncQueue();
+});
+
+window.addEventListener('offline', updateSyncStatusUI);
+document.addEventListener('DOMContentLoaded', updateSyncStatusUI);
+
+// ==========================================
+// 6. PROCEDURA ELIMINAZIONE TOTALE DATI
+// ==========================================
 export function clearAllData() {
     document.querySelector('.danger-overlay')?.remove();
 
@@ -182,13 +223,8 @@ export function clearAllData() {
         }
     });
 
-    overlay.querySelector('#danger-cancel-btn')?.addEventListener('click', () => {
-        overlay.remove();
-    });
-
-    overlay.querySelector('#danger-step2-btn')?.addEventListener('click', () => {
-        showFinalConfirmationStep(overlay);
-    });
+    overlay.querySelector('#danger-cancel-btn')?.addEventListener('click', () => overlay.remove());
+    overlay.querySelector('#danger-step2-btn')?.addEventListener('click', () => showFinalConfirmationStep(overlay));
 }
 
 function showFinalConfirmationStep(overlay) {
@@ -245,7 +281,7 @@ function showFinalConfirmationStep(overlay) {
 
             localStorage.clear();
             sessionStorage.clear();
-            clearQueue(); // Pulizia esplicita della coda offline
+            clearQueue();
             
             if (typeof resetState === 'function') {
                 resetState();
@@ -266,56 +302,3 @@ function showFinalConfirmationStep(overlay) {
 export function clearLocalData() {
     clearAllData();
 }
-
-/**
- * Aggiorna il badge di stato nell'header (#sync-status) e gestisce l'avviso di sicurezza interattivo
- */
-export function updateSyncStatusUI() {
-    const syncBadge = document.getElementById('sync-status');
-    if (!syncBadge) return;
-
-    if (!navigator.onLine) {
-        syncBadge.textContent = '🔴 Offline (Modifiche in locale)';
-        syncBadge.title = 'Nessuna connessione internet. I dati sono salvati sul dispositivo in attesa di rete.';
-        syncBadge.style.cursor = 'default';
-    } else if (hasPendingSync()) {
-        syncBadge.textContent = '⚠️ Sincronizza prima di cambiare device!';
-        syncBadge.title = 'Hai modifiche non sincronizzate! Clicca qui per forzare la sincronizzazione prima di usare un altro dispositivo.';
-        syncBadge.style.cursor = 'pointer';
-        syncBadge.style.background = '#f59e0b'; // Colore di allerta arancione
-        syncBadge.style.color = '#000';
-        syncBadge.style.padding = '2px 8px';
-        syncBadge.style.borderRadius = '4px';
-        syncBadge.style.fontWeight = 'bold';
-    } else {
-        syncBadge.textContent = '🟢 Sincronizzato';
-        syncBadge.title = 'Tutti i dati sono allineati con il cloud. Puoi passare ad altri device in sicurezza.';
-        syncBadge.style.cursor = 'default';
-        syncBadge.style.background = '';
-        syncBadge.style.color = '';
-        syncBadge.style.padding = '';
-    }
-}
-
-// Permette all'utente di forzare la sincronizzazione cliccando sul badge di avviso
-document.addEventListener('click', (e) => {
-    if (e.target && e.target.id === 'sync-status' && hasPendingSync() && navigator.onLine) {
-        console.log("Forzatura sincronizzazione manuale richiesta dall'utente...");
-        processSyncQueue();
-    }
-});
-
-// --- LISTENER AUTOMATICI DI RETE ---
-
-window.addEventListener('online', () => {
-    updateSyncStatusUI();
-    if (hasPendingSync()) {
-        processSyncQueue();
-    }
-});
-
-window.addEventListener('offline', () => {
-    updateSyncStatusUI();
-});
-
-document.addEventListener('DOMContentLoaded', updateSyncStatusUI);

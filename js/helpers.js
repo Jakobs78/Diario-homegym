@@ -1,5 +1,19 @@
-// helpers.js
+// helpers.js - Solo logica pura, calcoli matematici e formattazione stringhe
 
+/**
+ * Pulisce una stringa o valore di ripetizioni estraendo solo il primo numero valido
+ */
+export function cleanNumericReps(val) {
+    if (val === undefined || val === null) return '';
+    const str = String(val).trim();
+    if (!str) return '';
+    const match = str.match(/\d+/);
+    return match ? match[0] : str;
+}
+
+/**
+ * Trasforma una stringa in uno slug URL-friendly
+ */
 export function slugify(text) {
     if (!text) return '';
     return text.toString().toLowerCase()
@@ -11,6 +25,9 @@ export function slugify(text) {
         .replace(/-+$/, '');            
 }
 
+/**
+ * Mappa il nome dell'esercizio al gruppo muscolare principale
+ */
 export function assignMuscleGroup(exerciseName) {
     if (!exerciseName) return 'Altro';
     const name = exerciseName.toLowerCase();
@@ -27,12 +44,11 @@ export function assignMuscleGroup(exerciseName) {
 }
 
 /**
- * Genera il riassunto dell'esercizio formattato per la scheda (Senza scritta TARGET e in rosso)
+ * Genera l'HTML formattato per il riassunto dell'esercizio (peso, set/reps, rest)
  */
 export function formatExerciseSummary(ex) {
     if (!ex) return '';
 
-    // Funzione di utilità per leggere la cella in modo case-insensitive
     const getCell = (...keys) => {
         const objKeys = Object.keys(ex);
         for (const k of keys) {
@@ -61,7 +77,6 @@ export function formatExerciseSummary(ex) {
     const rpe = getCell('rpe');
     const recupero = getCell('recupero', 'rest', 'recovery');
 
-    // 1. Gestione Peso (Range Kg o Topset oppure "--" in rosso se mancanti/uguali a 0 o -)
     let weightPart = '';
     const isValidVal = (val) => val && String(val).trim() !== '' && String(val).trim() !== '-' && String(val).trim() !== '0' && String(val).trim() !== '0,0' && String(val).trim() !== '0.0';
     
@@ -77,7 +92,6 @@ export function formatExerciseSummary(ex) {
         weightPart = `<span style="color: #dc2626; font-weight: 700;">--</span>`;
     }
 
-    // 2. Gestione Set, Reps e RPE
     const setsVal = sets || '-';
     const repsVal = reps || '-';
     
@@ -86,7 +100,6 @@ export function formatExerciseSummary(ex) {
         setRepsPart += ` ${rpe.startsWith('@') ? rpe : '@' + rpe}`;
     }
 
-    // 3. Gestione Recupero
     const restVal = recupero && recupero !== '-' ? recupero : '';
     const restPart = restVal ? `rest ${restVal}` : '';
 
@@ -104,14 +117,13 @@ export function isRangeExercise(ex) {
 }
 
 /**
- * Genera la firma dell'esercizio includendo la modalità di esecuzione (range vs fisse)
+ * Genera la firma univoca dell'esercizio
  */
 export function getExerciseSignature(ex) {
     if (!ex) return '';
     const name = typeof ex === 'string' ? ex : (ex.name || '');
     const slug = slugify(name);
     
-    // Se passiamo solo il nome (stringa), ritorna lo slug base
     if (typeof ex === 'string') return slug;
 
     const mode = isRangeExercise(ex) ? 'range' : 'fixed';
@@ -145,74 +157,8 @@ export function getPlateBreakdown(totalWeight, barWeight = 20) {
     };
 }
 
-export function showNotification(message, type = 'info') {
-    alert(`${type.toUpperCase()}: ${message}`);
-}
-
 /**
- * Bottom Sheet / Menu dal basso
- */
-export function setupBottomSheet({
-    modalId,
-    openBtnId,
-    closeBtnId,
-    itemSelector = '.sheet-item',
-    timeoutMs = 6000,
-    onSelect
-}) {
-    const modal = document.getElementById(modalId);
-    const openBtn = document.getElementById(openBtnId);
-    const closeBtn = document.getElementById(closeBtnId);
-    const sheetItems = modal?.querySelectorAll(itemSelector);
-
-    let autoCloseTimer = null;
-
-    const closeSheet = () => {
-        if (!modal) return;
-        modal.classList.add('hidden');
-        modal.classList.remove('show');
-        modal.style.display = 'none';
-        if (autoCloseTimer) {
-            clearTimeout(autoCloseTimer);
-            autoCloseTimer = null;
-        }
-    };
-
-    const openSheet = () => {
-        if (!modal) return;
-        modal.classList.remove('hidden');
-        modal.classList.add('show');
-        modal.style.display = 'flex';
-
-        if (autoCloseTimer) clearTimeout(autoCloseTimer);
-        if (timeoutMs > 0) {
-            autoCloseTimer = setTimeout(closeSheet, timeoutMs);
-        }
-    };
-
-    openBtn?.addEventListener('click', openSheet);
-    closeBtn?.addEventListener('click', closeSheet);
-
-    modal?.addEventListener('click', (e) => {
-        if (e.target === modal) closeSheet();
-    });
-
-    sheetItems?.forEach(item => {
-        item.addEventListener('click', (e) => {
-            const ds = e.currentTarget.dataset;
-            const val = ds.subtab || ds.action || ds.view || ds.value;
-
-            closeSheet();
-
-            if (typeof onSelect === 'function') {
-                onSelect(val, e);
-            }
-        });
-    });
-}
-
-/**
- * Cerca la sessione precedente considerando la signature univoca (range vs fisse)
+ * Cerca l'esercizio nelle sessioni precedenti basandosi sulla signature univoca
  */
 export function findPreviousExercise(workoutData, currentMesoIdx, currentWeekNum, currentDayIdx, currentExercise) {
     if (!workoutData?.history?.years || !currentExercise) return null;
@@ -226,7 +172,6 @@ export function findPreviousExercise(workoutData, currentMesoIdx, currentWeekNum
 
     const currentSig = getExerciseSignature(currentExercise);
 
-    // 1. Cerca nelle settimane precedenti DELLO STESSO MESOCICLO (dalla sett W-1 a ritroso fino alla 1)
     for (let w = currentWeekNum - 1; w >= 1; w--) {
         const prevWeek = meso.weeks.find(item => item.weekNumber === w);
         if (prevWeek && prevWeek.days && prevWeek.days[currentDayIdx]) {
@@ -239,7 +184,6 @@ export function findPreviousExercise(workoutData, currentMesoIdx, currentWeekNum
         }
     }
 
-    // 2. Se siamo alla settimana 1, cerca nell'ultimo mesociclo concluso (stesso giorno)
     if (currentMesoIdx > 0) {
         const prevMeso = yearData.mesocycles[currentMesoIdx - 1];
         if (prevMeso && prevMeso.weeks) {
@@ -260,7 +204,7 @@ export function findPreviousExercise(workoutData, currentMesoIdx, currentWeekNum
 }
 
 /**
- * Calcola il trend del volume (Kg x Reps) tra il set corrente e quello della sessione precedente.
+ * Calcola il delta del volume tra il set attuale e quello precedente
  */
 export function calculateSetVolumeTrend(currentSet, prevSet) {
     if (!currentSet || !prevSet) return null;
@@ -295,12 +239,13 @@ export function calculateSetVolumeTrend(currentSet, prevSet) {
 
     return null;
 }
+
 /**
- * Verifica se le ripetizioni o il peso inseriti rispettano i limiti prescritti dal CSV
+ * Valida se un valore inserito è fuori dai limiti min/max prescritti
  */
 export function isValueOutOfRange(value, minTarget, maxTarget) {
     const val = parseFloat(value);
-    if (isNaN(val) || val === 0) return false; // Non evidenziare se vuoto
+    if (isNaN(val) || val === 0) return false;
 
     const min = parseFloat(minTarget);
     const max = parseFloat(maxTarget);

@@ -6,6 +6,16 @@ let endTime = null;
 let boundVisibilityHandler = null;
 
 /**
+ * Format un valore in secondi in formato MM:SS
+ */
+export function formatTimerTime(totalSeconds) {
+    const sec = Math.max(0, parseInt(totalSeconds, 10) || 0);
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+/**
  * Converte varie notazioni di tempo di recupero in un valore numerico in secondi.
  * Supporta: 90, "90s", "1:30", "1.30", "1.5", "2min", "2m", "2'"
  */
@@ -63,20 +73,22 @@ export function startTimer(durationInput, onTick, onComplete) {
 
     endTime = Date.now() + seconds * 1000;
 
-    updateTimerUI(onTick, onComplete);
+    const tickCallback = onTick || handleTick;
+    const completeCallback = onComplete || handleComplete;
+
+    updateTimerUI(tickCallback, completeCallback);
 
     timerInterval = setInterval(() => {
-        updateTimerUI(onTick, onComplete);
+        updateTimerUI(tickCallback, completeCallback);
     }, 250);
 
-    // Rimuove il vecchio listener se registrato
     if (boundVisibilityHandler) {
         document.removeEventListener("visibilitychange", boundVisibilityHandler);
     }
 
     boundVisibilityHandler = () => {
         if (document.visibilityState === "visible" && endTime) {
-            updateTimerUI(onTick, onComplete);
+            updateTimerUI(tickCallback, completeCallback);
         }
     };
 
@@ -84,25 +96,28 @@ export function startTimer(durationInput, onTick, onComplete) {
 }
 
 /**
- * Regola il timer in corso aggiungendo o sottraendo secondi (es. +30s / -30s)
+ * Regola il timer in corso aggiungendo o sottraendo secondi (es. +30s / -15s)
  */
 export function adjustTimer(secondsToAdd, onTick, onComplete) {
     if (!endTime) return;
+
+    const tickCallback = onTick || handleTick;
+    const completeCallback = onComplete || handleComplete;
 
     endTime += secondsToAdd * 1000;
 
     if (endTime <= Date.now()) {
         stopTimer();
-        if (typeof onTick === "function") onTick(0);
-        if (typeof onComplete === "function") onComplete();
+        if (typeof tickCallback === "function") tickCallback(0);
+        if (typeof completeCallback === "function") completeCallback();
         triggerTimerAlert();
     } else {
-        updateTimerUI(onTick, onComplete);
+        updateTimerUI(tickCallback, completeCallback);
     }
 }
 
 /**
- * Ferma il timer in corso
+ * Ferma il timer in corso e nasconde il widget UI
  */
 export function stopTimer() {
     if (timerInterval) {
@@ -114,6 +129,50 @@ export function stopTimer() {
     if (boundVisibilityHandler) {
         document.removeEventListener("visibilitychange", boundVisibilityHandler);
         boundVisibilityHandler = null;
+    }
+
+    const timerContainer = document.getElementById('floating-timer');
+    if (timerContainer) {
+        timerContainer.style.display = 'none';
+    }
+}
+
+/**
+ * Aggiorna il testo dell'interfaccia utente ad ogni tick del timer
+ */
+export function handleTick(remainingSeconds) {
+    const timerContainer = document.getElementById('floating-timer');
+    const timerDisplay = document.getElementById('timer-display');
+
+    if (timerContainer) timerContainer.style.display = 'flex';
+    if (timerDisplay) timerDisplay.textContent = formatTimerTime(remainingSeconds);
+}
+
+/**
+ * Gestisce l'azzeramento del timer nell'interfaccia
+ */
+export function handleComplete() {
+    const timerDisplay = document.getElementById('timer-display');
+    if (timerDisplay) timerDisplay.textContent = "00:00";
+    setTimeout(() => stopTimer(), 1500);
+}
+
+/**
+ * Inizializza i listener degli eventi per i controlli del timer floating (+30s, -15s, chiudi)
+ */
+export function initTimerEvents() {
+    const addBtn = document.getElementById('timer-add-btn');
+    const subBtn = document.getElementById('timer-sub-btn');
+    const closeBtn = document.getElementById('timer-close-btn');
+
+    if (addBtn) {
+        addBtn.addEventListener('click', () => adjustTimer(30));
+    }
+    if (subBtn) {
+        subBtn.addEventListener('click', () => adjustTimer(-15));
+    }
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => stopTimer());
     }
 }
 
@@ -134,7 +193,6 @@ function updateTimerUI(onTick, onComplete) {
 }
 
 function triggerTimerAlert() {
-    // Esegue il beep acustico di fine tempo
     playBeep(1700, 1.2, 'sine');
 
     if ("vibrate" in navigator) {

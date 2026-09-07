@@ -1,57 +1,92 @@
-// ui.js
+// ui_2.js - Gestione interfaccia utente, eventi DOM e componenti visivi
+
+// ==========================================
+// 1. IMPORT & ELEMENTI DOM
+// ==========================================
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
-import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange } from './helpers.js';
-import { startTimer, stopTimer, adjustTimer, parseRecoveryTime } from './timer.js';
-import { playBeep } from './audio.js';
+import { 
+    formatExerciseSummary, 
+    getPlateBreakdown, 
+    findPreviousExercise, 
+    isValueOutOfRange, 
+    calculateSetVolumeTrend 
+} from './helpers.js';
+import { 
+    startTimer, 
+    stopTimer, 
+    adjustTimer, 
+    parseRecoveryTime,
+    handleTick,
+    handleComplete 
+} from './timer.js';
 import { updateMesocycleUI, updateMesocycleLockUI } from './mesocycle.js';
-import { calculateSetVolumeTrend } from './helpers.js';
 
-// --- GESTIONE TIMER DI RECUPERO FLOTTANTE (STATICO) ---
-let beepedSeconds = new Set();
+export const DOM = {
+    appContainer: document.getElementById('app-container'),
+    workoutForm: document.getElementById('workout-form'),
+    workoutListContainer: document.getElementById('workout-list-container'),
+    timerDisplay: document.getElementById('timer-display')
+};
 
-function formatTimerTime(totalSeconds) {
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+// ==========================================
+// 2. NOTIFICHE E BOTTOM SHEET
+// ==========================================
+export function showNotification(message) {
+    alert(message);
 }
 
-function handleTick(remainingSeconds) {
-    const floatingTimerEl = document.getElementById('floating-timer');
-    const timerDisplayEl = document.getElementById('timer-display') || document.getElementById('floating-timer-text');
-    
-    if (!floatingTimerEl) return;
-    floatingTimerEl.classList.add('active'); 
-    
-    if (timerDisplayEl) {
-        timerDisplayEl.textContent = formatTimerTime(remainingSeconds);
+export function setupBottomSheet({ modalId, openBtnId, closeBtnId, onSelect }) {
+    const modal = document.getElementById(modalId);
+    const openBtn = document.getElementById(openBtnId);
+    const closeBtn = document.getElementById(closeBtnId);
+
+    if (!modal) return null;
+
+    const openSheet = () => {
+        modal.classList.remove('hidden');
+    };
+
+    const closeSheet = () => {
+        modal.classList.add('hidden');
+    };
+
+    if (openBtn) {
+        openBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openSheet();
+        });
     }
 
-    if (remainingSeconds > 5) beepedSeconds.clear();
-    if (remainingSeconds <= 5 && remainingSeconds > 0) {
-        if (!beepedSeconds.has(remainingSeconds)) {
-            playBeep(800, 0.15, 'sine');
-            beepedSeconds.add(remainingSeconds);
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeSheet);
+    }
+
+    // Chiusura cliccando sullo sfondo scuro esterno al pannello
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeSheet();
         }
-    }
+    });
+
+    // Gestione click sulle voci del menu (.sheet-item con data-subtab o data-action)
+    modal.querySelectorAll('.sheet-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const value = item.dataset.subtab || item.dataset.action;
+            if (value && typeof onSelect === 'function') {
+                onSelect(value);
+            }
+            closeSheet();
+        });
+    });
+
+    return { openSheet, closeSheet };
 }
 
-function handleComplete() {
-    const floatingTimerEl = document.getElementById('floating-timer');
-    const timerDisplayEl = document.getElementById('timer-display') || document.getElementById('floating-timer-text');
-    
-    if (!floatingTimerEl) return;
-    if (timerDisplayEl) {
-        timerDisplayEl.textContent = "Recupero Terminato!";
-    }
-    beepedSeconds.clear();
-    playBeep(1700, 1.5, 'sine');
-    setTimeout(() => {
-        floatingTimerEl.classList.remove('active');
-    }, 3000);
-}
-
-// Event delegation per i pulsanti del timer statico
+// ==========================================
+// 3. EVENT DELEGATION TIMER STATICO
+// ==========================================
 document.addEventListener('click', (e) => {
     if (!e.target) return;
     if (e.target.id === 'timer-minus-15') {
@@ -65,21 +100,9 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Funzione per estrarre solo la parte numerica (es. da "3 reps" a "3")
-function cleanNumericReps(val) {
-    if (!val) return '';
-    const match = val.toString().match(/\d+/);
-    return match ? match[0] : val;
-}
-
-export const DOM = {
-    appContainer: document.getElementById('app-container'),
-    workoutForm: document.getElementById('workout-form'),
-    workoutListContainer: document.getElementById('workout-list-container'),
-    timerDisplay: document.getElementById('timer-display')
-};
-
-// --- RENDERING SCHEDA ALLENAMENTO ---
+// ==========================================
+// 4. RENDERING SCHEDA ALLENAMENTO
+// ==========================================
 export function renderWorkoutList() {
     if (!DOM.workoutListContainer) return;
     DOM.workoutListContainer.innerHTML = '';
@@ -146,7 +169,7 @@ export function renderWorkoutList() {
     const currentDay = targetWeek.days?.[activeDayNum - 1] || targetWeek.days?.[0];
     if (!currentDay) return;
 
-    // CONTEGGIO TEMPO TOTALE DELLA SESSIONE
+    // HEADER SESSIONE E TIMER
     const dayHeader = document.createElement('div');
     dayHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 8px;';
     dayHeader.innerHTML = `
@@ -184,7 +207,7 @@ export function renderWorkoutList() {
 
     updateSessionHeaderUI(currentDay);
 
-    // RENDER ESERCIZI CON RAGGRUPPAMENTO VISIVO
+    // RENDER CARDS ESERCIZI
     const exercises = currentDay.exercises || [];
     let i = 0;
 
@@ -227,7 +250,6 @@ export function renderWorkoutList() {
     bindWorkoutTableEvents(currentDay, isPastMeso);
 }
 
-// --- HELPER PER CREARE LA CARD DEL SINGOLO ESERCIZIO ---
 function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, activeDayNum, isPastMeso) {
     const isExExcluded = ex.isExcluded || false;
     const isDropset = ex.isDropset || false;
@@ -242,7 +264,7 @@ function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, 
             <div style="display: flex; align-items: center; gap: 8px;">
                 <div style="font-size: 0.75rem; font-weight: 700; color: #64748b; letter-spacing: 0.5px;">BLOCCO ${ex.block || (exIdx + 1)}</div>
                 ${isDropset ? '<span style="font-size: 0.7rem; background: #fff7ed; color: #c2410c; border: 1px solid #ffedd5; padding: 2px 8px; border-radius: 6px; font-weight: 800;">🔥 DROP SET</span>' : ''}
-                ${!isExExcluded ? '<span style="font-size: 0.7rem; color: #94a3b8; font-style: italic;">(Doppio click o swipe per escludere dai massimali / warmup)</span>' : ''}
+                ${!isExExcluded ? '<span style="font-size: 0.7rem; color: #94a3b8; font-style: italic;">(Doppio click o swipe per escludere)</span>' : ''}
             </div>
             ${isExExcluded ? '<span style="font-size: 0.7rem; background: #ef4444; color: #ffffff; padding: 2px 8px; border-radius: 12px; font-weight: 800;">ESCLUSO DAI MASSIMALI</span>' : ''}
         </div>
@@ -271,7 +293,6 @@ function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, 
         </div>
     `;
 
-    // ESTRAZIONE DATI RIASSUNTIVI DI TUTTI I SET DELL'ULTIMA SESSIONE ESEGUITA
     const prevExercise = findPreviousExercise(state.workoutData, mesoIndex, targetWeek.weekNumber, activeDayNum - 1, ex);
     let lastSessionSetsHtml = '';
 
@@ -285,14 +306,9 @@ function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, 
 
             lastSessionSetsHtml = validSets.map((s, idx) => {
                 const kg = s.weight ? `${s.weight}kg` : '-';
-                
-                let repsFormatted = '-';
-                if (rangeStr) {
-                    repsFormatted = (s.reps && s.reps !== rangeStr) ? `${s.reps} reps (target ${rangeStr})` : `${rangeStr} reps`;
-                } else {
-                    repsFormatted = `${s.reps || prevExercise.reps || '-'} reps`;
-                }
-
+                let repsFormatted = rangeStr 
+                    ? ((s.reps && s.reps !== rangeStr) ? `${s.reps} reps (target ${rangeStr})` : `${rangeStr} reps`)
+                    : `${s.reps || prevExercise.reps || '-'} reps`;
                 const rpeFormatted = s.rpe ? `, con ${s.rpe} rpe` : '';
 
                 return `<div style="font-size: 0.8rem; margin-top: 2px;"><strong>${idx + 1}° set:</strong> ${kg}, ${repsFormatted}${rpeFormatted}</div>`;
@@ -300,32 +316,25 @@ function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, 
         }
     }
 
-    // RENDERING BOX NOTE ALLENATORE + ULTIMA SESSIONE
     if (ex.notes || lastSessionSetsHtml) {
         cardHtml += `<div style="background: #f0f9ff; border: 1px solid #e0f2fe; border-radius: 8px; padding: 10px; margin-bottom: 12px;">`;
-        
         if (ex.notes) {
             cardHtml += `
                 <div style="font-size: 0.75rem; font-weight: 800; color: #0369a1; margin-bottom: 2px;">NOTE ALLENATORE</div>
                 <div style="font-size: 0.85rem; color: #0f172a; line-height: 1.3; ${lastSessionSetsHtml ? 'margin-bottom: 8px;' : ''}">${ex.notes}</div>
             `;
         }
-
         if (lastSessionSetsHtml) {
             const divider = ex.notes ? `<div style="height: 1px; background: #bae6fd; margin-bottom: 6px; margin-top: 6px;"></div>` : '';
             cardHtml += `
                 ${divider}
                 <div style="font-size: 0.75rem; font-weight: 800; color: #0284c7; margin-bottom: 4px;">ULTIMA SESSIONE PRECEDENTE</div>
-                <div style="color: #0f172a; line-height: 1.4;">
-                    ${lastSessionSetsHtml}
-                </div>
+                <div style="color: #0f172a; line-height: 1.4;">${lastSessionSetsHtml}</div>
             `;
         }
-
         cardHtml += `</div>`;
     }
 
-    // TABELLA SET
     cardHtml += `
         <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 10px;">
             <thead>
@@ -346,8 +355,6 @@ function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, 
 
         const prevSet = prevExercise?.loggedSets?.[setIdx];
         const prevKg = prevSet ? parseFloat(prevSet.weight) || 0 : 0;
-
-        const isRangeTarget = (ex.minReps && ex.maxReps) || (typeof ex.reps === 'string' && ex.reps.includes('-'));
         const prevReps = prevSet ? parseInt(prevSet.reps) || 0 : 0;
         
         const currentKg = parseFloat(setObj.weight) || 0;
@@ -360,21 +367,18 @@ function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, 
         );
 
         if (trend) {
-            if (trend.isPositive) {
-                trendHtml = `<span style="color: #16a34a; font-size: 0.7rem; font-weight: 800; white-space: nowrap;" title="Volume aumentato di ${trend.volDiff} kg rispetto alla sessione precedente">${trend.text}</span>`;
-            } else if (trend.isNegative) {
-                trendHtml = `<span style="color: #dc2626; font-size: 0.7rem; font-weight: 800; white-space: nowrap;" title="Volume calato di ${Math.abs(trend.volDiff)} kg rispetto alla sessione precedente">${trend.text}</span>`;
-            }
+            const color = trend.isPositive ? '#16a34a' : '#dc2626';
+            trendHtml = `<span style="color: ${color}; font-size: 0.7rem; font-weight: 800; white-space: nowrap;">${trend.text}</span>`;
         }
 
-        let rawTargetReps = ex.reps || ex.targetReps || '';
-        let defaultTargetReps = isRangeTarget ? (prevSet?.reps || '') : cleanNumericReps(rawTargetReps);
+        const isRangeTarget = (ex.minReps && ex.maxReps) || (typeof ex.reps === 'string' && ex.reps.includes('-'));
+        const rawTargetReps = ex.reps || ex.targetReps || '';
+        const defaultTargetReps = isRangeTarget ? (prevSet?.reps || '') : rawTargetReps.toString().replace(/\D+/g, '');
 
         const displayWeight = setObj.weight !== undefined && setObj.weight !== '' ? setObj.weight : (prevSet?.weight || '');
         const displayReps = setObj.reps !== undefined && setObj.reps !== '' ? setObj.reps : defaultTargetReps;
         const displayRpe = setObj.rpe !== undefined && setObj.rpe !== '' ? setObj.rpe : (ex.targetRpe || ex.rpe || '');
 
-        // Valutazione fuori range per stilizzazione iniziale
         const isRepsOutOfRange = isValueOutOfRange(displayReps, ex.minReps, ex.maxReps);
         const isKgOutOfRange = isValueOutOfRange(displayWeight, ex.kgMin, ex.kgMax);
 
@@ -395,13 +399,13 @@ function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, 
                     </div>
                 </td>
                 <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                    <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" class="set-input set-kg" data-ex="${exIdx}" data-set="${setIdx}" value="${displayWeight}" placeholder="${prevSet?.weight || 'Kg'}" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border-radius: 4px; padding: 4px; font-weight: 800; ${kgStyle}">
+                    <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-kg" data-ex="${exIdx}" data-set="${setIdx}" value="${displayWeight}" placeholder="${prevSet?.weight || 'Kg'}" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border-radius: 4px; padding: 4px; font-weight: 800; ${kgStyle}">
                 </td>
                 <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                    <input type="text" inputmode="numeric" autocomplete="off" autocorrect="off" class="set-input set-reps" data-ex="${exIdx}" data-set="${setIdx}" value="${displayReps}" placeholder="${prevSet?.reps || 'reps'}" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border-radius: 4px; padding: 4px; font-weight: 800; ${repsStyle}">
+                    <input type="text" inputmode="numeric" autocomplete="off" class="set-input set-reps" data-ex="${exIdx}" data-set="${setIdx}" value="${displayReps}" placeholder="${prevSet?.reps || 'reps'}" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border-radius: 4px; padding: 4px; font-weight: 800; ${repsStyle}">
                 </td>
                 <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                    <input type="text" inputmode="decimal" autocomplete="off" autocorrect="off" class="set-input set-rpe" data-ex="${exIdx}" data-set="${setIdx}" value="${displayRpe}" placeholder="RPE" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
+                    <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe" data-ex="${exIdx}" data-set="${setIdx}" value="${displayRpe}" placeholder="RPE" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
                 </td>
                 <td style="padding: 4px; text-align: center;">
                     <input type="checkbox" class="set-lock-check" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''} style="width: 18px; height: 18px; cursor: pointer;">
@@ -420,7 +424,9 @@ function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, 
     return exCard;
 }
 
-// --- GESTIONE BADGE DISCHI ---
+// ==========================================
+// 5. HELPER BADGE DISCHI
+// ==========================================
 export function updatePlatesBadgeUI(exIdx) {
     const container = DOM.workoutListContainer;
     if (!container) return;
@@ -457,7 +463,9 @@ export function updatePlatesBadgeUI(exIdx) {
     }
 }
 
-// Gestisce l'avvio del timer alla prima spunta e la chiusura all'ultima
+// ==========================================
+// 6. GESTIONE TEMPI SESSIONE & EVENTI TABELLA
+// ==========================================
 function updateSessionAndCompletionState(currentDay) {
     const exercises = currentDay.exercises || [];
     if (exercises.length === 0) return;
@@ -626,7 +634,6 @@ function updateSessionHeaderUI(currentDay) {
     }
 }
 
-// --- ASSOCIAZIONE EVENTI TABELLA ---
 function bindWorkoutTableEvents(currentDay, isPastMeso) {
     if (!DOM.workoutListContainer) return;
 
@@ -664,23 +671,12 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                 updatePlatesBadgeUI(exIdx);
             }
 
-            // CONTROLLO FUORI RANGE LIVE (KG E REPS)
-            if (isKg) {
-                const isOut = isValueOutOfRange(val.replace(',', '.'), ex.kgMin, ex.kgMax);
-                if (isOut) {
-                    e.target.style.setProperty('border', '2px solid #ef4444', 'important');
-                    e.target.style.setProperty('background-color', '#fef2f2', 'important');
-                    e.target.style.setProperty('color', '#dc2626', 'important');
-                } else {
-                    e.target.style.background = '#ffffff';
-                    e.target.style.borderColor = '#cbd5e1';
-                    e.target.style.color = '#0f172a';
-                }
-            }
+            if (isKg || isReps) {
+                const minVal = isKg ? ex.kgMin : ex.minReps;
+                const maxVal = isKg ? ex.kgMax : ex.maxReps;
+                const parsedVal = isKg ? val.replace(',', '.') : val;
 
-            if (isReps) {
-                const isOut = isValueOutOfRange(val, ex.minReps, ex.maxReps);
-                if (isOut) {
+                if (isValueOutOfRange(parsedVal, minVal, maxVal)) {
                     e.target.style.setProperty('border', '2px solid #ef4444', 'important');
                     e.target.style.setProperty('background-color', '#fef2f2', 'important');
                     e.target.style.setProperty('color', '#dc2626', 'important');
@@ -718,7 +714,6 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
             const repsInput = rowCard?.querySelector(`.set-reps[data-set="${setIdx}"]`);
             const rpeInput = rowCard?.querySelector(`.set-rpe[data-set="${setIdx}"]`);
 
-            // CONFERMA E ACCETTAZIONE DEI VALORI (INCLUSI I PLACEHOLDER)
             if (isChecked) {
                 if (setObj.weight === undefined || setObj.weight === '') {
                     const val = kgInput?.value || kgInput?.placeholder;
@@ -743,7 +738,6 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                 }
             }
 
-            // Propagazione ai set successivi
             if (isChecked && setIdx === 0) {
                 ['weight', 'reps', 'rpe'].forEach(prop => {
                     const val = setObj[prop];
@@ -761,14 +755,12 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                 });
             }
 
-            // Aggiornamento visivo al momento del blocco/sblocco
             if (rowCard) {
                 rowCard.querySelectorAll('.set-input').forEach(inp => {
                     const sIdx = parseInt(inp.dataset.set, 10);
                     const isRowLocked = ex.loggedSets[sIdx]?.isLocked || false;
                     inp.disabled = isRowLocked;
 
-                    // Mantiene la colorazione rossa anche a campo disabilitato se è fuori range
                     const isKgField = inp.classList.contains('set-kg');
                     const isRepsField = inp.classList.contains('set-reps');
                     let isOut = false;
@@ -788,7 +780,6 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
                 });
             }
 
-            // Timer di recupero
             if (isChecked) {
                 const isMiddleOfGroup = ex.groupType && !ex.isGroupLast;
 
@@ -813,7 +804,6 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
         });
     });
 
-    // Gestione Eventi sulle Card Esercizio (Doppio Click e Swipe)
     DOM.workoutListContainer.querySelectorAll('.exercise-card').forEach(card => {
         const exIdx = card.dataset.ex;
 
@@ -837,7 +827,9 @@ function bindWorkoutTableEvents(currentDay, isPastMeso) {
     });
 }
 
-// --- GESTIONE SWIPE ---
+// ==========================================
+// 7. GESTIONE GESTI TOUCH (SWIPE)
+// ==========================================
 export function enableCardSwipeGesture(cardElement, onSwipeLeft, onSwipeRight) {
     if (!cardElement) return;
 

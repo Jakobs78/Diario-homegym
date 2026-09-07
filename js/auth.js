@@ -1,7 +1,15 @@
-// js/auth.js
+// ==========================================
+// 1. IMPORT & DIPENDENZE
+// ==========================================
 import { supabase, CONFIG } from './config.js';
 import { state } from './state.js';
 
+// ==========================================
+// 2. OPERAZIONI DI AUTENTICAZIONE
+// ==========================================
+/**
+ * Effettua il login dell'utente con email e password
+ */
 export async function loginUser(email, password) {
     try {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -22,6 +30,9 @@ export async function loginUser(email, password) {
     }
 }
 
+/**
+ * Disconnette l'utente e ripristina lo stato dell'applicazione
+ */
 export async function logoutUser() {
     try {
         await supabase.auth.signOut();
@@ -35,6 +46,9 @@ export async function logoutUser() {
     }
 }
 
+/**
+ * Verifica la sessione attiva su Supabase o attiva il fallback offline
+ */
 export async function checkSession() {
     try {
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -66,6 +80,9 @@ export async function checkSession() {
     return false;
 }
 
+// ==========================================
+// 3. HELPER UI & EVENT LISTENERS
+// ==========================================
 function hideAuthOverlay() {
     const overlay = document.getElementById('auth-overlay');
     if (overlay) {
@@ -73,6 +90,9 @@ function hideAuthOverlay() {
     }
 }
 
+/**
+ * Configura i listener per il cambio di stato auth e la gestione form UI
+ */
 export function setupAuthListeners() {
     supabase.auth.onAuthStateChange((event, session) => {
         const authOverlay = document.getElementById('auth-overlay');

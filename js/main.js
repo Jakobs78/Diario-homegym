@@ -1,24 +1,42 @@
-// main.js
+// ==========================================
+// 1. IMPORT & CONFIGURAZIONE
+// ==========================================
 import { CONFIG, supabase } from './config.js';
 import { state } from './state.js';
-import { getFromLocalStorage, saveToLocalStorage, hasPendingSync, processSyncQueue, clearLocalData, updateSyncStatusUI } from './storage.js';
+import { 
+    getFromLocalStorage, 
+    saveToLocalStorage, 
+    hasPendingSync, 
+    processSyncQueue, 
+    clearLocalData, 
+    updateSyncStatusUI 
+} from './storage.js';
 import { pullDataFromSupabase } from './sync.js';
-import { renderWorkoutList } from './ui.js';
+import { renderWorkoutList, setupBottomSheet } from './ui.js';
 import { exportWorkoutPDF } from './pdfExport.js';
 import { downloadExcelTemplate, parseExcelFile } from './importer.js';
 import { importWorkoutPlan, readCsvFile, importProgressCSV, exportToCSV } from './csvHandler.js';
 import { initTheme, toggleTheme } from './theme.js';
 import { setupAuthListeners, logoutUser, checkSession } from './auth.js';
 import { deleteCurrentMesocycle, changeMesocycle, toggleCurrentMesocycleLock } from './mesocycle.js';
-import { setupBottomSheet } from './helpers.js';
 import { renderManualView } from './manual.js';
 import { initAudioUnlock } from './audio.js';
-import { renderMacroKPIs, initAnalyticsEvents, renderMuscleVolumeChart, renderMesoComparisonChart } from './analytics.js';
+import { 
+    renderMacroKPIs, 
+    initAnalyticsEvents, 
+    renderMuscleVolumeChart, 
+    renderMesoComparisonChart 
+} from './analytics.js';
 
-// Ascolto stato autenticazione Supabase
+// Esposizione globale per eventi inline / retrocompatibilità
+window.logoutUser = logoutUser;
+window.state = state;
+
+// ==========================================
+// 2. GESTIONE AUTENTICAZIONE & STATO
+// ==========================================
 supabase.auth.onAuthStateChange(async (event, session) => {
     if (session?.user) {
-        // Mostra la barra utente e imposta l'email
         const userInfoBar = document.getElementById('user-info-bar');
         const userEmailDisplay = document.getElementById('user-email-display');
         
@@ -40,41 +58,9 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     }
 });
 
-window.logoutUser = logoutUser;
-window.state = state;
-
-// --- GESTORE SUB-TAB ANALISI ---
-window.switchAnalyticsTab = function(tabId) {
-    document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.sub-tab-content').forEach(content => content.classList.remove('active'));
-
-    const selectedContent = document.getElementById(tabId);
-    if (selectedContent) selectedContent.classList.add('active');
-
-    const activeBtn = Array.from(document.querySelectorAll('.sub-tab-btn'))
-        .find(btn => btn.getAttribute('onclick')?.includes(tabId));
-    if (activeBtn) activeBtn.classList.add('active');
-
-    if (state.workoutData) {
-        if (tabId === 'subtab-macro') {
-            renderMacroKPIs(state.workoutData);
-            renderMuscleVolumeChart('chart-muscle-volume', state.workoutData);
-        } else if (tabId === 'subtab-micro') {
-            initAnalyticsEvents(state.workoutData);
-        } else if (tabId === 'subtab-compare') {
-            renderMesoComparisonChart('chart-compare-mesos', null, null);
-        }
-    }
-};
-
-function closeImportModal() {
-    const importModal = document.getElementById('import-plan-modal');
-    if (importModal) {
-        importModal.classList.add('hidden');
-        importModal.style.display = 'none';
-    }
-}
-
+// ==========================================
+// 3. INIZIALIZZAZIONE DELL'APP
+// ==========================================
 async function initApp() {
     console.log(`Avvio Advanced Workout Tracker v${CONFIG.APP_VERSION}`);
     
@@ -86,7 +72,7 @@ async function initApp() {
 
     initTheme();
     
-    let localData = getFromLocalStorage();
+    const localData = getFromLocalStorage();
     state.workoutData = localData;
     updateSyncStatusUI();
     
@@ -102,7 +88,7 @@ async function initApp() {
             if (userInfoBar) userInfoBar.style.display = 'flex';
             if (userEmailDisplay && user.email) userEmailDisplay.textContent = user.email;
             if (authOverlay) authOverlay.style.display = 'none';
-            // 🔍 CONTROLLO ABBONAMENTO / TRIAL 45 GIORNI
+
             await checkSubscriptionStatus(user);
 
             if (navigator.onLine) {
@@ -136,41 +122,37 @@ async function initApp() {
     updateSyncStatusUI();
 }
 
+document.addEventListener('DOMContentLoaded', initApp);
+
+// ==========================================
+// 4. LISTENER EVENTI GLOBALI & INTERFACCIA
+// ==========================================
 function setupEventListeners() {
     document.getElementById('theme-toggle-btn')?.addEventListener('click', toggleTheme);
     document.getElementById('user-info-bar')?.addEventListener('click', window.logoutUser);
-    // Listener per il pulsante di logout nella schermata di blocco trial/abbonamento
-    document.getElementById('trial-logout-btn')?.addEventListener('click', () => {
-    window.logoutUser();
-    });
-    // Gestore Scorrimento automatico al Focus per evitare la copertina della tastiera Mobile
+    document.getElementById('trial-logout-btn')?.addEventListener('click', () => window.logoutUser());
+
+    // Scorrimento automatico al Focus su input mobile
     document.addEventListener('focusin', (e) => {
         if (e.target && e.target.matches('.set-table input[type="text"]')) {
             setTimeout(() => {
-                e.target.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'center'
-                });
+                e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }, 300);
         }
     });
 
-    // Toggle (Apertura / Chiusura) del Manuale d'Uso dall'Header
+    // Toggle Manuale d'Uso
     document.getElementById('btn-user-manual')?.addEventListener('click', (e) => {
         const btnManual = e.currentTarget;
         const manualView = document.getElementById('manual');
         const workoutContainer = document.getElementById('workout-list-container');
-
-        // Controlla se la vista del manuale è attualmente aperta
         const isOpen = manualView && manualView.style.display === 'block';
 
         if (isOpen) {
-            // CHIUDI MANUALE -> Torna alla vista allenamento
             if (manualView) manualView.style.display = 'none';
             if (workoutContainer) workoutContainer.style.display = 'block';
             btnManual.textContent = "📖 Manuale d'uso";
         } else {
-            // APRI MANUALE
             if (workoutContainer) workoutContainer.style.display = 'none';
             document.querySelectorAll('.day-view').forEach(el => el.style.display = 'none');
             
@@ -182,10 +164,12 @@ function setupEventListeners() {
         }
     });
 
+    // Navigazione Mesociclo
     document.getElementById('prev-meso-btn')?.addEventListener('click', () => changeMesocycle(-1));
     document.getElementById('next-meso-btn')?.addEventListener('click', () => changeMesocycle(1));
     document.getElementById('toggle-lock-meso-btn')?.addEventListener('click', toggleCurrentMesocycleLock);
 
+    // Bottom Sheet Analisi
     setupBottomSheet({
         modalId: 'analytics-modal',
         openBtnId: 'open-analytics-btn',
@@ -207,13 +191,13 @@ function setupEventListeners() {
                 const analyticsView = document.getElementById('analytics');
                 if (analyticsView) {
                     analyticsView.style.display = 'block';
-                    const subtabToActivate = targetId || 'subtab-macro';
-                    window.switchAnalyticsTab(subtabToActivate);
+                    window.switchAnalyticsTab(targetId || 'subtab-macro');
                 }
             }
         }
     });
 
+    // Bottom Sheet Strumenti
     setupBottomSheet({
         modalId: 'tools-modal',
         openBtnId: 'open-tools-btn',
@@ -253,8 +237,8 @@ function setupEventListeners() {
         }
     });
 
+    // Gestione Modale Importazione
     document.getElementById('close-import-modal-btn')?.addEventListener('click', closeImportModal);
-
     document.getElementById('import-plan-modal')?.addEventListener('click', (e) => {
         if (e.target.id === 'import-plan-modal') closeImportModal();
     });
@@ -263,6 +247,7 @@ function setupEventListeners() {
         downloadExcelTemplate();
     });
 
+    // Eventi File Input
     document.getElementById('import-file-input')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -311,6 +296,40 @@ function setupEventListeners() {
         state.activeWeek = parseInt(e.target.value, 10);
         renderWorkoutList();
     });
+}
+
+// ==========================================
+// 5. SUB-TAB ANALISI & HELPER VISTE
+// ==========================================
+window.switchAnalyticsTab = function(tabId) {
+    document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.sub-tab-content').forEach(content => content.classList.remove('active'));
+
+    const selectedContent = document.getElementById(tabId);
+    if (selectedContent) selectedContent.classList.add('active');
+
+    const activeBtn = Array.from(document.querySelectorAll('.sub-tab-btn'))
+        .find(btn => btn.getAttribute('onclick')?.includes(tabId));
+    if (activeBtn) activeBtn.classList.add('active');
+
+    if (state.workoutData) {
+        if (tabId === 'subtab-macro') {
+            renderMacroKPIs(state.workoutData);
+            renderMuscleVolumeChart('chart-muscle-volume', state.workoutData);
+        } else if (tabId === 'subtab-micro') {
+            initAnalyticsEvents(state.workoutData);
+        } else if (tabId === 'subtab-compare') {
+            renderMesoComparisonChart('chart-compare-mesos', null, null);
+        }
+    }
+};
+
+function closeImportModal() {
+    const importModal = document.getElementById('import-plan-modal');
+    if (importModal) {
+        importModal.classList.add('hidden');
+        importModal.style.display = 'none';
+    }
 }
 
 function handlePdfExportFromState() {
@@ -376,21 +395,19 @@ function handlePdfExportFromState() {
     exportWorkoutPDF(selectedDay, metadata);
 }
 
-document.addEventListener('DOMContentLoaded', initApp);
-
-// main.js (sostituisci il blocco visibilitychange esistente in fondo al file)
+// ==========================================
+// 6. SINCRONIZZAZIONE FOCUS / VISIBILITY
+// ==========================================
 document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible' && navigator.onLine) {
         try {
             const user = await checkSession();
             if (!user) return;
 
-            // 1. PUSH: Se ci sono modifiche offline locali non sincronizzate, inviale subito
             if (hasPendingSync()) {
                 await processSyncQueue();
             }
 
-            // 2. PULL: Confronta i dati cloud con il localStorage
             const remoteData = await pullDataFromSupabase(user);
             if (remoteData) {
                 const localData = getFromLocalStorage();
@@ -411,15 +428,12 @@ document.addEventListener('visibilitychange', async () => {
     }
 });
 
-// Backup per riconnessione e riattivazione focus su browser mobile
-window.addEventListener('online', () => {
-    document.dispatchEvent(new Event('visibilitychange'));
-});
+window.addEventListener('online', () => document.dispatchEvent(new Event('visibilitychange')));
+window.addEventListener('focus', () => document.dispatchEvent(new Event('visibilitychange')));
 
-window.addEventListener('focus', () => {
-    document.dispatchEvent(new Event('visibilitychange'));
-});
-
+// ==========================================
+// 7. NOTIFICHE TOAST & CONTROLLO ABBONAMENTO
+// ==========================================
 let syncToastTimer = null;
 function showSyncToast(message) {
     let toast = document.getElementById('sync-toast');
@@ -436,9 +450,6 @@ function showSyncToast(message) {
     syncToastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 2000);
 }
 
-/**
- * Mostra un popup temporaneo in alto
- */
 function showTrialToast(message) {
     const toast = document.getElementById('trial-toast');
     if (!toast) return;
@@ -454,9 +465,6 @@ function showTrialToast(message) {
     }, 3500);
 }
 
-/**
- * Mostra la schermata di blocco con titolo e messaggio personalizzati
- */
 function showExpiredOverlay(title, message) {
     const overlay = document.getElementById('trial-expired-overlay');
     const titleEl = document.getElementById('trial-expired-title');
@@ -467,9 +475,6 @@ function showExpiredOverlay(title, message) {
     if (overlay) overlay.style.display = 'flex';
 }
 
-/**
- * Verifica completa dello stato della licenza e gestione scadenze
- */
 async function checkSubscriptionStatus(user) {
     if (!user || !user.id) return;
 
@@ -490,7 +495,6 @@ async function checkSubscriptionStatus(user) {
             return;
         }
 
-        // 1. SE È LIFETIME (WHITELIST), FERMATI SUBITO
         if (data.status === 'lifetime') {
             console.log("✅ Utente Lifetime riconosciuto: nessun limite applicato.");
             return;
@@ -498,7 +502,6 @@ async function checkSubscriptionStatus(user) {
 
         const now = new Date();
 
-        // 2. GESTIONE ABBONAMENTO ATTIVO
         if (data.status === 'active') {
             if (!data.expires_at) return;
             const endDate = new Date(data.expires_at);
@@ -512,7 +515,6 @@ async function checkSubscriptionStatus(user) {
             return;
         }
 
-        // 3. GESTIONE TRIAL 45 GIORNI
         if (data.status === 'trial') {
             if (!data.trial_ends_at) return;
             const endDate = new Date(data.trial_ends_at);

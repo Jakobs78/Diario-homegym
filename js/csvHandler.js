@@ -1,7 +1,12 @@
-// js/csvHandler.js
+// ==========================================
+// 1. IMPORT & DIPENDENZE
+// ==========================================
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
 
+// ==========================================
+// 2. UTILITY DI PARSING E RICONOSCIMENTO COLONNE
+// ==========================================
 /**
  * Parser universale per CSV e tabelle copiate (gestisce tabulazioni da PDF/Excel, virgolette e a capo)
  */
@@ -80,6 +85,9 @@ function findColumnIndex(headers, targets) {
     return -1;
 }
 
+// ==========================================
+// 3. HELPER DI VALIDAZIONE & RAGGRUPPAMENTO
+// ==========================================
 /**
  * Verifica se tutti gli esercizi/set del mesociclo sono stati completati
  */
@@ -99,7 +107,7 @@ function isMesocycleCompleted(meso) {
 }
 
 /**
- * Assegna i tag visivi per Triset, Superset e Dropset SENZA alterare gli oggetti esercizio
+ * Assegna i tag visivi per Triset, Superset e Dropset
  */
 function applyTrisetDropsetGrouping(daysArray) {
     daysArray.forEach(day => {
@@ -133,7 +141,6 @@ function applyTrisetDropsetGrouping(daysArray) {
                     targetEx.block = `${baseBlock || (i + 1)}${letters[j] || (j + 1)}`;
                     targetEx.groupType = groupType;
                     targetEx.groupBase = baseBlock || String(i + 1);
-                    // Flag per sapere se è l'ultimo esercizio del blocco (per attivare il timer)
                     targetEx.isGroupLast = (j === groupSize - 1) || ((i + j) === exercises.length - 1);
                 }
                 i += groupSize;
@@ -146,9 +153,9 @@ function applyTrisetDropsetGrouping(daysArray) {
     });
 }
 
-/**
- * Importa il piano di allenamento da CSV strutturato o testo copiato (PDF/Excel)
- */
+// ==========================================
+// 4. IMPORTAZIONE PIANO DI ALLENAMENTO
+// ==========================================
 export function importWorkoutPlan(csvText) {
     try {
         const currentYear = state.currentYear || new Date().getFullYear();
@@ -161,7 +168,6 @@ export function importWorkoutPlan(csvText) {
         const currentMesos = state.workoutData.history.years[currentYear].mesocycles;
         const activeMeso = currentMesos[state.activeMesocycleIndex];
 
-        // --- CONTROLLO MESOCICLO IN CORSO ---
         if (activeMeso && !isMesocycleCompleted(activeMeso)) {
             const proceed = confirm(
                 `⚠️ Attenzione: Il mesociclo attuale (${activeMeso.name}) non risulta ancora completato!\n\n` +
@@ -205,7 +211,6 @@ export function importWorkoutPlan(csvText) {
             const setsCount = parseInt(getVal(['set', 'serie'])) || 3;
             const repsVal = getVal(['reps', 'ripetizioni']) || '8';
             
-            // Sanitizzazione unità 'kg' da kgMin e kgMax
             const rawKgMin = getVal(['kgmin', 'min']);
             const rawKgMax = getVal(['kgmax', 'max']);
             const kgMin = rawKgMin.replace(/kg/gi, '').trim();
@@ -280,9 +285,9 @@ export function importWorkoutPlan(csvText) {
     }
 }
 
-/**
- * Importa i dati storici di progressione / log da CSV ed effettua il parsing nello stato
- */
+// ==========================================
+// 5. IMPORTAZIONE STORICO & ESPORTAZIONE CSV
+// ==========================================
 export function importProgressCSV(csvText) {
     try {
         const rows = parseCSV(csvText);
@@ -376,9 +381,6 @@ export function importProgressCSV(csvText) {
     }
 }
 
-/**
- * Esporta lo stato attuale o lo storico dei mesocicli in formato CSV
- */
 export function exportToCSV(workoutData) {
     try {
         const currentYear = state.currentYear || new Date().getFullYear();
@@ -432,9 +434,9 @@ export function exportToCSV(workoutData) {
     }
 }
 
-/**
- * Legge un file CSV gestendo automaticamente la codifica (UTF-8 / UTF-16 di Numbers)
- */
+// ==========================================
+// 6. LETTURA FILE CON GESTIONE ENCODING
+// ==========================================
 export function readCsvFile(file, callback) {
     const reader = new FileReader();
     reader.onload = (e) => {

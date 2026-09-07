@@ -1,10 +1,23 @@
-// js/sync.js
+// ==========================================
+// 1. IMPORT & CONFIGURAZIONE
+// ==========================================
 import { supabase } from './config.js';
 
+/**
+ * Utility interna per estrarre l'email da un oggetto utente o da una stringa
+ */
+function extractEmail(userOrEmail) {
+    if (!userOrEmail) return null;
+    return typeof userOrEmail === 'object' ? userOrEmail.email : userOrEmail;
+}
+
+// ==========================================
+// 2. RETRIEVAL (PULL) DATI
+// ==========================================
 export async function pullDataFromSupabase(userOrEmail) {
     if (!supabase) return null;
 
-    const email = typeof userOrEmail === 'object' ? userOrEmail?.email : userOrEmail;
+    const email = extractEmail(userOrEmail);
     if (!email) return null;
 
     try {
@@ -17,33 +30,42 @@ export async function pullDataFromSupabase(userOrEmail) {
         if (error) throw error;
         return data ? data.payload : null;
     } catch (err) {
-        console.error("Errore nel recupero dati da Supabase:", err.message);
+        console.error("❌ Errore nel recupero dati da Supabase:", err.message);
         return null;
     }
 }
 
+// ==========================================
+// 3. PERSISTENZA (PUSH) DATI
+// ==========================================
 /**
- * Salva il payload su Supabase.
- * Se la prova dei 45 giorni è scaduta, la policy RLS del DB blocca la richiesta e mostra un alert.
+ * Salva il payload dell'allenamento su Supabase.
+ * Gestisce l'errore di RLS in caso di licenza o prova scaduta.
  */
-export async function pushDataToSupabase(userOrEmail, payload) {
+export async function pushDataToSupabase(userOrEmail, payload, actionTimestamp = null) {
     if (!supabase) return false;
 
-    const email = typeof userOrEmail === 'object' ? userOrEmail?.email : userOrEmail;
+    const email = extractEmail(userOrEmail);
     if (!email) return false;
 
     try {
+        const recordData = {
+            email: email,
+            payload: payload
+        };
+
+        if (actionTimestamp) {
+            recordData.updated_at = new Date(actionTimestamp).toISOString();
+        }
+
         const { error } = await supabase
             .from('workouts')
-            .upsert({ 
-                email: email, 
-                payload: payload 
-            }, { onConflict: 'email' });
+            .upsert(recordData, { onConflict: 'email' });
 
         if (error) throw error;
         return true;
     } catch (err) {
-        console.error("Errore nel salvataggio su Supabase:", err.message);
+        console.error("❌ Errore nel salvataggio su Supabase:", err.message);
         
         if (err.code === '42501' || err.message?.includes('row-level security')) {
             alert("⚠️ Licenza o periodo di prova scaduto! Attiva o rinnova l'abbonamento per continuare a salvare i tuoi allenamenti sul Cloud.");
@@ -54,10 +76,13 @@ export async function pushDataToSupabase(userOrEmail, payload) {
     }
 }
 
+// ==========================================
+// 4. VERIFICA STATO ABBONAMENTO
+// ==========================================
 export async function getUserSubscriptionStatus(userOrEmail) {
     if (!supabase) return null;
 
-    const email = typeof userOrEmail === 'object' ? userOrEmail?.email : userOrEmail;
+    const email = extractEmail(userOrEmail);
     const userId = typeof userOrEmail === 'object' ? userOrEmail?.id : null;
 
     try {
@@ -76,14 +101,18 @@ export async function getUserSubscriptionStatus(userOrEmail) {
         if (error) throw error;
         return data;
     } catch (err) {
-        console.error("Errore recupero abbonamento:", err.message);
+        console.error("❌ Errore recupero abbonamento:", err.message);
         return null;
     }
 }
+
+// ==========================================
+// 5. ELIMINAZIONE DATI CLOUD
+// ==========================================
 export async function deleteCloudData(userOrEmail = null) {
     if (!supabase) return false;
 
-    let email = typeof userOrEmail === 'object' ? userOrEmail?.email : userOrEmail;
+    let email = extractEmail(userOrEmail);
 
     if (!email) {
         const { data } = await supabase.auth.getUser();
