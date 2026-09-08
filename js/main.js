@@ -251,6 +251,9 @@ function setupEventListeners() {
                 case 'reset-meso':
                     deleteCurrentMesocycle();
                     break;
+                case 'delete-account':
+                    deleteUserAccount();
+                    break;
                 case 'clear-data':
                     clearLocalData();
                     break;
@@ -552,3 +555,27 @@ async function checkSubscriptionStatus(user) {
         console.warn("Eccezione durante il controllo abbonamento:", err);
     }
 }
+// ==========================================
+// 8. ELIMINAZIONE ACCOUNT
+// ==========================================
+async function deleteUserAccount() {
+    const confirmed = confirm("Sei sicuro di voler eliminare definitivamente il tuo account? Tutti i tuoi dati e allenamenti andranno persi.");
+    if (!confirmed) return;
+
+    try {
+        const { data, error } = await supabase.functions.invoke('delete-account');
+
+        if (error) throw error;
+
+        alert("Account eliminato con successo.");
+        await supabase.auth.signOut();
+        window.location.reload();
+
+    } catch (err) {
+        console.error("Errore durante l'eliminazione dell'account:", err);
+        alert("Impossibile eliminare l'account in questo momento. Riprova più tardi.");
+    }
+}
+
+// Esponila globalmente per poterla richiamare da un attributo onclick nell'HTML
+window.deleteUserAccount = deleteUserAccount;
