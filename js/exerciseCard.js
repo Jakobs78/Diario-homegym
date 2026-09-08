@@ -1,13 +1,10 @@
 // exerciseCard.js - Rendering della singola card esercizio e badge dischi
 
-import { 
-    formatExerciseSummary, 
-    getPlateBreakdown, 
-    findPreviousExercise, 
-    isValueOutOfRange, 
-    calculateSetVolumeTrend 
-} from './helpers.js';
+import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange, calculateSetVolumeTrend } from './helpers.js';
 import { state } from './state.js';
+import { enableCardSwipeGesture } from './gestures.js';
+import { saveAndSync } from './storage.js';
+import { renderWorkoutList } from './ui.js';
 
 export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, activeDayNum, isPastMeso) {
     const isExExcluded = ex.isExcluded || false;
@@ -180,6 +177,20 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     `;
 
     exCard.innerHTML = cardHtml;
+    // Gestione esclusione esercizio (doppio click e swipe)
+    const toggleExclusion = () => {
+        if (isPastMeso) return;
+        currentDay.exercises[exIdx].isExcluded = !currentDay.exercises[exIdx].isExcluded;
+        saveAndSync(state.workoutData);
+        renderWorkoutList();
+    };
+
+    exCard.addEventListener('dblclick', (e) => {
+        if (['INPUT', 'SELECT', 'BUTTON'].includes(e.target.tagName)) return;
+        toggleExclusion();
+    });
+
+    enableCardSwipeGesture(exCard, toggleExclusion, toggleExclusion);
     return exCard;
 }
 
