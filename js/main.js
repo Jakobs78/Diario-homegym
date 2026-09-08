@@ -563,7 +563,15 @@ async function deleteUserAccount() {
     if (!confirmed) return;
 
     try {
-        const { data, error } = await supabase.functions.invoke('delete-account');
+        // Recupera la sessione corrente per estrarre il token d'accesso
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("Sessione non trovata. Effetta nuovamente il login.");
+
+        const { data, error } = await supabase.functions.invoke('delete-account', {
+            headers: {
+                Authorization: `Bearer ${session.access_token}`
+            }
+        });
 
         if (error) throw error;
 
@@ -573,9 +581,8 @@ async function deleteUserAccount() {
 
     } catch (err) {
         console.error("Errore durante l'eliminazione dell'account:", err);
-        alert("Impossibile eliminare l'account in questo momento. Riprova più tardi.");
+        alert("Impossibile eliminare l'account: " + (err.message || "Riprova più tardi."));
     }
 }
 
-// Esponila globalmente per poterla richiamare da un attributo onclick nell'HTML
 window.deleteUserAccount = deleteUserAccount;
