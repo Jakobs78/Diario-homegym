@@ -29,6 +29,30 @@ import {
 } from './analytics.js';
 import { setupBottomSheet } from './bottomSheet.js';
 
+function applyUserToUI(user) {
+    const userEmailDisplay = document.getElementById('user-email-display');
+    const userInfoBar = document.getElementById('user-info-bar');
+    
+    if (userInfoBar) userInfoBar.style.display = 'flex';
+    
+    if (userEmailDisplay) {
+        if (user) {
+            // Estrae il nome dai metadati di Supabase
+            const fullName = user.user_metadata?.full_name || user.user_metadata?.name || user.email;
+            if (fullName) {
+                userEmailDisplay.textContent = fullName;
+                // Salviamo in memoria locale per renderlo subito disponibile al prossimo refresh istantaneo
+                localStorage.setItem('cached_athlete_name', fullName);
+                return;
+            }
+        }
+        
+        // Fallback immediato se l'utente non è ancora caricato ma abbiamo una cache locale
+        const cachedName = localStorage.getItem('cached_athlete_name');
+        userEmailDisplay.textContent = cachedName || 'Atleta';
+    }
+}
+
 // Esposizione globale per eventi inline / retrocompatibilità
 window.logoutUser = logoutUser;
 window.state = state;
@@ -39,14 +63,8 @@ window.bottomSheet = setupBottomSheet;
 // ==========================================
 supabase.auth.onAuthStateChange(async (event, session) => {
     if (session?.user) {
-        const userInfoBar = document.getElementById('user-info-bar');
-        const userEmailDisplay = document.getElementById('user-email-display');
-        
-        if (userInfoBar) userInfoBar.style.display = 'flex';
-        if (userEmailDisplay) {
-            const athleteName = session.user.user_metadata?.full_name || session.user.email || 'Atleta';
-            userEmailDisplay.textContent = athleteName;
-        }
+        state.currentUser = session.user;
+        applyUserToUI(session.user); // 👈 Usa la funzione centralizzata
 
         try {
             const remoteData = await pullDataFromSupabase(session.user);
@@ -68,7 +86,8 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 // ==========================================
 async function initApp() {
     console.log(`Avvio Advanced Workout Tracker v${CONFIG.APP_VERSION}`);
-    
+    applyUserToUI(null);
+
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js')
             .then(reg => console.log('Service Worker registrato:', reg.scope))
@@ -82,22 +101,14 @@ async function initApp() {
     updateSyncStatusUI();
     
     try {
-    const user = await checkSession();
+        const user = await checkSession();
 
         if (user) {
             state.currentUser = user;
-            const userInfoBar = document.getElementById('user-info-bar');
-            const userEmailDisplay = document.getElementById('user-email-display');
             const authOverlay = document.getElementById('auth-overlay');
-
-            if (userInfoBar) userInfoBar.style.display = 'flex';
-            
-            if (userEmailDisplay) {
-                const athleteName = user.user_metadata?.full_name || user.email || 'Atleta';
-                userEmailDisplay.textContent = athleteName;
-            }
-            
             if (authOverlay) authOverlay.style.display = 'none';
+
+            applyUserToUI(user); // 👈 Usa la funzione centralizzata anche qui
 
             await checkSubscriptionStatus(user);
 
