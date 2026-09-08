@@ -1,8 +1,9 @@
 // pdfExport.js
 import { state } from './state.js';
 import { calculateSetVolumeTrend, findPreviousExercise} from './helpers.js';
+import { supabase } from './config.js';
 
-export function exportWorkoutPDF(dayData = null, metadata = null) {
+export async function exportWorkoutPDF(dayData = null, metadata = null) {
     const jsPDF = window.jsPDF || window.jspdf?.jsPDF;
 
     if (!jsPDF) {
@@ -47,17 +48,22 @@ export function exportWorkoutPDF(dayData = null, metadata = null) {
     const selectedDay = dayData;
     metadata = metadata || {};
 
+    // --- INIZIO BLOCCO INTEGRATO ---
     const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4'
     });
 
+    const { data: { user } } = await supabase.auth.getUser();
+    const athleteName = user?.user_metadata?.full_name || 'Atleta';
+
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 8;
     const contentWidth = pageWidth - (margin * 2);
     let y = 8;
+    // --- FINE BLOCCO INTEGRATO ---
 
     // Funzione helper per verificare e gestire il cambio pagina
     function checkPageOverflow(neededHeight) {
@@ -84,7 +90,9 @@ export function exportWorkoutPDF(dayData = null, metadata = null) {
     doc.setTextColor(148, 163, 184);
     const mesoText = metadata.mesocycleName || 'Mesociclo 1';
     const weekText = metadata.weekNumber ? `Settimana ${metadata.weekNumber}` : 'Sett. 1';
-    const athleteText = metadata.athlete || state.workoutData?.athlete?.email || 'Atleta';
+    
+    // Qui usiamo la variabile dinamica appena recuperata da Supabase
+    const athleteText = athleteName || metadata.athlete || state.workoutData?.athlete?.email || 'Atleta';
     const dateText = metadata.dayDate || selectedDay.date || new Date().toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' });
 
     doc.text(`Atleta: ${athleteText}   |   Prog: ${mesoText} - ${weekText}   |   Data: ${dateText}`, margin + 4, y + 11.5);

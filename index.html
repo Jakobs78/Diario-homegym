@@ -22,6 +22,22 @@
         <div class="auth-card">
             <h2 id="auth-title">Accedi al Diario</h2>
             <div id="auth-error" style="color: #dc2626; font-size: 0.8rem; margin-bottom: 10px; display: none;"></div>
+            
+            <!-- Campi aggiuntivi per Nome e Cognome (Visibili solo in registrazione) -->
+            <div id="auth-name-fields" style="display: none; text-align: left; margin-bottom: 12px;">
+                <div style="margin-bottom: 8px;">
+                    <label for="auth-name" style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 3px;">Nome <span style="font-weight: normal; color: var(--text-muted);">(Obbligatorio)</span></label>
+                    <input type="text" id="auth-name" placeholder="es. Mario" class="form-input" style="width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px;">
+                </div>
+                <div style="margin-bottom: 6px;">
+                    <label for="auth-surname" style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 3px;">Cognome <span style="font-weight: normal; color: var(--text-muted);">(Opzionale)</span></label>
+                    <input type="text" id="auth-surname" placeholder="es. Rossi" class="form-input" style="width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px;">
+                </div>
+                <p style="font-size: 0.72rem; color: #64748b; margin: 4px 0 0 0; line-height: 1.3;">
+                    ℹ️ Il tuo nome (e opzionalmente il cognome) serve unicamente per personalizzare l'intestazione dei report PDF giornalieri dei tuoi allenamenti. I dati restano strettamente personali.
+                </p>
+            </div>
+
             <input type="email" id="auth-email" placeholder="Email">
             <input type="password" id="auth-password" placeholder="Password">
             <button class="btn" style="width: 100%; padding: 10px;" id="auth-submit-btn">Accedi</button>

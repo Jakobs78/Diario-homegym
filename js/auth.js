@@ -91,7 +91,7 @@ function hideAuthOverlay() {
 }
 
 /**
- * Configura i listener per il cambio di stato auth e la gestione form UI
+ * Configura i listener per il cambio di stato afra registrati e accedi, e gestisce l'invio del form di autenticazione
  */
 export function setupAuthListeners() {
     supabase.auth.onAuthStateChange((event, session) => {
@@ -109,6 +109,9 @@ export function setupAuthListeners() {
     const submitBtn = document.getElementById('auth-submit-btn');
     const emailInput = document.getElementById('auth-email');
     const passwordInput = document.getElementById('auth-password');
+    const nameInput = document.getElementById('auth-name');
+    const surnameInput = document.getElementById('auth-surname');
+    const nameFieldsContainer = document.getElementById('auth-name-fields');
     const toggleText = document.getElementById('auth-toggle-text');
     const authTitle = document.getElementById('auth-title');
     const errorDiv = document.getElementById('auth-error');
@@ -118,6 +121,9 @@ export function setupAuthListeners() {
     if (toggleText) {
         toggleText.addEventListener('click', () => {
             isRegistering = !isRegistering;
+            if (nameFieldsContainer) {
+                nameFieldsContainer.style.display = isRegistering ? 'block' : 'none';
+            }
             if (isRegistering) {
                 authTitle.textContent = "Registrati al Diario";
                 submitBtn.textContent = "Registrati";
@@ -135,6 +141,8 @@ export function setupAuthListeners() {
             e.preventDefault();
             const email = emailInput?.value.trim();
             const password = passwordInput?.value;
+            const firstName = nameInput?.value.trim() || '';
+            const lastName = surnameInput?.value.trim() || '';
 
             if (!email || !password) {
                 if (errorDiv) {
@@ -144,16 +152,35 @@ export function setupAuthListeners() {
                 return;
             }
 
+            if (isRegistering && !firstName) {
+                if (errorDiv) {
+                    errorDiv.textContent = "Il campo Nome è obbligatorio per la registrazione.";
+                    errorDiv.style.display = 'block';
+                }
+                return;
+            }
+
             if (errorDiv) errorDiv.style.display = 'none';
 
             if (isRegistering) {
                 try {
-                    const { data, error } = await supabase.auth.signUp({ email, password });
+                    const fullName = lastName ? `${firstName} ${lastName}` : firstName;
+                    const { data, error } = await supabase.auth.signUp({ 
+                        email, 
+                        password,
+                        options: {
+                            data: {
+                                full_name: fullName
+                            }
+                        }
+                    });
                     if (error) throw error;
                     alert("Registrazione completata! Controlla la tua email o accedi ora.");
                     isRegistering = false;
+                    if (nameFieldsContainer) nameFieldsContainer.style.display = 'none';
                     authTitle.textContent = "Accedi al Diario";
                     submitBtn.textContent = "Accedi";
+                    toggleText.textContent = "Non hai un account? Registrati";
                 } catch (err) {
                     if (errorDiv) {
                         errorDiv.textContent = err.message;

@@ -43,7 +43,10 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         const userEmailDisplay = document.getElementById('user-email-display');
         
         if (userInfoBar) userInfoBar.style.display = 'flex';
-        if (userEmailDisplay) userEmailDisplay.textContent = session.user.email;
+        if (userEmailDisplay) {
+            const athleteName = session.user.user_metadata?.full_name || session.user.email || 'Atleta';
+            userEmailDisplay.textContent = athleteName;
+        }
 
         try {
             const remoteData = await pullDataFromSupabase(session.user);
@@ -79,7 +82,7 @@ async function initApp() {
     updateSyncStatusUI();
     
     try {
-        const user = await checkSession();
+    const user = await checkSession();
 
         if (user) {
             state.currentUser = user;
@@ -88,7 +91,12 @@ async function initApp() {
             const authOverlay = document.getElementById('auth-overlay');
 
             if (userInfoBar) userInfoBar.style.display = 'flex';
-            if (userEmailDisplay && user.email) userEmailDisplay.textContent = user.email;
+            
+            if (userEmailDisplay) {
+                const athleteName = user.user_metadata?.full_name || user.email || 'Atleta';
+                userEmailDisplay.textContent = athleteName;
+            }
+            
             if (authOverlay) authOverlay.style.display = 'none';
 
             await checkSubscriptionStatus(user);
