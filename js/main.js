@@ -28,6 +28,7 @@ import {
     renderMesoComparisonChart 
 } from './analytics.js';
 import { setupBottomSheet } from './bottomSheet.js';
+import { initDevBanner } from './bannerSviluppo.js';
 
 function applyUserToUI(user) {
     const userEmailDisplay = document.getElementById('user-email-display');
@@ -95,6 +96,8 @@ async function initApp() {
     }
 
     initTheme();
+
+    initDevBanner(); // Mostra il banner di avviso per la versione in sviluppo
     
     const localData = getFromLocalStorage();
     state.workoutData = localData;
@@ -574,6 +577,8 @@ async function deleteUserAccount() {
         });
 
         if (error) throw error;
+
+        localStorage.clear(); // Pulisce tutti i dati locali
 
         alert("Account eliminato con successo.");
         await supabase.auth.signOut();
