@@ -317,11 +317,10 @@ function setupEventListeners() {
 
                 const currentMesos = state.workoutData.history.years[currentYear].mesocycles;
 
-                // Estrae l'oggetto mesociclo isolato dal parser PDF
-                const extractedMeso = mappedData?.history?.years?.[currentYear]?.mesocycles?.[0]
-                    || mappedData?.history?.years?.[Object.keys(mappedData?.history?.years || {})[0]]?.mesocycles?.[0];
+                // mappedData restituisce direttamente l'oggetto mesociclo strutturato
+                const extractedMeso = mappedData;
 
-                if (extractedMeso) {
+                if (extractedMeso && extractedMeso.weeks && extractedMeso.weeks.length > 0) {
                     const nextMesoNumber = currentMesos.length + 1;
                     extractedMeso.id = `meso_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
                     extractedMeso.name = `Mesociclo ${nextMesoNumber}`;

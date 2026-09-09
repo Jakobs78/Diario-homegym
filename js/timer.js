@@ -20,15 +20,15 @@ export function formatTimerTime(totalSeconds) {
  * Supporta: 90, "90s", "1:30", "1.30", "1.5", "2min", "2m", "2'"
  */
 export function parseRecoveryTime(input) {
-    if (input === null || input === undefined) return 90;
+    if (input === null || input === undefined) return 120;
 
     if (typeof input === 'number' && !isNaN(input)) {
         if (input <= 10) return Math.round(input * 60);
-        return input > 0 ? Math.round(input) : 90;
+        return input > 0 ? Math.round(input) : 120;
     }
 
     let str = String(input).trim().toLowerCase().replace(',', '.');
-    if (!str) return 90;
+    if (!str) return 120;
 
     if (str.includes(':')) {
         const parts = str.split(':');
@@ -59,7 +59,7 @@ export function parseRecoveryTime(input) {
         return Math.round(val);
     }
 
-    return 60;
+    return 120;
 }
 
 /**
@@ -137,6 +137,7 @@ export function stopTimer() {
     const timerContainer = document.getElementById('floating-timer');
     if (timerContainer) {
         timerContainer.style.display = 'none';
+        timerContainer.classList.remove('active');
     }
 }
 
@@ -147,7 +148,10 @@ export function handleTick(remainingSeconds) {
     const timerContainer = document.getElementById('floating-timer');
     const timerDisplay = document.getElementById('timer-display');
 
-    if (timerContainer) timerContainer.style.display = 'flex';
+    if (timerContainer) {
+        timerContainer.style.display = 'flex';
+        timerContainer.classList.add('active');
+    }
     if (timerDisplay) timerDisplay.textContent = formatTimerTime(remainingSeconds);
 }
 
