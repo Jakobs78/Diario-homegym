@@ -146,6 +146,9 @@ function extractTargetMetrics(restOfLine) {
     const restMatch = restOfLine.match(/(\d+(?:[.,]\d+)?\s*(?:min|minuti|'|"|sec|s\b))/i);
     if (restMatch) {
         rest = restMatch[0].trim();
+    } else {
+        // Se nel testo del PDF non è specificato alcun recupero, precompila con 120 secondi di default
+        rest = "120s";
     }
 
     // Salviamo solo i valori numerici senza la stringa "kg" per evitare il raddoppio nella UI

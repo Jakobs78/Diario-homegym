@@ -36,13 +36,26 @@ export function parseRecoveryTime(input) {
     }
 
     if (str.includes('min') || str.endsWith('m') || str.endsWith("'")) {
-        const num = parseFloat(str.replace(/[^0-9.]/g, ''));
-        return !isNaN(num) ? Math.round(num * 60) : 60;
+        const cleanNumStr = str.replace(/min|m|'/g, '').trim();
+        const val = parseFloat(cleanNumStr);
+        if (!isNaN(val)) {
+            if (cleanNumStr.includes('.')) {
+                const parts = cleanNumStr.split('.');
+                const min = parseInt(parts[0], 10) || 0;
+                const decStr = parts[1] || '0';
+                if (decStr.length === 2 && parseInt(decStr, 10) < 60) {
+                    return Math.round(min * 60 + parseInt(decStr, 10));
+                }
+                return Math.round(val * 60);
+            }
+            return Math.round(val * 60);
+        }
+        return 120;
     }
 
     if (str.endsWith('s') || str.includes('sec') || str.endsWith('"')) {
         const num = parseFloat(str.replace(/[^0-9.]/g, ''));
-        return !isNaN(num) ? Math.round(num) : 60;
+        return !isNaN(num) ? Math.round(num) : 120;
     }
 
     const val = parseFloat(str);
