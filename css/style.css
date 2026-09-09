@@ -1538,4 +1538,35 @@ body.dark-mode .input-out-of-range {
     background-color: rgba(239, 68, 68, 0.2) !important;
     color: #fca5a5 !important;
 }
+/* --- CORREZIONE LEGGIBILITÀ DARK MODE PER IL MODALE IMPORTAZIONE --- */
+[data-theme="dark"] #import-plan-modal .modal-content,
+body.dark-mode #import-plan-modal .modal-content {
+    background-color: var(--card-bg, #1e293b) !important;
+    color: var(--text-color, #f8fafc) !important;
+    border-color: var(--border-color, #334155) !important;
+}
 
+[data-theme="dark"] #import-plan-modal h2, 
+[data-theme="dark"] #import-plan-modal h3, 
+[data-theme="dark"] #import-plan-modal h4, 
+[data-theme="dark"] #import-plan-modal p, 
+[data-theme="dark"] #import-plan-modal label, 
+[data-theme="dark"] #import-plan-modal li,
+[data-theme="dark"] #import-plan-modal span,
+body.dark-mode #import-plan-modal h2, 
+body.dark-mode #import-plan-modal h3, 
+body.dark-mode #import-plan-modal h4, 
+body.dark-mode #import-plan-modal p, 
+body.dark-mode #import-plan-modal label, 
+body.dark-mode #import-plan-modal li,
+body.dark-mode #import-plan-modal span {
+    color: var(--text-color, #f8fafc) !important;
+}
+
+/* Sfondo del box di istruzioni interno al modale in Dark Mode */
+[data-theme="dark"] #import-plan-modal div[style*="background"],
+body.dark-mode #import-plan-modal div[style*="background"] {
+    background: rgba(15, 23, 42, 0.6) !important;
+    border-color: var(--border-color, #334155) !important;
+    color: var(--text-muted, #94a3b8) !important;
+}

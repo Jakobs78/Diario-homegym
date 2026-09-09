@@ -34,18 +34,19 @@ export function showNotification(message) {
 
 // ==========================================
 // 2.5 MODULO DI UPLOAD UNIVERSALE (PDF / EXCEL / XML)
+// Spostato o richiamabile dal sottomenu "Strumenti e gestione" -> "Importa scheda"
 // ==========================================
 export function renderUploadCard(onFileProcessed) {
     const uploadWrapper = document.createElement('div');
-    uploadWrapper.style.cssText = 'background: var(--bg-card, #18181b); border: 2px dashed #3f3f46; border-radius: 12px; padding: 16px; margin-bottom: 20px; text-align: center; transition: all 0.2s ease;';
+    uploadWrapper.style.cssText = 'background: var(--bg-card, #18181b); border: 2px dashed #3f3f46; border-radius: 12px; padding: 20px; margin: 10px 0; text-align: center; transition: all 0.2s ease;';
     
     uploadWrapper.innerHTML = `
         <input type="file" id="universal-coach-file" accept=".xlsx, .xlsm, .xml, .csv, .pdf" style="display: none;" />
         <label for="universal-coach-file" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px;">
-            <span style="font-size: 1.5rem;">📥</span>
-            <span style="font-weight: 600; color: #f4f4f5; font-size: 0.95rem;">Carica la scheda del coach (PDF, Excel o XML)</span>
-            <span style="font-size: 0.75rem; color: #a1a1aa;">Trascina o seleziona il file per importare i dati automaticamente.</span>
-            <span style="font-size: 0.7rem; color: #f59e0b; margin-top: 4px; font-weight: 500;">⚠️ Nota: Per la lettura dei file PDF è richiesta una connessione a internet attiva.</span>
+            <span style="font-size: 2rem;">📥</span>
+            <span style="font-weight: 600; color: #f4f4f5; font-size: 1rem;">Seleziona la scheda del coach (PDF, Excel o XML)</span>
+            <span style="font-size: 0.8rem; color: #a1a1aa;">Trascina o carica il file per importare automaticamente i dati nella webapp.</span>
+            <span style="font-size: 0.75rem; color: #f59e0b; margin-top: 6px; font-weight: 500;">⚠️ Nota: Per la lettura dei file PDF è richiesta una connessione a internet attiva.</span>
         </label>
     `;
 
@@ -68,7 +69,6 @@ export function renderUploadCard(onFileProcessed) {
             try {
                 const pdfData = await parseCoachPDF(file);
                 
-                // Conversione del testo pulito tramite il mapper ed inserimento nello state
                 const mappedData = mapPdfTextToWorkoutData(pdfData.cleanedText);
                 state.workoutData = mappedData;
                 state.activeMesocycleIndex = 0;
@@ -129,11 +129,7 @@ export function renderWorkoutList() {
     
     DOM.workoutListContainer.style.display = 'block';
 
-    // Inseriamo il widget di upload all'inizio del container principale
-    const uploadWidget = renderUploadCard((file, type) => {
-        console.log(`File elaborato (${type.toUpperCase()}) ->`, file);
-    });
-    DOM.workoutListContainer.appendChild(uploadWidget);
+    // NOTA: Il box di upload è stato rimosso da qui ed è ora integrato nel sottomenu Strumenti e gestione.
 
     const yearsObj = state.workoutData?.history?.years || {};
     const currentYear = new Date().getFullYear().toString();
@@ -143,7 +139,7 @@ export function renderWorkoutList() {
         const emptyNotice = document.createElement('div');
         emptyNotice.className = 'day-card';
         emptyNotice.style.cssText = 'text-align: center; padding: 30px;';
-        emptyNotice.innerHTML = `<p style="color: var(--text-muted); font-size: 0.9rem;">Nessuna scheda di allenamento trovata per il ${currentYear}. Usa il box sopra per caricarne una.</p>`;
+        emptyNotice.innerHTML = `<p style="color: var(--text-muted); font-size: 0.9rem;">Nessuna scheda di allenamento trovata per il ${currentYear}. Vai su <strong>Strumenti e gestione -> Importa scheda</strong> per caricarne una.</p>`;
         DOM.workoutListContainer.appendChild(emptyNotice);
         return;
     }

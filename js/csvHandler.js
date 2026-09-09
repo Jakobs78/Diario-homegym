@@ -109,7 +109,7 @@ function isMesocycleCompleted(meso) {
 /**
  * Assegna i tag visivi per Triset, Superset e Dropset
  */
-function applyTrisetDropsetGrouping(daysArray) {
+export function applyTrisetDropsetGrouping(daysArray) {
     daysArray.forEach(day => {
         const exercises = day.exercises;
         if (!exercises || exercises.length === 0) return;
@@ -253,7 +253,7 @@ export function importWorkoutPlan(csvText) {
                 rest: restVal,
                 notes: notesVal,
                 sets: sets,
-                loggedSets: JSON.parse(JSON.stringify(sets))
+                loggedSets: structuredClone(sets)
             });
         });
 
@@ -352,7 +352,7 @@ export function importProgressCSV(csvText) {
                 let existingMeso = mesocyclesList.find(m => m.name === mesoName);
                 if (!existingMeso) {
                     existingMeso = {
-                        id: `meso_imp_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                        id: `meso_imp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
                         name: mesoName,
                         importedAt: new Date().toISOString(),
                         weeks: []

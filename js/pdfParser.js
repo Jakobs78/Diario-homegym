@@ -1,43 +1,45 @@
 // pdfParser.js - Lettore di PDF per schede coach con pulizia testo e note
 
+// pdfParser.js - Estrazione con ricostruzione del layout tramite coordinate Y
+// pdfParser.js
 export async function parseCoachPDF(file) {
-    // Verifichiamo se la libreria PDF.js è disponibile globalmente (caricata da CDN in index.html)
-    const pdfjsLib = window['pdfjs-dist/build/pdf'] || window.pdfjsLib;
-
-    if (!pdfjsLib) {
-        throw new Error("Libreria PDF.js non trovata. Assicurati di avere la connessione attiva e che lo script sia incluso in index.html.");
-    }
-
-    // Impostiamo il worker se necessario
-    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    }
-
     const arrayBuffer = await file.arrayBuffer();
-    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-    const pdfDocument = await loadingTask.promise;
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = "";
 
-    let fullExtractedText = "";
-
-    // Scorriamo tutte le pagine del PDF
-    for (let i = 1; i <= pdfDocument.numPages; i++) {
-        const page = await pdfDocument.getPage(i);
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
         
-        // Estraiamo le stringhe unendo gli elementi di testo
-        const pageText = textContent.items.map(item => item.str).join(' ');
-        fullExtractedText += `\n--- PAGINA ${i} ---\n` + pageText;
+        // Raggruppa gli elementi di testo per coordinata Y (altezza riga)
+        const linesMap = {};
+        
+        textContent.items.forEach(item => {
+            if (!item.str.trim()) return;
+            // Arrotondiamo Y per unificare elementi sulla stessa riga
+            const y = Math.round(item.transform[5]); 
+            if (!linesMap[y]) linesMap[y] = [];
+            linesMap[y].push({ x: item.transform[4], text: item.str });
+        });
+
+        // Ordina le righe dall'alto verso il basso (Y decrescente)
+        const sortedY = Object.keys(linesMap).sort((a, b) => b - a);
+
+        let pageText = `--- PAGINA ${i} ---\n`;
+        sortedY.forEach(y => {
+            // Ordina le parole nella riga da sinistra a destra (X crescente)
+            const lineItems = linesMap[y].sort((a, b) => a.x - b.x);
+            const lineString = lineItems.map(item => item.text).join(' ');
+            pageText += lineString + '\n';
+        });
+
+        fullText += pageText + '\n';
     }
 
-    // Pulizia delle note e dei caratteri appiccicati tipici delle esportazioni PDF da Excel
-    const cleanedText = cleanCoachText(fullExtractedText);
-
-    console.log("PDF estratto e pulito con successo:", cleanedText.substring(0, 200) + "...");
-    
+    // Ritorna l'oggetto che main.js si aspetta
     return {
-        rawText: fullExtractedText,
-        cleanedText: cleanedText,
-        pagesCount: pdfDocument.numPages
+        cleanedText: fullText,
+        pagesCount: pdf.numPages
     };
 }
 

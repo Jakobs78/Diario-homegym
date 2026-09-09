@@ -110,7 +110,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                     }
                 }
                 if (!setObj.rpe) {
-                    const val = rpeInfo?.value || rpeInput?.placeholder;
+                    const val = rpeInput?.value || rpeInput?.placeholder;
                     if (val && val !== 'RPE') {
                         setObj.rpe = val;
                         if (rpeInput) rpeInput.value = setObj.rpe;
@@ -162,8 +162,14 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
 
             if (isChecked) {
                 const isMiddleOfGroup = ex.groupType && !ex.isGroupLast;
+                const isDropset = ex.isDropset || ex.groupType === 'dropset';
+                const isLastSetOfExercise = setIdx === (ex.loggedSets.length - 1);
 
-                if (!isMiddleOfGroup) {
+                // Evita di far partire il timer se è un esercizio intermedio di superserie/triset 
+                // oppure se è un dropset ma non siamo all'ultimo set (drop)
+                const shouldSkipTimer = isMiddleOfGroup || (isDropset && !isLastSetOfExercise);
+
+                if (!shouldSkipTimer) {
                     let rawRecovery = 90;
                     for (const key of Object.keys(ex)) {
                         const lKey = key.toLowerCase();

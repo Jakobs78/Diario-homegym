@@ -147,47 +147,45 @@ export function updateMesocycleUI() {
     if (nextBtn) nextBtn.disabled = (currentIndex >= mesos.length - 1 || mesos.length === 0);
 }
 
-// ==========================================
-// 6. GESTIONE STATO E HEADER SESSIONE
-// ==========================================
-/**
- * Aggiorna lo stato di completamento della sessione attiva e sincronizza la durata
- */
-export function updateSessionAndCompletionState(dayData, isCompleted, sessionDurationMs = 0) {
-    if (!dayData) return;
+const { jsPDF } = window.jspdf;
 
-    dayData.completed = isCompleted;
-    if (sessionDurationMs > 0) {
-        dayData.durationMs = sessionDurationMs;
-    }
+export function exportMesoToPDF(mesoData) {
+  const doc = new jsPDF();
 
-    saveAndSync(state.workoutData);
-    updateSessionHeaderUI(dayData);
-}
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text(`Mesociclo: ${mesoData.name || "Senza nome"}`, 14, 20);
 
-/**
- * Aggiorna i badge e le informazioni visive dell'header della sessione
- */
-export function updateSessionHeaderUI(dayData) {
-    const statusBadge = document.getElementById('session-status-badge');
-    const durationBadge = document.getElementById('session-duration-badge');
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.text(`ID Univoco: ${mesoData.id}`, 14, 28);
+  doc.text(`Data: ${new Date().toLocaleDateString()}`, 14, 34);
 
-    if (statusBadge) {
-        if (dayData?.completed) {
-            statusBadge.textContent = 'Completata';
-            statusBadge.className = 'badge badge-success';
-        } else {
-            statusBadge.textContent = 'In corso';
-            statusBadge.className = 'badge badge-warning';
-        }
-    }
+  let startY = 45;
 
-    if (durationBadge && dayData?.durationMs) {
-        const totalMinutes = Math.floor(dayData.durationMs / 60000);
-        const hours = Math.floor(totalMinutes / 60);
-        const mins = totalMinutes % 60;
-        
-        durationBadge.textContent = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-        durationBadge.style.display = 'inline-block';
-    }
+  mesoData.weeks.forEach((week, weekIndex) => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.text(`Settimana ${weekIndex + 1}`, 14, startY);
+    startY += 8;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+
+    week.exercises.forEach((ex) => {
+      const exerciseText = `- ${ex.name}: Topset ${ex.topset || '-'} kg | Range: ${ex.kgMin || 0}-${ex.kgMax || 0} kg`;
+      
+      if (startY > 280) {
+        doc.addPage();
+        startY = 20;
+      }
+
+      doc.text(exerciseText, 20, startY);
+      startY += 6;
+    });
+
+    startY += 6;
+  });
+
+  doc.save(`${mesoData.name || "mesociclo"}_${mesoData.id}.pdf`);
 }

@@ -6,6 +6,7 @@ import { state } from './state.js';
 import { 
     getFromLocalStorage, 
     saveToLocalStorage, 
+    saveAndSync,
     hasPendingSync, 
     processSyncQueue, 
     clearLocalData, 
@@ -18,7 +19,7 @@ import { downloadExcelTemplate, parseExcelFile } from './importer.js';
 import { importWorkoutPlan, readCsvFile, importProgressCSV, exportToCSV } from './csvHandler.js';
 import { initTheme, toggleTheme } from './theme.js';
 import { setupAuthListeners, logoutUser, checkSession } from './auth.js';
-import { deleteCurrentMesocycle, changeMesocycle, toggleCurrentMesocycleLock } from './mesocycle.js';
+import { deleteCurrentMesocycle, changeMesocycle, toggleCurrentMesocycleLock, exportMesoToPDF, getActiveMesocycleObject } from './mesocycle.js';
 import { renderManualView } from './manual.js';
 import { initAudioUnlock } from './audio.js';
 import { 
@@ -29,6 +30,8 @@ import {
 } from './analytics.js';
 import { setupBottomSheet } from './bottomSheet.js';
 import { initDevBanner } from './bannerSviluppo.js';
+import { parseCoachPDF } from './pdfParser.js';
+import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
 
 function applyUserToUI(user) {
     const userEmailDisplay = document.getElementById('user-email-display');
@@ -65,7 +68,7 @@ window.bottomSheet = setupBottomSheet;
 supabase.auth.onAuthStateChange(async (event, session) => {
     if (session?.user) {
         state.currentUser = session.user;
-        applyUserToUI(session.user); // 👈 Usa la funzione centralizzata
+        applyUserToUI(session.user);
 
         try {
             const remoteData = await pullDataFromSupabase(session.user);
@@ -96,8 +99,7 @@ async function initApp() {
     }
 
     initTheme();
-
-    initDevBanner(); // Mostra il banner di avviso per la versione in sviluppo
+    initDevBanner();
     
     const localData = getFromLocalStorage();
     state.workoutData = localData;
@@ -111,8 +113,7 @@ async function initApp() {
             const authOverlay = document.getElementById('auth-overlay');
             if (authOverlay) authOverlay.style.display = 'none';
 
-            applyUserToUI(user); // 👈 Usa la funzione centralizzata anche qui
-
+            applyUserToUI(user);
             await checkSubscriptionStatus(user);
 
             if (navigator.onLine) {
@@ -234,6 +235,16 @@ function setupEventListeners() {
                 case 'export-pdf':
                     handlePdfExportFromState();
                     break;
+                case 'export-meso-pdf': {
+                        const activeMeso = getActiveMesocycleObject();
+                        if (activeMeso) {
+                            exportMesoToPDF(activeMeso);
+                        } else {
+                            alert("Nessun mesociclo attivo trovato per l'esportazione.");
+                        }
+                        break;
+                    }
+                    
                 case 'import-plan': {
                     const importModal = document.getElementById('import-plan-modal');
                     if (importModal) {
@@ -270,43 +281,119 @@ function setupEventListeners() {
         if (e.target.id === 'import-plan-modal') closeImportModal();
     });
 
-    document.getElementById('btn-download-template')?.addEventListener('click', () => {
+    document.getElementById('btn-download-template')?.addEventListener('click', (e) => {
+        e.preventDefault();
         downloadExcelTemplate();
     });
 
-    // Eventi File Input
-    document.getElementById('import-file-input')?.addEventListener('change', (e) => {
+    // Eventi File Input (PDF, EXCEL, CSV)
+    document.getElementById('import-file-input')?.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
+        const ext = file.name.split('.').pop().toLowerCase();
         const statusMsg = document.getElementById('import-status-msg');
         if (statusMsg) {
             statusMsg.style.display = 'block';
             statusMsg.style.color = 'var(--primary, #007bff)';
-            statusMsg.textContent = "⏳ Leggendo il file Excel...";
         }
 
-        parseExcelFile(file, (res) => {
-            if (!res.success) {
-                alert(res.error);
+        if (ext === 'pdf') {
+            if (statusMsg) {
+                statusMsg.style.color = '#d97706';
+                statusMsg.textContent = "⏳ Analisi e pulizia del PDF del coach in corso...";
+            }
+
+            try {
+                const pdfData = await parseCoachPDF(file);
+                const mappedData = mapPdfTextToWorkoutData(pdfData.cleanedText);
+                
+                const currentYear = new Date().getFullYear().toString();
+                if (!state.workoutData.history) state.workoutData.history = {};
+                if (!state.workoutData.history.years) state.workoutData.history.years = {};
+                if (!state.workoutData.history.years[currentYear]) {
+                    state.workoutData.history.years[currentYear] = { mesocycles: [] };
+                }
+
+                const currentMesos = state.workoutData.history.years[currentYear].mesocycles;
+
+                // Estrae l'oggetto mesociclo isolato dal parser PDF
+                const extractedMeso = mappedData?.history?.years?.[currentYear]?.mesocycles?.[0]
+                    || mappedData?.history?.years?.[Object.keys(mappedData?.history?.years || {})[0]]?.mesocycles?.[0];
+
+                if (extractedMeso) {
+                    const nextMesoNumber = currentMesos.length + 1;
+                    extractedMeso.id = `meso_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+                    extractedMeso.name = `Mesociclo ${nextMesoNumber}`;
+                    extractedMeso.importedAt = new Date().toISOString();
+                    extractedMeso.locked = false;
+
+                    // Accoda il nuovo mesociclo al database in ordine cronologico
+                    currentMesos.push(extractedMeso);
+
+                    // Imposta come attivo l'ultimo mesociclo appena creato
+                    state.activeMesocycleIndex = currentMesos.length - 1;
+                    state.activeWeek = 1;
+                    state.activeDay = 1;
+
+                    saveAndSync(state.workoutData);
+                    renderWorkoutList();
+
+                    if (statusMsg) {
+                        statusMsg.style.color = '#16a34a';
+                        statusMsg.textContent = `✅ Mesociclo ${nextMesoNumber} importato con successo!`;
+                    }
+                } else {
+                    throw new Error("Impossibile strutturare il mesociclo dal file PDF.");
+                }
+
+                setTimeout(() => {
+                    closeImportModal();
+                    if (statusMsg) statusMsg.style.display = 'none';
+                    e.target.value = '';
+                }, 2000);
+
+            } catch (err) {
+                console.error("Errore parsing PDF:", err);
+                if (statusMsg) {
+                    statusMsg.style.color = '#dc2626';
+                    statusMsg.textContent = "❌ Errore nella lettura del PDF. Verifica che la connessione sia attiva e che il file sia valido.";
+                }
+            }
+        } else if (['xlsx', 'xls', 'csv'].includes(ext)) {
+            if (statusMsg) {
+                statusMsg.style.color = 'var(--primary, #007bff)';
+                statusMsg.textContent = "⏳ Leggendo il file Tabellare...";
+            }
+
+            parseExcelFile(file, (res) => {
+                if (!res.success) {
+                    alert(res.error);
+                    if (statusMsg) statusMsg.style.display = 'none';
+                    e.target.value = '';
+                    return;
+                }
+
+                // importWorkoutPlan in csvHandler.js accoda il mesociclo sequenzialmente come "Mesociclo N"
+                const result = importWorkoutPlan(res.csvData);
+
+                if (result.success) {
+                    closeImportModal();
+                    renderWorkoutList();
+                    alert(result.message || "Scheda importata con successo!");
+                } else {
+                    alert(result.error || "Errore durante l'importazione dei dati.");
+                }
+
                 if (statusMsg) statusMsg.style.display = 'none';
                 e.target.value = '';
-                return;
+            });
+        } else {
+            if (statusMsg) {
+                statusMsg.style.color = '#dc2626';
+                statusMsg.textContent = "❌ Formato non supportato. Usa .xlsx, .xls, .csv o .pdf";
             }
-
-            const result = importWorkoutPlan(res.csvData);
-
-            if (result.success) {
-                closeImportModal();
-                renderWorkoutList();
-                alert(result.message || "Scheda importata con successo!");
-            } else {
-                alert(result.error || "Errore durante l'importazione dei dati.");
-            }
-
-            if (statusMsg) statusMsg.style.display = 'none';
-            e.target.value = '';
-        });
+        }
     });
 
     document.getElementById('import-history-input')?.addEventListener('change', (e) => {
@@ -558,6 +645,7 @@ async function checkSubscriptionStatus(user) {
         console.warn("Eccezione durante il controllo abbonamento:", err);
     }
 }
+
 // ==========================================
 // 8. ELIMINAZIONE ACCOUNT
 // ==========================================
@@ -566,7 +654,6 @@ async function deleteUserAccount() {
     if (!confirmed) return;
 
     try {
-        // Recupera la sessione corrente per estrarre il token d'accesso
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) throw new Error("Sessione non trovata. Effetta nuovamente il login.");
 
@@ -578,7 +665,7 @@ async function deleteUserAccount() {
 
         if (error) throw error;
 
-        localStorage.clear(); // Pulisce tutti i dati locali
+        localStorage.clear();
 
         alert("Account eliminato con successo.");
         await supabase.auth.signOut();

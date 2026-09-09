@@ -65,6 +65,8 @@ export function parseRecoveryTime(input) {
 /**
  * Avvia il timer di recupero basato su timestamp
  */
+// timer.js (estratto)
+
 export function startTimer(durationInput, onTick, onComplete) {
     stopTimer();
 
@@ -78,9 +80,10 @@ export function startTimer(durationInput, onTick, onComplete) {
 
     updateTimerUI(tickCallback, completeCallback);
 
+    // Portato a 500ms per ridurre il carico CPU/Batteria sui dispositivi mobile
     timerInterval = setInterval(() => {
         updateTimerUI(tickCallback, completeCallback);
-    }, 250);
+    }, 500);
 
     if (boundVisibilityHandler) {
         document.removeEventListener("visibilitychange", boundVisibilityHandler);

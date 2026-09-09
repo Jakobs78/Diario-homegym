@@ -270,6 +270,7 @@
             </div>
             <div class="bottom-sheet-menu">
                 <button class="sheet-item" data-action="export-pdf">🖨️ PDF giornaliero</button>
+                <button class="sheet-item" data-action="export-meso-pdf">📑 Esporta Intero Mesociclo (PDF)</button>
                 <button class="sheet-item" data-action="import-plan">📥 Importa scheda allenamento</button>
                 <button class="sheet-item" data-action="export-csv">💾 Backup storico CSV</button>
                 <button class="sheet-item" data-action="import-history">📥 Import storico CSV</button>
@@ -290,47 +291,33 @@
         </div>
     </div>
 
-   <!-- Modale Importazione Scheda Excel / CSV -->
-    <div id="import-plan-modal" class="modal-overlay hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.65); overflow-y: auto; padding: 20px 0;">
-        <div class="modal-content" style="max-width: 520px; width: 90%; padding: 24px; margin: auto;">
+   <!-- Modale Importazione Scheda Allenamento -->
+    <div id="import-plan-modal" class="hidden" style="display: none;">
+        <div class="modal-content">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h3 style="margin: 0; color: var(--primary, #007bff); display: flex; align-items: center; gap: 8px;">
-                    📥 Importa Scheda Allenamento
-                </h3>
-                <button id="close-import-modal-btn" class="btn-icon" style="background:none; border:none; font-size:1.2rem; cursor:pointer;">✕</button>
+                <h3 style="margin: 0; color: var(--accent-color);">📥 Importa Scheda Allenamento</h3>
+                <button id="close-import-modal-btn" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
             </div>
 
-            <!-- Procedura Guidata -->
-            <div style="background: var(--bg-subtle, #f8fafc); border: 1px solid var(--border, #e2e8f0); border-radius: 8px; padding: 14px; font-size: 0.85rem; line-height: 1.5; margin-bottom: 18px; color: var(--text, #334155);">
-                <p style="margin: 0 0 8px 0; font-weight: 700;">📋 Procedura di Importazione Sicura:</p>
-                <ol style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px;">
-                    <li><strong>Usa il Modello Standard:</strong> Scarica il file Excel modello per avere la certezza che la struttura venga letta senza errori.</li>
-                    <li><strong>Incolla le colonne del coach:</strong> Copia i dati dal foglio del tuo preparatore nelle colonne corrispondenti del modello scaricato.</li>
-                    <li><strong>Salva il file:</strong> Quando salvi il file, puoi anche esportarlo nel formato <strong>.csv</strong> Per. es "mese.csv"</li>
-                    <li><strong>Carica il file:</strong> Seleziona il file salvato in formato <strong>.xlsx</strong>, <strong>.xls</strong> o <strong>.csv</strong>.</li>
-                </ol>
+            <!-- Metodo 1: PDF del Coach (Flessibile) -->
+            <div style="background: var(--block-bg, #f1f5f9); border: 1px solid var(--border-color, #cbd5e1); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                <p style="margin: 0 0 6px 0; font-weight: 700; font-size: 0.85rem;">📄 Metodo 1: Carica il PDF del Coach</p>
+                <p style="margin: 0 0 10px 0; font-size: 0.78rem; color: var(--text-muted, #64748b); line-height: 1.4;">
+                    La webapp leggerà il PDF interpretando in autonomia la struttura del tuo preparatore, anche con layout differenti. Controlla comunque se ha riportato tutto correttamente.
+                </p>
+                <input type="file" id="import-file-input" accept=".pdf, .xlsx, .xls, .csv" style="font-size: 0.8rem; width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--card-bg);">
             </div>
 
-            <!-- Passo 1: Scarica Modello -->
-            <div style="margin-bottom: 16px; padding: 12px; border: 1px stroke var(--border, #cbd5e1); border-radius: 6px; background: rgba(0,123,255,0.03);">
-                <label style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 6px;">
-                    Passo 1: Scarica la tabella excel di esempio
-                </label>
-                <button id="btn-download-template" class="btn btn-secondary" style="width: 100%; padding: 8px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                    ⬇️ Scarica Modello Excel (.xlsx)
-                </button>
-            </div>
+            <!-- Metodo 2: Excel / CSV (Richiede Modello) -->
+            <div style="background: var(--block-bg, #f1f5f9); border: 1px solid var(--border-color, #cbd5e1); border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+                <p style="margin: 0 0 6px 0; font-weight: 700; font-size: 0.85rem;">📊 Metodo 2: File Tabellare (Excel / CSV)</p>
+                <p style="margin: 0 0 8px 0; font-size: 0.78rem; color: var(--text-muted, #64748b); line-height: 1.4;">
+                    Se preferisci i fogli di calcolo, puoi caricare un file Excel ma <strong>devi seguire rigorosamente lo schema ufficiale</strong> per evitare errori di lettura.
+                </p>
+            <a href="#" id="btn-download-template" style="font-size: 0.78rem; font-weight: 600; color: var(--accent-color); text-decoration: none; display: inline-block;">⬇️ Scarica il modello Excel di riferimento</a>            </div>
 
-            <!-- Passo 2: Carica File -->
-            <div style="margin-bottom: 20px;">
-                <label for="import-file-input" style="display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 6px;">
-                    Passo 2: Carica il tuo file Excel compilato (.xlsx, .xls, .csv)
-                </label>
-                <input type="file" id="import-file-input" accept=".xlsx, .xls, .csv" style="font-size: 0.85rem; width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px;">
-            </div>
-
-            <!-- Stato elaborazione -->
-            <div id="import-status-msg" style="display: none; margin-bottom: 15px; font-size: 0.85rem; font-weight: 600;"></div>
+            <!-- Messaggio di Stato -->
+            <div id="import-status-msg" style="display: none; font-size: 0.82rem; text-align: center; padding: 8px; border-radius: 6px;"></div>
         </div>
     </div>
 
