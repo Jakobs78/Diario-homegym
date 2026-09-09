@@ -6,18 +6,17 @@
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
 import { 
-    startTimer, 
     stopTimer, 
     adjustTimer, 
-    parseRecoveryTime,
     handleTick,
     handleComplete 
 } from './timer.js';
 import { updateMesocycleUI, updateMesocycleLockUI } from './mesocycle.js';
-import { enableCardSwipeGesture } from './gestures.js';
 import { createSingleExerciseCard, updatePlatesBadgeUI } from './exerciseCard.js';
-import { updateSessionAndCompletionState, updateSessionHeaderUI } from './sessionTimer.js';
+import { updateSessionHeaderUI } from './sessionTimer.js';
 import { bindWorkoutTableEvents } from './workoutEvents.js';
+import { parseCoachPDF } from './pdfParser.js';
+import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
 
 export const DOM = {
     appContainer: document.getElementById('app-container'),
@@ -51,7 +50,7 @@ export function renderUploadCard(onFileProcessed) {
     `;
 
     const fileInput = uploadWrapper.querySelector('#universal-coach-file');
-    fileInput.addEventListener('change', (e) => {
+    fileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
@@ -60,8 +59,37 @@ export function renderUploadCard(onFileProcessed) {
             console.log("Rilevato file nativo:", file.name);
             if (typeof onFileProcessed === 'function') onFileProcessed(file, 'native');
         } else if (ext === 'pdf') {
-            console.log("Rilevato file PDF:", file.name);
-            if (typeof onFileProcessed === 'function') onFileProcessed(file, 'pdf');
+            console.log("Rilevato file PDF, avvio parsing...", file.name);
+            
+            const labelSpan = uploadWrapper.querySelector('span:nth-child(2)');
+            const originalText = labelSpan.textContent;
+            labelSpan.textContent = "⏳ Analisi e pulizia del PDF in corso...";
+
+            try {
+                const pdfData = await parseCoachPDF(file);
+                
+                // Conversione del testo pulito tramite il mapper ed inserimento nello state
+                const mappedData = mapPdfTextToWorkoutData(pdfData.cleanedText);
+                state.workoutData = mappedData;
+                state.activeMesocycleIndex = 0;
+                state.activeWeek = 1;
+                state.activeDay = 1;
+
+                saveAndSync();
+                renderWorkoutList();
+
+                alert(`Scheda del coach importata con successo! Pagine totali: ${pdfData.pagesCount}.`);
+                
+                if (typeof onFileProcessed === 'function') {
+                    onFileProcessed(pdfData, 'pdf');
+                }
+            } catch (err) {
+                console.error("Errore durante il parsing del PDF:", err);
+                alert("Errore nella lettura del PDF. Assicurati di avere una connessione attiva e che il file sia valido.");
+            } finally {
+                labelSpan.textContent = originalText;
+            }
+
         } else {
             alert("Formato non supportato, bro! Usa Excel, XML o PDF.");
         }
@@ -103,8 +131,7 @@ export function renderWorkoutList() {
 
     // Inseriamo il widget di upload all'inizio del container principale
     const uploadWidget = renderUploadCard((file, type) => {
-        alert(`File caricato (${type.toUpperCase()}) -> ${file.name}`);
-        // Qui collegheremo i parser nei prossimi step
+        console.log(`File elaborato (${type.toUpperCase()}) ->`, file);
     });
     DOM.workoutListContainer.appendChild(uploadWidget);
 
