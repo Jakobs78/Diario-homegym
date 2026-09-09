@@ -1,4 +1,4 @@
-// ui_2.js - Gestione interfaccia utente, eventi DOM e componenti visivi
+// ui.js - Gestione interfaccia utente, eventi DOM e componenti visivi
 
 // ==========================================
 // 1. IMPORT & ELEMENTI DOM
@@ -34,6 +34,43 @@ export function showNotification(message) {
 }
 
 // ==========================================
+// 2.5 MODULO DI UPLOAD UNIVERSALE (PDF / EXCEL / XML)
+// ==========================================
+export function renderUploadCard(onFileProcessed) {
+    const uploadWrapper = document.createElement('div');
+    uploadWrapper.style.cssText = 'background: var(--bg-card, #18181b); border: 2px dashed #3f3f46; border-radius: 12px; padding: 16px; margin-bottom: 20px; text-align: center; transition: all 0.2s ease;';
+    
+    uploadWrapper.innerHTML = `
+        <input type="file" id="universal-coach-file" accept=".xlsx, .xlsm, .xml, .csv, .pdf" style="display: none;" />
+        <label for="universal-coach-file" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+            <span style="font-size: 1.5rem;">📥</span>
+            <span style="font-weight: 600; color: #f4f4f5; font-size: 0.95rem;">Carica la scheda del coach (PDF, Excel o XML)</span>
+            <span style="font-size: 0.75rem; color: #a1a1aa;">Trascina o seleziona il file per importare i dati automaticamente.</span>
+            <span style="font-size: 0.7rem; color: #f59e0b; margin-top: 4px; font-weight: 500;">⚠️ Nota: Per la lettura dei file PDF è richiesta una connessione a internet attiva.</span>
+        </label>
+    `;
+
+    const fileInput = uploadWrapper.querySelector('#universal-coach-file');
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (['xlsx', 'xlsm', 'xml', 'csv'].includes(ext)) {
+            console.log("Rilevato file nativo:", file.name);
+            if (typeof onFileProcessed === 'function') onFileProcessed(file, 'native');
+        } else if (ext === 'pdf') {
+            console.log("Rilevato file PDF:", file.name);
+            if (typeof onFileProcessed === 'function') onFileProcessed(file, 'pdf');
+        } else {
+            alert("Formato non supportato, bro! Usa Excel, XML o PDF.");
+        }
+    });
+
+    return uploadWrapper;
+}
+
+// ==========================================
 // 3. EVENT DELEGATION TIMER STATICO
 // ==========================================
 document.addEventListener('click', (e) => {
@@ -64,15 +101,23 @@ export function renderWorkoutList() {
     
     DOM.workoutListContainer.style.display = 'block';
 
+    // Inseriamo il widget di upload all'inizio del container principale
+    const uploadWidget = renderUploadCard((file, type) => {
+        alert(`File caricato (${type.toUpperCase()}) -> ${file.name}`);
+        // Qui collegheremo i parser nei prossimi step
+    });
+    DOM.workoutListContainer.appendChild(uploadWidget);
+
     const yearsObj = state.workoutData?.history?.years || {};
     const currentYear = new Date().getFullYear().toString();
     const yearData = yearsObj[currentYear];
 
     if (!yearData || !yearData.mesocycles || yearData.mesocycles.length === 0) {
-        DOM.workoutListContainer.innerHTML = `
-            <div class="day-card" style="text-align: center; padding: 30px;">
-                <p style="color: var(--text-muted); font-size: 0.9rem;">Nessuna scheda di allenamento trovata per il ${currentYear}.</p>
-            </div>`;
+        const emptyNotice = document.createElement('div');
+        emptyNotice.className = 'day-card';
+        emptyNotice.style.cssText = 'text-align: center; padding: 30px;';
+        emptyNotice.innerHTML = `<p style="color: var(--text-muted); font-size: 0.9rem;">Nessuna scheda di allenamento trovata per il ${currentYear}. Usa il box sopra per caricarne una.</p>`;
+        DOM.workoutListContainer.appendChild(emptyNotice);
         return;
     }
 
@@ -94,7 +139,7 @@ export function renderWorkoutList() {
         archiveBadge.innerHTML = '🔒 <span><strong>Mesociclo Bloccato:</strong> I dati sono congelati in sola lettura. Clicca sul lucchetto in alto per sbloccarlo.</span>';
         DOM.workoutListContainer.appendChild(archiveBadge);
     }
-
+    
     // BARRA NAVIGAZIONE GIORNI
     const dayTabsContainer = document.createElement('div');
     dayTabsContainer.className = 'day-tabs';
