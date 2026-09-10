@@ -1,4 +1,7 @@
 // ==========================================
+// MODULI: mesocycle.js - Gestione cicli di allenamento, navigazione mesocicli, blocco/sblocco e export PDF
+// ==========================================
+// ==========================================
 // 1. IMPORT & DIPENDENZE
 // ==========================================
 import { state } from './state.js';

@@ -1,5 +1,12 @@
-/* global XLSX */
-
+// ==========================================
+// MODULI: importer.js - Generazione template Excel di esempio e parsing di file tabellari (.xlsx, .xls, .csv)
+// ==========================================
+import { state } from './state.js';
+import { saveAndSync } from './storage.js';
+import { renderWorkoutList } from './ui.js';
+import { parseCoachPDF } from './pdfParser.js';
+import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
+import { importWorkoutPlan } from './csvHandler.js';
 // ==========================================
 // 1. GENERAZIONE E DOWNLOAD TEMPLATE EXCEL
 // ==========================================
@@ -84,4 +91,104 @@ export function parseExcelFile(file, callback) {
     };
 
     reader.readAsArrayBuffer(file);
+}
+/**
+ * Gestisce l'importazione universale di qualsiasi file (PDF, XLSX, XLS, CSV)
+ */
+export async function handleUniversalImport(file, statusMsgEl, closeModalCallback) {
+    if (!file) return;
+
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    if (statusMsgEl) {
+        statusMsgEl.style.display = 'block';
+        statusMsgEl.style.color = 'var(--primary, #007bff)';
+    }
+
+    if (ext === 'pdf') {
+        if (statusMsgEl) {
+            statusMsgEl.style.color = '#d97706';
+            statusMsgEl.textContent = "⏳ Analisi e pulizia del PDF del coach in corso...";
+        }
+
+        try {
+            const pdfData = await parseCoachPDF(file);
+            const mappedData = mapPdfTextToWorkoutData(pdfData.cleanedText);
+            
+            const currentYear = new Date().getFullYear().toString();
+            if (!state.workoutData.history) state.workoutData.history = {};
+            if (!state.workoutData.history.years) state.workoutData.history.years = {};
+            if (!state.workoutData.history.years[currentYear]) {
+                state.workoutData.history.years[currentYear] = { mesocycles: [] };
+            }
+
+            const currentMesos = state.workoutData.history.years[currentYear].mesocycles;
+            const extractedMeso = mappedData;
+
+            if (extractedMeso && extractedMeso.weeks && extractedMeso.weeks.length > 0) {
+                const nextMesoNumber = currentMesos.length + 1;
+                extractedMeso.id = `meso_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+                extractedMeso.name = `Mesociclo ${nextMesoNumber}`;
+                extractedMeso.importedAt = new Date().toISOString();
+                extractedMeso.locked = false;
+
+                currentMesos.push(extractedMeso);
+                state.activeMesocycleIndex = currentMesos.length - 1;
+                state.activeWeek = 1;
+                state.activeDay = 1;
+
+                saveAndSync(state.workoutData);
+                renderWorkoutList();
+
+                if (statusMsgEl) {
+                    statusMsgEl.style.color = '#16a34a';
+                    statusMsgEl.textContent = `✅ Mesociclo ${nextMesoNumber} importato con successo!`;
+                }
+            } else {
+                throw new Error("Impossibile strutturare il mesociclo dal file PDF.");
+            }
+
+            setTimeout(() => {
+                if (typeof closeModalCallback === 'function') closeModalCallback();
+                if (statusMsgEl) statusMsgEl.style.display = 'none';
+            }, 2000);
+
+        } catch (err) {
+            console.error("Errore parsing PDF:", err);
+            if (statusMsgEl) {
+                statusMsgEl.style.color = '#dc2626';
+                statusMsgEl.textContent = "❌ Errore nella lettura del PDF. Verifica che la connessione sia attiva e che il file sia valido.";
+            }
+        }
+    } else if (['xlsx', 'xls', 'csv'].includes(ext)) {
+        if (statusMsgEl) {
+            statusMsgEl.style.color = 'var(--primary, #007bff)';
+            statusMsgEl.textContent = "⏳ Leggendo il file Tabellare...";
+        }
+
+        parseExcelFile(file, (res) => {
+            if (!res.success) {
+                alert(res.error);
+                if (statusMsgEl) statusMsgEl.style.display = 'none';
+                return;
+            }
+
+            const result = importWorkoutPlan(res.csvData);
+
+            if (result.success) {
+                if (typeof closeModalCallback === 'function') closeModalCallback();
+                renderWorkoutList();
+                alert(result.message || "Scheda importata con successo!");
+            } else {
+                alert(result.error || "Errore durante l'importazione dei dati.");
+            }
+
+            if (statusMsgEl) statusMsgEl.style.display = 'none';
+        });
+    } else {
+        if (statusMsgEl) {
+            statusMsgEl.style.color = '#dc2626';
+            statusMsgEl.textContent = "❌ Formato non supportato. Usa .xlsx, .xls, .csv o .pdf";
+        }
+    }
 }

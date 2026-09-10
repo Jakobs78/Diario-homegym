@@ -1,4 +1,7 @@
-// exerciseCard.js - Rendering della singola card esercizio e badge dischi
+/**
+ * Module: exerciseCard.js
+ * Summary: Genera dinamicamente le card per ogni esercizio gestendo lo stato di esclusione dai massimali tramite doppio click o gesture di swipe, i selettori del bilanciere e il badge dinamico dei dischi che calcola il carico per lato (getPlateBreakdown)[cite: 27]. Include inoltre i riepiloghi dei target e le performance della sessione precedente[cite: 27].
+ */
 
 import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange, calculateSetVolumeTrend } from './helpers.js';
 import { state } from './state.js';

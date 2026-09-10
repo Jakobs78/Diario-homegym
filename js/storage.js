@@ -1,4 +1,8 @@
 // ==========================================
+// MODULI: storage.js - Persistenza locale, gestione coda offline (Sync Queue), sincronizzazione cloud e UI badge
+// ==========================================
+
+// ==========================================
 // 1. IMPORT & COSTANTI
 // ==========================================
 import { CONFIG } from './config.js';

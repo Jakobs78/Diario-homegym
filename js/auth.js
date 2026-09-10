@@ -1,4 +1,8 @@
 // ==========================================
+// MODULI: auth.js - Gestione autenticazione Supabase (login, registrazione, sessioni) e fallback offline
+// ==========================================
+
+// ==========================================
 // 1. IMPORT & DIPENDENZE
 // ==========================================
 import { supabase, CONFIG } from './config.js';

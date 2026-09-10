@@ -1,4 +1,8 @@
-import { applyTrisetDropsetGrouping } from './csvHandler.js';
+/**
+ * Module: pdfTextMapper.js
+ * Summary: Converte il testo grezzo estratto dai documenti PDF dei coach in una struttura dati gerarchica standardizzata (mesociclo, settimane, giorni, esercizi, serie) identificando i pattern relativi a settimane, giorni, set, ripetizioni, range di carico, RPE target, tempi di recupero e note[cite: 26].
+ */
+import { applyTrisetDropsetGrouping } from './helpers.js';
 
 export function mapPdfTextToWorkoutData(cleanedText, existingMesocount = 0) {
     if (!cleanedText || typeof cleanedText !== 'string') {

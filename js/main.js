@@ -1,14 +1,18 @@
+/**
+ * Module: main.js
+ * Summary: Coordina l'avvio dell'applicazione, la registrazione del Service Worker per la gestione offline, l'inizializzazione del tema, il banner di sviluppo, i listener di autenticazione di Supabase, la sincronizzazione iniziale dei dati cloud con fallback su localStorage, e l'associazione dei controlli globali per la navigazione tra mesocicli, il manuale d'uso e la gestione degli eventi dell'interfaccia.
+ */
 // ==========================================
 // 1. IMPORT & CONFIGURAZIONE
 // ==========================================
 import { CONFIG, supabase } from './config.js';
 import { state } from './state.js';
-import { getFromLocalStorage, saveToLocalStorage, saveAndSync, hasPendingSync, processSyncQueue, clearLocalData, updateSyncStatusUI,  } from './storage.js';
+import { getFromLocalStorage, saveToLocalStorage, hasPendingSync, processSyncQueue, clearLocalData, updateSyncStatusUI } from './storage.js';
 import { pullDataFromSupabase, initBackgroundSync } from './sync.js';
 import { renderWorkoutList } from './ui.js';
 import { handlePdfExportFromState } from './pdfExport.js';
-import { downloadExcelTemplate, parseExcelFile } from './importer.js';
-import { importWorkoutPlan, readCsvFile, importProgressCSV, exportToCSV } from './csvHandler.js';
+import { downloadExcelTemplate, handleUniversalImport } from './importer.js';
+import { readCsvFile, importProgressCSV, exportToCSV } from './csvHandler.js';
 import { initTheme, toggleTheme } from './theme.js';
 import { setupAuthListeners, logoutUser, checkSession } from './auth.js';
 import { deleteCurrentMesocycle, changeMesocycle, toggleCurrentMesocycleLock, exportMesoToPDF, getActiveMesocycleObject } from './mesocycle.js';
@@ -17,8 +21,6 @@ import { initAudioUnlock } from './audio.js';
 import { renderMacroKPIs, initAnalyticsEvents, renderMuscleVolumeChart, renderMesoComparisonChart, switchAnalyticsTab } from './analytics.js';
 import { setupBottomSheet } from './bottomSheet.js';
 import { initDevBanner } from './bannerSviluppo.js';
-import { parseCoachPDF } from './pdfParser.js';
-import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
 import { applyUserToUI, checkSubscriptionStatus, deleteUserAccount } from './accountManager.js';
 
 // Esposizione globale per eventi inline / retrocompatibilità
@@ -256,102 +258,9 @@ function setupEventListeners() {
         const file = e.target.files[0];
         if (!file) return;
 
-        const ext = file.name.split('.').pop().toLowerCase();
         const statusMsg = document.getElementById('import-status-msg');
-        if (statusMsg) {
-            statusMsg.style.display = 'block';
-            statusMsg.style.color = 'var(--primary, #007bff)';
-        }
-
-        if (ext === 'pdf') {
-            if (statusMsg) {
-                statusMsg.style.color = '#d97706';
-                statusMsg.textContent = "⏳ Analisi e pulizia del PDF del coach in corso...";
-            }
-
-            try {
-                const pdfData = await parseCoachPDF(file);
-                const mappedData = mapPdfTextToWorkoutData(pdfData.cleanedText);
-                
-                const currentYear = new Date().getFullYear().toString();
-                if (!state.workoutData.history) state.workoutData.history = {};
-                if (!state.workoutData.history.years) state.workoutData.history.years = {};
-                if (!state.workoutData.history.years[currentYear]) {
-                    state.workoutData.history.years[currentYear] = { mesocycles: [] };
-                }
-
-                const currentMesos = state.workoutData.history.years[currentYear].mesocycles;
-                const extractedMeso = mappedData;
-
-                if (extractedMeso && extractedMeso.weeks && extractedMeso.weeks.length > 0) {
-                    const nextMesoNumber = currentMesos.length + 1;
-                    extractedMeso.id = `meso_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-                    extractedMeso.name = `Mesociclo ${nextMesoNumber}`;
-                    extractedMeso.importedAt = new Date().toISOString();
-                    extractedMeso.locked = false;
-
-                    currentMesos.push(extractedMeso);
-                    state.activeMesocycleIndex = currentMesos.length - 1;
-                    state.activeWeek = 1;
-                    state.activeDay = 1;
-
-                    saveAndSync(state.workoutData);
-                    renderWorkoutList();
-
-                    if (statusMsg) {
-                        statusMsg.style.color = '#16a34a';
-                        statusMsg.textContent = `✅ Mesociclo ${nextMesoNumber} importato con successo!`;
-                    }
-                } else {
-                    throw new Error("Impossibile strutturare il mesociclo dal file PDF.");
-                }
-
-                setTimeout(() => {
-                    closeImportModal();
-                    if (statusMsg) statusMsg.style.display = 'none';
-                    e.target.value = '';
-                }, 2000);
-
-            } catch (err) {
-                console.error("Errore parsing PDF:", err);
-                if (statusMsg) {
-                    statusMsg.style.color = '#dc2626';
-                    statusMsg.textContent = "❌ Errore nella lettura del PDF. Verifica che la connessione sia attiva e che il file sia valido.";
-                }
-            }
-        } else if (['xlsx', 'xls', 'csv'].includes(ext)) {
-            if (statusMsg) {
-                statusMsg.style.color = 'var(--primary, #007bff)';
-                statusMsg.textContent = "⏳ Leggendo il file Tabellare...";
-            }
-
-            parseExcelFile(file, (res) => {
-                if (!res.success) {
-                    alert(res.error);
-                    if (statusMsg) statusMsg.style.display = 'none';
-                    e.target.value = '';
-                    return;
-                }
-
-                const result = importWorkoutPlan(res.csvData);
-
-                if (result.success) {
-                    closeImportModal();
-                    renderWorkoutList();
-                    alert(result.message || "Scheda importata con successo!");
-                } else {
-                    alert(result.error || "Errore durante l'importazione dei dati.");
-                }
-
-                if (statusMsg) statusMsg.style.display = 'none';
-                e.target.value = '';
-            });
-        } else {
-            if (statusMsg) {
-                statusMsg.style.color = '#dc2626';
-                statusMsg.textContent = "❌ Formato non supportato. Usa .xlsx, .xls, .csv o .pdf";
-            }
-        }
+        await handleUniversalImport(file, statusMsg, closeImportModal);
+        e.target.value = '';
     });
 
     document.getElementById('import-history-input')?.addEventListener('change', (e) => {

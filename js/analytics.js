@@ -1,4 +1,8 @@
-// js/analytics.js - Hub Analitico per Atleta e Coach
+/**
+ * Module: analytics.js
+ * Summary: Calcola indicatori chiave di prestazione tra cui aderenza, tonnellaggio netto e RPE medio, stime di 1RM, massimali storici (PR) e gestisce la visualizzazione tramite Chart.js di grafici interattivi per l'andamento del carico vs RPE, il volume muscolare settimanale per gruppo muscolare e il confronto radar tra mesocicli[cite: 30].
+ */
+
 let activeCharts = {};
 
 /**

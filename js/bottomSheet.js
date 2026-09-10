@@ -1,4 +1,6 @@
-//  - Gestione dei pannelli a scomparsa (Bottom Sheet) e modali
+// ==========================================
+// MODULI: bottomSheet.js - Controllo e gestione dei pannelli a scomparsa (Bottom Sheet) e modali interattivi
+// ==========================================
 
 export function setupBottomSheet({ modalId, openBtnId, closeBtnId, onSelect }) {
     const modal = document.getElementById(modalId);

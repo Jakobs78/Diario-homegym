@@ -1,5 +1,6 @@
-// helpers.js - Solo logica pura, calcoli matematici e formattazione stringhe
-
+// ==========================================
+// MODULI: helpers.js - Utility di logica pura, formattazione stringhe, calcolo dischi e ricerca storico
+// ==========================================
 /**
  * Pulisce una stringa o valore di ripetizioni estraendo solo il primo numero valido
  */
@@ -254,4 +255,53 @@ export function isValueOutOfRange(value, minTarget, maxTarget) {
     if (!isNaN(max) && val > max) return true;
 
     return false;
+}
+/**
+ * Assegna i tag visivi e di raggruppamento per Triset, Superset, Dropset e Jumpset
+ */
+export function applyTrisetDropsetGrouping(daysArray) {
+    if (!Array.isArray(daysArray)) return;
+    
+    daysArray.forEach(day => {
+        const exercises = day.exercises;
+        if (!exercises || exercises.length === 0) return;
+
+        let i = 0;
+        while (i < exercises.length) {
+            const ex = exercises[i];
+            const notes = (ex.notes || '').toLowerCase();
+            const name = (ex.name || '').toLowerCase();
+            const combinedText = `${name} ${notes}`;
+            
+            const isTriset = combinedText.includes('triset') || combinedText.includes('tri-set') || combinedText.includes('tri set') || combinedText.includes('triserie') || combinedText.includes('tri serie') || combinedText.includes('tri-serie');
+            const isDropset = combinedText.includes('dropset') || combinedText.includes('drop-set') || combinedText.includes('drop set') || combinedText.includes('dropserie') || combinedText.includes('drop serie') || combinedText.includes('drop-serie');
+            const isSuperset = combinedText.includes('superset') || combinedText.includes('super-set') || combinedText.includes('super set') || combinedText.includes('superserie') || combinedText.includes('super serie') || combinedText.includes('super-serie');
+            const isJumpset = combinedText.includes('jumpset') || combinedText.includes('jump-set') || combinedText.includes('jump set') || combinedText.includes('jumpserie') || combinedText.includes('jump serie') || combinedText.includes('jump-serie');
+
+            if (isDropset) {
+                ex.isDropset = true;
+                const baseBlock = String(ex.block || (i + 1)).replace(/[A-Za-z]/g, '');
+                ex.block = baseBlock || String(i + 1);
+                i++;
+            } else if (isTriset || isSuperset || isJumpset) {
+                let groupSize = isTriset ? 3 : 2;
+                const baseBlock = String(ex.block || (i + 1)).replace(/[A-Za-z]/g, '');
+                const letters = ['A', 'B', 'C', 'D', 'E'];
+                const groupType = isTriset ? 'triset' : (isSuperset ? 'superset' : 'jumpset');
+                
+                for (let j = 0; j < groupSize && (i + j) < exercises.length; j++) {
+                    const targetEx = exercises[i + j];
+                    targetEx.block = `${baseBlock || (i + 1)}${letters[j] || (j + 1)}`;
+                    targetEx.groupType = groupType;
+                    targetEx.groupBase = baseBlock || String(i + 1);
+                    targetEx.isGroupLast = (j === groupSize - 1) || ((i + j) === exercises.length - 1);
+                }
+                i += groupSize;
+            } else {
+                const baseBlock = String(ex.block || (i + 1)).replace(/[A-Za-z]/g, '');
+                ex.block = baseBlock || String(i + 1);
+                i++;
+            }
+        }
+    });
 }

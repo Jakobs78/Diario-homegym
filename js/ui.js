@@ -1,4 +1,6 @@
-// ui.js - Gestione interfaccia utente, eventi DOM e componenti visivi
+// ==========================================
+// MODULI: ui.js - Gestione interfaccia utente, eventi DOM, rendering schede allenamento e upload universale
+// ==========================================
 
 // ==========================================
 // 1. IMPORT & ELEMENTI DOM

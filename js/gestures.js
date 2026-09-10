@@ -1,4 +1,6 @@
-// gestures.js - Gestione gesti touch (swipe) per le card degli esercizi
+// ==========================================
+// MODULI: gestures.js - Gestione dei gesti touch (swipe) orizzontali per le card degli esercizi
+// ==========================================
 
 export function enableCardSwipeGesture(cardElement, onSwipeLeft, onSwipeRight) {
     if (!cardElement) return;

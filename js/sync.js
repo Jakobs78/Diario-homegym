@@ -1,3 +1,8 @@
+/**
+ * Module: sync.js
+ * Summary: Gestisce la sincronizzazione dei dati tra il client e Supabase, inclusa la pull (recupero) e push (salvataggio) di informazioni sull'allenamento[cite: 28]. Implementa anche la verifica dello stato dell'abbonamento e l'eliminazione dei dati dal cloud[cite: 28].
+ */
+
 // ==========================================
 // 1. IMPORT & CONFIGURAZIONE
 // ==========================================

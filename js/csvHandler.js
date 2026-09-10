@@ -1,8 +1,14 @@
+/**
+ * Module: csvHandler.js
+ * Summary: Fornisce un parser universale in grado di elaborare file CSV o tabelle copiate da PDF ed Excel, rilevando automaticamente il delimitatore (\t, ;, ,) e gestendo correttamente virgolette e ritorni a capo[cite: 24]. Si occupa inoltre della validazione del completamento del mesociclo attivo prima di caricare nuovi piani[cite: 24], dell'assegnazione automatica dei tag di raggruppamento visivo per Triset, Superset, Dropset e Jumpset[cite: 24], e dell'importazione/esportazione dello storico completo dei progressi sincronizzato con Supabase[cite: 24].
+ */
+
 // ==========================================
 // 1. IMPORT & DIPENDENZE
 // ==========================================
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
+import { applyTrisetDropsetGrouping } from './helpers.js';
 
 // ==========================================
 // 2. UTILITY DI PARSING E RICONOSCIMENTO COLONNE
@@ -104,54 +110,6 @@ function isMesocycleCompleted(meso) {
         }
     }
     return true;
-}
-
-/**
- * Assegna i tag visivi per Triset, Superset e Dropset
- */
-export function applyTrisetDropsetGrouping(daysArray) {
-    daysArray.forEach(day => {
-        const exercises = day.exercises;
-        if (!exercises || exercises.length === 0) return;
-
-        let i = 0;
-        while (i < exercises.length) {
-            const ex = exercises[i];
-            const notes = (ex.notes || '').toLowerCase();
-            const name = (ex.name || '').toLowerCase();
-            const combinedText = `${name} ${notes}`;
-            
-            const isTriset = combinedText.includes('triset') || combinedText.includes('tri-set') || combinedText.includes('tri set') || combinedText.includes('triserie') || combinedText.includes('tri serie') || combinedText.includes('tri-serie');
-            const isDropset = combinedText.includes('dropset') || combinedText.includes('drop-set') || combinedText.includes('drop set') || combinedText.includes('dropserie') || combinedText.includes('drop serie') || combinedText.includes('drop-serie');
-            const isSuperset = combinedText.includes('superset') || combinedText.includes('super-set') || combinedText.includes('super set') || combinedText.includes('superserie') || combinedText.includes('super serie') || combinedText.includes('super-serie');
-            const isJumpset = combinedText.includes('jumpset') || combinedText.includes('jump-set') || combinedText.includes('jump set') || combinedText.includes('jumpserie') || combinedText.includes('jump serie') || combinedText.includes('jump-serie');
-
-            if (isDropset) {
-                ex.isDropset = true;
-                const baseBlock = String(ex.block || (i + 1)).replace(/[A-Za-z]/g, '');
-                ex.block = baseBlock || String(i + 1);
-                i++;
-            } else if (isTriset || isSuperset || isJumpset) {
-                let groupSize = isTriset ? 3 : 2;
-                const baseBlock = String(ex.block || (i + 1)).replace(/[A-Za-z]/g, '');
-                const letters = ['A', 'B', 'C', 'D', 'E'];
-                const groupType = isTriset ? 'triset' : (isSuperset ? 'superset' : 'jumpset');
-                
-                for (let j = 0; j < groupSize && (i + j) < exercises.length; j++) {
-                    const targetEx = exercises[i + j];
-                    targetEx.block = `${baseBlock || (i + 1)}${letters[j] || (j + 1)}`;
-                    targetEx.groupType = groupType;
-                    targetEx.groupBase = baseBlock || String(i + 1);
-                    targetEx.isGroupLast = (j === groupSize - 1) || ((i + j) === exercises.length - 1);
-                }
-                i += groupSize;
-            } else {
-                const baseBlock = String(ex.block || (i + 1)).replace(/[A-Za-z]/g, '');
-                ex.block = baseBlock || String(i + 1);
-                i++;
-            }
-        }
-    });
 }
 
 // ==========================================

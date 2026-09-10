@@ -1,4 +1,7 @@
-// js/timer.js
+// ==========================================
+// MODULI: timer.js - Gestione del timer di recupero, parsing formati temporali, audio beep e visibilità pagina
+// ==========================================
+
 import { playBeep } from './audio.js';
 
 let timerInterval = null;

@@ -1,4 +1,6 @@
-// js/theme.js
+// ==========================================
+// MODULI: theme.js - Gestione tema visivo Dark/Light, applicazione stili e persistenza nel localStorage
+// ==========================================
 
 /**
  * Inizializza il tema salvato nel LocalStorage o imposta il tema Dark di default.

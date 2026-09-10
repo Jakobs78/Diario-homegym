@@ -1,4 +1,6 @@
-// config.js
+// ==========================================
+// MODULI: config.js - Configurazione del client Supabase e costanti globali dell'applicazione
+// ==========================================
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 // Inserisci i tuoi dati Supabase

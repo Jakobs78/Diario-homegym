@@ -1,3 +1,7 @@
+// ==========================================
+// MODULI: bannerSviluppo.js - Iniezione dinamica e gestione del banner di avviso della versione beta
+// ==========================================
+
 export function initDevBanner() {
     // Evita di ricrearlo se esiste già
     if (document.getElementById('dev-warning-banner')) return;

@@ -1,4 +1,6 @@
-// state.js
+// ==========================================
+// MODULI: state.js - Gestione dello stato reattivo globale dell'applicazione e funzione di reset
+// ==========================================
 
 export const state = {
     currentUser: null,

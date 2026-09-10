@@ -1,4 +1,6 @@
-// charts.js
+// ==========================================
+// MODULI: charts.js - Rendering grafici 1RM stimato (Formula Epley) e metriche storiche con Chart.js
+// ==========================================
 import { state } from './state.js';
 
 export function render1RMChart(canvasId, exerciseName) {

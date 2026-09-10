@@ -1,4 +1,6 @@
-// js/sessionTimer.js - Gestione del timer di sessione, pausa, completamento e reset dell'allenamento
+// ==========================================
+// MODULI: sessionTimer.js - Gestione del timer di sessione, calcolo durata e stati di completamento allenamento
+// ==========================================
 
 import { saveAndSync } from './storage.js';
 import { state } from './state.js';

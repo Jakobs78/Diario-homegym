@@ -1,7 +1,7 @@
-// pdfParser.js - Lettore di PDF per schede coach con pulizia testo e note
+// ==========================================
+// MODULI: pdfParser.js - Lettore di PDF per schede coach con ricostruzione layout spaziale Y e pulizia testo
+// ==========================================
 
-// pdfParser.js - Estrazione con ricostruzione del layout tramite coordinate Y
-// pdfParser.js
 export async function parseCoachPDF(file) {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;

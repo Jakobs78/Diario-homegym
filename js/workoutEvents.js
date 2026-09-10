@@ -1,5 +1,7 @@
-// js/workoutEvents.js - Gestione degli eventi della tabella di allenamento (input, lock set, timer di recupero)
-// Gestisce gli input di set e note, il blocco delle serie, la validazione dei range, i selettori dei bilancieri e l'avvio automatico del timer di recupero.
+/**
+ * Module: workoutEvents.js
+ * Summary: Associa gli eventi di input per la modifica in tempo reale di kg, reps, RPE e note utente, validando i range consentiti e applicando feedback visivi d'errore quando i valori escono dai parametri prescritti[cite: 25]. Gestisce il blocco delle serie (isLocked), la propagazione dei dati del primo set alle serie successive e l'avvio automatico del timer di recupero al completamento della serie[cite: 25].
+ */
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
 import { isValueOutOfRange } from './helpers.js';

@@ -1,4 +1,6 @@
-// js/audio.js
+// ==========================================
+// MODULI: audio.js - Gestione Web Audio API, sintesi acustica beep e sblocco audio per dispositivi mobili
+// ==========================================
 let audioCtx = null;
 
 function getAudioContext() {
