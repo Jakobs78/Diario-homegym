@@ -1,6 +1,6 @@
 /**
  * Module: pdfExport.js
- * Summary: Genera report formattati in PDF del giorno di allenamento con KPI di riassunto (Volume, Set, RPE, Durata) e QR Code per riaprire l'app.
+ * Summary: Genera report formattati in PDF del giorno di allenamento con KPI di riassunto (Volume, Set, RPE, Indice Volume, Durata), celle out-of-range evidenziate in rosso e QR Code per riaprire l'app.
  */
 
 import { state } from './state.js';
@@ -118,7 +118,7 @@ export async function exportWorkoutPDF(dayData = null, metadata = null) {
     y += 21;
 
     // -------------------------------------------------------------
-    // 2. SCHEDE KPI DI RIASSUNTO (VOLUME, SET, RPE, DURATA)
+    // 2. SCHEDE KPI DI RIASSUNTO (VOLUME, SET, RPE, INDICE VOLUME, DURATA)
     // -------------------------------------------------------------
     let totalVolume = 0;
     let totalSets = 0;
@@ -148,18 +148,27 @@ export async function exportWorkoutPDF(dayData = null, metadata = null) {
     const avgRpe = rpeCount > 0 ? (rpeSum / rpeCount).toFixed(1) : '-';
     const sessionTime = selectedDay.totalDurationMinutes ? `${selectedDay.totalDurationMinutes} min` : '-';
     const volumeDisplay = totalVolume >= 1000 ? `${(totalVolume / 1000).toFixed(1)} t` : `${totalVolume} kg`;
+    
+    // Recupero dell'indice di conteggio volume dalla sessione o dal DOM
+    const volumeIndexVal = selectedDay.volumeIndex !== undefined 
+        ? selectedDay.volumeIndex 
+        : (selectedDay.volumeCount !== undefined 
+            ? selectedDay.volumeCount 
+            : (document?.getElementById?.('volume-index')?.innerText || '-'));
 
     const kpiCards = [
         { label: "TONNELLAGGIO", val: volumeDisplay, color: [2, 132, 199] },
         { label: "SET COMPLETATI", val: `${completedSets}/${totalSets}`, color: [22, 163, 74] },
         { label: "RPE MEDIO", val: avgRpe, color: [217, 119, 6] },
+        { label: "INDICE VOLUME", val: String(volumeIndexVal), color: [147, 51, 234] },
         { label: "DURATA", val: sessionTime, color: [109, 40, 217] }
     ];
 
-    const kpiBoxWidth = (contentWidth - 9) / 4;
+    const totalGap = (kpiCards.length - 1) * 2;
+    const kpiBoxWidth = (contentWidth - totalGap) / kpiCards.length;
 
     kpiCards.forEach((kpi, kIdx) => {
-        const kX = margin + (kIdx * (kpiBoxWidth + 3));
+        const kX = margin + (kIdx * (kpiBoxWidth + 2));
 
         doc.setFillColor(248, 250, 252);
         doc.setDrawColor(226, 232, 240);
@@ -396,13 +405,41 @@ export async function exportWorkoutPDF(dayData = null, metadata = null) {
                     const repsText = (s.reps !== undefined && String(s.reps).trim() !== '') ? String(s.reps) : '-';
                     const rpeText = (s.rpe !== undefined && String(s.rpe).trim() !== '') ? (String(s.rpe).startsWith('@') ? s.rpe : `@${s.rpe}`) : '-';
 
+                    const isOutOfRange = Boolean(s.isOutOfRange || s.outOfRange || s.isRed);
+
                     doc.setFont("helvetica", "bold");
                     doc.setFontSize(7.5);
-                    doc.setTextColor(15, 23, 42);
 
-                    doc.text(kgText, xCurr + 2, y + 3.8); xCurr += colWidths.kg;
-                    doc.text(repsText, xCurr + 2, y + 3.8); xCurr += colWidths.reps;
-                    doc.text(rpeText, xCurr + 2, y + 3.8); xCurr += colWidths.rpe;
+                    // Gestione evidenziazione contorno rosso (out of range)
+                    if (isOutOfRange) {
+                        doc.setDrawColor(239, 68, 68); // #ef4444 rosso
+                        doc.setLineWidth(0.4);
+                        doc.setFillColor(255, 255, 255); // Sfondo trasparente/bianco come richiesto
+                        doc.roundedRect(xCurr + 1, y + 0.6, colWidths.kg - 2, 4.3, 1, 1, 'FD');
+                        doc.setTextColor(220, 38, 38);
+                    } else {
+                        doc.setTextColor(15, 23, 42);
+                    }
+
+                    doc.text(kgText, xCurr + 2, y + 3.8); 
+                    xCurr += colWidths.kg;
+
+                    if (isOutOfRange) {
+                        doc.setDrawColor(239, 68, 68);
+                        doc.setLineWidth(0.4);
+                        doc.setFillColor(255, 255, 255);
+                        doc.roundedRect(xCurr + 1, y + 0.6, colWidths.reps - 2, 4.3, 1, 1, 'FD');
+                        doc.setTextColor(220, 38, 38);
+                    } else {
+                        doc.setTextColor(15, 23, 42);
+                    }
+
+                    doc.text(repsText, xCurr + 2, y + 3.8); 
+                    xCurr += colWidths.reps;
+
+                    doc.setTextColor(15, 23, 42);
+                    doc.text(rpeText, xCurr + 2, y + 3.8); 
+                    xCurr += colWidths.rpe;
 
                     doc.setFillColor(220, 252, 231);
                     doc.roundedRect(xCurr + 1, y + 1, 15, 3.8, 1, 1, 'F');

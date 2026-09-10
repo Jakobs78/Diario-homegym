@@ -47,6 +47,9 @@ export function assignMuscleGroup(exerciseName) {
 /**
  * Genera l'HTML formattato per il riassunto dell'esercizio (peso, set/reps, rest)
  */
+/**
+ * Genera l'HTML formattato per il riassunto dell'esercizio (peso, topset, set/reps, rest)
+ */
 export function formatExerciseSummary(ex) {
     if (!ex) return '';
 
@@ -78,17 +81,28 @@ export function formatExerciseSummary(ex) {
     const rpe = getCell('rpe');
     const recupero = getCell('recupero', 'rest', 'recovery');
 
-    let weightPart = '';
     const isValidVal = (val) => val && String(val).trim() !== '' && String(val).trim() !== '-' && String(val).trim() !== '0' && String(val).trim() !== '0,0' && String(val).trim() !== '0.0';
     
     const hasKgRange = isValidVal(kgMin) && isValidVal(kgMax);
     const hasTopset = isValidVal(topset);
 
+    // Costruzione dinamica dei pesi (Range + Topset)
+    const weightParts = [];
+
     if (hasKgRange) {
-        weightPart = `<span style="color: #dc2626; font-weight: 700;">${kgMin}-${kgMax} kg</span>`;
-    } else if (hasTopset) {
-        const cleanTopset = topset.toLowerCase().includes('topset') ? topset : `Topset ${topset}`;
-        weightPart = `<span style="color: #dc2626; font-weight: 700;">${cleanTopset}</span>`;
+        weightParts.push(`${kgMin}-${kgMax} kg`);
+    } else if (isValidVal(kgMin)) {
+        weightParts.push(`${kgMin} kg`);
+    }
+
+    if (hasTopset) {
+        const cleanTopset = topset.toLowerCase().includes('topset') ? topset : `topset: ${topset}${topset.toLowerCase().includes('kg') ? '' : ' kg'}`;
+        weightParts.push(cleanTopset);
+    }
+
+    let weightPart = '';
+    if (weightParts.length > 0) {
+        weightPart = `<span style="color: #dc2626; font-weight: 700;">${weightParts.join(' | ')}</span>`;
     } else {
         weightPart = `<span style="color: #dc2626; font-weight: 700;">--</span>`;
     }

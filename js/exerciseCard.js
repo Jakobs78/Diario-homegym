@@ -1,6 +1,6 @@
 /**
  * Module: exerciseCard.js
- * Summary: Genera dinamicamente le card per ogni esercizio gestendo lo stato di esclusione dai massimali tramite doppio click o gesture di swipe, i selettori del bilanciere e il badge dinamico dei dischi che calcola il carico per lato (getPlateBreakdown)[cite: 27]. Include inoltre i riepiloghi dei target e le performance della sessione precedente[cite: 27].
+ * Summary: Genera dinamicamente le card per ogni esercizio gestendo lo stato di esclusione dai massimali, i selettori del bilanciere, il calcolo dei dischi per lato e l'evidenziatura automatica fuori target per KG (inclusi Topset), REPS ed RPE.
  */
 
 import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange, calculateSetVolumeTrend } from './helpers.js';
@@ -49,7 +49,6 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         
         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; font-size: 0.8rem; color: #334155; font-family: monospace;">
             <strong>TARGET:</strong> ${formatExerciseSummary(ex)}${ (ex.targetRpe || ex.rpeTarget || ex.rpe) ? ` | ${ex.targetRpe || ex.rpeTarget || ex.rpe}` : '' }
-        </div>
         </div>
     `;
 
@@ -139,16 +138,43 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         const displayReps = setObj.reps !== undefined && setObj.reps !== '' ? setObj.reps : defaultTargetReps;
         const displayRpe = setObj.rpe !== undefined && setObj.rpe !== '' ? setObj.rpe : (ex.targetRpe || ex.rpe || '');
 
-        const isRepsOutOfRange = isValueOutOfRange(displayReps, ex.minReps, ex.maxReps);
-        const isKgOutOfRange = isValueOutOfRange(displayWeight, ex.kgMin, ex.kgMax);
+        // Calcolo dei target min/max considerando l'eventuale carico Topset
+        let currentKgMin = ex.kgMin;
+        let currentKgMax = ex.kgMax;
 
-        const repsStyle = isRepsOutOfRange 
-            ? 'border: 2px solid #ef4444 !important; background-color: #fef2f2 !important; color: #dc2626 !important;' 
-            : `background: ${isDisabled ? '#f1f5f9' : '#ffffff'}; color: ${!setObj.reps && prevSet?.reps && !isLocked ? '#94a3b8' : '#0f172a'}; border: 1px solid #cbd5e1;`;
+        // Se è la prima serie (o serie Topset) e ci sono range specifici per il Topset
+        if ((setIdx === 0 || setObj.isTopset) && (ex.topsetKgMin || ex.topsetKgMax || ex.topsetKg)) {
+            currentKgMin = ex.topsetKgMin || ex.topsetKg;
+            currentKgMax = ex.topsetKgMax || ex.topsetKg;
+        }
 
-        const kgStyle = isKgOutOfRange 
-            ? 'border: 2px solid #ef4444 !important; background-color: #fef2f2 !important; color: #dc2626 !important;' 
-            : `background: ${isDisabled ? '#f1f5f9' : '#ffffff'}; color: ${!setObj.weight && prevSet?.weight && !isLocked ? '#94a3b8' : '#0f172a'}; border: 1px solid #cbd5e1;`;
+        // Verifica se fuori target
+        const isKgOutOfRange = isValueOutOfRange(displayWeight, currentKgMin, currentKgMax);
+        const isRepsOutOfRange = isValueOutOfRange(displayReps, ex.minReps || ex.reps, ex.maxReps || ex.reps);
+
+        const targetRpeStr = String(ex.targetRpe || ex.rpeTarget || ex.rpe || '').replace('@', '').trim();
+        let minRpe = ex.minRpe;
+        let maxRpe = ex.maxRpe;
+        if (!minRpe && !maxRpe && targetRpeStr.includes('-')) {
+            const parts = targetRpeStr.split('-');
+            minRpe = parts[0];
+            maxRpe = parts[1];
+        } else if (!minRpe && !maxRpe && targetRpeStr) {
+            minRpe = targetRpeStr;
+            maxRpe = targetRpeStr;
+        }
+
+        const cleanDisplayRpe = String(displayRpe).replace('@', '').trim();
+        const isRpeOutOfRange = isValueOutOfRange(cleanDisplayRpe, minRpe, maxRpe);
+
+        // Applicazione classi dinamiche
+        const kgClass = `set-input set-kg ${isKgOutOfRange ? 'input-out-of-range' : ''}`;
+        const repsClass = `set-input set-reps ${isRepsOutOfRange ? 'input-out-of-range' : ''}`;
+        const rpeClass = `set-input set-rpe ${isRpeOutOfRange ? 'input-out-of-range' : ''}`;
+
+        // Calcolo colori e bordi di default (preserva la grafica originale)
+        const kgTextColor = (!setObj.weight && prevSet?.weight && !isLocked) ? '#94a3b8' : '#0f172a';
+        const repsTextColor = (!setObj.reps && prevSet?.reps && !isLocked) ? '#94a3b8' : '#0f172a';
 
         cardHtml += `
             <tr style="border-bottom: 1px solid #e2e8f0;">
@@ -159,13 +185,13 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                     </div>
                 </td>
                 <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                    <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-kg" data-ex="${exIdx}" data-set="${setIdx}" value="${displayWeight}" placeholder="${prevSet?.weight || 'Kg'}" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border-radius: 4px; padding: 4px; font-weight: 800; ${kgStyle}">
+                    <input type="text" inputmode="decimal" autocomplete="off" class="${kgClass}" data-ex="${exIdx}" data-set="${setIdx}" value="${displayWeight}" placeholder="${prevSet?.weight || 'Kg'}" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; color: ${kgTextColor}; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
                 </td>
                 <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                    <input type="text" inputmode="numeric" autocomplete="off" class="set-input set-reps" data-ex="${exIdx}" data-set="${setIdx}" value="${displayReps}" placeholder="${prevSet?.reps || 'reps'}" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border-radius: 4px; padding: 4px; font-weight: 800; ${repsStyle}">
+                    <input type="text" inputmode="numeric" autocomplete="off" class="${repsClass}" data-ex="${exIdx}" data-set="${setIdx}" value="${displayReps}" placeholder="${prevSet?.reps || 'reps'}" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; color: ${repsTextColor}; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
                 </td>
                 <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
-                    <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe" data-ex="${exIdx}" data-set="${setIdx}" value="${displayRpe}" placeholder="RPE" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
+                    <input type="text" inputmode="decimal" autocomplete="off" class="${rpeClass}" data-ex="${exIdx}" data-set="${setIdx}" value="${displayRpe}" placeholder="RPE" ${isDisabled ? 'disabled' : ''} style="width: 100%; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; font-weight: 800; background: ${isDisabled ? '#f1f5f9' : '#ffffff'};">
                 </td>
                 <td style="padding: 4px; text-align: center;">
                     <input type="checkbox" class="set-lock-check" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''} style="width: 18px; height: 18px; cursor: pointer;">
@@ -181,7 +207,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     `;
 
     exCard.innerHTML = cardHtml;
-    // Gestione esclusione esercizio (doppio click e swipe)
+
     const toggleExclusion = () => {
         if (isPastMeso) return;
         currentDay.exercises[exIdx].isExcluded = !currentDay.exercises[exIdx].isExcluded;
@@ -199,7 +225,6 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
 }
 
 export function updatePlatesBadgeUI(exIdx) {
-    // Cerca direttamente la card dell'esercizio nel DOM globale usando l'indice
     const card = document.querySelector(`.exercise-card[data-ex="${exIdx}"]`);
     if (!card) return;
 

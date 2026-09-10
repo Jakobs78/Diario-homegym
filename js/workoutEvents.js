@@ -1,6 +1,6 @@
 /**
  * Module: workoutEvents.js
- * Summary: Associa gli eventi di input per la modifica in tempo reale di kg, reps, RPE e note utente, validando i range consentiti e applicando feedback visivi d'errore quando i valori escono dai parametri prescritti[cite: 25]. Gestisce il blocco delle serie (isLocked), la propagazione dei dati del primo set alle serie successive e l'avvio automatico del timer di recupero al completamento della serie[cite: 25].
+ * Summary: Associa gli eventi di input per la modifica in tempo reale di kg, reps, RPE e note utente, validando i range consentiti e applicando feedback visivi d'errore quando i valori escono dai parametri prescritti. Gestisce il blocco delle serie (isLocked), la propagazione dei dati del primo set alle serie successive e l'avvio automatico del timer di recupero al completamento della serie.
  */
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
@@ -23,24 +23,25 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
         input.addEventListener('focus', (e) => e.target.select());
 
         input.addEventListener('input', (e) => {
-            const exIdx = e.target.dataset.ex;
+            const target = e.target;
+            const exIdx = target.dataset.ex;
             const ex = currentDay.exercises[exIdx];
             if (!ex) return;
 
-            if (e.target.classList.contains('ex-user-notes')) {
-                ex.userNotes = e.target.value;
+            if (target.classList.contains('ex-user-notes')) {
+                ex.userNotes = target.value;
                 saveAndSync(state.workoutData);
                 return;
             }
 
-            const setIdx = parseInt(e.target.dataset.set, 10);
+            const setIdx = parseInt(target.dataset.set, 10);
             const setObj = ex.loggedSets?.[setIdx];
             if (!setObj) return;
 
-            const val = e.target.value;
-            const isKg = e.target.classList.contains('set-kg');
-            const isReps = e.target.classList.contains('set-reps');
-            const isRpe = e.target.classList.contains('set-rpe');
+            const val = target.value;
+            const isKg = target.classList.contains('set-kg');
+            const isReps = target.classList.contains('set-reps');
+            const isRpe = target.classList.contains('set-rpe');
 
             if (isKg) {
                 const raw = val.trim();
@@ -53,22 +54,36 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                 updatePlatesBadgeUI(exIdx);
             }
 
-            if (isKg || isReps) {
-                const minVal = isKg ? ex.kgMin : ex.minReps;
-                const maxVal = isKg ? ex.kgMax : ex.maxReps;
-                const parsedVal = isKg ? val.replace(',', '.') : val;
+            if (isKg || isReps || isRpe) {
+            let minVal, maxVal, parsedVal;
 
-                if (isValueOutOfRange(parsedVal, minVal, maxVal)) {
-                    e.target.style.setProperty('border', '2px solid #ef4444', 'important');
-                    e.target.style.setProperty('background-color', '#fef2f2', 'important');
-                    e.target.style.setProperty('color', '#dc2626', 'important');
+            if (isKg) {
+                // Se si tratta del Topset (prima serie o flag isTopset), usiamo i dati del Topset se presenti
+                const isTopsetRow = setIdx === 0 || setObj.isTopset;
+                const hasTopsetTarget = ex.topsetKgMin || ex.topsetKgMax || ex.topsetKg;
+
+                if (isTopsetRow && hasTopsetTarget) {
+                    minVal = ex.topsetKgMin || ex.topsetKg;
+                    maxVal = ex.topsetKgMax || ex.topsetKg;
                 } else {
-                    e.target.style.background = '#ffffff';
-                    e.target.style.borderColor = '#cbd5e1';
-                    e.target.style.color = '#0f172a';
+                    minVal = ex.kgMin;
+                    maxVal = ex.kgMax;
                 }
+                parsedVal = val.replace(',', '.');
+            } else if (isReps) {
+                minVal = ex.minReps || ex.reps;
+                maxVal = ex.maxReps || ex.reps;
+                parsedVal = val;
+            } else if (isRpe) {
+                const targetRpeStr = String(ex.targetRpe || ex.rpeTarget || ex.rpe || '').replace('@', '').trim();
+                minVal = ex.minRpe || (targetRpeStr.includes('-') ? targetRpeStr.split('-')[0] : targetRpeStr);
+                maxVal = ex.maxRpe || (targetRpeStr.includes('-') ? targetRpeStr.split('-')[1] : targetRpeStr);
+                parsedVal = val.replace('@', '').replace(',', '.').trim();
             }
 
+            const isOut = isValueOutOfRange(parsedVal, minVal, maxVal);
+            target.classList.toggle('input-out-of-range', isOut);
+        }
             saveAndSync(state.workoutData);
         });
     });
@@ -145,37 +160,34 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
 
                     const isKgField = inp.classList.contains('set-kg');
                     const isRepsField = inp.classList.contains('set-reps');
+                    const isRpeField = inp.classList.contains('set-rpe');
                     let isOut = false;
 
                     if (isKgField) isOut = isValueOutOfRange(inp.value, ex.kgMin, ex.kgMax);
-                    if (isRepsField) isOut = isValueOutOfRange(inp.value, ex.minReps, ex.maxReps);
-
-                    if (isOut) {
-                        inp.style.setProperty('border', '2px solid #ef4444', 'important');
-                        inp.style.setProperty('background-color', '#fef2f2', 'important');
-                        inp.style.setProperty('color', '#dc2626', 'important');
-                    } else {
-                        inp.style.background = isRowLocked ? '#f1f5f9' : '#ffffff';
-                        inp.style.borderColor = '#cbd5e1';
-                        inp.style.color = '#0f172a';
+                    if (isRepsField) isOut = isValueOutOfRange(inp.value, ex.minReps || ex.reps, ex.maxReps || ex.reps);
+                    if (isRpeField) {
+                        const targetRpeStr = String(ex.targetRpe || ex.rpeTarget || ex.rpe || '').replace('@', '').trim();
+                        const minRpe = ex.minRpe || (targetRpeStr.includes('-') ? targetRpeStr.split('-')[0] : targetRpeStr);
+                        const maxRpe = ex.maxRpe || (targetRpeStr.includes('-') ? targetRpeStr.split('-')[1] : targetRpeStr);
+                        isOut = isValueOutOfRange(String(inp.value).replace('@', '').trim(), minRpe, maxRpe);
                     }
+
+                    inp.classList.toggle('input-out-of-range', isOut);
                 });
             }
 
-           if (isChecked) {
+            if (isChecked) {
                 const isMiddleOfGroup = ex.groupType && !ex.isGroupLast;
                 const isDropset = ex.isDropset || ex.groupType === 'dropset';
                 const totalSets = ex.loggedSets?.length || ex.sets?.length || 1;
                 const isLastSetOfExercise = setIdx === (totalSets - 1);
 
-                // Controlla se nelle note il coach ha specificato una pausa tra gli esercizi
                 const notesLower = (ex.notes || '').toLowerCase();
                 const hasRestBetweenExercises = notesLower.includes('pausa') || 
                                               notesLower.includes('fra uno') || 
                                               notesLower.includes('tra uno') || 
                                               notesLower.includes('riposo');
 
-                // Se c'è l'istruzione di pausa tra un esercizio e l'altro, non saltiamo il timer
                 const shouldSkipTimer = (isMiddleOfGroup && !hasRestBetweenExercises) || (isDropset && !isLastSetOfExercise);
 
                 if (!shouldSkipTimer) {
@@ -189,7 +201,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                     }
 
                     if (!rawRecovery || String(rawRecovery).trim() === '') {
-                        rawRecovery = '1:30 min'; // Precompila con 1:30 se vuoto
+                        rawRecovery = '1:30 min';
                         ex.rest = '1:30 min';
                     }
 
