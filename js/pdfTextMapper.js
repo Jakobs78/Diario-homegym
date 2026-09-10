@@ -1,5 +1,3 @@
-// pdfTextMapper.js - Versione con pulizia dei kg nei range e supporto note/RPE
-
 import { applyTrisetDropsetGrouping } from './csvHandler.js';
 
 export function mapPdfTextToWorkoutData(cleanedText, existingMesocount = 0) {
@@ -9,7 +7,6 @@ export function mapPdfTextToWorkoutData(cleanedText, existingMesocount = 0) {
 
     const nextMesoNumber = existingMesocount + 1;
 
-    // Struttura del singolo mesociclo da accodare
     const newMesocycle = {
         id: `meso_${crypto.randomUUID()}`,
         name: `Mesociclo ${nextMesoNumber}`,
@@ -24,7 +21,9 @@ export function mapPdfTextToWorkoutData(cleanedText, existingMesocount = 0) {
     let currentDay = null;
     let lastExercise = null;
 
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
         // Intercetta cambio Settimana
         const weekMatch = line.match(/(?:^|--- PAGINA \d+ --- )?\bSettimana\s+(\d+)/i);
         if (weekMatch && line.toLowerCase().includes("settimana")) {
@@ -58,6 +57,19 @@ export function mapPdfTextToWorkoutData(cleanedText, existingMesocount = 0) {
             continue;
         }
 
+        // Intercetta riga RPE isolata (quando nel PDF va a capo, es. "@6,0")
+        const standaloneRpeMatch = line.match(/^@\s*(\d+(?:[.,]\d+)?)/i);
+        if (standaloneRpeMatch && lastExercise) {
+            const val = standaloneRpeMatch[1];
+            const rpeVal = `@${val.replace(',', '.')}`;
+            lastExercise.targetRpe = rpeVal;
+            lastExercise.rpeTarget = rpeVal;
+            if (lastExercise.loggedSets) {
+                lastExercise.loggedSets.forEach(s => s.rpe = rpeVal);
+            }
+            continue;
+        }
+
         // Intercetta riga Esercizio
         const exMatch = line.match(/^(.+?)\s+(\d+)\s*set\s*x\s*([\d\-]+)\s*rep(.*)$/i);
         if (exMatch) {
@@ -67,14 +79,13 @@ export function mapPdfTextToWorkoutData(cleanedText, existingMesocount = 0) {
             const restOfLine = exMatch[4];
 
             const cleanName = cleanExerciseName(rawName);
-            const rpeTarget = extractRPEFromLine(line, restOfLine);
             const targets = extractTargetMetrics(restOfLine);
 
             if (currentDay) {
                 const loggedSets = Array.from({ length: targetSets }, () => ({
                     weight: "",
                     reps: "",
-                    rpe: "",
+                    rpe: targets.rpe, // Assegna l'RPE se trovato sulla stessa riga
                     isLocked: false
                 }));
 
@@ -88,8 +99,8 @@ export function mapPdfTextToWorkoutData(cleanedText, existingMesocount = 0) {
                     topset: targets.topset,
                     kgMin: targets.kgMin,
                     kgMax: targets.kgMax,
-                    rpeTarget: rpeTarget,
-                    targetRpe: rpeTarget,
+                    targetRpe: targets.rpe,
+                    rpeTarget: targets.rpe,
                     rest: targets.rest,
                     notes: targets.notes,
                     loggedSets: loggedSets
@@ -99,6 +110,7 @@ export function mapPdfTextToWorkoutData(cleanedText, existingMesocount = 0) {
                 lastExercise = newExercise;
             }
         } else if (lastExercise && !line.includes("ESERCIZIO") && !line.includes("--- PAGINA")) {
+            // Eventuali note multilinea vengono accodate
             lastExercise.notes = lastExercise.notes ? `${lastExercise.notes} ${line}` : line;
         }
     }
@@ -115,43 +127,26 @@ export function mapPdfTextToWorkoutData(cleanedText, existingMesocount = 0) {
     return newMesocycle;
 }
 
-function extractRPEFromLine(fullLine, restOfLine) {
-    const atMatch = restOfLine.match(/@\s*(\d+(?:[.,]\d+)?)/);
-    if (atMatch) return `@${atMatch[1].replace(',', '.')}`;
-
-    const numbersInRest = [...restOfLine.matchAll(/(\d+(?:[.,]\d+)?)/g)];
-    for (const match of numbersInRest) {
-        const valStr = match[1].replace(',', '.');
-        const num = parseFloat(valStr);
-        const index = match.index;
-        const surrounding = restOfLine.substring(Math.max(0, index - 3), Math.min(restOfLine.length, index + 6));
-        
-        if (num >= 5 && num <= 10 && !surrounding.includes('kg') && !surrounding.includes('min') && !surrounding.includes('%')) {
-            return `@${match[1]}`;
-        }
-    }
-
-    const globalMatch = fullLine.match(/rpe\s*[:=@]?\s*(\d+(?:[.,]\d+)?)/i);
-    if (globalMatch) return `@${globalMatch[1]}`;
-
-    return "";
-}
-
 function extractTargetMetrics(restOfLine) {
     let kgMin = "";
     let kgMax = "";
     let topset = "";
     let rest = "";
+    let rpe = "";
+
+    const rpeMatch = restOfLine.match(/(?:rpe\s*[:=]?\s*|@)\s*(\d+(?:[.,]\d+)?)|(\d+(?:[.,]\d+)?)\s*rpe/i);
+    if (rpeMatch) {
+        const val = rpeMatch[1] || rpeMatch[2];
+        rpe = `@${val.replace(',', '.')}`;
+    }
 
     const restMatch = restOfLine.match(/(\d+(?:[.,]\d+)?\s*(?:min|minuti|'|"|sec|s\b))/i);
     if (restMatch) {
         rest = restMatch[0].trim();
     } else {
-        // Se nel testo del PDF non è specificato alcun recupero, precompila con 120 secondi di default
         rest = "120s";
     }
 
-    // Salviamo solo i valori numerici senza la stringa "kg" per evitare il raddoppio nella UI
     const rangeKgMatch = restOfLine.match(/(\d+(?:[.,]\d+)?)\s*-\s*(\d+(?:[.,]\d+)?)\s*kg/i);
     if (rangeKgMatch) {
         kgMin = rangeKgMatch[1];
@@ -167,17 +162,18 @@ function extractTargetMetrics(restOfLine) {
     }
 
     const notes = restOfLine
+        .replace(/(?:rpe\s*[:=]?\s*|@)\s*\d+(?:[.,]\d+)?/gi, '')
+        .replace(/\d+(?:[.,]\d+)?\s*rpe/gi, '')
         .replace(/\d+([.,]\d+)?\s*%/g, '')
         .replace(/\d+([.,]\d+)?\s*-\s*\d+([.,]\d+)?\s*kg/gi, '')
         .replace(/\d+([.,]\d+)?\s*kg/gi, '')
         .replace(/\d+([.,]\d+)?\s*m\/s/gi, '')
-        .replace(/@\d+([.,]\d+)?/g, '')
         .replace(/^[-–—\s\d.,]+/, '')
         .replace(/[-–—\s]+$/, '')
         .replace(/\s+/g, ' ')
         .trim();
 
-    return { kgMin, kgMax, topset, rest, notes };
+    return { kgMin, kgMax, topset, rest, rpe, notes };
 }
 
 function cleanExerciseName(rawText) {

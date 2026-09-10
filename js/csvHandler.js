@@ -124,17 +124,18 @@ export function applyTrisetDropsetGrouping(daysArray) {
             const isTriset = combinedText.includes('triset') || combinedText.includes('tri-set') || combinedText.includes('tri set') || combinedText.includes('triserie') || combinedText.includes('tri serie') || combinedText.includes('tri-serie');
             const isDropset = combinedText.includes('dropset') || combinedText.includes('drop-set') || combinedText.includes('drop set') || combinedText.includes('dropserie') || combinedText.includes('drop serie') || combinedText.includes('drop-serie');
             const isSuperset = combinedText.includes('superset') || combinedText.includes('super-set') || combinedText.includes('super set') || combinedText.includes('superserie') || combinedText.includes('super serie') || combinedText.includes('super-serie');
+            const isJumpset = combinedText.includes('jumpset') || combinedText.includes('jump-set') || combinedText.includes('jump set') || combinedText.includes('jumpserie') || combinedText.includes('jump serie') || combinedText.includes('jump-serie');
 
             if (isDropset) {
                 ex.isDropset = true;
                 const baseBlock = String(ex.block || (i + 1)).replace(/[A-Za-z]/g, '');
                 ex.block = baseBlock || String(i + 1);
                 i++;
-            } else if (isTriset || isSuperset) {
+            } else if (isTriset || isSuperset || isJumpset) {
                 let groupSize = isTriset ? 3 : 2;
                 const baseBlock = String(ex.block || (i + 1)).replace(/[A-Za-z]/g, '');
                 const letters = ['A', 'B', 'C', 'D', 'E'];
-                const groupType = isTriset ? 'triset' : 'superset';
+                const groupType = isTriset ? 'triset' : (isSuperset ? 'superset' : 'jumpset');
                 
                 for (let j = 0; j < groupSize && (i + j) < exercises.length; j++) {
                     const targetEx = exercises[i + j];

@@ -166,7 +166,15 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                 const totalSets = ex.loggedSets?.length || ex.sets?.length || 1;
                 const isLastSetOfExercise = setIdx === (totalSets - 1);
 
-                const shouldSkipTimer = isMiddleOfGroup || (isDropset && !isLastSetOfExercise);
+                // Controlla se nelle note il coach ha specificato una pausa tra gli esercizi
+                const notesLower = (ex.notes || '').toLowerCase();
+                const hasRestBetweenExercises = notesLower.includes('pausa') || 
+                                              notesLower.includes('fra uno') || 
+                                              notesLower.includes('tra uno') || 
+                                              notesLower.includes('riposo');
+
+                // Se c'è l'istruzione di pausa tra un esercizio e l'altro, non saltiamo il timer
+                const shouldSkipTimer = (isMiddleOfGroup && !hasRestBetweenExercises) || (isDropset && !isLastSetOfExercise);
 
                 if (!shouldSkipTimer) {
                     let rawRecovery = '';
@@ -179,8 +187,8 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                     }
 
                     if (!rawRecovery || String(rawRecovery).trim() === '') {
-                        rawRecovery = 120;
-                        ex.rest = 120; // Popola e salva il default sul record dell'esercizio
+                        rawRecovery = '1:30 min'; // Precompila con 1:30 se vuoto
+                        ex.rest = '1:30 min';
                     }
 
                     const recoveryTime = parseRecoveryTime(rawRecovery);
