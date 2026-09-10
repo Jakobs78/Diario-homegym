@@ -314,3 +314,25 @@ export function initAnalyticsEvents(workoutData) {
     renderMuscleVolumeChart('chart-muscle-volume', workoutData);
     renderMesoComparisonChart('chart-compare-mesos', null, null);
 }
+export function switchAnalyticsTab(tabId, state, renderMacroKPIs, renderMuscleVolumeChart, initAnalyticsEvents, renderMesoComparisonChart) {
+    document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.sub-tab-content').forEach(content => content.classList.remove('active'));
+
+    const selectedContent = document.getElementById(tabId);
+    if (selectedContent) selectedContent.classList.add('active');
+
+    const activeBtn = Array.from(document.querySelectorAll('.sub-tab-btn'))
+        .find(btn => btn.getAttribute('onclick')?.includes(tabId));
+    if (activeBtn) activeBtn.classList.add('active');
+
+    if (state.workoutData) {
+        if (tabId === 'subtab-macro') {
+            renderMacroKPIs(state.workoutData);
+            renderMuscleVolumeChart('chart-muscle-volume', state.workoutData);
+        } else if (tabId === 'subtab-micro') {
+            initAnalyticsEvents(state.workoutData);
+        } else if (tabId === 'subtab-compare') {
+            renderMesoComparisonChart('chart-compare-mesos', null, null);
+        }
+    }
+}

@@ -2,6 +2,9 @@
 // 1. IMPORT & CONFIGURAZIONE
 // ==========================================
 import { supabase } from './config.js';
+import { getFromLocalStorage, saveToLocalStorage, hasPendingSync, processSyncQueue, updateSyncStatusUI } from './storage.js';
+import { checkSession } from './auth.js';
+import { renderWorkoutList } from './ui.js';
 
 /**
  * Utility interna per estrarre l'email da un oggetto utente o da una stringa
@@ -133,4 +136,59 @@ export async function deleteCloudData(userOrEmail = null) {
         console.error("❌ Errore durante l'eliminazione da Supabase:", err.message);
         throw err;
     }
+}
+// ==========================================
+// 6. SINCRONIZZAZIONE IN BACKGROUND
+// ==========================================
+let syncToastTimer = null;
+
+function showSyncToast(message) {
+    let toast = document.getElementById('sync-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'sync-toast';
+        toast.style.cssText = "position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.85); color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; z-index: 9999; transition: opacity 0.3s ease; opacity: 0; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.2);";
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.style.opacity = '1';
+    
+    if (syncToastTimer) clearTimeout(syncToastTimer);
+    syncToastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+}
+
+export function initBackgroundSync(state) {
+    const handleSyncTrigger = async () => {
+        if (document.visibilityState === 'visible' && navigator.onLine) {
+            try {
+                const user = await checkSession();
+                if (!user) return;
+
+                if (hasPendingSync()) {
+                    await processSyncQueue();
+                }
+
+                const remoteData = await pullDataFromSupabase(user);
+                if (remoteData) {
+                    const localData = getFromLocalStorage();
+                    const localTime = new Date(localData.updatedAt || 0).getTime();
+                    const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
+
+                    if (remoteTime > localTime) {
+                        state.workoutData = remoteData;
+                        saveToLocalStorage(remoteData);
+                        renderWorkoutList();
+                        updateSyncStatusUI();
+                        showSyncToast("Dati aggiornati dal cloud ✨");
+                    }
+                }
+            } catch (err) {
+                console.warn("Impossibile sincronizzare al risveglio da standby:", err);
+            }
+        }
+    };
+
+    document.addEventListener('visibilitychange', handleSyncTrigger);
+    window.addEventListener('online', handleSyncTrigger);
+    window.addEventListener('focus', handleSyncTrigger);
 }

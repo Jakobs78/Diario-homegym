@@ -3,18 +3,10 @@
 // ==========================================
 import { CONFIG, supabase } from './config.js';
 import { state } from './state.js';
-import { 
-    getFromLocalStorage, 
-    saveToLocalStorage, 
-    saveAndSync,
-    hasPendingSync, 
-    processSyncQueue, 
-    clearLocalData, 
-    updateSyncStatusUI 
-} from './storage.js';
-import { pullDataFromSupabase } from './sync.js';
+import { getFromLocalStorage, saveToLocalStorage, saveAndSync, hasPendingSync, processSyncQueue, clearLocalData, updateSyncStatusUI,  } from './storage.js';
+import { pullDataFromSupabase, initBackgroundSync } from './sync.js';
 import { renderWorkoutList } from './ui.js';
-import { exportWorkoutPDF } from './pdfExport.js';
+import { handlePdfExportFromState } from './pdfExport.js';
 import { downloadExcelTemplate, parseExcelFile } from './importer.js';
 import { importWorkoutPlan, readCsvFile, importProgressCSV, exportToCSV } from './csvHandler.js';
 import { initTheme, toggleTheme } from './theme.js';
@@ -22,45 +14,25 @@ import { setupAuthListeners, logoutUser, checkSession } from './auth.js';
 import { deleteCurrentMesocycle, changeMesocycle, toggleCurrentMesocycleLock, exportMesoToPDF, getActiveMesocycleObject } from './mesocycle.js';
 import { renderManualView } from './manual.js';
 import { initAudioUnlock } from './audio.js';
-import { 
-    renderMacroKPIs, 
-    initAnalyticsEvents, 
-    renderMuscleVolumeChart, 
-    renderMesoComparisonChart 
-} from './analytics.js';
+import { renderMacroKPIs, initAnalyticsEvents, renderMuscleVolumeChart, renderMesoComparisonChart, switchAnalyticsTab } from './analytics.js';
 import { setupBottomSheet } from './bottomSheet.js';
 import { initDevBanner } from './bannerSviluppo.js';
 import { parseCoachPDF } from './pdfParser.js';
 import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
-
-function applyUserToUI(user) {
-    const userEmailDisplay = document.getElementById('user-email-display');
-    const userInfoBar = document.getElementById('user-info-bar');
-    
-    if (userInfoBar) userInfoBar.style.display = 'flex';
-    
-    if (userEmailDisplay) {
-        if (user) {
-            // Estrae il nome dai metadati di Supabase
-            const fullName = user.user_metadata?.full_name || user.user_metadata?.name || user.email;
-            if (fullName) {
-                userEmailDisplay.textContent = fullName;
-                // Salviamo in memoria locale per renderlo subito disponibile al prossimo refresh istantaneo
-                localStorage.setItem('cached_athlete_name', fullName);
-                return;
-            }
-        }
-        
-        // Fallback immediato se l'utente non è ancora caricato ma abbiamo una cache locale
-        const cachedName = localStorage.getItem('cached_athlete_name');
-        userEmailDisplay.textContent = cachedName || 'Atleta';
-    }
-}
+import { applyUserToUI, checkSubscriptionStatus, deleteUserAccount } from './accountManager.js';
 
 // Esposizione globale per eventi inline / retrocompatibilità
 window.logoutUser = logoutUser;
 window.state = state;
 window.bottomSheet = setupBottomSheet;
+window.switchAnalyticsTab = (tabId) => switchAnalyticsTab(
+    tabId, 
+    state, 
+    renderMacroKPIs, 
+    renderMuscleVolumeChart, 
+    initAnalyticsEvents, 
+    renderMesoComparisonChart
+);
 
 // ==========================================
 // 2. GESTIONE AUTENTICAZIONE & STATO
@@ -100,6 +72,7 @@ async function initApp() {
 
     initTheme();
     initDevBanner();
+    initBackgroundSync(state);
     
     const localData = getFromLocalStorage();
     state.workoutData = localData;
@@ -157,7 +130,6 @@ function setupEventListeners() {
     document.getElementById('user-info-bar')?.addEventListener('click', window.logoutUser);
     document.getElementById('trial-logout-btn')?.addEventListener('click', () => window.logoutUser());
 
-    // Scorrimento automatico al Focus su input mobile
     document.addEventListener('focusin', (e) => {
         if (e.target && e.target.matches('.set-table input[type="text"]')) {
             setTimeout(() => {
@@ -166,7 +138,6 @@ function setupEventListeners() {
         }
     });
 
-    // Toggle Manuale d'Uso
     document.getElementById('btn-user-manual')?.addEventListener('click', (e) => {
         const btnManual = e.currentTarget;
         const manualView = document.getElementById('manual');
@@ -189,12 +160,10 @@ function setupEventListeners() {
         }
     });
 
-    // Navigazione Mesociclo
     document.getElementById('prev-meso-btn')?.addEventListener('click', () => changeMesocycle(-1));
     document.getElementById('next-meso-btn')?.addEventListener('click', () => changeMesocycle(1));
     document.getElementById('toggle-lock-meso-btn')?.addEventListener('click', toggleCurrentMesocycleLock);
 
-    // Bottom Sheet Analisi
     setupBottomSheet({
         modalId: 'analytics-modal',
         openBtnId: 'open-analytics-btn',
@@ -222,7 +191,6 @@ function setupEventListeners() {
         }
     });
 
-    // Bottom Sheet Strumenti
     setupBottomSheet({
         modalId: 'tools-modal',
         openBtnId: 'open-tools-btn',
@@ -233,18 +201,17 @@ function setupEventListeners() {
             if (btnManual) btnManual.textContent = "📖 Manuale d'uso";
             switch (action) {
                 case 'export-pdf':
-                    handlePdfExportFromState();
+                    handlePdfExportFromState(state);
                     break;
                 case 'export-meso-pdf': {
-                        const activeMeso = getActiveMesocycleObject();
-                        if (activeMeso) {
-                            exportMesoToPDF(activeMeso);
-                        } else {
-                            alert("Nessun mesociclo attivo trovato per l'esportazione.");
-                        }
-                        break;
+                    const activeMeso = getActiveMesocycleObject();
+                    if (activeMeso) {
+                        exportMesoToPDF(activeMeso);
+                    } else {
+                        alert("Nessun mesociclo attivo trovato per l'esportazione.");
                     }
-                    
+                    break;
+                }
                 case 'import-plan': {
                     const importModal = document.getElementById('import-plan-modal');
                     if (importModal) {
@@ -275,7 +242,6 @@ function setupEventListeners() {
         }
     });
 
-    // Gestione Modale Importazione
     document.getElementById('close-import-modal-btn')?.addEventListener('click', closeImportModal);
     document.getElementById('import-plan-modal')?.addEventListener('click', (e) => {
         if (e.target.id === 'import-plan-modal') closeImportModal();
@@ -286,7 +252,6 @@ function setupEventListeners() {
         downloadExcelTemplate();
     });
 
-    // Eventi File Input (PDF, EXCEL, CSV)
     document.getElementById('import-file-input')?.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -316,8 +281,6 @@ function setupEventListeners() {
                 }
 
                 const currentMesos = state.workoutData.history.years[currentYear].mesocycles;
-
-                // mappedData restituisce direttamente l'oggetto mesociclo strutturato
                 const extractedMeso = mappedData;
 
                 if (extractedMeso && extractedMeso.weeks && extractedMeso.weeks.length > 0) {
@@ -327,10 +290,7 @@ function setupEventListeners() {
                     extractedMeso.importedAt = new Date().toISOString();
                     extractedMeso.locked = false;
 
-                    // Accoda il nuovo mesociclo al database in ordine cronologico
                     currentMesos.push(extractedMeso);
-
-                    // Imposta come attivo l'ultimo mesociclo appena creato
                     state.activeMesocycleIndex = currentMesos.length - 1;
                     state.activeWeek = 1;
                     state.activeDay = 1;
@@ -373,7 +333,6 @@ function setupEventListeners() {
                     return;
                 }
 
-                // importWorkoutPlan in csvHandler.js accoda il mesociclo sequenzialmente come "Mesociclo N"
                 const result = importWorkoutPlan(res.csvData);
 
                 if (result.success) {
@@ -411,32 +370,6 @@ function setupEventListeners() {
     });
 }
 
-// ==========================================
-// 5. SUB-TAB ANALISI & HELPER VISTE
-// ==========================================
-window.switchAnalyticsTab = function(tabId) {
-    document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.sub-tab-content').forEach(content => content.classList.remove('active'));
-
-    const selectedContent = document.getElementById(tabId);
-    if (selectedContent) selectedContent.classList.add('active');
-
-    const activeBtn = Array.from(document.querySelectorAll('.sub-tab-btn'))
-        .find(btn => btn.getAttribute('onclick')?.includes(tabId));
-    if (activeBtn) activeBtn.classList.add('active');
-
-    if (state.workoutData) {
-        if (tabId === 'subtab-macro') {
-            renderMacroKPIs(state.workoutData);
-            renderMuscleVolumeChart('chart-muscle-volume', state.workoutData);
-        } else if (tabId === 'subtab-micro') {
-            initAnalyticsEvents(state.workoutData);
-        } else if (tabId === 'subtab-compare') {
-            renderMesoComparisonChart('chart-compare-mesos', null, null);
-        }
-    }
-};
-
 function closeImportModal() {
     const importModal = document.getElementById('import-plan-modal');
     if (importModal) {
@@ -444,236 +377,3 @@ function closeImportModal() {
         importModal.style.display = 'none';
     }
 }
-
-function handlePdfExportFromState() {
-    const years = state.workoutData?.history?.years || {};
-    const yearKeys = Object.keys(years);
-    
-    if (yearKeys.length === 0) {
-        alert("Nessun dato storico presente per l'esportazione.");
-        return;
-    }
-
-    const activeYearKey = state.currentYear || yearKeys.sort().pop();
-    const yearObj = years[activeYearKey];
-    const activeMesoKey = state.currentMesocycle !== undefined ? state.currentMesocycle : (state.activeMesocycleIndex + 1);
-    const activeWeekNum = state.activeWeek || 1;
-    const activeDayNum = state.activeDay || 1;
-
-    let selectedWeek = null;
-    if (yearObj && yearObj.mesocycles) {
-        const mesos = yearObj.mesocycles;
-        let meso = Array.isArray(mesos)
-            ? (mesos[activeMesoKey - 1] || mesos[activeMesoKey] || mesos[0])
-            : (mesos[activeMesoKey] || mesos[String(activeMesoKey)] || mesos[Object.keys(mesos)[0]]);
-
-        if (meso && meso.weeks) {
-            const weeks = meso.weeks;
-            if (Array.isArray(weeks)) {
-                selectedWeek = weeks[activeWeekNum - 1] || weeks[activeWeekNum];
-            } else if (typeof weeks === 'object') {
-                selectedWeek = weeks[activeWeekNum] || weeks[String(activeWeekNum)] || weeks[Object.keys(weeks)[activeWeekNum - 1]];
-            }
-        }
-    }
-
-    if (!selectedWeek || !selectedWeek.days) {
-        alert("Nessun dato trovato per la settimana selezionata.");
-        return;
-    }
-
-    const days = selectedWeek.days;
-    let selectedDay = null;
-
-    if (Array.isArray(days)) {
-        selectedDay = days[activeDayNum - 1] || days[activeDayNum] || days[0];
-    } else if (typeof days === 'object') {
-        const dayKeys = Object.keys(days);
-        selectedDay = days[activeDayNum] || days[String(activeDayNum)] || days[dayKeys[activeDayNum - 1]] || days[dayKeys[0]];
-    }
-
-    if (!selectedDay) {
-        alert("Nessun giorno selezionato trovato.");
-        return;
-    }
-
-    const metadata = {
-        mesocycleName: `Mesociclo ${activeMesoKey}`,
-        weekNumber: activeWeekNum,
-        dayName: selectedDay.dayName || selectedDay.name || `Giorno ${activeDayNum}`,
-        dayDate: selectedDay.date || '',
-        coachNotes: selectedWeek.coachNotes || ''
-    };
-
-    exportWorkoutPDF(selectedDay, metadata);
-}
-
-// ==========================================
-// 6. SINCRONIZZAZIONE FOCUS / VISIBILITY
-// ==========================================
-document.addEventListener('visibilitychange', async () => {
-    if (document.visibilityState === 'visible' && navigator.onLine) {
-        try {
-            const user = await checkSession();
-            if (!user) return;
-
-            if (hasPendingSync()) {
-                await processSyncQueue();
-            }
-
-            const remoteData = await pullDataFromSupabase(user);
-            if (remoteData) {
-                const localData = getFromLocalStorage();
-                const localTime = new Date(localData.updatedAt || 0).getTime();
-                const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
-
-                if (remoteTime > localTime) {
-                    state.workoutData = remoteData;
-                    saveToLocalStorage(remoteData);
-                    renderWorkoutList();
-                    updateSyncStatusUI();
-                    showSyncToast("Dati aggiornati dal cloud ✨");
-                }
-            }
-        } catch (err) {
-            console.warn("Impossibile sincronizzare al risveglio da standby:", err);
-        }
-    }
-});
-
-window.addEventListener('online', () => document.dispatchEvent(new Event('visibilitychange')));
-window.addEventListener('focus', () => document.dispatchEvent(new Event('visibilitychange')));
-
-// ==========================================
-// 7. NOTIFICHE TOAST & CONTROLLO ABBONAMENTO
-// ==========================================
-let syncToastTimer = null;
-function showSyncToast(message) {
-    let toast = document.getElementById('sync-toast');
-    if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'sync-toast';
-        toast.style.cssText = "position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.85); color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; z-index: 9999; transition: opacity 0.3s ease; opacity: 0; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.2);";
-        document.body.appendChild(toast);
-    }
-    toast.textContent = message;
-    toast.style.opacity = '1';
-    
-    if (syncToastTimer) clearTimeout(syncToastTimer);
-    syncToastTimer = setTimeout(() => { toast.style.opacity = '0'; }, 2000);
-}
-
-function showTrialToast(message) {
-    const toast = document.getElementById('trial-toast');
-    if (!toast) return;
-
-    toast.textContent = message;
-    toast.style.display = 'block';
-
-    setTimeout(() => { toast.style.opacity = '1'; }, 50);
-
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => { toast.style.display = 'none'; }, 500);
-    }, 3500);
-}
-
-function showExpiredOverlay(title, message) {
-    const overlay = document.getElementById('trial-expired-overlay');
-    const titleEl = document.getElementById('trial-expired-title');
-    const msgEl = document.getElementById('trial-expired-msg');
-
-    if (titleEl) titleEl.textContent = title;
-    if (msgEl) msgEl.innerHTML = message;
-    if (overlay) overlay.style.display = 'flex';
-}
-
-async function checkSubscriptionStatus(user) {
-    if (!user || !user.id) return;
-
-    try {
-        const { data, error } = await supabase
-            .from('user_subscriptions')
-            .select('status, trial_ends_at, expires_at')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-        if (error) {
-            console.warn("⚠️ Errore lettura abbonamento:", error.message);
-            return;
-        }
-
-        if (!data) {
-            console.warn("⚠️ Nessun abbonamento trovato per questo utente.");
-            return;
-        }
-
-        if (data.status === 'lifetime') {
-            console.log("✅ Utente Lifetime riconosciuto: nessun limite applicato.");
-            return;
-        }
-
-        const now = new Date();
-
-        if (data.status === 'active') {
-            if (!data.expires_at) return;
-            const endDate = new Date(data.expires_at);
-            const diffDays = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
-            
-            if (diffDays <= 0) {
-                showExpiredOverlay("Abbonamento Scaduto", "Il tuo abbonamento annuale è scaduto.");
-            } else if (diffDays <= 7) {
-                showTrialToast(`⚠️ Il tuo abbonamento scade tra ${diffDays} giorni!`);
-            }
-            return;
-        }
-
-        if (data.status === 'trial') {
-            if (!data.trial_ends_at) return;
-            const endDate = new Date(data.trial_ends_at);
-            const diffDays = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
-            
-            if (diffDays <= 0) {
-                showExpiredOverlay("Periodo di Prova Terminato", "I tuoi 45 giorni di prova gratuita sono terminati.");
-            } else {
-                showTrialToast(`⏳ Periodo di prova attivo: restano ${diffDays} giorni`);
-            }
-            return;
-        }
-    } catch (err) {
-        console.warn("Eccezione durante il controllo abbonamento:", err);
-    }
-}
-
-// ==========================================
-// 8. ELIMINAZIONE ACCOUNT
-// ==========================================
-async function deleteUserAccount() {
-    const confirmed = confirm("Sei sicuro di voler eliminare definitivamente il tuo account? Tutti i tuoi dati e allenamenti andranno persi.");
-    if (!confirmed) return;
-
-    try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error("Sessione non trovata. Effetta nuovamente il login.");
-
-        const { data, error } = await supabase.functions.invoke('delete-account', {
-            headers: {
-                Authorization: `Bearer ${session.access_token}`
-            }
-        });
-
-        if (error) throw error;
-
-        localStorage.clear();
-
-        alert("Account eliminato con successo.");
-        await supabase.auth.signOut();
-        window.location.reload();
-
-    } catch (err) {
-        console.error("Errore durante l'eliminazione dell'account:", err);
-        alert("Impossibile eliminare l'account: " + (err.message || "Riprova più tardi."));
-    }
-}
-
-window.deleteUserAccount = deleteUserAccount;

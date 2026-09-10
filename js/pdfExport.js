@@ -430,3 +430,65 @@ if (validSets.length === 0) {
     document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(shareUrl), 1000);
 }
+export function handlePdfExportFromState(state) {
+    const years = state.workoutData?.history?.years || {};
+    const yearKeys = Object.keys(years);
+    
+    if (yearKeys.length === 0) {
+        alert("Nessun dato storico presente per l'esportazione.");
+        return;
+    }
+
+    const activeYearKey = state.currentYear || yearKeys.sort().pop();
+    const yearObj = years[activeYearKey];
+    const activeMesoKey = state.currentMesocycle !== undefined ? state.currentMesocycle : (state.activeMesocycleIndex + 1);
+    const activeWeekNum = state.activeWeek || 1;
+    const activeDayNum = state.activeDay || 1;
+
+    let selectedWeek = null;
+    if (yearObj && yearObj.mesocycles) {
+        const mesos = yearObj.mesocycles;
+        let meso = Array.isArray(mesos)
+            ? (mesos[activeMesoKey - 1] || mesos[activeMesoKey] || mesos[0])
+            : (mesos[activeMesoKey] || mesos[String(activeMesoKey)] || mesos[Object.keys(mesos)[0]]);
+
+        if (meso && meso.weeks) {
+            const weeks = meso.weeks;
+            if (Array.isArray(weeks)) {
+                selectedWeek = weeks[activeWeekNum - 1] || weeks[activeWeekNum];
+            } else if (typeof weeks === 'object') {
+                selectedWeek = weeks[activeWeekNum] || weeks[String(activeWeekNum)] || weeks[Object.keys(weeks)[activeWeekNum - 1]];
+            }
+        }
+    }
+
+    if (!selectedWeek || !selectedWeek.days) {
+        alert("Nessun dato trovato per la settimana selezionata.");
+        return;
+    }
+
+    const days = selectedWeek.days;
+    let selectedDay = null;
+
+    if (Array.isArray(days)) {
+        selectedDay = days[activeDayNum - 1] || days[activeDayNum] || days[0];
+    } else if (typeof days === 'object') {
+        const dayKeys = Object.keys(days);
+        selectedDay = days[activeDayNum] || days[String(activeDayNum)] || days[dayKeys[activeDayNum - 1]] || days[dayKeys[0]];
+    }
+
+    if (!selectedDay) {
+        alert("Nessun giorno selezionato trovato.");
+        return;
+    }
+
+    const metadata = {
+        mesocycleName: `Mesociclo ${activeMesoKey}`,
+        weekNumber: activeWeekNum,
+        dayName: selectedDay.dayName || selectedDay.name || `Giorno ${activeDayNum}`,
+        dayDate: selectedDay.date || '',
+        coachNotes: selectedWeek.coachNotes || ''
+    };
+
+    exportWorkoutPDF(selectedDay, metadata);
+}
