@@ -1,10 +1,10 @@
 /**
  * Module: workoutEvents.js
- * Summary: Associa gli eventi di input per la modifica in tempo reale di kg, reps, RPE e note utente, validando i range consentiti e applicando feedback visivi d'errore quando i valori escono dai parametri prescritti. Gestisce il blocco delle serie (isLocked), la propagazione dei dati del primo set alle serie successive e l'avvio automatico del timer di recupero al completamento della serie.
+ * Summary: Associa gli eventi di input per la modifica in tempo reale di kg, reps, RPE e note utente, validando i range consentiti, applicando feedback visivi d'errore o di miglioramento (verde) e gestendo il blocco delle serie.
  */
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
-import { isValueOutOfRange } from './helpers.js';
+import { isValueOutOfRange, isValueExceedingTarget, findPreviousExercise, calculateSetVolumeTrend } from './helpers.js';
 import { startTimer, handleTick, handleComplete, parseRecoveryTime } from './timer.js';
 import { updatePlatesBadgeUI } from './exerciseCard.js';
 import { updateSessionAndCompletionState, updateSessionHeaderUI } from './sessionTimer.js';
@@ -55,35 +55,66 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             }
 
             if (isKg || isReps || isRpe) {
-            let minVal, maxVal, parsedVal;
+                let minVal, maxVal, parsedVal;
 
-            if (isKg) {
-                // Se si tratta del Topset (prima serie o flag isTopset), usiamo i dati del Topset se presenti
-                const isTopsetRow = setIdx === 0 || setObj.isTopset;
-                const hasTopsetTarget = ex.topsetKgMin || ex.topsetKgMax || ex.topsetKg;
+                if (isKg) {
+                    const isTopsetRow = setIdx === 0 || setObj.isTopset;
+                    const hasTopsetTarget = ex.topsetKgMin || ex.topsetKgMax || ex.topsetKg;
 
-                if (isTopsetRow && hasTopsetTarget) {
-                    minVal = ex.topsetKgMin || ex.topsetKg;
-                    maxVal = ex.topsetKgMax || ex.topsetKg;
-                } else {
-                    minVal = ex.kgMin;
-                    maxVal = ex.kgMax;
+                    if (isTopsetRow && hasTopsetTarget) {
+                        minVal = ex.topsetKgMin || ex.topsetKg;
+                        maxVal = ex.topsetKgMax || ex.topsetKg;
+                    } else {
+                        minVal = ex.kgMin;
+                        maxVal = ex.kgMax;
+                    }
+                    parsedVal = val.replace(',', '.');
+                } else if (isReps) {
+                    minVal = ex.minReps || ex.reps;
+                    maxVal = ex.maxReps || ex.reps;
+                    parsedVal = val;
+                } else if (isRpe) {
+                    const targetRpeStr = String(ex.targetRpe || ex.rpeTarget || ex.rpe || '').replace('@', '').trim();
+                    minVal = ex.minRpe || (targetRpeStr.includes('-') ? targetRpeStr.split('-')[0] : targetRpeStr);
+                    maxVal = ex.maxRpe || (targetRpeStr.includes('-') ? targetRpeStr.split('-')[1] : targetRpeStr);
+                    parsedVal = val.replace('@', '').replace(',', '.').trim();
                 }
-                parsedVal = val.replace(',', '.');
-            } else if (isReps) {
-                minVal = ex.minReps || ex.reps;
-                maxVal = ex.maxReps || ex.reps;
-                parsedVal = val;
-            } else if (isRpe) {
-                const targetRpeStr = String(ex.targetRpe || ex.rpeTarget || ex.rpe || '').replace('@', '').trim();
-                minVal = ex.minRpe || (targetRpeStr.includes('-') ? targetRpeStr.split('-')[0] : targetRpeStr);
-                maxVal = ex.maxRpe || (targetRpeStr.includes('-') ? targetRpeStr.split('-')[1] : targetRpeStr);
-                parsedVal = val.replace('@', '').replace(',', '.').trim();
-            }
 
-            const isOut = isValueOutOfRange(parsedVal, minVal, maxVal);
-            target.classList.toggle('input-out-of-range', isOut);
-        }
+                const isOut = isValueOutOfRange(parsedVal, minVal, maxVal);
+                const isExceeding = isValueExceedingTarget(parsedVal, minVal, maxVal);
+                target.classList.toggle('input-out-of-range', isOut);
+
+                // Calcolo trend e miglioramento per feedback visivo verde
+                const mesoIndex = state.activeMesocycleIndex || 0;
+                const currentYear = new Date().getFullYear().toString();
+                const yearData = state.workoutData?.history?.years?.[currentYear];
+                const targetWeek = yearData?.mesocycles?.[mesoIndex]?.weeks?.find(w => w.weekNumber === (state.activeWeek || 1));
+                const activeDayNum = state.activeDay || 1;
+                const prevEx = findPreviousExercise(state.workoutData, mesoIndex, targetWeek?.weekNumber || 1, activeDayNum - 1, ex);
+                const prevSet = prevEx?.loggedSets?.[setIdx];
+
+                const currentKg = parseFloat(ex.loggedSets[setIdx]?.weight) || 0;
+                const currentReps = parseInt(ex.loggedSets[setIdx]?.reps, 10) || 0;
+                const prevKg = prevSet ? parseFloat(prevSet.weight) || 0 : 0;
+                const prevReps = prevSet ? parseInt(prevSet.reps) || 0 : 0;
+
+                const trend = calculateSetVolumeTrend(
+                    { weight: currentKg, reps: currentReps },
+                    { weight: prevKg, reps: prevReps }
+                );
+                const isImproved = trend && trend.isPositive;
+
+                if (isOut) {
+                    target.style.borderColor = '#ef4444';
+                    target.style.borderWidth = '2px';
+                } else if (isExceeding || (isImproved && (isKg || isReps))) {
+                    target.style.borderColor = '#16a34a';
+                    target.style.borderWidth = '2px';
+                } else {
+                    target.style.borderColor = '#cbd5e1';
+                    target.style.borderWidth = '1px';
+                }
+            }
             saveAndSync(state.workoutData);
         });
     });
@@ -153,6 +184,13 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             }
 
             if (rowCard) {
+                const mesoIndex = state.activeMesocycleIndex || 0;
+                const currentYear = new Date().getFullYear().toString();
+                const yearData = state.workoutData?.history?.years?.[currentYear];
+                const targetWeek = yearData?.mesocycles?.[mesoIndex]?.weeks?.find(w => w.weekNumber === (state.activeWeek || 1));
+                const activeDayNum = state.activeDay || 1;
+                const prevEx = findPreviousExercise(state.workoutData, mesoIndex, targetWeek?.weekNumber || 1, activeDayNum - 1, ex);
+
                 rowCard.querySelectorAll('.set-input').forEach(inp => {
                     const sIdx = parseInt(inp.dataset.set, 10);
                     const isRowLocked = ex.loggedSets[sIdx]?.isLocked || false;
@@ -173,6 +211,25 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                     }
 
                     inp.classList.toggle('input-out-of-range', isOut);
+
+                    const prevSet = prevEx?.loggedSets?.[sIdx];
+                    const curKg = parseFloat(ex.loggedSets[sIdx]?.weight) || 0;
+                    const curReps = parseInt(ex.loggedSets[sIdx]?.reps, 10) || 0;
+                    const pKg = prevSet ? parseFloat(prevSet.weight) || 0 : 0;
+                    const pReps = prevSet ? parseInt(prevSet.reps) || 0 : 0;
+                    const t = calculateSetVolumeTrend({ weight: curKg, reps: curReps }, { weight: pKg, reps: pReps });
+                    const improved = t && t.isPositive;
+
+                    if (isOut) {
+                        inp.style.borderColor = '#ef4444';
+                        inp.style.borderWidth = '2px';
+                    } else if (improved && (isKgField || isRepsField)) {
+                        inp.style.borderColor = '#16a34a';
+                        inp.style.borderWidth = '2px';
+                    } else {
+                        inp.style.borderColor = '#cbd5e1';
+                        inp.style.borderWidth = '1px';
+                    }
                 });
             }
 

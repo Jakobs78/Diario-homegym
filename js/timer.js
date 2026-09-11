@@ -7,7 +7,7 @@ import { playBeep } from './audio.js';
 let timerInterval = null;
 let endTime = null;
 let boundVisibilityHandler = null;
-
+let lastBeepSecond = null;
 /**
  * Format un valore in secondi in formato MM:SS
  */
@@ -136,28 +136,6 @@ export function adjustTimer(secondsToAdd, onTick, onComplete) {
 }
 
 /**
- * Ferma il timer in corso e nasconde il widget UI
- */
-export function stopTimer() {
-    if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-    }
-    endTime = null;
-
-    if (boundVisibilityHandler) {
-        document.removeEventListener("visibilitychange", boundVisibilityHandler);
-        boundVisibilityHandler = null;
-    }
-
-    const timerContainer = document.getElementById('floating-timer');
-    if (timerContainer) {
-        timerContainer.style.display = 'none';
-        timerContainer.classList.remove('active');
-    }
-}
-
-/**
  * Aggiorna il testo dell'interfaccia utente ad ogni tick del timer
  */
 export function handleTick(remainingSeconds) {
@@ -199,6 +177,26 @@ export function initTimerEvents() {
     }
 }
 
+export function stopTimer() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+    endTime = null;
+    lastBeepSecond = null; // Reset dello stato del beep
+
+    if (boundVisibilityHandler) {
+        document.removeEventListener("visibilitychange", boundVisibilityHandler);
+        boundVisibilityHandler = null;
+    }
+
+    const timerContainer = document.getElementById('floating-timer');
+    if (timerContainer) {
+        timerContainer.style.display = 'none';
+        timerContainer.classList.remove('active');
+    }
+}
+
 function updateTimerUI(onTick, onComplete) {
     if (!endTime) return;
 
@@ -209,9 +207,15 @@ function updateTimerUI(onTick, onComplete) {
         stopTimer();
         if (typeof onTick === "function") onTick(0);
         if (typeof onComplete === "function") onComplete();
-        triggerTimerAlert();
+        triggerTimerAlert(); // Beep finale (più lungo/diverso se vuoi, o lo stesso)
     } else {
         if (typeof onTick === "function") onTick(remainingSeconds);
+
+        // Se siamo negli ultimi 5 secondi (da 5 a 1) e non abbiamo ancora suonato per questo secondo
+        if (remainingSeconds <= 5 && remainingSeconds !== lastBeepSecond) {
+            lastBeepSecond = remainingSeconds;
+            playBeep(880, 0.1, 'sine'); // Beep breve e acuto per il countdown
+        }
     }
 }
 

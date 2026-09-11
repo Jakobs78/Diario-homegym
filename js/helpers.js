@@ -256,17 +256,44 @@ export function calculateSetVolumeTrend(currentSet, prevSet) {
 }
 
 /**
- * Valida se un valore inserito è fuori dai limiti min/max prescritti
+ * Valida se un valore inserito è effettivamente inferiore al minimo consentito nella scheda
  */
 export function isValueOutOfRange(value, minTarget, maxTarget) {
-    const val = parseFloat(value);
-    if (isNaN(val) || val === 0) return false;
+    if (value === undefined || value === null || String(value).trim() === '') return false;
+    
+    const val = parseFloat(String(value).replace(',', '.'));
+    if (isNaN(val)) return false;
 
-    const min = parseFloat(minTarget);
-    const max = parseFloat(maxTarget);
+    const min = parseFloat(String(minTarget).replace(',', '.'));
+    
+    // Se c'è un minimo e il valore inserito è strettamente inferiore, è fuori range (rosso)
+    if (!isNaN(min) && val < min) {
+        return true;
+    }
 
-    if (!isNaN(min) && val < min) return true;
-    if (!isNaN(max) && val > max) return true;
+    return false;
+}
+/**
+ * Valida se un valore inserito supera in positivo il massimo target previsto dalla scheda
+ */
+export function isValueExceedingTarget(value, minTarget, maxTarget) {
+    if (value === undefined || value === null || String(value).trim() === '') return false;
+    
+    const val = parseFloat(String(value).replace(',', '.'));
+    if (isNaN(val)) return false;
+
+    const max = parseFloat(String(maxTarget).replace(',', '.'));
+    const min = parseFloat(String(minTarget).replace(',', '.'));
+
+    // Se c'è un massimo definito e il valore lo supera
+    if (!isNaN(max) && val > max) {
+        return true;
+    }
+
+    // Se c'è solo un valore minimo/fisso (senza max esplicito) e il valore lo supera
+    if (isNaN(max) && !isNaN(min) && val > min) {
+        return true;
+    }
 
     return false;
 }
