@@ -4,7 +4,7 @@
  */
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
-import { isValueOutOfRange, isValueExceedingTarget, findPreviousExercise, calculateSetVolumeTrend } from './helpers.js';
+import { isValueOutOfRange, isValueExceedingTarget, findPreviousExercise, calculateSetVolumeTrend, parseRPE } from './helpers.js';
 import { startTimer, handleTick, handleComplete, parseRecoveryTime } from './timer.js';
 import { updatePlatesBadgeUI } from './exerciseCard.js';
 import { updateSessionAndCompletionState, updateSessionHeaderUI } from './sessionTimer.js';
@@ -77,7 +77,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                     const targetRpeStr = String(ex.targetRpe || ex.rpeTarget || ex.rpe || '').replace('@', '').trim();
                     minVal = ex.minRpe || (targetRpeStr.includes('-') ? targetRpeStr.split('-')[0] : targetRpeStr);
                     maxVal = ex.maxRpe || (targetRpeStr.includes('-') ? targetRpeStr.split('-')[1] : targetRpeStr);
-                    parsedVal = val.replace('@', '').replace(',', '.').trim();
+                    parsedVal = parseRPE(val);
                 }
 
                 const isOut = isValueOutOfRange(parsedVal, minVal, maxVal);
@@ -126,45 +126,52 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
     });
 
     workoutListContainer.querySelectorAll('.set-lock-check').forEach(chk => {
-        chk.addEventListener('change', (e) => {
-            const exIdx = parseInt(e.target.dataset.ex, 10);
-            const setIdx = parseInt(e.target.dataset.set, 10);
-            
-            const ex = currentDay.exercises[exIdx];
-            const setObj = ex?.loggedSets?.[setIdx];
-            if (!setObj) return;
+    chk.addEventListener('change', (e) => {
+        const exIdx = parseInt(e.target.dataset.ex, 10);
+        const setIdx = parseInt(e.target.dataset.set, 10);
+        
+        const ex = currentDay.exercises[exIdx];
+        const setObj = ex?.loggedSets?.[setIdx];
+        if (!setObj) return;
 
-            const isChecked = e.target.checked;
-            setObj.isLocked = isChecked;
+        const isChecked = e.target.checked;
+        
+        // 1. IMPOSTA SIA ISLOCKED CHE COMPLETED
+        setObj.isLocked = isChecked;
+        setObj.completed = isChecked; // <-- FONDAMENTALE PER LE ANALISI
 
-            const rowCard = workoutListContainer.querySelector(`.exercise-card[data-ex="${exIdx}"]`);
-            const kgInput = rowCard?.querySelector(`.set-kg[data-set="${setIdx}"]`);
-            const repsInput = rowCard?.querySelector(`.set-reps[data-set="${setIdx}"]`);
-            const rpeInput = rowCard?.querySelector(`.set-rpe[data-set="${setIdx}"]`);
+        const rowCard = workoutListContainer.querySelector(`.exercise-card[data-ex="${exIdx}"]`);
+        const kgInput = rowCard?.querySelector(`.set-kg[data-set="${setIdx}"]`);
+        const repsInput = rowCard?.querySelector(`.set-reps[data-set="${setIdx}"]`);
+        const rpeInput = rowCard?.querySelector(`.set-rpe[data-set="${setIdx}"]`);
 
-            if (isChecked) {
-                if (setObj.weight === undefined || setObj.weight === '') {
-                    const val = kgInput?.value || kgInput?.placeholder;
-                    if (val && val !== 'Kg') {
-                        setObj.weight = parseFloat(val.replace(',', '.')) || 0;
-                        if (kgInput) kgInput.value = setObj.weight;
-                    }
-                }
-                if (!setObj.reps) {
-                    const val = repsInput?.value || repsInput?.placeholder;
-                    if (val && val !== 'reps') {
-                        setObj.reps = val;
-                        if (repsInput) repsInput.value = setObj.reps;
-                    }
-                }
-                if (!setObj.rpe) {
-                    const val = rpeInput?.value || rpeInput?.placeholder;
-                    if (val && val !== 'RPE') {
-                        setObj.rpe = val;
-                        if (rpeInput) rpeInput.value = setObj.rpe;
-                    }
+        if (isChecked) {
+            if (setObj.weight === undefined || setObj.weight === '') {
+                const val = kgInput?.value || kgInput?.placeholder;
+                if (val && val !== 'Kg') {
+                    setObj.weight = parseFloat(val.replace(',', '.')) || 0;
+                    if (kgInput) kgInput.value = setObj.weight;
                 }
             }
+            if (!setObj.reps) {
+                const val = repsInput?.value || repsInput?.placeholder;
+                if (val && val !== 'reps') {
+                    setObj.reps = val;
+                    if (repsInput) repsInput.value = setObj.reps;
+                }
+            }
+            if (!setObj.rpe) {
+                const val = rpeInput?.value || rpeInput?.placeholder;
+                if (val && val !== 'RPE') {
+                    setObj.rpe = val;
+                    if (rpeInput) rpeInput.value = setObj.rpe;
+                }
+            }
+        }
+
+        // 2. MANTIENI ALLINEATO L'ARRAY ex.sets USATO DALLE ANALISI
+        if (!ex.sets) ex.sets = [];
+        ex.sets[setIdx] = { ...setObj };
 
             if (isChecked && setIdx === 0) {
                 ['weight', 'reps', 'rpe'].forEach(prop => {
@@ -207,7 +214,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                         const targetRpeStr = String(ex.targetRpe || ex.rpeTarget || ex.rpe || '').replace('@', '').trim();
                         const minRpe = ex.minRpe || (targetRpeStr.includes('-') ? targetRpeStr.split('-')[0] : targetRpeStr);
                         const maxRpe = ex.maxRpe || (targetRpeStr.includes('-') ? targetRpeStr.split('-')[1] : targetRpeStr);
-                        isOut = isValueOutOfRange(String(inp.value).replace('@', '').trim(), minRpe, maxRpe);
+                        isOut = isValueOutOfRange(parseRPE(inp.value), minRpe, maxRpe);
                     }
 
                     inp.classList.toggle('input-out-of-range', isOut);

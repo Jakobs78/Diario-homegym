@@ -1,3 +1,4 @@
+/* global pdfjsLib */
 // ==========================================
 // MODULI: pdfParser.js - Lettore di PDF per schede coach con ricostruzione layout spaziale Y e pulizia testo
 // ==========================================
@@ -44,7 +45,7 @@ export async function parseCoachPDF(file) {
 }
 
 // Funzione helper per ripulire le parole fuse e i caratteri sporchi del PDF
-function cleanCoachText(text) {
+export function cleanCoachText(text) {
     return text
         // Rimuove spazi multipli eccessivi
         .replace(/\s+/g, ' ')

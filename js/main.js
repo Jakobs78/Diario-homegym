@@ -14,11 +14,11 @@ import { handlePdfExportFromState } from './pdfExport.js';
 import { downloadExcelTemplate, handleUniversalImport } from './importer.js';
 import { readCsvFile, importProgressCSV, exportToCSV } from './csvHandler.js';
 import { initTheme, toggleTheme } from './theme.js';
-import { setupAuthListeners, logoutUser, checkSession } from './auth.js';
+import { setupAuthListeners, logoutUser } from './auth.js';
 import { deleteCurrentMesocycle, changeMesocycle, toggleCurrentMesocycleLock, exportMesoToPDF, getActiveMesocycleObject } from './mesocycle.js';
 import { renderManualView } from './manual.js';
 import { initAudioUnlock } from './audio.js';
-import { renderMacroKPIs, initAnalyticsEvents, renderMuscleVolumeChart, renderMesoComparisonChart, switchAnalyticsTab } from './analytics.js';
+import { switchAnalyticsTab } from './analytics.js';
 import { setupBottomSheet } from './bottomSheet.js';
 import { initDevBanner } from './bannerSviluppo.js';
 import { applyUserToUI, checkSubscriptionStatus, deleteUserAccount } from './accountManager.js';
@@ -27,14 +27,7 @@ import { applyUserToUI, checkSubscriptionStatus, deleteUserAccount } from './acc
 window.logoutUser = logoutUser;
 window.state = state;
 window.bottomSheet = setupBottomSheet;
-window.switchAnalyticsTab = (tabId) => switchAnalyticsTab(
-    tabId, 
-    state, 
-    renderMacroKPIs, 
-    renderMuscleVolumeChart, 
-    initAnalyticsEvents, 
-    renderMesoComparisonChart
-);
+window.switchAnalyticsTab = switchAnalyticsTab;
 
 // ==========================================
 // 2. GESTIONE AUTENTICAZIONE & STATO
@@ -81,36 +74,36 @@ async function initApp() {
     updateSyncStatusUI();
     
     try {
-        const user = await checkSession();
+const { data: { user } } = await supabase.auth.getUser();
 
-        if (user) {
-            state.currentUser = user;
-            const authOverlay = document.getElementById('auth-overlay');
-            if (authOverlay) authOverlay.style.display = 'none';
+if (user) {
+    state.currentUser = user;
+    const authOverlay = document.getElementById('auth-overlay');
+    if (authOverlay) authOverlay.style.display = 'none';
 
-            applyUserToUI(user);
-            await checkSubscriptionStatus(user);
+    applyUserToUI(user);
+    await checkSubscriptionStatus(user);
 
-            if (navigator.onLine) {
-                if (hasPendingSync()) {
-                    await processSyncQueue();
-                }
-
-                const remoteData = await pullDataFromSupabase(user);
-                
-                if (remoteData && remoteData.history && Object.keys(remoteData.history.years || {}).length > 0) {
-                    const localTime = new Date(localData.updatedAt || 0).getTime();
-                    const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
-
-                    if (remoteTime > localTime && !hasPendingSync()) {
-                        state.workoutData = remoteData;
-                        saveToLocalStorage(remoteData); 
-                    }
-                } else {
-                    console.log("⚠️ Cloud vuoto o non raggiungibile: mantengo i dati locali in sicurezza.");
-                }
-            }
+    if (navigator.onLine) {
+        if (hasPendingSync()) {
+            await processSyncQueue();
         }
+
+        const remoteData = await pullDataFromSupabase(user);
+        
+        if (remoteData && remoteData.history && Object.keys(remoteData.history.years || {}).length > 0) {
+            const localTime = new Date(localData.updatedAt || 0).getTime();
+            const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
+
+            if (remoteTime > localTime && !hasPendingSync()) {
+                state.workoutData = remoteData;
+                saveToLocalStorage(remoteData); 
+            }
+        } else {
+            console.log("⚠️ Cloud vuoto o non raggiungibile: mantengo i dati locali in sicurezza.");
+        }
+    }
+}
     } catch (err) {
         console.warn("Impossibile connettersi a Supabase, avvio in modalità offline:", err);
     }
@@ -175,6 +168,8 @@ function setupEventListeners() {
             const btnManual = document.getElementById('btn-user-manual');
             if (btnManual) btnManual.textContent = "📖 Manuale d'uso";
             const workoutContainer = document.getElementById('workout-list-container');
+            const analyticsView = document.getElementById('analytics');
+
             if (workoutContainer) workoutContainer.style.display = 'none';
             document.querySelectorAll('.day-view').forEach(el => el.style.display = 'none');
 
@@ -184,11 +179,11 @@ function setupEventListeners() {
                 renderWorkoutList();
             } else {
                 state.activeView = 'analytics';
-                const analyticsView = document.getElementById('analytics');
                 if (analyticsView) {
                     analyticsView.style.display = 'block';
-                    window.switchAnalyticsTab(targetId || 'subtab-macro');
                 }
+                const activeTab = (targetId && targetId !== 'analytics') ? targetId : 'subtab-macro';
+                window.switchAnalyticsTab(activeTab);
             }
         }
     });

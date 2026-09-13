@@ -150,9 +150,8 @@ export function updateMesocycleUI() {
     if (nextBtn) nextBtn.disabled = (currentIndex >= mesos.length - 1 || mesos.length === 0);
 }
 
-const { jsPDF } = window.jspdf;
-
 export function exportMesoToPDF(mesoData) {
+  const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
 
   doc.setFont("helvetica", "bold");
@@ -161,12 +160,12 @@ export function exportMesoToPDF(mesoData) {
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
-  doc.text(`ID Univoco: ${mesoData.id}`, 14, 28);
+  doc.text(`ID Univoco: ${mesoData.id || 'N/D'}`, 14, 28);
   doc.text(`Data: ${new Date().toLocaleDateString()}`, 14, 34);
 
   let startY = 45;
 
-  mesoData.weeks.forEach((week, weekIndex) => {
+  (mesoData.weeks || []).forEach((week, weekIndex) => {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
     doc.text(`Settimana ${weekIndex + 1}`, 14, startY);
@@ -175,20 +174,40 @@ export function exportMesoToPDF(mesoData) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
 
-    week.exercises.forEach((ex) => {
-      const exerciseText = `- ${ex.name}: Topset ${ex.topset || '-'} kg | Range: ${ex.kgMin || 0}-${ex.kgMax || 0} kg`;
-      
-      if (startY > 280) {
-        doc.addPage();
-        startY = 20;
-      }
+    // Raccoglie gli esercizi gestendo in modo flessibile la struttura (days o exercises diretti)
+    const exercisesList = [];
+    if (Array.isArray(week.days)) {
+      week.days.forEach(day => {
+        const exs = day.exercises || day.esercizi || day.exerciseList || [];
+        if (Array.isArray(exs)) exercisesList.push(...exs);
+        else if (typeof exs === 'object') exercisesList.push(...Object.values(exs));
+      });
+    } else if (Array.isArray(week.exercises)) {
+      exercisesList.push(...week.exercises);
+    } else if (week.exercises && typeof week.exercises === 'object') {
+      exercisesList.push(...Object.values(week.exercises));
+    }
 
-      doc.text(exerciseText, 20, startY);
+    if (exercisesList.length === 0) {
+      doc.text("- Nessun esercizio registrato in questa settimana", 20, startY);
       startY += 6;
-    });
+    } else {
+      exercisesList.forEach((ex) => {
+        const exName = ex.name || ex.nome || 'Esercizio';
+        const exerciseText = `- ${exName}: Topset ${ex.topset || '-'} kg | Range: ${ex.kgMin || 0}-${ex.kgMax || 0} kg`;
+        
+        if (startY > 280) {
+          doc.addPage();
+          startY = 20;
+        }
+
+        doc.text(exerciseText, 20, startY);
+        startY += 6;
+      });
+    }
 
     startY += 6;
   });
 
-  doc.save(`${mesoData.name || "mesociclo"}_${mesoData.id}.pdf`);
+  doc.save(`${mesoData.name || "mesociclo"}_${mesoData.id || 'export'}.pdf`);
 }

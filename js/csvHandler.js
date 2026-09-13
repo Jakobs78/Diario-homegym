@@ -1,6 +1,6 @@
 /**
  * Module: csvHandler.js
- * Summary: Fornisce un parser universale in grado di elaborare file CSV o tabelle copiate da PDF ed Excel, rilevando automaticamente il delimitatore (\t, ;, ,) e gestendo correttamente virgolette e ritorni a capo[cite: 24]. Si occupa inoltre della validazione del completamento del mesociclo attivo prima di caricare nuovi piani[cite: 24], dell'assegnazione automatica dei tag di raggruppamento visivo per Triset, Superset, Dropset e Jumpset[cite: 24], e dell'importazione/esportazione dello storico completo dei progressi sincronizzato con Supabase[cite: 24].
+ * Summary: Fornisce un parser universale in grado di elaborare file CSV o tabelle copiate da PDF ed Excel, rilevando automaticamente il delimitatore (\t, ;, ,) e gestendo correttamente virgolette e ritorni a capo. Si occupa inoltre della validazione del completamento del mesociclo attivo prima di caricare nuovi piani, dell'assegnazione automatica dei tag di raggruppamento visivo per Triset, Superset, Dropset e Jumpset, e dell'importazione/esportazione dello storico completo dei progressi sincronizzato con Supabase.
  */
 
 // ==========================================
@@ -8,7 +8,7 @@
 // ==========================================
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
-import { applyTrisetDropsetGrouping } from './helpers.js';
+import { applyTrisetDropsetGrouping, normalizeExerciseName } from './helpers.js';
 
 // ==========================================
 // 2. UTILITY DI PARSING E RICONOSCIMENTO COLONNE
@@ -166,7 +166,8 @@ export function importWorkoutPlan(csvText) {
             const weekNum = parseInt(getVal(['settimana', 'week'])) || 1;
             const dayNum = parseInt(getVal(['giorno', 'day'])) || 1;
             const blockNum = parseInt(getVal(['blocco', 'block'])) || 1;
-            const exName = getVal(['esercizio', 'exercise', 'name']) || 'Esercizio';
+            const rawExName = getVal(['esercizio', 'exercise', 'name']) || 'Esercizio';
+            const exName = normalizeExerciseName(rawExName); // 👈 Title Case per import CSV/Excel
             const setsCount = parseInt(getVal(['set', 'serie'])) || 3;
             const repsVal = getVal(['reps', 'ripetizioni']) || '8';
             
@@ -290,7 +291,8 @@ export function importProgressCSV(csvText) {
             const dayNum = idxDay !== -1 && row[idxDay] ? parseInt(row[idxDay]) || 1 : 1;
             const dateVal = idxDate !== -1 && row[idxDate] ? row[idxDate].trim() : new Date().toISOString().split('T')[0];
             const blockNum = idxBlock !== -1 && row[idxBlock] ? row[idxBlock].trim() : "1";
-            const exNameVal = idxEx !== -1 && row[idxEx] ? row[idxEx].trim() : 'Esercizio';
+            const rawExNameVal = idxEx !== -1 && row[idxEx] ? row[idxEx].trim() : 'Esercizio';
+            const exNameVal = normalizeExerciseName(rawExNameVal); // 👈 Title Case per import dello storico
             const setNum = idxSet !== -1 && row[idxSet] ? parseInt(row[idxSet]) || 1 : 1;
             
             const rawWeight = idxWeight !== -1 ? row[idxWeight] : '';
@@ -444,12 +446,12 @@ export function readCsvFile(file, callback) {
     const reader = new FileReader();
     reader.onload = (e) => {
         const buffer = e.target.result;
-        let text = '';
+        let text;
         
         try {
             const decoderUtf8 = new TextDecoder('utf-8', { fatal: true });
             text = decoderUtf8.decode(buffer);
-        } catch (err) {
+        } catch {
             const decoderUtf16 = new TextDecoder('utf-16le');
             text = decoderUtf16.decode(buffer);
         }

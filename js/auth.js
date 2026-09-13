@@ -23,7 +23,7 @@ export async function loginUser(email, password) {
         
         try {
             localStorage.setItem('user_email', data.user.email);
-        } catch (e) {
+        } catch {
             console.warn("Impossibile salvare l'email in localStorage.");
         }
         
@@ -43,7 +43,9 @@ export async function logoutUser() {
         state.currentUser = null;
         try {
             localStorage.removeItem('user_email');
-        } catch (e) {}
+        } catch  {
+            // Ignora errori di rimozione da localStorage
+            }
         window.location.reload();
     } catch (error) {
         console.error("Errore durante il logout:", error.message);
@@ -169,7 +171,7 @@ export function setupAuthListeners() {
             if (isRegistering) {
                 try {
                     const fullName = lastName ? `${firstName} ${lastName}` : firstName;
-                    const { data, error } = await supabase.auth.signUp({ 
+                    const error = await supabase.auth.signUp({ 
                         email, 
                         password,
                         options: {

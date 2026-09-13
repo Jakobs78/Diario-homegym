@@ -20,8 +20,8 @@ export function slugify(text) {
     return text.toString().toLowerCase()
         .trim()
         .replace(/\s+/g, '-')           
-        .replace(/[^\w\-]+/g, '')       
-        .replace(/\-\-+/g, '-')         
+        .replace(/[^\w-]+/g, '')       
+        .replace(/--+/g, '-')         
         .replace(/^-+/, '')             
         .replace(/-+$/, '');            
 }
@@ -100,7 +100,7 @@ export function formatExerciseSummary(ex) {
         weightParts.push(cleanTopset);
     }
 
-    let weightPart = '';
+    let weightPart;
     if (weightParts.length > 0) {
         weightPart = `<span style="color: #dc2626; font-weight: 700;">${weightParts.join(' | ')}</span>`;
     } else {
@@ -258,7 +258,7 @@ export function calculateSetVolumeTrend(currentSet, prevSet) {
 /**
  * Valida se un valore inserito è effettivamente inferiore al minimo consentito nella scheda
  */
-export function isValueOutOfRange(value, minTarget, maxTarget) {
+export function isValueOutOfRange(value, minTarget) {
     if (value === undefined || value === null || String(value).trim() === '') return false;
     
     const val = parseFloat(String(value).replace(',', '.'));
@@ -345,4 +345,32 @@ export function applyTrisetDropsetGrouping(daysArray) {
             }
         }
     });
+}
+/**
+ * Rimuove simboli non numerici (@, spazi) e converte le virgole decimali in punti.
+ * Restituisce sempre un numero float valido o 0.
+ */
+export function parseRPE(rpeValue) {
+    if (rpeValue === null || rpeValue === undefined) return 0;
+    if (typeof rpeValue === 'number') return isNaN(rpeValue) ? 0 : rpeValue;
+
+    const cleaned = String(rpeValue)
+        .replace('@', '')
+        .replace(',', '.')
+        .trim();
+
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? 0 : parsed;
+}
+/**
+ * Normalizza il nome dell'esercizio in Title Case (es. "PANCA PIANA" -> "Panca Piana")
+ */
+export function normalizeExerciseName(name) {
+    if (!name || typeof name !== 'string') return '';
+    return name
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
 }

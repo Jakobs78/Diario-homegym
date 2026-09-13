@@ -1,6 +1,6 @@
 /**
  * Module: sync.js
- * Summary: Gestisce la sincronizzazione dei dati tra il client e Supabase, inclusa la pull (recupero) e push (salvataggio) di informazioni sull'allenamento[cite: 28]. Implementa anche la verifica dello stato dell'abbonamento e l'eliminazione dei dati dal cloud[cite: 28].
+ * Summary: Gestisce la sincronizzazione dei dati tra il client e Supabase, inclusa la pull e push di informazioni sull'allenamento[cite: 6].
  */
 
 // ==========================================
@@ -8,15 +8,25 @@
 // ==========================================
 import { supabase } from './config.js';
 import { getFromLocalStorage, saveToLocalStorage, hasPendingSync, processSyncQueue, updateSyncStatusUI } from './storage.js';
-import { checkSession } from './auth.js';
 import { renderWorkoutList } from './ui.js';
 
 /**
- * Utility interna per estrarre l'email da un oggetto utente o da una stringa
+ * Utility interna per estrarre l'email da un oggetto utente o da una stringa.
+ * Valida rigorosamente che il valore restituito sia una stringa non vuota.
  */
 function extractEmail(userOrEmail) {
     if (!userOrEmail) return null;
-    return typeof userOrEmail === 'object' ? userOrEmail.email : userOrEmail;
+    
+    if (typeof userOrEmail === 'string') {
+        const trimmed = userOrEmail.trim();
+        return trimmed.length > 0 ? trimmed : null;
+    }
+    
+    if (typeof userOrEmail === 'object' && userOrEmail !== null && userOrEmail.email) {
+        return typeof userOrEmail.email === 'string' ? userOrEmail.email.trim() : null;
+    }
+
+    return null;
 }
 
 // ==========================================
@@ -26,7 +36,10 @@ export async function pullDataFromSupabase(userOrEmail) {
     if (!supabase) return null;
 
     const email = extractEmail(userOrEmail);
-    if (!email) return null;
+    if (!email) {
+        console.warn("⚠️ [Sync] Ttentativo di Pull annullato: email non valida o booleana.");
+        return null;
+    }
 
     try {
         const { data, error } = await supabase
@@ -46,15 +59,14 @@ export async function pullDataFromSupabase(userOrEmail) {
 // ==========================================
 // 3. PERSISTENZA (PUSH) DATI
 // ==========================================
-/**
- * Salva il payload dell'allenamento su Supabase.
- * Gestisce l'errore di RLS in caso di licenza o prova scaduta.
- */
 export async function pushDataToSupabase(userOrEmail, payload, actionTimestamp = null) {
     if (!supabase) return false;
 
     const email = extractEmail(userOrEmail);
-    if (!email) return false;
+    if (!email) {
+        console.warn("⚠️ [Sync] Tentativo di Push annullato: email non valida.");
+        return false;
+    }
 
     try {
         const recordData = {
@@ -91,7 +103,7 @@ export async function getUserSubscriptionStatus(userOrEmail) {
     if (!supabase) return null;
 
     const email = extractEmail(userOrEmail);
-    const userId = typeof userOrEmail === 'object' ? userOrEmail?.id : null;
+    const userId = (typeof userOrEmail === 'object' && userOrEmail !== null) ? userOrEmail?.id : null;
 
     try {
         let query = supabase.from('user_subscriptions').select('status, trial_ends_at, expires_at');
@@ -124,7 +136,7 @@ export async function deleteCloudData(userOrEmail = null) {
 
     if (!email) {
         const { data } = await supabase.auth.getUser();
-        email = data?.user?.email;
+        email = extractEmail(data?.user);
     }
 
     if (!email) return false;
@@ -142,6 +154,7 @@ export async function deleteCloudData(userOrEmail = null) {
         throw err;
     }
 }
+
 // ==========================================
 // 6. SINCRONIZZAZIONE IN BACKGROUND
 // ==========================================
@@ -164,16 +177,17 @@ function showSyncToast(message) {
 
 export function initBackgroundSync(state) {
     const handleSyncTrigger = async () => {
-        if (document.visibilityState === 'visible' && navigator.onLine) {
-            try {
-                const user = await checkSession();
-                if (!user) return;
+    if (document.visibilityState === 'visible' && navigator.onLine) {
+        try {
+            // ✅ Usa getUser() direttamente anche qui
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
 
-                if (hasPendingSync()) {
-                    await processSyncQueue();
-                }
+            if (hasPendingSync()) {
+                await processSyncQueue();
+            }
 
-                const remoteData = await pullDataFromSupabase(user);
+            const remoteData = await pullDataFromSupabase(user);
                 if (remoteData) {
                     const localData = getFromLocalStorage();
                     const localTime = new Date(localData.updatedAt || 0).getTime();

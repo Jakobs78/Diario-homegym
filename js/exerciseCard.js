@@ -8,6 +8,7 @@ import { state } from './state.js';
 import { enableCardSwipeGesture } from './gestures.js';
 import { saveAndSync } from './storage.js';
 import { renderWorkoutList } from './ui.js';
+import { parseRPE } from './helpers.js';
 
 export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, activeDayNum, isPastMeso) {
     const isExExcluded = ex.isExcluded || false;
@@ -125,8 +126,6 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             { weight: prevKg, reps: prevReps }
         );
 
-        const isImproved = trend && trend.isPositive;
-
         if (trend) {
             const color = trend.isPositive ? '#16a34a' : '#dc2626';
             trendHtml = `<span style="color: ${color}; font-size: 0.7rem; font-weight: 800; white-space: nowrap;">${trend.text}</span>`;
@@ -166,7 +165,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             maxRpe = targetRpeStr;
         }
 
-        const cleanDisplayRpe = String(displayRpe).replace('@', '').trim();
+        const cleanDisplayRpe = parseRPE(displayRpe);
         const isRpeOutOfRange = isValueOutOfRange(cleanDisplayRpe, minRpe, maxRpe);
         const isRpeExceeding = isValueExceedingTarget(cleanDisplayRpe, minRpe, maxRpe);
 

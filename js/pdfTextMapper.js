@@ -1,8 +1,8 @@
 /**
  * Module: pdfTextMapper.js
- * Summary: Converte il testo grezzo estratto dai documenti PDF dei coach in una struttura dati gerarchica standardizzata (mesociclo, settimane, giorni, esercizi, serie) identificando i pattern relativi a settimane, giorni, set, ripetizioni, range di carico, RPE target, tempi di recupero e note[cite: 26].
+ * Summary: Converte il testo grezzo estratto dai documenti PDF dei coach in una struttura dati gerarchica standardizzata (mesociclo, settimane, giorni, esercizi, serie) identificando i pattern relativi a settimane, giorni, set, ripetizioni, range di carico, RPE target, tempi di recupero e note.
  */
-import { applyTrisetDropsetGrouping } from './helpers.js';
+import { applyTrisetDropsetGrouping, normalizeExerciseName } from './helpers.js';
 
 export function mapPdfTextToWorkoutData(cleanedText, existingMesocount = 0) {
     if (!cleanedText || typeof cleanedText !== 'string') {
@@ -75,7 +75,7 @@ export function mapPdfTextToWorkoutData(cleanedText, existingMesocount = 0) {
         }
 
         // Intercetta riga Esercizio
-        const exMatch = line.match(/^(.+?)\s+(\d+)\s*set\s*x\s*([\d\-]+)\s*rep(.*)$/i);
+        const exMatch = line.match(/^(.+?)\s+(\d+)\s*set\s*x\s*([\d-]+)\s*rep(.*)$/i);
         if (exMatch) {
             const rawName = exMatch[1];
             const targetSets = parseInt(exMatch[2], 10);
@@ -94,7 +94,7 @@ export function mapPdfTextToWorkoutData(cleanedText, existingMesocount = 0) {
                 }));
 
                 const newExercise = {
-                    name: capitalize(cleanName),
+                    name: normalizeExerciseName(cleanName), // 👈 Ora garantisce sempre Title Case pulito (es. "Panca Piana")
                     targetSets: targetSets,
                     sets: targetSets,
                     targetReps: targetReps,
@@ -135,7 +135,7 @@ function extractTargetMetrics(restOfLine) {
     let kgMin = "";
     let kgMax = "";
     let topset = "";
-    let rest = "";
+    let rest;
     let rpe = "";
 
     const rpeMatch = restOfLine.match(/(?:rpe\s*[:=]?\s*|@)\s*(\d+(?:[.,]\d+)?)|(\d+(?:[.,]\d+)?)\s*rpe/i);
@@ -187,8 +187,4 @@ function cleanExerciseName(rawText) {
         .replace(/^giorno \d+/gi, '')
         .replace(/\b(ESERCIZIO|SERIE x RIPETIZIONI|RECUPERO|Commenti|Massimale stimato|rpe target|LRV TARGET|vl TARGET|rpe effettivo|LRV effettivo|vl effettivo|carico min|carico max|carico topset|% min|%max)\b/gi, '')
         .trim();
-}
-
-function capitalize(str) {
-    return str.charAt(0).toUpperCase() + str.slice(1);
 }

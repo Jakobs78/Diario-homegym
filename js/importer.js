@@ -1,3 +1,4 @@
+/* global XLSX */
 // ==========================================
 // MODULI: importer.js - Generazione template Excel di esempio e parsing di file tabellari (.xlsx, .xls, .csv)
 // ==========================================

@@ -1,3 +1,4 @@
+/* global Chart */
 // ==========================================
 // MODULI: charts.js - Rendering grafici 1RM stimato (Formula Epley) e metriche storiche con Chart.js
 // ==========================================
@@ -19,10 +20,13 @@ export function render1RMChart(canvasId, exerciseName) {
                     (day.exercises || []).forEach(ex => {
                         if (ex.name.toLowerCase() === exerciseName.toLowerCase()) {
                             (ex.loggedSets || []).forEach(set => {
+                                // Calcola l'e1RM solo per serie effettive entro le 10 ripetizioni[cite: 1]
+                                if (set.reps && set.reps > 0 && set.reps <= 10) {
                                 labels.push(day.date);
                                 // Formula Epley 1RM: weight * (1 + reps / 30)
                                 const estimated1RM = set.weight * (1 + (set.reps / 30));
                                 values.push(Math.round(estimated1RM));
+                                }
                             });
                         }
                     });
