@@ -33,8 +33,6 @@ const manualContent = `
     </ul>
 </div>
 
-
-
 <div class="manual-section" style="margin-bottom: 20px;">
     <h3 style="color: var(--primary); margin-bottom: 8px;">🔐 Autenticazione e Sincronizzazione Cloud</h3>
     <ul style="padding-left: 20px; line-height: 1.6;">
@@ -97,6 +95,10 @@ const manualContent = `
     <ul style="padding-left: 20px; line-height: 1.6; margin-top: 6px;">
         <li><strong>📖 Manuale d'uso:</strong> Visualizza questa guida interattiva.</li>
         <li><strong>🖨️ PDF Giornaliero con QR Code:</strong> Esporta la scheda di allenamento giornaliera formattata in PDF con QR Code di verifica integrato.</li>
+        <li><strong>📑 Esporta Intero Mesociclo (PDF):</strong> Esporta in PDF la programmazione completa del blocco attivo.</li>
+        <li>
+            <strong>🤖 Genera Mesociclo con MyCoatch:</strong> Il coach intelligente analizza lo storico dei tuoi stalli e progressi passati, programmando in automatico un nuovo mesociclo ottimizzato per densità, volumi e carichi. Subito dopo la generazione, ti viene offerta la possibilità di scaricare il file CSV di backup/modifica.
+        </li>
         <li>
             <strong>📂 Importa scheda (Excel / CSV / PDF):</strong> Carica un nuovo piano di allenamento da file Excel (.xlsx, .xls), CSV o direttamente da file PDF formattati dal coach.
             <ul style="margin-top: 4px; padding-left: 18px;">
@@ -112,12 +114,14 @@ const manualContent = `
     <ul style="padding-left: 20px; line-height: 1.6;">
         <li><strong>Elimina scheda mesociclo:</strong> Rimuove la programmazione del mesociclo corrente.</li>
         <li><strong>Elimina tutto!:</strong> Cancella permanentemente tutti i dati salvati (richiede conferma esplicita).</li>
+        <li><strong>Elimina Definitivamente Account:</strong> Rimuove account e dati associati da Supabase.</li>
     </ul>
 </div>
 
 <div class="manual-section" style="margin-top: 20px;">
     <h3 style="color: var(--primary); margin-bottom: 8px;">✨ Ultime Novità & Aggiornamenti</h3>
     <ul style="padding-left: 20px; line-height: 1.6;">
+        <li><strong>🤖 Integrazione MyCoatch:</strong> Generazione automatica e intelligente di mesocicli basata sull'analisi dello storico e dei precedenti stalli, con opzione di download immediato in CSV per personalizzazioni.</li>
         <li><strong>📱 Esperienza PWA Nausea-Free:</strong> Pieno supporto all'installazione su schermata Home con salvataggio offline locale istantaneo.</li>
         <li><strong>📊 Hub Analitico Unificato (<code>analytics.js</code>):</strong> Nuova architettura in 3 Sub-Tab (Macro Mesociclo, Micro Esercizio/PR e Confronto Radar).</li>
         <li><strong>🏋️ Calcolatore Dischi & Indicatore Trend:</strong> Calcolo istantaneo del peso bilanciere per lato e confronto volume ▲/▼ con la sessione precedente.</li>

@@ -171,7 +171,8 @@ export function setupAuthListeners() {
             if (isRegistering) {
                 try {
                     const fullName = lastName ? `${firstName} ${lastName}` : firstName;
-                    const error = await supabase.auth.signUp({ 
+                    // 👉 Gestione corretta dell'oggetto restituito da Supabase
+                    const { data, error } = await supabase.auth.signUp({ 
                         email, 
                         password,
                         options: {
@@ -181,19 +182,36 @@ export function setupAuthListeners() {
                         }
                     });
                     if (error) throw error;
-                    alert("Registrazione completata! Controlla la tua email o accedi ora.");
-                    isRegistering = false;
-                    if (nameFieldsContainer) nameFieldsContainer.style.display = 'none';
-                    authTitle.textContent = "Accedi al Diario";
-                    submitBtn.textContent = "Accedi";
-                    toggleText.textContent = "Non hai un account? Registrati";
+
+                    // 👉 Feedback chiaro per l'utente sulla conferma email
+                    if (errorDiv) {
+                        errorDiv.style.color = "green"; // Evidenzia il successo
+                        errorDiv.textContent = "✉️ Registrazione completata! Controlla la tua casella di posta (e lo spam) per confermare l'iscrizione prima di effettuare il login.";
+                        errorDiv.style.display = 'block';
+                    }
+
+                    // Riporta il form allo stato di login dopo qualche secondo o lascia il messaggio visibile
+                    setTimeout(() => {
+                        isRegistering = false;
+                        if (nameFieldsContainer) nameFieldsContainer.style.display = 'none';
+                        authTitle.textContent = "Accedi al Diario";
+                        submitBtn.textContent = "Accedi";
+                        toggleText.textContent = "Non hai un account? Registrati";
+                        if (errorDiv) {
+                            errorDiv.style.color = ""; // Ripristina il colore originale degli errori
+                            errorDiv.style.display = 'none';
+                        }
+                    }, 6000);
+
                 } catch (err) {
                     if (errorDiv) {
+                        errorDiv.style.color = "";
                         errorDiv.textContent = err.message;
                         errorDiv.style.display = 'block';
                     }
-                }
-            } else {
+                }       
+            }
+             else {
                 const result = await loginUser(email, password);
                 if (result.success) {
                     const authOverlay = document.getElementById('auth-overlay');
@@ -205,7 +223,8 @@ export function setupAuthListeners() {
                         errorDiv.style.display = 'block';
                     }
                 }
-            }
+            }       
+
         });
     }
 }

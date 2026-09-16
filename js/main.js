@@ -22,6 +22,7 @@ import { switchAnalyticsTab } from './analytics.js';
 import { setupBottomSheet } from './bottomSheet.js';
 import { initDevBanner } from './bannerSviluppo.js';
 import { applyUserToUI, checkSubscriptionStatus, deleteUserAccount } from './accountManager.js';
+import { startCoachChatAndGenerate } from '../mycoatch/mycoatch-adapter.js';
 
 // Esposizione globale per eventi inline / retrocompatibilità
 window.logoutUser = logoutUser;
@@ -120,6 +121,9 @@ document.addEventListener('DOMContentLoaded', initApp);
 // ==========================================
 // 4. LISTENER EVENTI GLOBALI & INTERFACCIA
 // ==========================================
+// ==========================================
+// 4. LISTENER EVENTI GLOBALI & INTERFACCIA
+// ==========================================
 function setupEventListeners() {
     document.getElementById('theme-toggle-btn')?.addEventListener('click', toggleTheme);
     document.getElementById('user-info-bar')?.addEventListener('click', window.logoutUser);
@@ -159,6 +163,7 @@ function setupEventListeners() {
     document.getElementById('next-meso-btn')?.addEventListener('click', () => changeMesocycle(1));
     document.getElementById('toggle-lock-meso-btn')?.addEventListener('click', toggleCurrentMesocycleLock);
 
+    // BOTTOM SHEET ANALYTICS
     setupBottomSheet({
         modalId: 'analytics-modal',
         openBtnId: 'open-analytics-btn',
@@ -188,6 +193,7 @@ function setupEventListeners() {
         }
     });
 
+    // BOTTOM SHEET STRUMENTI & GESTIONE
     setupBottomSheet({
         modalId: 'tools-modal',
         openBtnId: 'open-tools-btn',
@@ -196,7 +202,14 @@ function setupEventListeners() {
         onSelect: (action) => {
             const btnManual = document.getElementById('btn-user-manual');
             if (btnManual) btnManual.textContent = "📖 Manuale d'uso";
+            
             switch (action) {
+
+                case 'generate-mycoatch-csv': {
+                    startCoachChatAndGenerate();
+                    break;
+                }
+
                 case 'export-pdf':
                     handlePdfExportFromState(state);
                     break;
@@ -239,6 +252,7 @@ function setupEventListeners() {
         }
     });
 
+    // LISTENER PER MODALE IMPORTAZIONE ED EVENTI FILE
     document.getElementById('close-import-modal-btn')?.addEventListener('click', closeImportModal);
     document.getElementById('import-plan-modal')?.addEventListener('click', (e) => {
         if (e.target.id === 'import-plan-modal') closeImportModal();
@@ -273,6 +287,41 @@ function setupEventListeners() {
         renderWorkoutList();
     });
 }
+
+    document.getElementById('close-import-modal-btn')?.addEventListener('click', closeImportModal);
+    document.getElementById('import-plan-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'import-plan-modal') closeImportModal();
+    });
+
+    document.getElementById('btn-download-template')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        downloadExcelTemplate();
+    });
+
+    document.getElementById('import-file-input')?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const statusMsg = document.getElementById('import-status-msg');
+        await handleUniversalImport(file, statusMsg, closeImportModal);
+        e.target.value = '';
+    });
+
+    document.getElementById('import-history-input')?.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        readCsvFile(file, (text) => {
+            const result = importProgressCSV(text);
+            alert(result.message || result.error);
+        });
+        e.target.value = '';
+    });
+
+    document.getElementById('week-selector')?.addEventListener('change', (e) => {
+        state.activeWeek = parseInt(e.target.value, 10);
+        renderWorkoutList();
+    });
+
 
 function closeImportModal() {
     const importModal = document.getElementById('import-plan-modal');

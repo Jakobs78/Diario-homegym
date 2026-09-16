@@ -7,18 +7,14 @@
 // ==========================================
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
-import { 
-    stopTimer, 
-    adjustTimer, 
-    handleTick,
-    handleComplete 
-} from './timer.js';
+import { stopTimer, adjustTimer, handleTick, handleComplete } from './timer.js';
 import { updateMesocycleUI, updateMesocycleLockUI } from './mesocycle.js';
 import { createSingleExerciseCard, updatePlatesBadgeUI } from './exerciseCard.js';
 import { updateSessionHeaderUI } from './sessionTimer.js';
 import { bindWorkoutTableEvents } from './workoutEvents.js';
 import { parseCoachPDF } from './pdfParser.js';
 import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
+import { MyCoatch } from '../mycoatch/index.js';
 
 export const DOM = {
     appContainer: document.getElementById('app-container'),
@@ -252,6 +248,7 @@ export function renderWorkoutList() {
             while (i < exercises.length && exercises[i].groupBase === currentGroupBase && exercises[i].groupType === groupType) {
                 const currentEx = exercises[i];
                 const card = createSingleExerciseCard(currentEx, i, currentDay, mesoIndex, targetWeek, activeDayNum, isPastMeso);
+                appendCoachingFeedbackCard(card, currentEx.name);
                 groupWrapper.appendChild(card);
                 updatePlatesBadgeUI(i);
                 i++;
@@ -260,6 +257,7 @@ export function renderWorkoutList() {
             DOM.workoutListContainer.appendChild(groupWrapper);
         } else {
             const card = createSingleExerciseCard(ex, i, currentDay, mesoIndex, targetWeek, activeDayNum, isPastMeso);
+            appendCoachingFeedbackCard(card, ex.name);
             DOM.workoutListContainer.appendChild(card);
             updatePlatesBadgeUI(i);
             i++;
@@ -267,4 +265,47 @@ export function renderWorkoutList() {
     }
 
     bindWorkoutTableEvents(currentDay, isPastMeso, renderWorkoutList);
+}
+function appendCoachingFeedbackCard(exerciseContainer, exerciseName) {
+    const historyYears = state.workoutData?.history?.years || {};
+    let exerciseHistory = [];
+
+    // Raccoglie i log passati dell'esercizio da tutto lo storico dello state
+    Object.values(historyYears).forEach(yearObj => {
+        (yearObj.mesocycles || []).forEach(meso => {
+            (meso.weeks || []).forEach(week => {
+                (week.days || []).forEach(day => {
+                    (day.exercises || []).forEach(ex => {
+                        if (ex.name === exerciseName && ex.completedLogs) {
+                            exerciseHistory.push(...ex.completedLogs);
+                        }
+                    });
+                });
+            });
+        });
+    });
+
+    // Interroga MyCoatch per ottenere il feedback di autoregolazione
+    const advice = MyCoatch.evaluateProgress(exerciseHistory);
+    if (!advice) return;
+
+    // Crea il contenitore grafico per il consiglio
+    const coachingBox = document.createElement('div');
+    coachingBox.style.cssText = "margin-top: 8px; padding: 6px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 500;";
+
+    if (advice.action === "INCREMENT_LOAD") {
+        coachingBox.style.background = "rgba(16, 185, 129, 0.15)";
+        coachingBox.style.color = "#10b981";
+        coachingBox.innerHTML = `💡 <strong>MyCoatch:</strong> ${advice.message} (+${advice.suggestedKgIncrement} kg)`;
+    } else if (advice.action === "TRIGGER_DELOAD_OR_VARIATION") {
+        coachingBox.style.background = "rgba(239, 68, 68, 0.15)";
+        coachingBox.style.color = "#ef4444";
+        coachingBox.innerHTML = `⚠️ <strong>Stallo Rilevato:</strong> ${advice.message}`;
+    } else {
+        coachingBox.style.background = "rgba(59, 130, 246, 0.1)";
+        coachingBox.style.color = "#3b82f6";
+        coachingBox.innerHTML = `🎯 <strong>Mantenimento:</strong> ${advice.message}`;
+    }
+
+    exerciseContainer.appendChild(coachingBox);
 }

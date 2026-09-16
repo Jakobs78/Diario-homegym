@@ -55,7 +55,7 @@ export function initDevBanner() {
     banner.className = 'dev-banner';
     banner.innerHTML = `
         <div class="dev-banner-content">
-            <span>🚧 <strong>Beta in sviluppo:</strong> Questa webapp è in fase di evoluzione. Usala senza problemi, provala, ma non affidarti alla memorizzazione dello storico perché potrebbe essere sovrascritto o cancellato. Potrebbe anche succedere che loggandoti la webapp ti dia errori o utente non conosciuto. Devi eliminare l'account e ricrearne unaltro. Ciò è dovuto per le migliorie che apporterò pian piano. <br>GRAZIE per testare questa webapp per 45 giorni. Chiudi pure questo avviso</span>
+            <span>🚧 <strong>Versione beta in sviluppo:</strong> Questa webapp è in fase di evoluzione e continui aggiornamenti. Usala senza problemi, provala, ma non affidarti alla memorizzazione dello storico perché potrebbe essere sovrascritto o cancellato. Potrebbe anche succedere che loggandoti la webapp ti dia errori o utente non conosciuto. Devi eliminare l'account e ricrearne un altro. Ciò è dovuto a causa degli aggiornamenti che apporterò pian piano. <br>GRAZIE per testare questa webapp per 45 giorni. Chiudi pure questo avviso</span>
             <button id="close-dev-banner" aria-label="Chiudi avviso">✖</button>
         </div>
     `;
