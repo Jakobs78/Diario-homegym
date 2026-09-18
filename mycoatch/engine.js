@@ -1,50 +1,122 @@
 // mycoatch/engine.js
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 
+/**
+ * Punti di riferimento del volume ipertrofico settimanale (Evidence-Based)
+ */
+export const MUSCLE_VOLUME_LANDMARKS = {
+    Petto: { mev: 8, mav: 14, mrv: 20 },
+    Back_Lats: { mev: 10, mav: 16, mrv: 22 },
+    Back_Thickness: { mev: 8, mav: 14, mrv: 20 },
+    Gambe: { mev: 10, mav: 16, mrv: 22 },
+    Spalle: { mev: 8, mav: 14, mrv: 20 },
+    Braccia: { mev: 6, mav: 12, mrv: 18 }
+};
+
+/**
+ * Genera un mesociclo ottimizzato bilanciando MEV/MAV/MRV, focus muscolari,
+ * progressioni RPE e tecniche di intensità temporizzate.
+ */
 export function generateSmartMesocycle(config = {}, analysis = {}, historicalData = {}) {
+    const safeHistory = historicalData || {};
+    
     const { 
-        name = "Nuovo Mesociclo Ibrido", 
+        name = "Mesociclo Adattivo MyCoach", 
         durationWeeks = 4, 
         daysPerWeek = 3, 
         focus = "hybrid", 
+        focusMuscleGroup = null, 
         stepKg = 2.5, 
         maxSessionMinutes = 60,
         userAge = 30,
-        trainingYears = 3 
+        trainingYears = 3
     } = config;
 
-    const ageRecoveryFactor = userAge > 45 ? 0.8 : (userAge > 35 ? 0.9 : 1.0);
+    // 1. Parametri di recupero biologico
+    const isMaster = userAge >= 45;
+    const ageRecoveryFactor = isMaster ? 0.8 : (userAge > 35 ? 0.9 : 1.0);
     const experienceMultiplier = trainingYears < 2 ? 0.9 : 1.0;
+    const deloadWeekNumber = isMaster ? 3 : durationWeeks;
+
+    // 2. Vincoli di tempo
+    const isShortTime = maxSessionMinutes <= 50;
+    const useSupersets = maxSessionMinutes <= 60;
+
+    const templateDays = getTemplateForDays(daysPerWeek);
+    
+    // Calcolo della frequenza settimanale reale per ogni gruppo muscolare nel template
+    const muscleFrequencyMap = {};
+    templateDays.forEach(day => {
+        const slots = isShortTime ? day.slots.slice(0, 4) : day.slots;
+        slots.forEach(slot => {
+            const mainMuscle = Object.keys(MUSCLE_VOLUME_LANDMARKS).find(m => slot.muscle.toLowerCase().includes(m.toLowerCase())) || "Petto";
+            muscleFrequencyMap[mainMuscle] = (muscleFrequencyMap[mainMuscle] || 0) + 1;
+        });
+    });
 
     const weeks = [];
 
     for (let w = 1; w <= durationWeeks; w++) {
         const weekDays = [];
-        const isDeloadWeek = (w === durationWeeks);
+        const isDeloadWeek = (w === deloadWeekNumber);
 
-        for (let d = 1; d <= daysPerWeek; d++) {
-            let exercisesForDay = selectExercisesForDay(d, focus, analysis.stalledExercises || []);
+        // Progressione dinamica del target RPE di settimana in settimana
+        let rpeString = "@8.0";
+        if (isDeloadWeek) {
+            rpeString = "@6.5";
+        } else if (focus === 'strength') {
+            rpeString = w === 1 ? "@8.0" : w === 2 ? "@8.5" : "@9.0";
+        } else {
+            rpeString = w === 1 ? "@7.5" : w === 2 ? "@8.0" : "@8.5";
+        }
+
+        templateDays.forEach((dayTemplate, dayIndex) => {
+            const activeSlots = isShortTime ? dayTemplate.slots.slice(0, 4) : dayTemplate.slots;
             
-            exercisesForDay = applySpecializationFocus(exercisesForDay, historicalData);
+            const exercisesSelectedToday = [];
+            
+            // 🧠 NUOVO: Limite di tolleranza neurale giornaliero (Max 26 punti)
+            const MAX_DAILY_CNS = isMaster ? 22 : 26;
+            let currentDailyCNS = 0;
 
-            let structuredExercises = applyDensityAndNotes(exercisesForDay, maxSessionMinutes, isDeloadWeek);
-
-            const processedExercises = structuredExercises.map((item, index) => {
-                const ex = item.exercise;
+            let rawExercises = activeSlots.map(slot => {
+                const exercise = selectExerciseBySlot(
+                    slot, 
+                    analysis.stalledExercises || [], 
+                    exercisesSelectedToday, 
+                    currentDailyCNS, 
+                    MAX_DAILY_CNS
+                );
                 
-                // Cerca il carico nel formato storico strutturato o nei log recenti
-                let baseKg = historicalData[ex.name]?.lastKg !== undefined 
-                    ? historicalData[ex.name].lastKg 
+                if (exercise) {
+                    exercisesSelectedToday.push(exercise.name);
+                    currentDailyCNS += (exercise.cnsCost || 5);
+                }
+                return exercise;
+            }).filter(Boolean);
+
+            rawExercises = applySpecializationFocus(rawExercises, safeHistory);
+
+            const processedExercises = rawExercises.map((exItem, index) => {
+                const ex = exItem;
+                
+                let baseKg = safeHistory[ex.name]?.lastKg !== undefined 
+                    ? safeHistory[ex.name].lastKg 
                     : (parseFloat(ex.defaultKg) || 0);
 
-                if (w > 1 && !isDeloadWeek) {
+                // 🧠 INTEGRAZIONE 1: Auto-Deload Preventivo per Inattività (Readiness)
+                // Se esiste una data di ultimo allenamento nello storico ed è più vecchia di 7 giorni
+                const isReturningFromBreak = safeHistory.lastWorkoutDate && 
+                    ((new Date() - new Date(safeHistory.lastWorkoutDate)) / (1000 * 60 * 60 * 24)) > 7;
+                
+                if (isReturningFromBreak && w === 1) {
+                    baseKg = baseKg * 0.85; // Taglio automatico del 15% per evitare DOMS invalidanti
+                    ex.noteOverride = (ex.noteOverride || "") + " 🛡️ [AUTO-DELOAD INATTIVITÀ]: Carico ridotto preventivamente del 15% per il rientro.";
+                }
+                
+                    if (w > 1 && !isDeloadWeek) {
                     const multiplier = (focus === 'strength' || (focus === 'hybrid' && index === 0)) ? 1 : 0.5;
-                    
-                    let effectiveStep = stepKg;
-                    if (baseKg < 12.5) {
-                        effectiveStep = Math.min(stepKg, 1.0);
-                    }
-
+                    const effectiveStep = baseKg < 12.5 ? Math.min(stepKg, 1.0) : stepKg;
                     baseKg += effectiveStep * (w - 1) * multiplier;
                 }
 
@@ -55,55 +127,72 @@ export function generateSmartMesocycle(config = {}, analysis = {}, historicalDat
                 const targetKgMin = baseKg < 12.5 ? Math.round(baseKg * 2) / 2 : Math.round(baseKg / 2.5) * 2.5;
                 const targetKgMax = targetKgMin + (baseKg < 12.5 ? 2 : 5);
 
-                let setsCount = 3;
-                if (focus === 'strength') {
-                    setsCount = isDeloadWeek ? 2 : (w === 3 ? 5 : 4);
-                } else if (focus === 'hypertrophy' || focus === 'hybrid') {
-                    if (isDeloadWeek) {
-                        setsCount = 2;
-                    } else {
-                        setsCount = w === 1 ? 3 : (w === 3 ? 4 : 3);
-                    }
-                }
+                // Trova la categoria macro dell'esercizio per calcolare i set personalizzati sulla split
+                const mainMuscle = Object.keys(MUSCLE_VOLUME_LANDMARKS).find(m => ex.category.toLowerCase().includes(m.toLowerCase())) || "Petto";
+                const realFrequency = muscleFrequencyMap[mainMuscle] || 2;
 
-                if ((ageRecoveryFactor < 1.0 || experienceMultiplier < 1.0) && setsCount > 3 && !isDeloadWeek) {
-                    setsCount = 3; 
-                }
+                // Calcolo dinamico delle serie con allocazione del Set-Budget (MEV/MAV)
+                let baseSets = calculateTargetSets({
+                    category: ex.category,
+                    focusMuscleGroup,
+                    isDeloadWeek,
+                    weekNumber: w,
+                    isMaster,
+                    frequency: realFrequency
+                });
+                
+                const setsCount = Math.max(2, Math.round(baseSets * ageRecoveryFactor * experienceMultiplier));
 
-                let reps = ex.defaultReps;
-                if (focus === 'strength') {
+                let reps = ex.defaultReps || "8-12";
+                if (focus === 'strength' && index === 0) {
                     reps = "3-5";
                 } else if (focus === 'hypertrophy') {
                     reps = index === 0 ? "6-8" : "10-15";
-                } else if (focus === 'hybrid') {
-                    reps = "8-12";
                 }
 
                 let topsetStr = "";
-                let notesFinal = item.note;
+                let noteFinal = exItem.noteOverride || generateContextNote(index, isDeloadWeek, focus, useSupersets);
+
+                // 🧠 INTEGRAZIONE 2A: Auto Warm-Up (Solo sul primo esercizio multiarticolare)
+                const isFirstCompound = index === 0 && ["squat", "hinge", "horizontal_push", "vertical_push", "vertical_pull"].includes(ex.pattern);
+                
+                if (isFirstCompound) {
+                    const w1 = Math.round(baseKg * 0.5);
+                    const w2 = Math.round(baseKg * 0.7);
+                    const w3 = Math.round(baseKg * 0.85);
+                    noteFinal = `🔥 [WARM-UP AUTO]: 8x${w1}kg, 4x${w2}kg, 2x${w3}kg. | ` + noteFinal;
+                }
 
                 if (index === 0 && !isDeloadWeek && focus !== 'strength') {
                     const topKg = targetKgMin + (baseKg < 12.5 ? 1 : 2.5);
                     topsetStr = `1x${reps.split('-')[0]} @ ${topKg}kg (RPE 9)`;
-                    notesFinal += ` | Esegui il Top Set indicato, poi scala il carico del 10% per le successive ${setsCount - 1} serie di back-off.`;
+                    noteFinal += ` | 🎯 Top Set eseguito, poi Back-Off automatico del 10%.`;
                 }
+
+                // 🛡️ SICUREZZA LINT: Gestione pulita della tecnica d'intensità senza variabili esterne non definite
+                const currentTechnique = exItem.intensityTechnique || null;
 
                 const setsArray = Array.from({ length: setsCount }, (_, setIdx) => {
                     let setKg = targetKgMin;
-                    let setReps = reps;
                     
                     if (setIdx === 0 && topsetStr) {
-                        setKg = targetKgMin + (baseKg < 12.5 ? 1 : 2.5);
+                        setKg = targetKgMin + (baseKg < 12.5 ? 1 : 2.5); // Peso del Top Set
+                    } else if (setIdx > 0 && topsetStr) {
+                        const topKg = targetKgMin + (baseKg < 12.5 ? 1 : 2.5);
+                        setKg = Math.round((topKg * 0.9) / 2.5) * 2.5; // Back-off del 10%
                     }
+
+                    const isLastSet = (setIdx === setsCount - 1);
 
                     return {
                         setNumber: setIdx + 1,
-                        targetReps: setReps,
+                        targetReps: reps,
                         targetKg: setKg > 0 ? setKg.toString() : "-",
                         actualReps: "",
                         actualKg: "",
                         completed: false,
-                        isWarmup: false
+                        isWarmup: false,
+                        intensityTechnique: (isLastSet && currentTechnique) ? currentTechnique : null
                     };
                 });
 
@@ -114,18 +203,18 @@ export function generateSmartMesocycle(config = {}, analysis = {}, historicalDat
                     kgMin: targetKgMin.toString(),
                     kgMax: targetKgMax.toString(),
                     topset: topsetStr,
-                    rpe: isDeloadWeek ? "@6.5" : (focus === 'strength' ? "@8.5" : "@8.0"),
-                    notes: notesFinal,
+                    rpe: rpeString,
+                    notes: noteFinal,
                     sets: setsArray
                 };
             });
 
             weekDays.push({
-                dayNumber: d,
-                dayName: `Seduta ${d}`,
+                dayNumber: dayIndex + 1,
+                dayName: dayTemplate.name,
                 exercises: processedExercises
             });
-        }
+        });
 
         weeks.push({
             weekNumber: w,
@@ -142,89 +231,191 @@ export function generateSmartMesocycle(config = {}, analysis = {}, historicalDat
     };
 }
 
-function selectExercisesForDay(dayNum, focus, stalledExercises) {
-    let rawList;
+/**
+ * Calcola il numero di serie target rispettando le soglie ipertrofiche (MEV/MAV/MRV) basate sulla frequenza reale
+ */
+function calculateTargetSets({ category = "", focusMuscleGroup, isDeloadWeek, weekNumber, isMaster, frequency = 2 }) {
+    if (isDeloadWeek) return 2;
+
+    const mainMuscle = Object.keys(MUSCLE_VOLUME_LANDMARKS).find(m => category.toLowerCase().includes(m.toLowerCase())) || "Petto";
+    const landmarks = MUSCLE_VOLUME_LANDMARKS[mainMuscle];
+
+    const isSpecialization = focusMuscleGroup && focusMuscleGroup.toLowerCase() === mainMuscle.toLowerCase();
+    const targetVolumeLandmark = isSpecialization ? landmarks.mav : landmarks.mev;
     
-    if (dayNum === 1) {
-        rawList = [
-            EXERCISE_DATABASE.find(e => e.name.includes("Panca Piana")),
-            EXERCISE_DATABASE.find(e => e.name.includes("Panca Inclinata")),
-            EXERCISE_DATABASE.find(e => e.name.includes("Pushdown ai Cavi")),
-            EXERCISE_DATABASE.find(e => e.name.includes("Croci ai Cavi"))
-        ];
-    } else if (dayNum === 2) {
-        rawList = [
-            EXERCISE_DATABASE.find(e => e.name.includes("Squat")),
-            EXERCISE_DATABASE.find(e => e.name.includes("Stacco Rumeno")),
-            EXERCISE_DATABASE.find(e => e.name.includes("Leg Curl Steso")),
-            EXERCISE_DATABASE.find(e => e.name.includes("Leg Press 45°"))
-        ];
+    // Distribuzione basata sulla frequenza settimanale reale di quel muscolo all'interno del template attivo
+    let targetSets = Math.round(targetVolumeLandmark / Math.max(1, frequency));
+
+    // Accumulo progressivo di volume durante il picco della settimana 3
+    if (weekNumber === 3) targetSets += 1;
+
+    // Cappiamo entro la soglia limite derivata dall'MRV distribuito
+    const maxAllowed = isMaster ? 3 : Math.min(5, Math.ceil(landmarks.mrv / Math.max(1, frequency)));
+    return Math.max(2, Math.min(targetSets, maxAllowed));
+}
+function generateContextNote(index, isDeload, focus, useSupersets) {
+    let note;
+
+    if (isDeload) {
+        note = "🛡️ Scarico attivo: mantieni il controllo eccentrico, fermati a 2-3 RIR dal cedimento.";
+    } else if (index === 0) {
+        note = focus === 'strength'
+            ? "🔥 Focus forza: recuperi completi e spinta esplosiva concentrica."
+            : "🎯 Esercizio primario: rispetta il buffer (1-2 RIR) mantenendo la forma pulita.";
+    } else if (index === 1) {
+        note = "⚡ Tensione continua: cerca il pompaggio e tieni 1s di contrazione di picco.";
     } else {
-        rawList = [
-            EXERCISE_DATABASE.find(e => e.name.includes("Trazioni")),
-            EXERCISE_DATABASE.find(e => e.name.includes("Rematore")),
-            EXERCISE_DATABASE.find(e => e.name.includes("Curl con Bilanciere EZ")),
-            EXERCISE_DATABASE.find(e => e.name.includes("Curl Manubri su Panca Inclinata"))
+        note = "💧 Gestione metabolica: controlla la fase negativa (2-3s) ed evita slanci parassiti.";
+    }
+
+    if (useSupersets && index >= 2) {
+        if (index % 2 === 1) {
+            note += " ⏱️ [SUPERSERIE]: Esegui abbinato all'esercizio precedente con recupero 45-60s.";
+        } else {
+            note += " ⏱️ [SUPERSERIE]: Passa subito all'esercizio successivo.";
+        }
+    }
+
+    return note;
+}
+
+function selectExerciseBySlot(slot, stalledExercises, alreadySelected = [], currentCNS = 0, maxCNS = 26) {
+    // 🛠️ FILTRO HOME GYM: L'utente possiede solo pesi liberi, rack e lat machine.
+    const availableEquipment = ["barbell", "dumbbell", "bodyweight", "lat_machine"];
+
+    let matches = EXERCISE_DATABASE.filter(e => {
+        const categoryMatch = e.category.toLowerCase() === slot.muscle.toLowerCase();
+        const patternMatch = slot.pattern ? e.pattern === slot.pattern : true;
+        const isNotDuplicate = !alreadySelected.includes(e.name);
+        const hasEquipment = availableEquipment.includes(e.equipment);
+        
+        return categoryMatch && patternMatch && isNotDuplicate && hasEquipment;
+    });
+
+    // Fallback elastico se il vincolo di pattern è troppo stringente
+    if (matches.length === 0) {
+        matches = EXERCISE_DATABASE.filter(e => {
+            return e.category.toLowerCase() === slot.muscle.toLowerCase() && 
+                   !alreadySelected.includes(e.name) && 
+                   availableEquipment.includes(e.equipment);
+        });
+    }
+
+    if (matches.length === 0) return null;
+
+    // 🧠 GESTIONE CNS: Se il budget neurale giornaliero sta per esplodere, 
+    // forza la scelta verso varianti meno tassanti (es. Manubri invece di Bilanciere per lo stesso pattern)
+    if (currentCNS > (maxCNS - 6)) {
+        matches.sort((a, b) => a.cnsCost - b.cnsCost); // Ordina dal meno tassante al più tassante
+    } else {
+        matches.sort((a, b) => b.cnsCost - a.cnsCost); // Ad inizio sessione, priorità ai multiarticolari pesanti
+    }
+
+    // Cerca una variante che non sia in stallo nei mesocicli precedenti
+    let selected = matches.find(e => !stalledExercises.includes(e.name)) || matches[0];
+
+    // Se l'esercizio scelto ci fa sforare pesantemente il budget, applichiamo un warning automatico
+    if ((currentCNS + selected.cnsCost) > maxCNS) {
+        selected = { 
+            ...selected, 
+            noteOverride: `⚠️ [CNS BUDGET LIMIT]: Esercizio inserito ma soglia neurale superata. Consiglio: abbassa i carichi del 10% o esegui 1 set in meno per preservare il recupero.` 
+        };
+    } else if (stalledExercises.includes(selected.name)) {
+        selected = { 
+            ...selected, 
+            noteOverride: "🔄 Variante di rotazione per stallo registrato nei mesocicli precedenti." 
+        };
+    }
+
+    return selected;
+}
+
+export function getTemplateForDays(daysPerWeek = 3) {
+    if (daysPerWeek === 3) {
+        return [
+            {
+                name: "Full Body A (Focus Spinta Petto, Lat Machine & Quadricipiti)",
+                slots: [
+                    { muscle: "Petto", pattern: "horizontal_push" },
+                    { muscle: "Back_Lats", pattern: "vertical_pull" },
+                    { muscle: "Gambe", pattern: "squat" },
+                    { muscle: "Spalle", pattern: "isolation" },
+                    { muscle: "Braccia", pattern: "isolation" }
+                ]
+            },
+            {
+                name: "Full Body B (Focus Stacco Rumeno, Spalla & Dorso Spessore)",
+                slots: [
+                    { muscle: "Gambe", pattern: "hinge" },
+                    { muscle: "Spalle", pattern: "vertical_push" },
+                    { muscle: "Back_Thickness", pattern: "horizontal_pull" },
+                    { muscle: "Petto", pattern: "isolation" },
+                    { muscle: "Braccia", pattern: "isolation" }
+                ]
+            },
+            {
+                name: "Full Body C (Focus Leg Press, Petto Inclinato & Braccia)",
+                slots: [
+                    { muscle: "Gambe", pattern: "squat" },
+                    { muscle: "Petto", pattern: "horizontal_push" },
+                    { muscle: "Back_Lats", pattern: "vertical_pull" },
+                    { muscle: "Gambe", pattern: "isolation" },
+                    { muscle: "Braccia", pattern: "isolation" }
+                ]
+            }
         ];
     }
 
-    return rawList.filter(Boolean).map(ex => {
-        if (stalledExercises.includes(ex.name)) {
-            return { ...ex, noteOverride: "Variante di rotazione per stallo precedente" };
+    return [
+        {
+            name: "Upper A (Focus Petto Piano, Lat Machine & Bicipiti)",
+            slots: [
+                { muscle: "Petto", pattern: "horizontal_push" },
+                { muscle: "Back_Lats", pattern: "vertical_pull" },
+                { muscle: "Petto", pattern: "isolation" },
+                { muscle: "Spalle", pattern: "isolation" },
+                { muscle: "Braccia", pattern: "isolation" }
+            ]
+        },
+        {
+            name: "Lower A (Focus Squat & Femorali)",
+            slots: [
+                { muscle: "Gambe", pattern: "squat" },
+                { muscle: "Gambe", pattern: "hinge" },
+                { muscle: "Gambe", pattern: "squat" },
+                { muscle: "Gambe", pattern: "isolation" }
+            ]
+        },
+        {
+            name: "Upper B (Focus Military Press, Rematore & Tricipiti)",
+            slots: [
+                { muscle: "Back_Lats", pattern: "vertical_pull" },
+                { muscle: "Spalle", pattern: "vertical_push" },
+                { muscle: "Back_Thickness", pattern: "horizontal_pull" },
+                { muscle: "Petto", pattern: "isolation" },
+                { muscle: "Braccia", pattern: "isolation" }
+            ]
+        },
+        {
+            name: "Lower B (Focus Stacco Rumeno & Quadricipiti)",
+            slots: [
+                { muscle: "Gambe", pattern: "hinge" },
+                { muscle: "Gambe", pattern: "squat" },
+                { muscle: "Spalle", pattern: "isolation" },
+                { muscle: "Braccia", pattern: "isolation" }
+            ]
         }
-        return ex;
-    });
-}
-
-function applyDensityAndNotes(exercises, maxMinutes, isDeload, focus) {
-    const formatted = [];
-
-    exercises.forEach((ex, idx) => {
-        let note = ex.noteOverride || "";
-
-        // Se non c'è un override specifico per stallo, creiamo una nota contestuale ricca
-        if (!note) {
-            if (isDeload) {
-                note = "🛡️ Scarico attivo: mantieni il controllo eccentrico, fermati a 2-3 ripetizioni dal cedimento tecnico e non forzare i carichi.";
-            } else if (idx === 0) {
-                // Primo esercizio (il fondamentale pesante)
-                note = focus === 'strength' 
-                    ? "🔥 Focus su espressività di forza e compattezza: rispetta i recuperi completi e cura la spinta esplosiva concentrica." 
-                    : "🎯 Esercizio chiave del giorno: gestisci il buffer programmato (1-2 RIR) senza sporcare l'esecuzione nelle prime serie.";
-            } else if (idx === 1) {
-                // Secondo esercizio
-                note = "⚡ Transizione a tensione continua: cerca un buon pompaggio muscolare e un picco di contrazione di 1 secondo nel punto di massimo accorciamento.";
-            } else {
-                // Esercizi complementari / accessori finali
-                note = "💧 Gestione metabolica: esegui con esecuzione rigorosa, controlla la fase negativa (2-3 secondi) ed evita slanci parassiti.";
-            }
-
-            // Aggiunta dinamica basata sui minuti massimi (densità / superserie)
-            if (maxMinutes <= 50 && idx >= 2) {
-                if (idx % 2 === 1) {
-                    note += " ⏱️ [SUPERSERIE]: Esegui abbinato all'esercizio precedente senza pause intermedie.";
-                } else {
-                    note += " ⏱️ [SUPERSERIE]: Passa subito all'esercizio successivo mantenendo alta la densità.";
-                }
-            }
-        }
-
-        formatted.push({
-            exercise: ex,
-            note: note
-        });
-    });
-
-    return formatted;
+    ];
 }
 
 export function applySpecializationFocus(exercises, historicalData) {
     return exercises.map(ex => {
         const exHistory = historicalData[ex.name];
+        
         if (exHistory && exHistory.stallsCount >= 2) {
             return {
                 ...ex,
-                noteOverride: "SPECIALIZZAZIONE CARENZA: Utilizza la tecnica Myo-Reps o Rest-Pause sull'ultima serie per sbloccare la crescita."
+                noteOverride: "SPECIALIZZAZIONE STALLO: Utilizza la tecnica Myo-Reps o Rest-Pause sull'ultima serie per sbloccare la crescita."
             };
         }
         return ex;
@@ -232,27 +423,51 @@ export function applySpecializationFocus(exercises, historicalData) {
 }
 
 export function analyzePreviousMesocycle(lastMesocycle) {
-    if (!lastMesocycle || !lastMesocycle.weeks) return { stalledExercises: [], recommendation: 'standard' };
+    if (!lastMesocycle || !lastMesocycle.weeks) {
+        return { stalledExercises: [], recommendation: 'standard' };
+    }
 
-    let stalledExercises = [];
+    const historyTracking = {};
+
     lastMesocycle.weeks.forEach(week => {
+        const wNum = week.weekNumber;
+        
         (week.days || []).forEach(day => {
             (day.exercises || []).forEach(ex => {
-                // 👈 Supporta sia completedLogs che loggedSets salvati da csvHandler
-                const logs = ex.completedLogs || ex.loggedSets || [];
-                const validLogs = logs.filter(s => s.isLocked || (s.weight && s.reps));
+                const logs = ex.loggedSets || ex.sets || ex.completedLogs || [];
+                const validSets = logs.filter(s => s.completed || s.isLocked || (s.weight && s.reps));
 
-                if (validLogs.length >= 3) {
-                    const recent = validLogs.slice(-2);
-                    const reps1 = recent[0].actualReps || recent[0].reps;
-                    const reps2 = recent[1].actualReps || recent[1].reps;
-                    
-                    if (reps1 && reps2 && reps1 === reps2) {
-                        stalledExercises.push(ex.name);
+                if (validSets.length > 0) {
+                    const totalReps = validSets.reduce((sum, s) => sum + (parseInt(s.reps, 10) || 0), 0);
+                    const avgReps = totalReps / validSets.length;
+
+                    if (!historyTracking[ex.name]) {
+                        historyTracking[ex.name] = [];
                     }
+                    
+                    historyTracking[ex.name].push({
+                        week: wNum,
+                        avgReps: avgReps
+                    });
                 }
             });
         });
+    });
+
+    const stalledExercises = [];
+
+    Object.keys(historyTracking).forEach(exerciseName => {
+        const dataPoints = historyTracking[exerciseName];
+
+        if (dataPoints.length >= 3) {
+            const recentPoints = dataPoints.slice(-2);
+            const repsWeekPrev = recentPoints[0].avgReps;
+            const repsWeekLast = recentPoints[1].avgReps;
+
+            if (repsWeekLast <= repsWeekPrev) {
+                stalledExercises.push(exerciseName);
+            }
+        }
     });
 
     return {

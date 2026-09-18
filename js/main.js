@@ -22,7 +22,9 @@ import { switchAnalyticsTab } from './analytics.js';
 import { setupBottomSheet } from './bottomSheet.js';
 import { initDevBanner } from './bannerSviluppo.js';
 import { applyUserToUI, checkSubscriptionStatus, deleteUserAccount } from './accountManager.js';
+// Corretto il percorso dell'import relativo
 import { startCoachChatAndGenerate } from '../mycoatch/mycoatch-adapter.js';
+import { generateAndDownloadMesocycleCSV } from '../mycoatch/mycoatch-adapter.js';
 
 // Esposizione globale per eventi inline / retrocompatibilità
 window.logoutUser = logoutUser;
@@ -75,36 +77,36 @@ async function initApp() {
     updateSyncStatusUI();
     
     try {
-const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await supabase.auth.getUser();
 
-if (user) {
-    state.currentUser = user;
-    const authOverlay = document.getElementById('auth-overlay');
-    if (authOverlay) authOverlay.style.display = 'none';
+        if (user) {
+            state.currentUser = user;
+            const authOverlay = document.getElementById('auth-overlay');
+            if (authOverlay) authOverlay.style.display = 'none';
 
-    applyUserToUI(user);
-    await checkSubscriptionStatus(user);
+            applyUserToUI(user);
+            await checkSubscriptionStatus(user);
 
-    if (navigator.onLine) {
-        if (hasPendingSync()) {
-            await processSyncQueue();
-        }
+            if (navigator.onLine) {
+                if (hasPendingSync()) {
+                    await processSyncQueue();
+                }
 
-        const remoteData = await pullDataFromSupabase(user);
-        
-        if (remoteData && remoteData.history && Object.keys(remoteData.history.years || {}).length > 0) {
-            const localTime = new Date(localData.updatedAt || 0).getTime();
-            const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
+                const remoteData = await pullDataFromSupabase(user);
+                
+                if (remoteData && remoteData.history && Object.keys(remoteData.history.years || {}).length > 0) {
+                    const localTime = new Date(localData.updatedAt || 0).getTime();
+                    const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
 
-            if (remoteTime > localTime && !hasPendingSync()) {
-                state.workoutData = remoteData;
-                saveToLocalStorage(remoteData); 
+                    if (remoteTime > localTime && !hasPendingSync()) {
+                        state.workoutData = remoteData;
+                        saveToLocalStorage(remoteData); 
+                    }
+                } else {
+                    console.log("⚠️ Cloud vuoto o non raggiungibile: mantengo i dati locali in sicurezza.");
+                }
             }
-        } else {
-            console.log("⚠️ Cloud vuoto o non raggiungibile: mantengo i dati locali in sicurezza.");
         }
-    }
-}
     } catch (err) {
         console.warn("Impossibile connettersi a Supabase, avvio in modalità offline:", err);
     }
@@ -118,9 +120,6 @@ if (user) {
 
 document.addEventListener('DOMContentLoaded', initApp);
 
-// ==========================================
-// 4. LISTENER EVENTI GLOBALI & INTERFACCIA
-// ==========================================
 // ==========================================
 // 4. LISTENER EVENTI GLOBALI & INTERFACCIA
 // ==========================================
@@ -162,6 +161,23 @@ function setupEventListeners() {
     document.getElementById('prev-meso-btn')?.addEventListener('click', () => changeMesocycle(-1));
     document.getElementById('next-meso-btn')?.addEventListener('click', () => changeMesocycle(1));
     document.getElementById('toggle-lock-meso-btn')?.addEventListener('click', toggleCurrentMesocycleLock);
+    document.getElementById('btn-generate-mycoatch-csv')?.addEventListener('click', async () => {
+        const userGoalSettings = {
+            userAge: parseInt(document.getElementById('input-age')?.value, 10) || 30,
+            daysPerWeek: parseInt(document.getElementById('select-days')?.value, 10) || 3,
+            maxSessionMinutes: parseInt(document.getElementById('select-time')?.value, 10) || 60,
+            focus: document.getElementById('select-focus')?.value || 'hybrid',
+            focusMuscleGroup: document.getElementById('select-focus-muscle')?.value || null
+        };
+
+        const response = await generateAndDownloadMesocycleCSV(userGoalSettings);
+        
+        if (response.success) {
+            alert(response.message);
+        } else {
+            alert(`Attenzione: ${response.message}`);
+        }
+    });
 
     // BOTTOM SHEET ANALYTICS
     setupBottomSheet({
@@ -204,12 +220,10 @@ function setupEventListeners() {
             if (btnManual) btnManual.textContent = "📖 Manuale d'uso";
             
             switch (action) {
-
                 case 'generate-mycoatch-csv': {
                     startCoachChatAndGenerate();
                     break;
                 }
-
                 case 'export-pdf':
                     handlePdfExportFromState(state);
                     break;
@@ -287,41 +301,6 @@ function setupEventListeners() {
         renderWorkoutList();
     });
 }
-
-    document.getElementById('close-import-modal-btn')?.addEventListener('click', closeImportModal);
-    document.getElementById('import-plan-modal')?.addEventListener('click', (e) => {
-        if (e.target.id === 'import-plan-modal') closeImportModal();
-    });
-
-    document.getElementById('btn-download-template')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        downloadExcelTemplate();
-    });
-
-    document.getElementById('import-file-input')?.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const statusMsg = document.getElementById('import-status-msg');
-        await handleUniversalImport(file, statusMsg, closeImportModal);
-        e.target.value = '';
-    });
-
-    document.getElementById('import-history-input')?.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        readCsvFile(file, (text) => {
-            const result = importProgressCSV(text);
-            alert(result.message || result.error);
-        });
-        e.target.value = '';
-    });
-
-    document.getElementById('week-selector')?.addEventListener('change', (e) => {
-        state.activeWeek = parseInt(e.target.value, 10);
-        renderWorkoutList();
-    });
-
 
 function closeImportModal() {
     const importModal = document.getElementById('import-plan-modal');

@@ -52,10 +52,6 @@ export function filterValidSets(rawWorkoutData) {
                 targetSets = ex.series;
             } else if (Array.isArray(ex.sets)) {
                 targetSets = ex.sets;
-            } else if (typeof ex.loggedSets === 'object' && ex.loggedSets !== null) {
-                targetSets = Object.values(ex.loggedSets);
-            } else if (typeof ex.sets === 'object' && ex.sets !== null) {
-                targetSets = Object.values(ex.sets);
             }
 
             const validSets = targetSets.filter(set => {
@@ -66,8 +62,11 @@ export function filterValidSets(rawWorkoutData) {
                 const rawWeight = String(set.weight || set.kg || set.peso || '').replace(',', '.').trim();
                 const weightVal = parseFloat(rawWeight) || 0;
                 
-                const rawReps = String(set.reps || set.repetition || set.ripetizioni || '').replace(/\D+/g, '');
-                const repsVal = parseInt(rawReps, 10) || 0;
+                // 🛠️ RISOLTO: Gestisce le stringhe delle tecniche (es. "10+8+6") estraendo solo il set base ed evitando numeri giganti
+                const cleanRepsStr = set.reps && String(set.reps).includes('+') 
+                    ? String(set.reps).split('+')[0] 
+                    : String(set.reps || '');
+                const repsVal = parseInt(cleanRepsStr.replace(/\D+/g, ''), 10) || 0;
 
                 const hasValidWeightReps = weightVal > 0 && repsVal > 0;
 
@@ -82,7 +81,6 @@ export function filterValidSets(rawWorkoutData) {
         })
         .filter(ex => ex.sets.length > 0);
 }
-
 export function calculateNetVolume(sets) {
     if (!sets) return 0;
     const setsArray = Array.isArray(sets) ? sets : Object.values(sets);
@@ -416,7 +414,6 @@ export function renderMuscleVolumeChart(canvasId, workoutData, range = currentRa
     const uniqueWeeks = new Set();
     days.forEach(d => {
         if (d.weekNumber || d.week) uniqueWeeks.add(d.weekNumber || d.week);
-        else if (d.date) uniqueWeeks.add(d.date.substring(0, 10));
     });
     
     const totalWeeks = uniqueWeeks.size || 1;
@@ -424,7 +421,13 @@ export function renderMuscleVolumeChart(canvasId, workoutData, range = currentRa
     days.forEach(day => {
         const validExs = filterValidSets(day.exercises || day.esercizi || []);
         validExs.forEach(ex => {
-            const muscle = ex.muscle_group || ex.target_muscle || ex.category || 'Generico';
+            let muscle = ex.muscle_group || ex.target_muscle || ex.category || 'Generico';
+            
+            // 🛠️ RISOLTO: Mappa i tag specialistici di MyCoatch ("Back_Lats", "Back_Thickness") sull'etichetta "Dorso" della UI
+            if (muscle.toLowerCase().includes('back_') || muscle.toLowerCase() === 'schiena') {
+                muscle = 'Dorso';
+            }
+
             if (!muscleGroups[muscle]) muscleGroups[muscle] = 0;
             muscleGroups[muscle] += ex.sets.length;
         });
@@ -441,7 +444,7 @@ export function renderMuscleVolumeChart(canvasId, workoutData, range = currentRa
             labels: labels.length ? labels : ['Petto', 'Dorso', 'Gambe', 'Spalle', 'Braccia'],
             datasets: [{
                 label: 'Hard Sets Medie / Settimana',
-                data: dataValues.length ? dataValues : [0, 0, 0, 0, 0],
+                data: dataValues.length ? dataValues: [0, 0, 0, 0, 0],
                 backgroundColor: 'rgba(59, 130, 246, 0.75)',
                 borderColor: '#2563eb',
                 borderWidth: 1,
@@ -522,7 +525,7 @@ export function renderLoadVsRPEChart(canvasId, sessionLogs) {
     });
 }
 
-export function initAnalyticsEvents(workoutData, range = currentRange) {
+export function initAnalyticsEvents(workoutData) {
     const mesoSelect = document.getElementById('macro-meso-select') || document.getElementById('analytics-meso-select');
     const exSelect = document.getElementById('analytics-ex-select') || document.getElementById('micro-exercise-select');
     
@@ -644,7 +647,7 @@ export function initAnalyticsEvents(workoutData, range = currentRange) {
     updateExerciseDropdown();
 }
 
-export function initMesoCompareSelectors(data, range = currentRange) {
+export function initMesoCompareSelectors(data) {
     const selectA = document.getElementById('compare-meso-a');
     const selectB = document.getElementById('compare-meso-b');
     if (!selectA || !selectB || !data) return;

@@ -3,12 +3,12 @@
 // MODULI: charts.js - Rendering grafici 1RM stimato (Formula Epley) e metriche storiche con Chart.js
 // ==========================================
 import { state } from './state.js';
+import { parseRPE } from './helpers.js';
 
 export function render1RMChart(canvasId, exerciseName) {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
 
-    // Raccoglie date e carichi dell'esercizio specifico da tutto lo storico gerarchico
     const labels = [];
     const values = [];
 
@@ -20,12 +20,25 @@ export function render1RMChart(canvasId, exerciseName) {
                     (day.exercises || []).forEach(ex => {
                         if (ex.name.toLowerCase() === exerciseName.toLowerCase()) {
                             (ex.loggedSets || []).forEach(set => {
-                                // Calcola l'e1RM solo per serie effettive entro le 10 ripetizioni[cite: 1]
-                                if (set.reps && set.reps > 0 && set.reps <= 10) {
-                                labels.push(day.date);
-                                // Formula Epley 1RM: weight * (1 + reps / 30)
-                                const estimated1RM = set.weight * (1 + (set.reps / 30));
-                                values.push(Math.round(estimated1RM));
+                                const weightVal = parseFloat(set.weight) || 0;
+                                
+                                // 🚀 RISOLTO: Estrae la prima cifra numerica utile anche in presenza di tecniche (es. "10+8" -> 10)
+                                let rawRepsStr = String(set.reps || '');
+                                if (rawRepsStr.includes('+')) {
+                                    rawRepsStr = rawRepsStr.split('+')[0];
+                                }
+                                const repsVal = parseInt(rawRepsStr.replace(/\D+/g, ''), 10) || 0;
+                                const rpeVal = set.rpe ? parseRPE(set.rpe) : 10;
+
+                                // Calcola l'e1RM solo per serie effettive valide con buffer ipertrofico controllato
+                                if (weightVal > 0 && repsVal > 0 && repsVal <= 12) {
+                                    labels.push(day.date || week.weekNumber);
+                                    
+                                    // 🚀 ALLINEAMENTO SCIENTIFICO: Formula di Epley Modificata basata su RPE (RIR = 10 - RPE)
+                                    const effectiveReps = repsVal + Math.max(0, 10 - rpeVal);
+                                    const estimated1RM = weightVal * (1 + (effectiveReps / 30));
+                                    
+                                    values.push(Math.round(estimated1RM));
                                 }
                             });
                         }
@@ -44,16 +57,22 @@ export function render1RMChart(canvasId, exerciseName) {
         data: {
             labels: labels,
             datasets: [{
-                label: `1RM Stimato (${exerciseName})`,
+                label: `1RM Stimato Adattivo (${exerciseName})`,
                 data: values,
-                borderColor: 'rgba(75, 192, 192, 1)',
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                tension: 0.1
+                borderColor: 'rgba(59, 130, 246, 1)', // Cambiato in azzurro per allinearsi al brand MyCoatch
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.15,
+                fill: true
             }]
         },
         options: {
             responsive: true,
-            scales: { y: { beginAtZero: false } }
+            scales: { 
+                y: { 
+                    beginAtZero: false,
+                    title: { display: true, text: 'Massimale Stimato (kg)' }
+                } 
+            }
         }
     });
 }

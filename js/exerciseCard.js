@@ -3,27 +3,27 @@
  * Summary: Genera dinamicamente le card per ogni esercizio gestendo lo stato di esclusione dai massimali, i selettori del bilanciere, il calcolo dei dischi per lato e l'evidenziatura automatica fuori target per KG (inclusi Topset), REPS ed RPE (con supporto al feedback verde di miglioramento).
  */
 
-import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange, calculateSetVolumeTrend, isValueExceedingTarget } from './helpers.js';
+// mycoatch/exerciseCard.js
+import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange, calculateSetVolumeTrend, isValueExceedingTarget, parseRPE } from './helpers.js';
 import { state } from './state.js';
 import { enableCardSwipeGesture } from './gestures.js';
 import { saveAndSync } from './storage.js';
 import { renderWorkoutList } from './ui.js';
-import { parseRPE } from './helpers.js';
 
 export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, activeDayNum, isPastMeso) {
     const isExExcluded = ex.isExcluded || false;
-    const isDropset = ex.isDropset || false;
+    const isDropsetPlan = ex.isDropset || false;
 
     const exCard = document.createElement('div');
     exCard.className = 'exercise-card';
     exCard.dataset.ex = exIdx;
-    exCard.style.cssText = `background: #ffffff; border: 1px solid ${isExExcluded ? '#fca5a5' : (isDropset ? '#f97316' : '#e2e8f0')}; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); opacity: ${isExExcluded ? '0.55' : '1'}; transition: all 0.25s ease; user-select: none; position: relative;`;
+    exCard.style.cssText = `background: #ffffff; border: 1px solid ${isExExcluded ? '#fca5a5' : (isDropsetPlan ? '#f97316' : '#e2e8f0')}; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); opacity: ${isExExcluded ? '0.55' : '1'}; transition: all 0.25s ease; user-select: none; position: relative;`;
 
     let cardHtml = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <div style="font-size: 0.75rem; font-weight: 700; color: #64748b; letter-spacing: 0.5px;">BLOCCO ${ex.block || (exIdx + 1)}</div>
-                ${isDropset ? '<span style="font-size: 0.7rem; background: #fff7ed; color: #c2410c; border: 1px solid #ffedd5; padding: 2px 8px; border-radius: 6px; font-weight: 800;">🔥 DROP SET</span>' : ''}
+                ${isDropsetPlan ? '<span style="font-size: 0.7rem; background: #fff7ed; color: #c2410c; border: 1px solid #ffedd5; padding: 2px 8px; border-radius: 6px; font-weight: 800;">🔥 DROP SET</span>' : ''}
                 ${!isExExcluded ? '<span style="font-size: 0.7rem; color: #94a3b8; font-style: italic;">(Doppio click o swipe per escludere)</span>' : ''}
             </div>
             ${isExExcluded ? '<span style="font-size: 0.7rem; background: #ef4444; color: #ffffff; padding: 2px 8px; border-radius: 12px; font-weight: 800;">ESCLUSO DAI MASSIMALI</span>' : ''}
@@ -131,9 +131,12 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             trendHtml = `<span style="color: ${color}; font-size: 0.7rem; font-weight: 800; white-space: nowrap;">${trend.text}</span>`;
         }
 
+        // Sistema di placeholder intelligente per ripetizioni fisse e range complessi
         const isRangeTarget = (ex.minReps && ex.maxReps) || (typeof ex.reps === 'string' && ex.reps.includes('-'));
         const rawTargetReps = ex.reps || ex.targetReps || '';
-        const defaultTargetReps = isRangeTarget ? (prevSet?.reps || '') : rawTargetReps.toString().replace(/\D+/g, '');
+        const defaultTargetReps = isRangeTarget 
+            ? (prevSet?.reps || rawTargetReps) 
+            : rawTargetReps.toString().trim();
 
         const displayWeight = setObj.weight !== undefined && setObj.weight !== '' ? setObj.weight : (prevSet?.weight || '');
         const displayReps = setObj.reps !== undefined && setObj.reps !== '' ? setObj.reps : defaultTargetReps;
@@ -169,13 +172,10 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         const isRpeOutOfRange = isValueOutOfRange(cleanDisplayRpe, minRpe, maxRpe);
         const isRpeExceeding = isValueExceedingTarget(cleanDisplayRpe, minRpe, maxRpe);
 
-        // Definizione bordi dinamici basati ESCLUSIVAMENTE sui target di scheda (Rosso = sotto, Verde = sopra/superato, Grigio = standard)
         const kgBorderColor = isKgOutOfRange ? '#ef4444' : (isKgExceeding ? '#16a34a' : '#cbd5e1');
         const kgBorderWidth = (isKgOutOfRange || isKgExceeding) ? '2px' : '1px';
-
         const repsBorderColor = isRepsOutOfRange ? '#ef4444' : (isRepsExceeding ? '#16a34a' : '#cbd5e1');
         const repsBorderWidth = (isRepsOutOfRange || isRepsExceeding) ? '2px' : '1px';
-
         const rpeBorderColor = isRpeOutOfRange ? '#ef4444' : (isRpeExceeding ? '#16a34a' : '#cbd5e1');
         const rpeBorderWidth = (isRpeOutOfRange || isRpeExceeding) ? '2px' : '1px';
 
@@ -183,12 +183,25 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         const repsTextColor = (!setObj.reps && prevSet?.reps && !isLocked) ? '#94a3b8' : '#0f172a';
         const rpeTextColor = (!setObj.rpe && ex.targetRpe && !isLocked) ? '#94a3b8' : '#0f172a';
 
+        // 🚀 INIEZIONE BADGE GRAFICO DELLE TECNICHE DI INTENSITÀ SULLA RIGA DEL SET DEL DIARIO
+        let intensityBadgeHtml = '';
+        if (setObj.intensityTechnique) {
+            const isDrop = setObj.intensityTechnique === 'DROP_SET';
+            const badgeBg = isDrop ? '#fff7ed' : '#edf2ff';
+            const badgeColor = isDrop ? '#c2410c' : '#3b82f6';
+            const badgeBorder = isDrop ? '#ffedd5' : '#dbe4ff';
+            
+            // Corretti i backtick mancanti per evitare errori di compilazione
+            intensityBadgeHtml = `<span style="font-size: 0.65rem; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; padding: 1px 4px; border-radius: 4px; font-weight: 800; margin-top: 2px; text-transform: uppercase;">${isDrop ? 'DROP' : 'R-PAUSE'}</span>`;
+        }
+
         cardHtml += `
             <tr style="border-bottom: 1px solid #e2e8f0;">
                 <td style="padding: 6px; text-align: center; border-right: 1px solid #e2e8f0;">
                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;">
                         <span style="font-weight: 600; color: #334155;">${setIdx + 1}</span>
                         ${trendHtml}
+                        ${intensityBadgeHtml}
                     </div>
                 </td>
                 <td style="padding: 4px; border-right: 1px solid #e2e8f0;">
@@ -208,8 +221,9 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     });
 
     cardHtml += `
-            </tbody>
+            </tbody> 
         </table>
+        <div id="mycoach-advice-${exIdx}" class="mycoach-fatigue-alert"></div>
         <input type="text" placeholder="Note esercizio..." value="${ex.userNotes || ''}" class="ex-user-notes" data-ex="${exIdx}" ${isPastMeso ? 'disabled' : ''} style="width: 100%; font-size: 0.8rem; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: ${isPastMeso ? '#f1f5f9' : '#f8fafc'};">
     `;
 
@@ -229,40 +243,39 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
 
     enableCardSwipeGesture(exCard, toggleExclusion, toggleExclusion);
     return exCard;
-}
-
-export function updatePlatesBadgeUI(exIdx) {
-    const card = document.querySelector(`.exercise-card[data-ex="${exIdx}"]`);
-    if (!card) return;
-
-    const barSelect = card.querySelector('.bar-select');
-    const set1Input = card.querySelector('.set-kg[data-set="0"]');
-    const badge = card.querySelector('.plates-badge');
-
-    if (!badge) return;
-
-    const barWeight = parseFloat(barSelect?.value || 20);
-    const totalKg = parseFloat(set1Input?.value?.replace(',', '.')) || 0;
-
-    if (barWeight === 0) {
-        badge.innerHTML = `🏋️ Manubri / Macchina`;
-        badge.style.background = '#f1f5f9';
-        badge.style.color = '#475569';
-        badge.style.borderColor = '#cbd5e1';
-        return;
     }
 
-    const breakdown = getPlateBreakdown(totalKg, barWeight);
+    export function updatePlatesBadgeUI(exIdx) {
+        const card = document.querySelector(`.exercise-card[data-ex="${exIdx}"]`);
+        if (!card) return;
 
-    if (!breakdown) {
-        badge.innerHTML = `🏋️ 0 kg/lato`;
-        badge.style.background = '#f8fafc';
-        badge.style.color = '#64748b';
-        badge.style.borderColor = '#e2e8f0';
-    } else {
-        badge.innerHTML = `🏋️ <strong>${breakdown.sideWeight}kg</strong>/lato <span style="color: #166534; font-weight: normal;">[${breakdown.str}]</span>`;
-        badge.style.background = '#f0fdf4';
-        badge.style.color = '#15803d';
-        badge.style.borderColor = '#bbf7d0';
+        const barSelect = card.querySelector('.bar-select');
+        const set1Input = card.querySelector('.set-kg[data-set="0"]');
+        const badge = card.querySelector('.plates-badge');
+        if (!badge) return;
+
+        const barWeight = parseFloat(barSelect?.value || 20);
+        const totalKg = parseFloat(set1Input?.value?.replace(',', '.')) || 0;
+
+        if (barWeight === 0) {
+            badge.innerHTML = `🏋️ Manubri / Macchina`;
+            badge.style.background = '#f1f5f9';
+            badge.style.color = '#475569';
+            badge.style.borderColor = '#cbd5e1';
+            return;
+        }
+
+        const breakdown = getPlateBreakdown(totalKg, barWeight);
+
+        if (!breakdown) {
+            badge.innerHTML = `🏋️ 0 kg/lato`;
+            badge.style.background = '#f8fafc';
+            badge.style.color = '#64748b';
+            badge.style.borderColor = '#e2e8f0';
+        } else {
+            badge.innerHTML = `🏋️ <strong>${breakdown.sideWeight}kg</strong>/lato <span style="color: #166534; font-weight: normal;">[${breakdown.str}]</span>`;
+            badge.style.background = '#f0fdf4';
+            badge.style.color = '#15803d';
+            badge.style.borderColor = '#bbf7d0';
+        }
     }
-}

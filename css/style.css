@@ -1571,3 +1571,19 @@ body.dark-mode #import-plan-modal div[style*="background"] {
     border-color: var(--border-color, #334155) !important;
     color: var(--text-muted, #94a3b8) !important;
 }
+.mycoach-fatigue-alert {
+    display: none; /* Nascosto di default */
+    background-color: #2a2200;
+    border-left: 4px solid #ffcc00;
+    color: #ffd700;
+    padding: 10px 15px;
+    margin-top: 15px;
+    font-size: 0.9rem;
+    border-radius: 4px;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}

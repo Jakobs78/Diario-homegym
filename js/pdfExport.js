@@ -184,6 +184,7 @@ export function handlePdfExportFromState(state) {
 }
 
 export async function exportWorkoutPDF(dayData = null, metadata = null) {
+    
     if (!dayData) {
         alert("Nessun dato da esportare.");
         return;
@@ -192,6 +193,16 @@ export async function exportWorkoutPDF(dayData = null, metadata = null) {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pageWidth = doc.internal.pageSize.getWidth();
     let cursorY = 14;
+    const renderDataCell = (value, width, currentXInput, borderColorArray) => {
+        const isCustom = borderColorArray !== colorGray;
+        doc.setDrawColor(...borderColorArray);
+        doc.setLineWidth(isCustom ? 0.5 : 0.2);
+        doc.roundedRect(currentXInput + 3, cursorY + 1.5, width - 6, 7, 1, 1, 'D');
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...primaryColor);
+        doc.text(value ? String(value) : '-', currentXInput + (width / 2), cursorY + 6, { align: 'center' });
+    };
 
     // Palette Colori
     const primaryColor = [15, 23, 42];    // Slate 900
@@ -419,6 +430,7 @@ export async function exportWorkoutPDF(dayData = null, metadata = null) {
             });
             cursorY += 6;
 
+
             loggedSets.forEach((setObj, setIdx) => {
                 if (cursorY > 270) {
                     doc.addPage();
@@ -435,26 +447,28 @@ export async function exportWorkoutPDF(dayData = null, metadata = null) {
 
                 const prevSet = prevExercise?.loggedSets?.[setIdx];
                 const prevKg = prevSet ? parseFloat(prevSet.weight) || 0 : 0;
-                const prevReps = prevSet ? parseInt(prevSet.reps) || 0 : 0;
+                
+                const currentRepsCount = (setObj.reps && String(setObj.reps).includes('+'))
+                ? String(setObj.reps).split('+').reduce((sum, r) => sum + (parseInt(r, 10) || 0), 0)
+                : parseInt(setObj.reps, 10) || 0;
+
                 const currentKg = parseFloat(setObj.weight) || 0;
-                const currentReps = parseInt(setObj.reps) || 0;
-
-                // Calcolo Evoluzione Volume Singola Serie (Kg x Reps)
-                const currentVol = currentKg * currentReps;
-                const prevVol = prevKg * prevReps;
+                const currentVol = currentKg * currentRepsCount;
+                
+                let prevRepsCount = prevSet ? (String(prevSet.reps).includes('+') ? String(prevSet.reps).split('+').reduce((sum, r) => sum + (parseInt(r, 10) || 0), 0) : parseInt(prevSet.reps, 10) || 0) : 0;
+                const prevVol = prevKg * prevRepsCount;
                 const volDiff = (currentVol > 0 && prevVol > 0) ? (currentVol - prevVol) : 0;
-                const trend = calculateSetVolumeTrend({ weight: currentKg, reps: currentReps }, { weight: prevKg, reps: prevReps });
+                const trend = calculateSetVolumeTrend({ weight: currentKg, reps: currentRepsCount }, { weight: prevKg, reps: prevRepsCount });
 
-                // Valori visibili nelle celle
+                // Placeholder intelligente per la riga del PDF
                 const isRangeTarget = (ex.minReps && ex.maxReps) || (typeof ex.reps === 'string' && ex.reps.includes('-'));
                 const rawTargetReps = ex.reps || ex.targetReps || '';
-                const defaultTargetReps = isRangeTarget ? (prevSet?.reps || '') : rawTargetReps.toString().replace(/\D+/g, '');
+                const defaultTargetReps = isRangeTarget ? (prevSet?.reps || '') : rawTargetReps.toString().trim();
 
                 const displayWeight = setObj.weight !== undefined && setObj.weight !== '' ? setObj.weight : (prevSet?.weight || '');
                 const displayReps = setObj.reps !== undefined && setObj.reps !== '' ? setObj.reps : defaultTargetReps;
                 const displayRpe = setObj.rpe !== undefined && setObj.rpe !== '' ? setObj.rpe : (ex.targetRpe || ex.rpe || '');
 
-                // Target Min/Max per KG
                 let currentKgMin = ex.kgMin;
                 let currentKgMax = ex.kgMax;
                 if ((setIdx === 0 || setObj.isTopset) && (ex.topsetKgMin || ex.topsetKgMax || ex.topsetKg)) {
@@ -462,7 +476,6 @@ export async function exportWorkoutPDF(dayData = null, metadata = null) {
                     currentKgMax = ex.topsetKgMax || ex.topsetKg;
                 }
 
-                // Bordi Dinamici Celle
                 const isKgOutOfRange = isValueOutOfRange(displayWeight, currentKgMin, currentKgMax);
                 const isKgExceeding = isValueExceedingTarget(displayWeight, currentKgMin, currentKgMax);
                 const kgColor = isKgOutOfRange ? colorRed : (isKgExceeding ? colorGreen : colorGray);
@@ -488,35 +501,41 @@ export async function exportWorkoutPDF(dayData = null, metadata = null) {
                 const isRpeExceeding = isValueExceedingTarget(cleanDisplayRpe, minRpe, maxRpe);
                 const rpeColor = isRpeOutOfRange ? colorRed : (isRpeExceeding ? colorGreen : colorGray);
 
-                // Colonna 1: Numero Set + Tab Evoluzione Volume Serie
+                // Colonna 1: Numero Set + Tab Evoluzione Volume o Badge Tecnica MyCoatch
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(8.5);
                 doc.setTextColor(...primaryColor);
-                doc.text(`SET ${setIdx + 1}`, currentX + (colWidths[0] / 2), cursorY + 4, { align: 'center' });
-
+                
+                // 🚀 INIEZIONE: Se il set conteneva una tecnica, stampiamo l'indicazione testuale direttamente sul PDF
+                const labelText = setObj.intensityTechnique 
+                    ? `SET ${setIdx + 1} (${setObj.intensityTechnique === 'DROP_SET' ? 'DROP' : 'R-PS'})` 
+                    : `SET ${setIdx + 1}`;
+                
+                doc.text(labelText, currentX + (colWidths[0] / 2), cursorY + 4, { align: 'center' });
                 if (currentVol > 0) {
                     let badgeBg = [241, 245, 249];       // Slate 100
-                    let badgeTextCol = [71, 85, 105];   // Slate 600
+                    let badgeTextCol = [71, 85, 105];    // Slate 600
                     let signStr = '';
 
                     if (volDiff > 0) {
-                        badgeBg = [220, 252, 231];      // Green 100
+                        badgeBg = [220, 252, 231];       // Green 100
                         badgeTextCol = [22, 101, 52];    // Green 800
                         signStr = '+';
                     } else if (volDiff < 0) {
-                        badgeBg = [254, 226, 226];      // Red 100
+                        badgeBg = [254, 226, 226];       // Red 100
                         badgeTextCol = [153, 27, 27];    // Red 800
                     }
+                
 
                     const volLabel = volDiff !== 0 ? `${currentVol}kg (${signStr}${volDiff}kg)` : `${currentVol} kg`;
-
                     doc.setFillColor(...badgeBg);
                     doc.roundedRect(currentX + 2, cursorY + 5.2, colWidths[0] - 4, 3.8, 1, 1, 'F');
-                    doc.setFont("helvetica", "bold");
                     doc.setFontSize(5.5);
                     doc.setTextColor(...badgeTextCol);
                     doc.text(volLabel, currentX + (colWidths[0] / 2), cursorY + 7.8, { align: 'center' });
-                } else if (trend) {
+                }
+                
+                else if (trend) {
                     doc.setFont("helvetica", "bold");
                     doc.setFontSize(5.5);
                     doc.setTextColor(trend.isPositive ? 22 : 220, trend.isPositive ? 163 : 38, trend.isPositive ? 74 : 38);
@@ -524,25 +543,15 @@ export async function exportWorkoutPDF(dayData = null, metadata = null) {
                 }
                 currentX += colWidths[0];
 
-                // Render celle dati con bordo dinamico
-                const renderDataCell = (value, width, borderColorArray) => {
-                    const isCustom = borderColorArray !== colorGray;
-                    doc.setDrawColor(...borderColorArray);
-                    doc.setLineWidth(isCustom ? 0.5 : 0.2);
-                    doc.roundedRect(currentX + 3, cursorY + 1.5, width - 6, rowHeight - 3, 1, 1, 'D');
+                renderDataCell(displayWeight, colWidths[1], currentX, kgColor);
+                currentX += colWidths[1];
 
-                    doc.setFont("helvetica", "bold");
-                    doc.setFontSize(8.5);
-                    doc.setTextColor(...primaryColor);
-                    doc.text(value ? String(value) : '-', currentX + (width / 2), cursorY + 6, { align: 'center' });
-                    currentX += width;
-                };
-
-                renderDataCell(displayWeight, colWidths[1], kgColor);
-                renderDataCell(displayReps, colWidths[2], repsColor);
+                renderDataCell(displayReps, colWidths[2], currentX, repsColor);
+                currentX += colWidths[2];
 
                 const formattedRpe = cleanDisplayRpe ? (cleanDisplayRpe.startsWith('@') ? cleanDisplayRpe : `@${cleanDisplayRpe}`) : '';
-                renderDataCell(formattedRpe, colWidths[3], rpeColor);
+                renderDataCell(formattedRpe, colWidths[3], currentX, rpeColor);
+                currentX += colWidths[3];
 
                 // Colonna 5: Spunta Verde OK
                 const isLocked = setObj.isLocked || false;
@@ -562,8 +571,8 @@ export async function exportWorkoutPDF(dayData = null, metadata = null) {
 
                 cursorY += rowHeight;
             });
-            cursorY += 2;
         }
+
 
         // 7. Box Note Atleta
         const athleteNotes = ex.userNotes || '';

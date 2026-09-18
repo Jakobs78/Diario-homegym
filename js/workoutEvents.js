@@ -9,6 +9,27 @@ import { startTimer, handleTick, handleComplete, parseRecoveryTime } from './tim
 import { updatePlatesBadgeUI } from './exerciseCard.js';
 import { updateSessionAndCompletionState, updateSessionHeaderUI } from './sessionTimer.js';
 
+// Aggiungi questa funzione sotto gli import
+function evaluateFatigue(exerciseIndex, targetRepsString, actualRepsValue) {
+    const adviceBox = document.getElementById(`mycoach-advice-${exerciseIndex}`);
+    if (!adviceBox) return;
+
+    if (!actualRepsValue || String(actualRepsValue).trim() === "") {
+        adviceBox.style.display = 'none';
+        return;
+    }
+
+    const targetMin = parseInt(String(targetRepsString).split('-')[0]) || 0;
+    const actual = parseInt(actualRepsValue) || 0;
+
+    // LA REGOLA DEL COACH: Se manchi il target minimo di 2 o più ripetizioni
+    if (actual > 0 && actual <= targetMin - 2) {
+        adviceBox.innerHTML = `⚠️ <strong>MyCoach:</strong> Hai chiuso ${actual} rep (Target: ${targetMin}). Il drop di performance è eccessivo. Scala il carico del 10% nella prossima serie o il volume diventerà spazzatura.`;
+        adviceBox.style.display = 'block';
+    } else {
+        adviceBox.style.display = 'none';
+    }
+}
 /**
  * Associa gli eventi della tabella di allenamento (input, modifica note, blocco set).
  * @param {Object} currentDay - L'oggetto del giorno corrente
@@ -115,7 +136,14 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                     target.style.borderWidth = '1px';
                 }
             }
-            saveAndSync(state.workoutData);
+
+            // Cancella il timer precedente se l'utente sta ancora digitando
+            clearTimeout(window._syncTimeout);
+
+            // Imposta un nuovo timer: salva i dati solo dopo 2000 millisecondi (2 secondi) di completa inattività
+            window._syncTimeout = setTimeout(() => {
+                saveAndSync(state.workoutData);
+            }, 2000);
         });
     });
 
@@ -173,22 +201,16 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
         if (!ex.sets) ex.sets = [];
         ex.sets[setIdx] = { ...setObj };
 
-            if (isChecked && setIdx === 0) {
-                ['weight', 'reps', 'rpe'].forEach(prop => {
-                    const val = setObj[prop];
-                    if (val !== undefined && val !== null && val !== '') {
-                        const targetClass = prop === 'weight' ? '.set-kg' : (prop === 'reps' ? '.set-reps' : '.set-rpe');
-                        const setRows = workoutListContainer.querySelectorAll(`${targetClass}[data-ex="${exIdx}"]`);
-
-                        setRows.forEach((rowInput, idx) => {
-                            if (idx > 0 && (!ex.loggedSets[idx][prop])) {
-                                rowInput.value = val;
-                                ex.loggedSets[idx][prop] = val;
-                            }
-                        });
-                    }
-                });
-            }
+        // 🚀 VALUTAZIONE STANCHEZZA IN TEMPO REALE CON MYCOATCH (UI NON BLOCCANTE)
+        if (isChecked) {
+            // Ricava il target stringa (es. "8-10" o "10")
+            const targetStr = ex.minReps ? `${ex.minReps}-${ex.maxReps || ex.minReps}` : (ex.reps || '');
+            evaluateFatigue(exIdx, targetStr, setObj.reps);
+        } else {
+            // Se l'utente sblocca la serie per modificarla, nascondiamo temporaneamente l'avviso
+            const adviceBox = document.getElementById(`mycoach-advice-${exIdx}`);
+            if (adviceBox) adviceBox.style.display = 'none';
+        }
 
             if (rowCard) {
                 const mesoIndex = state.activeMesocycleIndex || 0;
@@ -240,11 +262,14 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                 });
             }
 
-            if (isChecked) {
+                        if (isChecked) {
                 const isMiddleOfGroup = ex.groupType && !ex.isGroupLast;
-                const isDropset = ex.isDropset || ex.groupType === 'dropset';
+                const isDropsetPlan = ex.isDropset || ex.groupType === 'dropset';
                 const totalSets = ex.loggedSets?.length || ex.sets?.length || 1;
                 const isLastSetOfExercise = setIdx === (totalSets - 1);
+
+                // 🚀 NUOVO: Verifica se il singolo set corrente contiene una tecnica di intensità attiva di MyCoatch
+                const hasIntensityTechnique = !!setObj.intensityTechnique;
 
                 const notesLower = (ex.notes || '').toLowerCase();
                 const hasRestBetweenExercises = notesLower.includes('pausa') || 
@@ -252,7 +277,10 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                                               notesLower.includes('tra uno') || 
                                               notesLower.includes('riposo');
 
-                const shouldSkipTimer = (isMiddleOfGroup && !hasRestBetweenExercises) || (isDropset && !isLastSetOfExercise);
+                // Se l'ultimo set prevede un Drop-Set o un Rest-Pause, escludiamo l'avvio del timer di recupero
+                const shouldSkipTimer = (isMiddleOfGroup && !hasRestBetweenExercises) || 
+                                        (isDropsetPlan && !isLastSetOfExercise) ||
+                                        hasIntensityTechnique;
 
                 if (!shouldSkipTimer) {
                     let rawRecovery = '';
@@ -273,6 +301,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                     startTimer(recoveryTime, handleTick, handleComplete);
                 }
             }
+
 
             updateSessionAndCompletionState(currentDay);
             updateSessionHeaderUI(currentDay, renderCallback);

@@ -270,14 +270,17 @@ function appendCoachingFeedbackCard(exerciseContainer, exerciseName) {
     const historyYears = state.workoutData?.history?.years || {};
     let exerciseHistory = [];
 
-    // Raccoglie i log passati dell'esercizio da tutto lo storico dello state
+    // 🛠️ RISOLTO: Raccoglie i blocchi di sessione passati estraendo l'array reale 'loggedSets'
     Object.values(historyYears).forEach(yearObj => {
         (yearObj.mesocycles || []).forEach(meso => {
             (meso.weeks || []).forEach(week => {
                 (week.days || []).forEach(day => {
                     (day.exercises || []).forEach(ex => {
-                        if (ex.name === exerciseName && ex.completedLogs) {
-                            exerciseHistory.push(...ex.completedLogs);
+                        const currentName = ex.name || ex.nome;
+                        const sets = ex.loggedSets || ex.sets || [];
+                        if (currentName === exerciseName && sets.length > 0) {
+                            // Salva l'intera sessione con i suoi set compilati per l'analisi longitudinale
+                            exerciseHistory.push(ex);
                         }
                     });
                 });
@@ -285,27 +288,35 @@ function appendCoachingFeedbackCard(exerciseContainer, exerciseName) {
         });
     });
 
-    // Interroga MyCoatch per ottenere il feedback di autoregolazione
+    if (exerciseHistory.length === 0) return;
+
+    // Interroga MyCoatch per ottenere il feedback di progressione
     const advice = MyCoatch.evaluateProgress(exerciseHistory);
     if (!advice) return;
 
-    // Crea il contenitore grafico per il consiglio
+    // Crea il contenitore grafico per il consiglio sotto la scheda dell'esercizio
     const coachingBox = document.createElement('div');
-    coachingBox.style.cssText = "margin-top: 8px; padding: 6px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 500;";
+        coachingBox.style.cssText = "margin-top: 8px; padding: 8px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 500; border-left: 4px solid;";
 
-    if (advice.action === "INCREMENT_LOAD") {
-        coachingBox.style.background = "rgba(16, 185, 129, 0.15)";
-        coachingBox.style.color = "#10b981";
-        coachingBox.innerHTML = `💡 <strong>MyCoatch:</strong> ${advice.message} (+${advice.suggestedKgIncrement} kg)`;
-    } else if (advice.action === "TRIGGER_DELOAD_OR_VARIATION") {
-        coachingBox.style.background = "rgba(239, 68, 68, 0.15)";
-        coachingBox.style.color = "#ef4444";
-        coachingBox.innerHTML = `⚠️ <strong>Stallo Rilevato:</strong> ${advice.message}`;
-    } else {
-        coachingBox.style.background = "rgba(59, 130, 246, 0.1)";
-        coachingBox.style.color = "#3b82f6";
-        coachingBox.innerHTML = `🎯 <strong>Mantenimento:</strong> ${advice.message}`;
+        // Mostriamo i feedback importanti (incrementi, stalli o regolazioni), ma eliminiamo il blocco "Target" neutro
+        if (advice.action === "INCREMENT_LOAD") {
+            coachingBox.style.background = "rgba(16, 185, 129, 0.1)";
+            coachingBox.style.borderColor = "#10b981";
+            coachingBox.style.color = "#065f46";
+            coachingBox.innerHTML = `🔥 <strong>MyCoatch Progression:</strong> ${advice.message}`;
+        } else if (advice.action === "TRIGGER_DELOAD_OR_VARIATION") {
+            coachingBox.style.background = "rgba(239, 68, 68, 0.1)";
+            coachingBox.style.borderColor = "#ef4444";
+            coachingBox.style.color = "#991b1b";
+            coachingBox.innerHTML = `⚠️ <strong>MyCoatch Stallo:</strong> ${advice.message}`;
+        } else if (advice.action === "REDUCE_LOAD") {
+            coachingBox.style.background = "rgba(245, 158, 11, 0.1)";
+            coachingBox.style.borderColor = "#f59e0b";
+            coachingBox.style.color = "#92400e";
+            coachingBox.innerHTML = `⚠️ <strong>MyCoatch Regolazione:</strong> ${advice.message}`;
+        } else {
+            return; // Esce senza mostrare alcun banner se si tratta di un semplice "Target"
+        }
+
+        exerciseContainer.appendChild(coachingBox);
     }
-
-    exerciseContainer.appendChild(coachingBox);
-}

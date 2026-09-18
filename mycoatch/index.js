@@ -1,16 +1,14 @@
 // mycoatch/index.js
 import { coachState } from './state.js';
 import { generateSmartMesocycle, analyzePreviousMesocycle } from './engine.js';
-import { analyzeUserHistory } from './autoregulation.js';
+import { analyzeUserHistory, evaluateRealTimePerformance, calculateE1RM } from './autoregulation.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 
 export const MyCoatch = {
     /**
-     * Punti di contatto con la webapp: Analizza lo storico reale dei dati salvati 
-     * e genera il nuovo mesociclo ottimizzato sotto forma di oggetto strutturato.
+     * Analizza lo storico reale e genera il nuovo mesociclo in formato JSON pronto per la webapp.
      */
-    generateNextFromHistory(userHistory, goalSettings) {
-        // Estrae in sicurezza lo storico salvato dalla webapp (localStorage / Supabase)
+    generateNextFromHistory(userHistory, goalSettings = {}) {
         const historyObj = userHistory?.history || userHistory || {};
         const yearsObj = historyObj.years || {};
         const years = Object.keys(yearsObj);
@@ -19,16 +17,16 @@ export const MyCoatch = {
         const mesocycles = yearsObj[currentYear]?.mesocycles || [];
         const lastMesocycle = mesocycles[mesocycles.length - 1] || null;
 
-        // Analisi di stalli e performance reali passate
+        // 1. Analisi stalli e performance pregresse
         const analysis = analyzePreviousMesocycle(lastMesocycle);
         
-        // Aggiorna la configurazione del coach (età, frequenza, minuti max, focus)
-        if (goalSettings && Object.keys(goalSettings).length > 0) {
+        // 2. Aggiornamento stato globale del Coach
+        if (Object.keys(goalSettings).length > 0) {
             coachState.updateConfig(goalSettings);
         }
         const config = coachState.getConfig();
         
-        // Genera il blocco intelligente passando l'analisi e lo storico dei carichi
+        // 3. Generazione e attivazione mesociclo
         const newMesocycle = generateSmartMesocycle(config, analysis, userHistory);
         coachState.setActiveMesocycle(newMesocycle);
         
@@ -36,23 +34,61 @@ export const MyCoatch = {
     },
 
     /**
-     * Valuta lo storico dell'utente per un singolo esercizio.
+     * Valutazione in tempo reale dopo il completamento di una singola serie in palestra.
+     */
+    evaluateSet(exerciseLog, dailyReadiness) {
+        return evaluateRealTimePerformance(exerciseLog, dailyReadiness);
+    },
+
+       /**
+     * Valuta l'andamento di un singolo esercizio calcolando l'e1RM e la varianza RPE.
      */
     evaluateProgress(exerciseHistory) {
         const config = coachState.getConfig();
-        return analyzeUserHistory(exerciseHistory, config);
+        // Mappiamo l'array della webapp nel formato digerito dall'analisi longitudinale
+        const mappedHistory = exerciseHistory.map(session => {
+            const sets = session.loggedSets || session.sets || [];
+            if (sets.length === 0) return null;
+            
+            // Prendiamo l'ultimo set completato come riferimento della sessione
+            const lastSet = sets[sets.length - 1]; 
+            return {
+                targetReps: session.reps || "8",
+                actualReps: sets.map(s => parseInt(s.reps, 10) || 0),
+                actualKg: lastSet?.weight || 0,
+                rpe: sets.map(s => parseFloat(s.rpe) || 8),
+                targetRpe: 8
+            };
+        }).filter(Boolean);
+
+        return analyzeUserHistory(mappedHistory, config);
+    },
+
+
+    /**
+     * Calcola l'1RM stimato per qualsiasi serie.
+     */
+    getE1RM(weight, reps, rpe) {
+        return calculateE1RM(weight, reps, rpe);
     },
 
     /**
-     * Restituisce la libreria degli esercizi del coach.
+     * Restituisce il mesociclo attivo pronto da salvare in Supabase/localStorage.
+     */
+    getActiveMesocycleJSON() {
+        return coachState.getActiveMesocycle();
+    },
+
+    /**
+     * Libreria esercizi.
      */
     getExerciseDatabase() {
         return EXERCISE_DATABASE;
     },
 
-   /**
-     * Esporta il mesociclo attivo nel formato CSV standard unificato 
-     * compatibile al 100% con l'importatore della webapp (Settimana, Giorno, Blocco, Esercizio, Set, Reps, KgMin, KgMax, RPE, Recupero, Note, Topset).
+    /**
+     * Esporta il mesociclo attivo nel formato CSV standard unificato della webapp:
+     * Genera un'unica riga per esercizio con il numero totale dei set specificato nella colonna 'Set'.
      */
     exportAsCSV() {
         const meso = coachState.getActiveMesocycle();
@@ -69,32 +105,40 @@ export const MyCoatch = {
                     const kgMinStr = ex.kgMin || "0";
                     const kgMaxStr = ex.kgMax || "0";
                     const rpeStr = ex.rpe || "@8";
-                    const noteStr = (ex.notes || "").replace(/"/g, '""');
-                    const topsetVal = ex.topset ? ex.topset : "";
+                    const topsetVal = (ex.topset || "").replace(/"/g, '""');
 
-                    // Recupera l'array dei set o crea una riga di fallback
-                    const setsArray = Array.isArray(ex.sets) && ex.sets.length > 0 ? ex.sets : [{ setNumber: 1, targetReps: ex.reps }];
+                    // Conteggio totale dei set (es. 3, 4) da inserire nella colonna 'Set'
+                    const totalSets = ex.setsCount || (Array.isArray(ex.sets) ? ex.sets.length : 3);
+                    const repsForExercise = ex.reps || "8";
+                    const recuperoStr = ex.restTime || "2min";
 
-                    setsArray.forEach((setObj, sIdx) => {
-                        const setNumberLabel = `Set ${setObj.setNumber || (sIdx + 1)}`;
-                        const repsForThisSet = setObj.targetReps || ex.reps || "8";
-                        
-                        const currentKgMin = setObj.targetKg || kgMinStr;
-                        const currentKgMax = setObj.targetKgMax || kgMaxStr;
-                        const recuperoStr = setObj.restTime || "2min";
+                    // ESTRAZIONE E CODIFICA DELLE TECNICHE DI INTENSITÀ NEL CSV
+                    // Se l'ultimo set dell'esercizio contiene una tecnica di intensità, iniettiamo il tag a inizio nota
+                    let noteFinalStr = ex.notes || "";
+                    const lastSetObj = Array.isArray(ex.sets) ? ex.sets[ex.sets.length - 1] : null;
 
-                        csvRows.push(`${week.weekNumber};${dayNum};${blockNum};${ex.name};${setNumberLabel};${repsForThisSet};${currentKgMin};${currentKgMax};${rpeStr};${recuperoStr};"${noteStr}";"${topsetVal}"`);
-                    });
+                    if (lastSetObj && lastSetObj.intensityTechnique) {
+                        const techniqueTag = `[${lastSetObj.intensityTechnique}]`;
+                        if (!noteFinalStr.includes(techniqueTag)) {
+                            noteFinalStr = `${techniqueTag} ${noteFinalStr}`;
+                        }
+                    }
+
+                    const noteStr = noteFinalStr.replace(/"/g, '""');
+
+                    // Una riga unica per esercizio conforme con il parser della webapp
+                    csvRows.push(`${week.weekNumber};${dayNum};${blockNum};${ex.name};${totalSets};${repsForExercise};${kgMinStr};${kgMaxStr};${rpeStr};${recuperoStr};"${noteStr}";"${topsetVal}"`);
                 });
             });
-        }); // 👈 Chiusura corretta del ciclo meso.weeks.forEach
+        });
 
-        return csvRows.join("\n"); // 👈 Ora restituisce correttamente le righe CSV
+        return csvRows.join("\n");
     }
-}; 
- //Funzione di utilità per scaricare direttamente il CSV generato da MyCoatch 
- //pronto per essere importato nella webapp.
- 
+};
+
+/**
+ * Utility per scaricare il file CSV generato da MyCoatch.
+ */
 export function downloadMesocycleCSV() {
     try {
         const csvContent = MyCoatch.exportAsCSV();
