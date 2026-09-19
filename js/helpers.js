@@ -251,6 +251,20 @@ export function calculateSetVolumeTrend(currentSet, prevSet) {
 
     return null;
 }
+/**
+/**
+ * Helper interno per estrarre correttamente il limite numerico da un target (gestendo i range es. "8-10")
+ */
+function parseTargetLimit(target, isMax = false) {
+    if (target === undefined || target === null) return NaN;
+    const str = String(target).trim();
+    if (str.includes('-')) {
+        const parts = str.split('-');
+        const val = parts[isMax ? 1 : 0]; // Prende il secondo valore se è il max, il primo se è il min
+        return parseFloat(val.replace(',', '.'));
+    }
+    return parseFloat(str.replace(',', '.'));
+}
 
 /**
  * Valida se un valore inserito è inferiore al minimo consentito
@@ -261,7 +275,7 @@ export function isValueOutOfRange(value, minTarget) {
     const val = parseFloat(String(value).replace(',', '.'));
     if (isNaN(val)) return false;
 
-    const min = parseFloat(String(minTarget).replace(',', '.'));
+    const min = parseTargetLimit(minTarget, false);
     
     if (!isNaN(min) && val < min) {
         return true;
@@ -279,8 +293,8 @@ export function isValueExceedingTarget(value, minTarget, maxTarget) {
     const val = parseFloat(String(value).replace(',', '.'));
     if (isNaN(val)) return false;
 
-    const max = parseFloat(String(maxTarget).replace(',', '.'));
-    const min = parseFloat(String(minTarget).replace(',', '.'));
+    const max = parseTargetLimit(maxTarget, true);
+    const min = parseTargetLimit(minTarget, false);
 
     if (!isNaN(max) && val > max) {
         return true;

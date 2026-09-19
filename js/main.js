@@ -63,7 +63,7 @@ async function initApp() {
     applyUserToUI(null);
 
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js')
+        navigator.serviceWorker.register('../sw.js')
             .then(reg => console.log('Service Worker registrato:', reg.scope))
             .catch(err => console.warn('Errore registrazione Service Worker:', err));
     }

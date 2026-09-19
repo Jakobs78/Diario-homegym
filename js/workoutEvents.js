@@ -168,6 +168,18 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
         setObj.isLocked = isChecked;
         setObj.completed = isChecked; // <-- FONDAMENTALE PER LE ANALISI
 
+        // 👈 2. AUTOCOMPILAZIONE DEI SET SUCCESSIVI (SE È IL 1° SET ED È SPUNTATO)
+        if (setIdx === 0 && isChecked) {
+            const firstSet = ex.loggedSets[0];
+            for (let i = 1; i < ex.loggedSets.length; i++) {
+                if (!ex.loggedSets[i].isLocked) {
+                    ex.loggedSets[i].weight = firstSet.weight;
+                    ex.loggedSets[i].reps = firstSet.reps;
+                    ex.loggedSets[i].rpe = firstSet.rpe;
+                }
+            }
+        }
+
         const rowCard = workoutListContainer.querySelector(`.exercise-card[data-ex="${exIdx}"]`);
         const kgInput = rowCard?.querySelector(`.set-kg[data-set="${setIdx}"]`);
         const repsInput = rowCard?.querySelector(`.set-reps[data-set="${setIdx}"]`);

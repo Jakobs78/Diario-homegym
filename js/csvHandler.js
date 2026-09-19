@@ -179,11 +179,6 @@ export function importWorkoutPlan(csvText) {
             const kgMin = rawKgMin.replace(/kg/gi, '').trim();
             const kgMax = rawKgMax.replace(/kg/gi, '').trim();
 
-            // 🧠 2. Determina il range di carico iniziale (kgMin-kgMax o singolo valore)
-            const defaultWeightTarget = (kgMin && kgMax && kgMin !== kgMax) 
-                ? `${kgMin}-${kgMax}` 
-                : (kgMin || kgMax || '');
-
             const topset = getVal(['topset']);
             const rpeVal = sanitizeRpe(getVal(['rpe']) || '');
             const restVal = getVal(['recupero', 'rest']) || '90';
@@ -200,9 +195,9 @@ export function importWorkoutPlan(csvText) {
             for (let s = 1; s <= setsCount; s++) {
                 sets.push({
                     setNumber: s,
-                    weight: defaultWeightTarget, // 👈 3. Precompila la cella con il range dei kg anziché lasciarla vuota
-                    reps: repsVal,               // 👈 4. Usa le ripetizioni pulite senza "rep"
-                    rpe: rpeVal,
+                    weight: '',
+                    reps: '',               
+                    rpe: '',
                     isLocked: false
                 });
             }

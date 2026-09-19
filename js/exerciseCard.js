@@ -141,9 +141,10 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             ? rawTargetReps 
             : rawTargetReps.toString().trim();
 
-        const targetWeightDefault = ex.weight || ex.kgMin || '';
-        
-        // 👈 Gestione pulita dei placeholder e valori iniziali in base alla settimana
+        const targetWeightDefault = (ex.kgMin && ex.kgMax && ex.kgMin !== ex.kgMax) 
+            ? `${ex.kgMin}-${ex.kgMax}` 
+            : (ex.kgMin || ex.kgMax || ex.topset || ex.weight || '');
+        // riporta i suggerimenti della scheda csv o l'ultima sessione
         const displayWeight = setObj.weight !== undefined && setObj.weight !== '' 
             ? setObj.weight 
             : (isFirstWeek ? targetWeightDefault : (prevSet?.weight || ''));
@@ -152,7 +153,10 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             ? setObj.reps 
             : (isFirstWeek ? defaultTargetReps : (prevSet?.reps || defaultTargetReps));
 
-        const displayRpe = setObj.rpe !== undefined && setObj.rpe !== '' ? setObj.rpe : (ex.targetRpe || ex.rpe || '');
+        const defaultTargetRpe = ex.targetRpe || ex.rpe || '';
+        const displayRpe = setObj.rpe !== undefined && setObj.rpe !== '' 
+            ? setObj.rpe 
+            : (isFirstWeek ? defaultTargetRpe : (prevSet?.rpe || defaultTargetRpe));
 
         let currentKgMin = ex.kgMin;
         let currentKgMax = ex.kgMax;
@@ -191,9 +195,10 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         const rpeBorderColor = isRpeOutOfRange ? '#ef4444' : (isRpeExceeding ? '#16a34a' : '#cbd5e1');
         const rpeBorderWidth = (isRpeOutOfRange || isRpeExceeding) ? '2px' : '1px';
 
-        const kgTextColor = (!setObj.weight && prevSet?.weight && !isLocked) ? '#94a3b8' : '#0f172a';
-        const repsTextColor = (!setObj.reps && prevSet?.reps && !isLocked) ? '#94a3b8' : '#0f172a';
-        const rpeTextColor = (!setObj.rpe && ex.targetRpe && !isLocked) ? '#94a3b8' : '#0f172a';
+        
+        const kgTextColor = (!setObj.weight && displayWeight && !isLocked) ? '#94a3b8' : '#0f172a';
+        const repsTextColor = (!setObj.reps && displayReps && !isLocked) ? '#94a3b8' : '#0f172a';
+        const rpeTextColor = (!setObj.rpe && displayRpe && !isLocked) ? '#94a3b8' : '#0f172a';
 
         let intensityBadgeHtml = '';
         if (setObj.intensityTechnique) {
