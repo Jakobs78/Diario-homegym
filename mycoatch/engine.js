@@ -2,23 +2,29 @@
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 
 /**
- * Punti di riferimento del volume ipertrofico settimanale (Evidence-Based)
+ * Punti di riferimento del volume ipertrofico settimanale (Evidence-Based) - Spacchettati per distretto anatomico
  */
 export const MUSCLE_VOLUME_LANDMARKS = {
     Petto: { mev: 8, mav: 14, mrv: 20 },
     Back_Lats: { mev: 10, mav: 16, mrv: 22 },
     Back_Thickness: { mev: 8, mav: 14, mrv: 20 },
-    Gambe: { mev: 10, mav: 16, mrv: 22 },
+    Quadricipiti: { mev: 8, mav: 14, mrv: 20 },
+    Femorali: { mev: 6, mav: 12, mrv: 16 },
     Spalle: { mev: 8, mav: 14, mrv: 20 },
-    Braccia: { mev: 6, mav: 12, mrv: 18 }
+    Bicipiti: { mev: 6, mav: 10, mrv: 15 },
+    Tricipiti: { mev: 6, mav: 10, mrv: 15 },
+    Gambe: { mev: 10, mav: 16, mrv: 22 } // Fallback generico
 };
 
 /**
  * Genera un mesociclo ottimizzato bilanciando MEV/MAV/MRV, focus muscolari,
  * progressioni RPE e tecniche di intensità temporizzate.
  */
-export function generateSmartMesocycle(config = {}, analysis = {}, historicalData = {}) {
+export function generateSmartMesocycle(config = {}, historicalData = {}, rawLastMesocycle = null) {
     const safeHistory = historicalData || {};
+    
+    // Analizziamo lo storico con il motore avanzato basato su e1RM e note trasparenti
+    const analysis = analyzePreviousMesocycle(rawLastMesocycle);
     
     const { 
         name = "Mesociclo Adattivo MyCoach", 
@@ -75,7 +81,7 @@ export function generateSmartMesocycle(config = {}, analysis = {}, historicalDat
             
             const exercisesSelectedToday = [];
             
-            // 🧠 NUOVO: Limite di tolleranza neurale giornaliero (Max 26 punti)
+            // 🧠 Limite di tolleranza neurale giornaliero
             const MAX_DAILY_CNS = isMaster ? 22 : 26;
             let currentDailyCNS = 0;
 
@@ -95,6 +101,7 @@ export function generateSmartMesocycle(config = {}, analysis = {}, historicalDat
                 return exercise;
             }).filter(Boolean);
 
+            // Integrazione della funzione di specializzazione originale
             rawExercises = applySpecializationFocus(rawExercises, safeHistory);
 
             const processedExercises = rawExercises.map((exItem, index) => {
@@ -104,17 +111,22 @@ export function generateSmartMesocycle(config = {}, analysis = {}, historicalDat
                     ? safeHistory[ex.name].lastKg 
                     : (parseFloat(ex.defaultKg) || 0);
 
-                // 🧠 INTEGRAZIONE 1: Auto-Deload Preventivo per Inattività (Readiness)
-                // Se esiste una data di ultimo allenamento nello storico ed è più vecchia di 7 giorni
+                // Auto-Deload Preventivo per Inattività
                 const isReturningFromBreak = safeHistory.lastWorkoutDate && 
                     ((new Date() - new Date(safeHistory.lastWorkoutDate)) / (1000 * 60 * 60 * 24)) > 7;
                 
+                let autoNote = "";
                 if (isReturningFromBreak && w === 1) {
-                    baseKg = baseKg * 0.85; // Taglio automatico del 15% per evitare DOMS invalidanti
-                    ex.noteOverride = (ex.noteOverride || "") + " 🛡️ [AUTO-DELOAD INATTIVITÀ]: Carico ridotto preventivamente del 15% per il rientro.";
+                    baseKg = baseKg * 0.85; 
+                    autoNote += " 🛡️ [AUTO-DELOAD INATTIVITÀ]: Carico ridotto del 15% per rientro da stop. | ";
                 }
                 
-                    if (w > 1 && !isDeloadWeek) {
+                // Iniettiamo la nota analitica sullo stallo o progresso basata sull'e1RM
+                if (analysis.exerciseNotes && analysis.exerciseNotes[ex.name]) {
+                    autoNote += `${analysis.exerciseNotes[ex.name]} | `;
+                }
+                
+                if (w > 1 && !isDeloadWeek) {
                     const multiplier = (focus === 'strength' || (focus === 'hybrid' && index === 0)) ? 1 : 0.5;
                     const effectiveStep = baseKg < 12.5 ? Math.min(stepKg, 1.0) : stepKg;
                     baseKg += effectiveStep * (w - 1) * multiplier;
@@ -127,11 +139,9 @@ export function generateSmartMesocycle(config = {}, analysis = {}, historicalDat
                 const targetKgMin = baseKg < 12.5 ? Math.round(baseKg * 2) / 2 : Math.round(baseKg / 2.5) * 2.5;
                 const targetKgMax = targetKgMin + (baseKg < 12.5 ? 2 : 5);
 
-                // Trova la categoria macro dell'esercizio per calcolare i set personalizzati sulla split
                 const mainMuscle = Object.keys(MUSCLE_VOLUME_LANDMARKS).find(m => ex.category.toLowerCase().includes(m.toLowerCase())) || "Petto";
                 const realFrequency = muscleFrequencyMap[mainMuscle] || 2;
 
-                // Calcolo dinamico delle serie con allocazione del Set-Budget (MEV/MAV)
                 let baseSets = calculateTargetSets({
                     category: ex.category,
                     focusMuscleGroup,
@@ -151,9 +161,8 @@ export function generateSmartMesocycle(config = {}, analysis = {}, historicalDat
                 }
 
                 let topsetStr = "";
-                let noteFinal = exItem.noteOverride || generateContextNote(index, isDeloadWeek, focus, useSupersets);
+                let noteFinal = autoNote + (exItem.noteOverride || generateContextNote(index, isDeloadWeek, focus, useSupersets));
 
-                // 🧠 INTEGRAZIONE 2A: Auto Warm-Up (Solo sul primo esercizio multiarticolare)
                 const isFirstCompound = index === 0 && ["squat", "hinge", "horizontal_push", "vertical_push", "vertical_pull"].includes(ex.pattern);
                 
                 if (isFirstCompound) {
@@ -169,17 +178,16 @@ export function generateSmartMesocycle(config = {}, analysis = {}, historicalDat
                     noteFinal += ` | 🎯 Top Set eseguito, poi Back-Off automatico del 10%.`;
                 }
 
-                // 🛡️ SICUREZZA LINT: Gestione pulita della tecnica d'intensità senza variabili esterne non definite
                 const currentTechnique = exItem.intensityTechnique || null;
 
                 const setsArray = Array.from({ length: setsCount }, (_, setIdx) => {
                     let setKg = targetKgMin;
                     
                     if (setIdx === 0 && topsetStr) {
-                        setKg = targetKgMin + (baseKg < 12.5 ? 1 : 2.5); // Peso del Top Set
+                        setKg = targetKgMin + (baseKg < 12.5 ? 1 : 2.5);
                     } else if (setIdx > 0 && topsetStr) {
                         const topKg = targetKgMin + (baseKg < 12.5 ? 1 : 2.5);
-                        setKg = Math.round((topKg * 0.9) / 2.5) * 2.5; // Back-off del 10%
+                        setKg = Math.round((topKg * 0.9) / 2.5) * 2.5;
                     }
 
                     const isLastSet = (setIdx === setsCount - 1);
@@ -204,7 +212,7 @@ export function generateSmartMesocycle(config = {}, analysis = {}, historicalDat
                     kgMax: targetKgMax.toString(),
                     topset: topsetStr,
                     rpe: rpeString,
-                    notes: noteFinal,
+                    notes: noteFinal, // <-- Visibile direttamente nel tab delle note della WebApp per spiegare le decisioni
                     sets: setsArray
                 };
             });
@@ -232,30 +240,26 @@ export function generateSmartMesocycle(config = {}, analysis = {}, historicalDat
 }
 
 /**
- * Calcola il numero di serie target rispettando le soglie ipertrofiche (MEV/MAV/MRV) basate sulla frequenza reale
+ * Calcola il numero di serie target rispettando le soglie ipertrofiche (MEV/MAV/MRV)
  */
 function calculateTargetSets({ category = "", focusMuscleGroup, isDeloadWeek, weekNumber, isMaster, frequency = 2 }) {
     if (isDeloadWeek) return 2;
 
     const mainMuscle = Object.keys(MUSCLE_VOLUME_LANDMARKS).find(m => category.toLowerCase().includes(m.toLowerCase())) || "Petto";
-    const landmarks = MUSCLE_VOLUME_LANDMARKS[mainMuscle];
+    const landmarks = MUSCLE_VOLUME_LANDMARKS[mainMuscle] || MUSCLE_VOLUME_LANDMARKS.Petto;
 
     const isSpecialization = focusMuscleGroup && focusMuscleGroup.toLowerCase() === mainMuscle.toLowerCase();
     const targetVolumeLandmark = isSpecialization ? landmarks.mav : landmarks.mev;
     
-    // Distribuzione basata sulla frequenza settimanale reale di quel muscolo all'interno del template attivo
     let targetSets = Math.round(targetVolumeLandmark / Math.max(1, frequency));
-
-    // Accumulo progressivo di volume durante il picco della settimana 3
     if (weekNumber === 3) targetSets += 1;
 
-    // Cappiamo entro la soglia limite derivata dall'MRV distribuito
     const maxAllowed = isMaster ? 3 : Math.min(5, Math.ceil(landmarks.mrv / Math.max(1, frequency)));
     return Math.max(2, Math.min(targetSets, maxAllowed));
 }
+
 function generateContextNote(index, isDeload, focus, useSupersets) {
     let note;
-
     if (isDeload) {
         note = "🛡️ Scarico attivo: mantieni il controllo eccentrico, fermati a 2-3 RIR dal cedimento.";
     } else if (index === 0) {
@@ -275,12 +279,11 @@ function generateContextNote(index, isDeload, focus, useSupersets) {
             note += " ⏱️ [SUPERSERIE]: Passa subito all'esercizio successivo.";
         }
     }
-
     return note;
 }
 
 function selectExerciseBySlot(slot, stalledExercises, alreadySelected = [], currentCNS = 0, maxCNS = 26) {
-    // 🛠️ FILTRO HOME GYM: L'utente possiede solo pesi liberi, rack e lat machine.
+    // Filtro Home Gym originale
     const availableEquipment = ["barbell", "dumbbell", "bodyweight", "lat_machine"];
 
     let matches = EXERCISE_DATABASE.filter(e => {
@@ -288,11 +291,9 @@ function selectExerciseBySlot(slot, stalledExercises, alreadySelected = [], curr
         const patternMatch = slot.pattern ? e.pattern === slot.pattern : true;
         const isNotDuplicate = !alreadySelected.includes(e.name);
         const hasEquipment = availableEquipment.includes(e.equipment);
-        
         return categoryMatch && patternMatch && isNotDuplicate && hasEquipment;
     });
 
-    // Fallback elastico se il vincolo di pattern è troppo stringente
     if (matches.length === 0) {
         matches = EXERCISE_DATABASE.filter(e => {
             return e.category.toLowerCase() === slot.muscle.toLowerCase() && 
@@ -303,22 +304,18 @@ function selectExerciseBySlot(slot, stalledExercises, alreadySelected = [], curr
 
     if (matches.length === 0) return null;
 
-    // 🧠 GESTIONE CNS: Se il budget neurale giornaliero sta per esplodere, 
-    // forza la scelta verso varianti meno tassanti (es. Manubri invece di Bilanciere per lo stesso pattern)
     if (currentCNS > (maxCNS - 6)) {
-        matches.sort((a, b) => a.cnsCost - b.cnsCost); // Ordina dal meno tassante al più tassante
+        matches.sort((a, b) => a.cnsCost - b.cnsCost);
     } else {
-        matches.sort((a, b) => b.cnsCost - a.cnsCost); // Ad inizio sessione, priorità ai multiarticolari pesanti
+        matches.sort((a, b) => b.cnsCost - a.cnsCost);
     }
 
-    // Cerca una variante che non sia in stallo nei mesocicli precedenti
     let selected = matches.find(e => !stalledExercises.includes(e.name)) || matches[0];
 
-    // Se l'esercizio scelto ci fa sforare pesantemente il budget, applichiamo un warning automatico
     if ((currentCNS + selected.cnsCost) > maxCNS) {
         selected = { 
             ...selected, 
-            noteOverride: `⚠️ [CNS BUDGET LIMIT]: Esercizio inserito ma soglia neurale superata. Consiglio: abbassa i carichi del 10% o esegui 1 set in meno per preservare il recupero.` 
+            noteOverride: `⚠️ [CNS BUDGET LIMIT]: Esercizio inserito ma soglia neurale superata. Consiglio: abbassa i carichi del 10% o esegui 1 set in meno.` 
         };
     } else if (stalledExercises.includes(selected.name)) {
         selected = { 
@@ -338,29 +335,29 @@ export function getTemplateForDays(daysPerWeek = 3) {
                 slots: [
                     { muscle: "Petto", pattern: "horizontal_push" },
                     { muscle: "Back_Lats", pattern: "vertical_pull" },
-                    { muscle: "Gambe", pattern: "squat" },
+                    { muscle: "Quadricipiti", pattern: "squat" },
                     { muscle: "Spalle", pattern: "isolation" },
-                    { muscle: "Braccia", pattern: "isolation" }
+                    { muscle: "Bicipiti", pattern: "isolation" }
                 ]
             },
             {
                 name: "Full Body B (Focus Stacco Rumeno, Spalla & Dorso Spessore)",
                 slots: [
-                    { muscle: "Gambe", pattern: "hinge" },
+                    { muscle: "Femorali", pattern: "hinge" },
                     { muscle: "Spalle", pattern: "vertical_push" },
                     { muscle: "Back_Thickness", pattern: "horizontal_pull" },
                     { muscle: "Petto", pattern: "isolation" },
-                    { muscle: "Braccia", pattern: "isolation" }
+                    { muscle: "Tricipiti", pattern: "isolation" }
                 ]
             },
             {
                 name: "Full Body C (Focus Leg Press, Petto Inclinato & Braccia)",
                 slots: [
-                    { muscle: "Gambe", pattern: "squat" },
+                    { muscle: "Quadricipiti", pattern: "squat" },
                     { muscle: "Petto", pattern: "horizontal_push" },
                     { muscle: "Back_Lats", pattern: "vertical_pull" },
-                    { muscle: "Gambe", pattern: "isolation" },
-                    { muscle: "Braccia", pattern: "isolation" }
+                    { muscle: "Bicipiti", pattern: "isolation" },
+                    { muscle: "Tricipiti", pattern: "isolation" }
                 ]
             }
         ];
@@ -374,16 +371,16 @@ export function getTemplateForDays(daysPerWeek = 3) {
                 { muscle: "Back_Lats", pattern: "vertical_pull" },
                 { muscle: "Petto", pattern: "isolation" },
                 { muscle: "Spalle", pattern: "isolation" },
-                { muscle: "Braccia", pattern: "isolation" }
+                { muscle: "Bicipiti", pattern: "isolation" }
             ]
         },
         {
             name: "Lower A (Focus Squat & Femorali)",
             slots: [
-                { muscle: "Gambe", pattern: "squat" },
-                { muscle: "Gambe", pattern: "hinge" },
-                { muscle: "Gambe", pattern: "squat" },
-                { muscle: "Gambe", pattern: "isolation" }
+                { muscle: "Quadricipiti", pattern: "squat" },
+                { muscle: "Femorali", pattern: "hinge" },
+                { muscle: "Quadricipiti", pattern: "squat" },
+                { muscle: "Femorali", pattern: "isolation" }
             ]
         },
         {
@@ -393,16 +390,16 @@ export function getTemplateForDays(daysPerWeek = 3) {
                 { muscle: "Spalle", pattern: "vertical_push" },
                 { muscle: "Back_Thickness", pattern: "horizontal_pull" },
                 { muscle: "Petto", pattern: "isolation" },
-                { muscle: "Braccia", pattern: "isolation" }
+                { muscle: "Tricipiti", pattern: "isolation" }
             ]
         },
         {
             name: "Lower B (Focus Stacco Rumeno & Quadricipiti)",
             slots: [
-                { muscle: "Gambe", pattern: "hinge" },
-                { muscle: "Gambe", pattern: "squat" },
+                { muscle: "Femorali", pattern: "hinge" },
+                { muscle: "Quadricipiti", pattern: "squat" },
                 { muscle: "Spalle", pattern: "isolation" },
-                { muscle: "Braccia", pattern: "isolation" }
+                { muscle: "Tricipiti", pattern: "isolation" }
             ]
         }
     ];
@@ -422,12 +419,17 @@ export function applySpecializationFocus(exercises, historicalData) {
     });
 }
 
+/**
+ * 🧠 ANALISI STALLO AVANZATA BASATA SULL'e1RM (Epley + RPE)
+ * Sostituisce il controllo rudimentale sulle ripetizioni e genera note trasparenti per la webapp.
+ */
 export function analyzePreviousMesocycle(lastMesocycle) {
     if (!lastMesocycle || !lastMesocycle.weeks) {
-        return { stalledExercises: [], recommendation: 'standard' };
+        return { stalledExercises: [], exerciseNotes: {}, recommendation: 'standard' };
     }
 
     const historyTracking = {};
+    const exerciseNotes = {};
 
     lastMesocycle.weeks.forEach(week => {
         const wNum = week.weekNumber;
@@ -438,17 +440,22 @@ export function analyzePreviousMesocycle(lastMesocycle) {
                 const validSets = logs.filter(s => s.completed || s.isLocked || (s.weight && s.reps));
 
                 if (validSets.length > 0) {
-                    const totalReps = validSets.reduce((sum, s) => sum + (parseInt(s.reps, 10) || 0), 0);
-                    const avgReps = totalReps / validSets.length;
+                    // Calcolo e1RM reale per ogni set registrato usando Epley modificato con RPE
+                    const e1Rms = validSets.map(s => {
+                        const w = parseFloat(s.weight || s.actualKg || ex.kgMin) || 0;
+                        const r = parseInt(s.reps || s.actualReps, 10) || 0;
+                        const rpe = parseFloat(String(s.rpe).replace('@', '')) || 8;
+                        const effectiveReps = r + Math.max(0, 10 - rpe);
+                        return w * (1 + 0.0333 * effectiveReps);
+                    }).filter(val => val > 0);
 
-                    if (!historyTracking[ex.name]) {
-                        historyTracking[ex.name] = [];
+                    if (e1Rms.length > 0) {
+                        const maxE1RM = Math.max(...e1Rms);
+                        if (!historyTracking[ex.name]) {
+                            historyTracking[ex.name] = [];
+                        }
+                        historyTracking[ex.name].push({ week: wNum, e1RM: maxE1RM });
                     }
-                    
-                    historyTracking[ex.name].push({
-                        week: wNum,
-                        avgReps: avgReps
-                    });
                 }
             });
         });
@@ -459,19 +466,24 @@ export function analyzePreviousMesocycle(lastMesocycle) {
     Object.keys(historyTracking).forEach(exerciseName => {
         const dataPoints = historyTracking[exerciseName];
 
-        if (dataPoints.length >= 3) {
+        if (dataPoints.length >= 2) {
             const recentPoints = dataPoints.slice(-2);
-            const repsWeekPrev = recentPoints[0].avgReps;
-            const repsWeekLast = recentPoints[1].avgReps;
+            const e1rmPrev = recentPoints[0].e1RM;
+            const e1rmLast = recentPoints[1].e1RM;
 
-            if (repsWeekLast <= repsWeekPrev) {
+            // Se l'e1RM ristagna o scende nonostante i tentativi di progressione
+            if (e1rmLast <= e1rmPrev * 1.01) {
                 stalledExercises.push(exerciseName);
+                exerciseNotes[exerciseName] = `⚠️ [STALLO e1RM RILEVATO]: e1RM stabile o in calo (${Math.round(e1rmLast)}kg vs ${Math.round(e1rmPrev)}kg). Variazione biomeccanica attivata.`;
+            } else {
+                exerciseNotes[exerciseName] = `🔥 [PROGRESSO e1RM]: Ottimo incremento a ${Math.round(e1rmLast)}kg (vs ${Math.round(e1rmPrev)}kg).`;
             }
         }
     });
 
     return {
         stalledExercises,
+        exerciseNotes,
         recommendation: stalledExercises.length > 2 ? 'rotation_suggested' : 'progressive_overload'
     };
 }

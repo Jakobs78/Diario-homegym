@@ -1,6 +1,7 @@
 // ==========================================
 // MODULI: helpers.js - Utility di logica pura, formattazione stringhe, calcolo dischi e ricerca storico
 // ==========================================
+
 /**
  * Pulisce una stringa o valore di ripetizioni estraendo solo il primo numero valido
  */
@@ -13,7 +14,7 @@ export function cleanNumericReps(val) {
 }
 
 /**
- * Trasforma una stringa in uno slug URL-friendly
+ * Trasforma una stringa in uno slug URL-friendly preservando i caratteri alfanumerici
  */
 export function slugify(text) {
     if (!text) return '';
@@ -27,26 +28,23 @@ export function slugify(text) {
 }
 
 /**
- * Mappa il nome dell'esercizio al gruppo muscolare principale
+ * Mappa il nome o la categoria dell'esercizio al gruppo muscolare compatibile con MyCoach LANDMARKS
  */
 export function assignMuscleGroup(exerciseName) {
     if (!exerciseName) return 'Altro';
     const name = exerciseName.toLowerCase();
 
-    if (name.includes('panca') || name.includes('push') || name.includes('croci') || name.includes('chest') || name.includes('dip')) return 'Petto';
-    if (name.includes('squat') || name.includes('leg') || name.includes('pressa') || name.includes('affondi') || name.includes('calf') || name.includes('stacco rumeno')) return 'Gambe';
-    if (name.includes('trazioni') || name.includes('rematore') || name.includes('pulldown') || name.includes('lat') || name.includes('stacco') || name.includes('pulley')) return 'Dorso';
-    if (name.includes('curl') || name.includes('bicipit')) return 'Bicipiti';
-    if (name.includes('french') || name.includes('pushdown') || name.includes('estensioni') || name.includes('tricipit')) return 'Tricipiti';
-    if (name.includes('military') || name.includes('lento') || name.includes('alzate') || name.includes('shoulder')) return 'Spalle';
+    if (name.includes('petto') || name.includes('panca') || name.includes('push') || name.includes('croci') || name.includes('chest') || name.includes('dip')) return 'Petto';
+    if (name.includes('back_lats') || name.includes('trazioni') || name.includes('pulldown') || name.includes('lat') || name.includes('vertical_pull')) return 'Back_Lats';
+    if (name.includes('back_thickness') || name.includes('rematore') || name.includes('pulley') || name.includes('stacco') || name.includes('horizontal_pull')) return 'Back_Thickness';
+    if (name.includes('gambe') || name.includes('squat') || name.includes('leg') || name.includes('pressa') || name.includes('affondi') || name.includes('calf') || name.includes('rumeno')) return 'Gambe';
+    if (name.includes('spalle') || name.includes('military') || name.includes('lento') || name.includes('alzate') || name.includes('shoulder')) return 'Spalle';
+    if (name.includes('braccia') || name.includes('curl') || name.includes('french') || name.includes('pushdown') || name.includes('estensioni') || name.includes('bicipit') || name.includes('tricipit')) return 'Braccia';
     if (name.includes('crunch') || name.includes('plank') || name.includes('addominal')) return 'Addome';
 
     return 'Altro';
 }
 
-/**
- * Genera l'HTML formattato per il riassunto dell'esercizio (peso, set/reps, rest)
- */
 /**
  * Genera l'HTML formattato per il riassunto dell'esercizio (peso, topset, set/reps, rest)
  */
@@ -86,7 +84,6 @@ export function formatExerciseSummary(ex) {
     const hasKgRange = isValidVal(kgMin) && isValidVal(kgMax);
     const hasTopset = isValidVal(topset);
 
-    // Costruzione dinamica dei pesi (Range + Topset)
     const weightParts = [];
 
     if (hasKgRange) {
@@ -107,7 +104,7 @@ export function formatExerciseSummary(ex) {
         weightPart = `<span style="color: #dc2626; font-weight: 700;">--</span>`;
     }
 
-    const setsVal = sets || '-';
+    const setsVal = Array.isArray(sets) ? sets.length : (sets || '-');
     const repsVal = reps || '-';
     
     let setRepsPart = `${setsVal} x ${repsVal}`;
@@ -256,7 +253,7 @@ export function calculateSetVolumeTrend(currentSet, prevSet) {
 }
 
 /**
- * Valida se un valore inserito è effettivamente inferiore al minimo consentito nella scheda
+ * Valida se un valore inserito è inferiore al minimo consentito
  */
 export function isValueOutOfRange(value, minTarget) {
     if (value === undefined || value === null || String(value).trim() === '') return false;
@@ -266,15 +263,15 @@ export function isValueOutOfRange(value, minTarget) {
 
     const min = parseFloat(String(minTarget).replace(',', '.'));
     
-    // Se c'è un minimo e il valore inserito è strettamente inferiore, è fuori range (rosso)
     if (!isNaN(min) && val < min) {
         return true;
     }
 
     return false;
 }
+
 /**
- * Valida se un valore inserito supera in positivo il massimo target previsto dalla scheda
+ * Valida se un valore inserito supera il massimo target previsto
  */
 export function isValueExceedingTarget(value, minTarget, maxTarget) {
     if (value === undefined || value === null || String(value).trim() === '') return false;
@@ -285,20 +282,20 @@ export function isValueExceedingTarget(value, minTarget, maxTarget) {
     const max = parseFloat(String(maxTarget).replace(',', '.'));
     const min = parseFloat(String(minTarget).replace(',', '.'));
 
-    // Se c'è un massimo definito e il valore lo supera
     if (!isNaN(max) && val > max) {
         return true;
     }
 
-    // Se c'è solo un valore minimo/fisso (senza max esplicito) e il valore lo supera
     if (isNaN(max) && !isNaN(min) && val > min) {
         return true;
     }
 
     return false;
 }
+
 /**
- * Assegna i tag visivi e di raggruppamento per Triset, Superset, Dropset e Jumpset
+ * Assegna i tag visivi e di raggruppamento per Triset, Superset, Dropset, Rest-Pause, Myo-Reps e Jumpset.
+ * Riconosce sia il testo piano che i tag formattati generati da MyCoach (es. [DROP_SET], [REST_PAUSE]).
  */
 export function applyTrisetDropsetGrouping(daysArray) {
     if (!Array.isArray(daysArray)) return;
@@ -314,13 +311,22 @@ export function applyTrisetDropsetGrouping(daysArray) {
             const name = (ex.name || '').toLowerCase();
             const combinedText = `${name} ${notes}`;
             
-            const isTriset = combinedText.includes('triset') || combinedText.includes('tri-set') || combinedText.includes('tri set') || combinedText.includes('triserie') || combinedText.includes('tri serie') || combinedText.includes('tri-serie');
-            const isDropset = combinedText.includes('dropset') || combinedText.includes('drop-set') || combinedText.includes('drop set') || combinedText.includes('dropserie') || combinedText.includes('drop serie') || combinedText.includes('drop-serie');
-            const isSuperset = combinedText.includes('superset') || combinedText.includes('super-set') || combinedText.includes('super set') || combinedText.includes('superserie') || combinedText.includes('super serie') || combinedText.includes('super-serie');
-            const isJumpset = combinedText.includes('jumpset') || combinedText.includes('jump-set') || combinedText.includes('jump set') || combinedText.includes('jumpserie') || combinedText.includes('jump serie') || combinedText.includes('jump-serie');
+            const isTriset = combinedText.includes('triset') || combinedText.includes('tri-set') || combinedText.includes('tri set') || combinedText.includes('triserie');
+            const isDropset = combinedText.includes('dropset') || combinedText.includes('drop-set') || combinedText.includes('drop set') || combinedText.includes('dropserie') || combinedText.includes('[drop_set]');
+            const isRestPause = combinedText.includes('restpause') || combinedText.includes('rest-pause') || combinedText.includes('rest pause') || combinedText.includes('r-pause') || combinedText.includes('r/p') || combinedText.includes('[rest_pause]');
+            const isMyoReps = combinedText.includes('myoreps') || combinedText.includes('myo-reps') || combinedText.includes('myo reps') || combinedText.includes('[myo_reps]');
+            const isSuperset = combinedText.includes('superset') || combinedText.includes('super-set') || combinedText.includes('super set') || combinedText.includes('superserie') || combinedText.includes('[superset]');
+            const isJumpset = combinedText.includes('jumpset') || combinedText.includes('jump-set') || combinedText.includes('jump set') || combinedText.includes('jumpserie');
 
             if (isDropset) {
                 ex.isDropset = true;
+                ex.intensityTechnique = 'DROP_SET';
+                const baseBlock = String(ex.block || (i + 1)).replace(/[A-Za-z]/g, '');
+                ex.block = baseBlock || String(i + 1);
+                i++;
+            } else if (isRestPause || isMyoReps) {
+                ex.isRestPause = true;
+                ex.intensityTechnique = isMyoReps ? 'MYO_REPS' : 'REST_PAUSE';
                 const baseBlock = String(ex.block || (i + 1)).replace(/[A-Za-z]/g, '');
                 ex.block = baseBlock || String(i + 1);
                 i++;
@@ -346,6 +352,7 @@ export function applyTrisetDropsetGrouping(daysArray) {
         }
     });
 }
+
 /**
  * Rimuove simboli non numerici (@, spazi) e converte le virgole decimali in punti.
  * Restituisce sempre un numero float valido o 0.
@@ -362,8 +369,9 @@ export function parseRPE(rpeValue) {
     const parsed = parseFloat(cleaned);
     return isNaN(parsed) ? 0 : parsed;
 }
+
 /**
- * Normalizza il nome dell'esercizio in Title Case (es. "PANCA PIANA" -> "Panca Piana")
+ * Normalizza il nome dell'esercizio in Title Case
  */
 export function normalizeExerciseName(name) {
     if (!name || typeof name !== 'string') return '';

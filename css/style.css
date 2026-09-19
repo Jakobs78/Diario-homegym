@@ -1587,3 +1587,33 @@ body.dark-mode #import-plan-modal div[style*="background"] {
     from { opacity: 0; transform: translateY(-5px); }
     to { opacity: 1; transform: translateY(0); }
 }
+/* ==========================================================================
+   OTTIMIZZAZIONE MOBILE: DISATTIVAZIONE ZOOM IOS E CHECKBOX GRANDE
+   ========================================================================== */
+
+/* Impedisce lo zoom automatico di Safari su iPhone impostando il font a 16px */
+.ios-no-zoom {
+    font-size: 16px !important;
+    line-height: normal;
+}
+
+/* Ingrandimento e centraggio della checkbox di completamento serie */
+.custom-big-check {
+    width: 28px !important;
+    height: 28px !important;
+    margin: 0 auto;
+    display: block;
+    cursor: pointer;
+    accent-color: var(--success-color, #16a34a);
+}
+
+/* Allineamento altezza per i selettori di bilanciere e badge dischi */
+.bar-select {
+    height: 36px;
+}
+.plates-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+}
