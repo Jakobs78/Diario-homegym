@@ -167,17 +167,25 @@ export function importWorkoutPlan(csvText) {
             const dayNum = parseInt(getVal(['giorno', 'day'])) || 1;
             const blockNum = parseInt(getVal(['blocco', 'block'])) || 1;
             const rawExName = getVal(['esercizio', 'exercise', 'name']) || 'Esercizio';
-            const exName = normalizeExerciseName(rawExName); // 👈 Title Case per import CSV/Excel
+            const exName = normalizeExerciseName(rawExName);
             const setsCount = parseInt(getVal(['set', 'serie'])) || 3;
-            const repsVal = getVal(['reps', 'ripetizioni']) || '8';
+            
+            // 🧠 1. Pulizia delle ripetizioni per rimuovere "rep" o "rip"
+            const rawRepsVal = getVal(['reps', 'ripetizioni']) || '8';
+            const repsVal = rawRepsVal.replace(/rep|rip/gi, '').trim();
             
             const rawKgMin = getVal(['kgmin', 'min']);
             const rawKgMax = getVal(['kgmax', 'max']);
             const kgMin = rawKgMin.replace(/kg/gi, '').trim();
             const kgMax = rawKgMax.replace(/kg/gi, '').trim();
 
+            // 🧠 2. Determina il range di carico iniziale (kgMin-kgMax o singolo valore)
+            const defaultWeightTarget = (kgMin && kgMax && kgMin !== kgMax) 
+                ? `${kgMin}-${kgMax}` 
+                : (kgMin || kgMax || '');
+
             const topset = getVal(['topset']);
-            const rpeVal = getVal(['rpe']) || '';
+            const rpeVal = sanitizeRpe(getVal(['rpe']) || '');
             const restVal = getVal(['recupero', 'rest']) || '90';
             const notesVal = getVal(['note', 'noteallenatore']) || '';
 
@@ -192,8 +200,8 @@ export function importWorkoutPlan(csvText) {
             for (let s = 1; s <= setsCount; s++) {
                 sets.push({
                     setNumber: s,
-                    weight: '',
-                    reps: '',
+                    weight: defaultWeightTarget, // 👈 3. Precompila la cella con il range dei kg anziché lasciarla vuota
+                    reps: repsVal,               // 👈 4. Usa le ripetizioni pulite senza "rep"
                     rpe: rpeVal,
                     isLocked: false
                 });
@@ -305,7 +313,7 @@ export function importProgressCSV(csvText) {
             const completedVal = idxCompleted !== -1 && row[idxCompleted] ? row[idxCompleted].trim().toUpperCase() : 'SI';
             const isLocked = completedVal === 'SI' || completedVal === 'TRUE' || completedVal === '1';
 
-            const rpeVal = idxRpe !== -1 && row[idxRpe] ? row[idxRpe].trim() : '';
+            const rpeVal = idxRpe !== -1 && row[idxRpe] ? sanitizeRpe(row[idxRpe]) : '';
             const notesVal = idxNotes !== -1 && row[idxNotes] ? row[idxNotes].trim() : '';
 
             // Organizzazione gerarchica: Mesociclo -> Settimana -> Giorno -> Esercizio -> Serie
@@ -459,4 +467,15 @@ export function readCsvFile(file, callback) {
         callback(text);
     };
     reader.readAsArrayBuffer(file);
+}
+/**
+ * Pulisce e normalizza la stringa dell'RPE proveniente da qualsiasi CSV.
+ * Rimuove il carattere '@', eventuali spazi bianchi e gestisce valori vuoti.
+ */
+export function sanitizeRpe(rawRpe) {
+    if (rawRpe === null || rawRpe === undefined || rawRpe === "") {
+        return ""; 
+    }
+    // Rimuove qualsiasi carattere '@' e spazi superflui
+    return String(rawRpe).replace(/@/g, '').trim();
 }

@@ -67,13 +67,13 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
         const isDeloadWeek = (w === deloadWeekNumber);
 
         // Progressione dinamica del target RPE di settimana in settimana
-        let rpeString = "@8.0";
+        let rpeString = "8.0";
         if (isDeloadWeek) {
-            rpeString = "@6.5";
+            rpeString = "6.5";
         } else if (focus === 'strength') {
-            rpeString = w === 1 ? "@8.0" : w === 2 ? "@8.5" : "@9.0";
+            rpeString = w === 1 ? "8.0" : w === 2 ? "8.5" : "9.0";
         } else {
-            rpeString = w === 1 ? "@7.5" : w === 2 ? "@8.0" : "@8.5";
+            rpeString = w === 1 ? "7.5" : w === 2 ? "8.0" : "8.5";
         }
 
         templateDays.forEach((dayTemplate, dayIndex) => {
