@@ -31,28 +31,8 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         
         <!-- 1. Nome Esercizio in primo piano -->
         <h3 style="margin: 0 0 10px 0; font-size: 1.25rem; font-weight: 800; line-height: 1.2; color: #0f172a;">${exIdx + 1}. ${ex.name}</h3>
-        
-        <!-- 2. Selettore Bilanciere e Dischi (Ingranditi e posizionati sopra il Target) -->
-        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px; background: #f8fafc; padding: 10px 14px; border-radius: 8px; border: 1px solid #e2e8f0;">
-            <select class="bar-select" data-ex="${exIdx}" style="font-size: 0.95rem; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a; flex-grow: 1;" ${isPastMeso ? 'disabled' : ''}>
-                <option value="20">Bil 20kg</option>
-                <option value="15">Bil 15kg</option>
-                <option value="12">Bil 12kg</option>
-                <option value="10">Bil 10kg</option>
-                <option value="9">Bil 9kg</option>
-                <option value="6">Bil 6kg</option>
-            </select>
-    
-            <div class="plates-badge" data-ex="${exIdx}" style="font-size: 0.95rem; padding: 8px 14px; border-radius: 6px; background: #ffffff; border: 1px solid #e2e8f0; color: #64748b; font-weight: 700; font-family: monospace; white-space: nowrap;">
-                🏋️ 0 kg/lato
-            </div>
-        </div>
-        
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.85rem; color: #334155; font-family: monospace;">
-            <strong>TARGET:</strong> ${formatExerciseSummary(ex)}
-        </div>
     `;
-
+        
     const prevExercise = findPreviousExercise(state.workoutData, mesoIndex, targetWeek.weekNumber, activeDayNum - 1, ex);
     let lastSessionSetsHtml = '';
 
@@ -94,6 +74,31 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         }
         cardHtml += `</div>`;
     }
+
+    cardHtml += `
+        <!-- Box Target -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.85rem; color: #334155; font-family: monospace;">
+            <strong>TARGET:</strong> ${formatExerciseSummary(ex)}
+        </div>
+
+        <!-- 2. Selettore Bilanciere e Dischi -->
+        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px; background: #f8fafc; padding: 10px 14px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <select class="bar-select" data-ex="${exIdx}" style="font-size: 0.95rem; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a; flex-grow: 1;" ${isPastMeso ? 'disabled' : ''}>
+                <option value="20">Bil 20kg</option>
+                <option value="15">Bil 15kg</option>
+                <option value="12">Bil 12kg</option>
+                <option value="10">Bil 10kg</option>
+                <option value="9">Bil 9kg</option>
+                <option value="6">Bil 6kg</option>
+            </select>
+    
+            <div class="plates-badge" data-ex="${exIdx}" style="font-size: 0.95rem; padding: 8px 14px; border-radius: 6px; background: #ffffff; border: 1px solid #e2e8f0; color: #64748b; font-weight: 700; font-family: monospace; white-space: nowrap;">
+                🏋️ 0 kg/lato
+            </div>
+        </div>
+    `;
+
+    
 
     cardHtml += `
         <!-- 3. Tabella Serie Riorganizzata (Set ristretto, Input attivi ottimizzati) -->
