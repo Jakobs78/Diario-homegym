@@ -439,54 +439,132 @@ input[type="date"]:focus, select:focus {
     font-variant-numeric: tabular-nums;
 }
 
-/* Auth Modal Overlay */
+/* Regola effetti tab di Login */
 #auth-overlay {
     position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.65);
-    backdrop-filter: blur(6px);
+    top: 0; 
+    left: 0; 
+    width: 100vw; 
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(8px);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 2000;
+    animation: fadeIn 0.3s ease-out;
 }
 
 .auth-card {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
-    padding: 28px;
-    border-radius: 16px;
+    padding: 32px 24px;
+    border-radius: 20px;
     width: 90%;
-    max-width: 380px;
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
+    max-width: 400px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-sizing: border-box;
+    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.3);
     text-align: center;
+    position: relative;
+}
+
+/* Icona o badge superiore decorativo facoltativo */
+/* --- ANIMAZIONE PULSAZIONE --- */
+@keyframes pulseAnimation {
+    0%, 100% {
+        transform: scale(1);
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+    }
+    50% {
+        transform: scale(1.12);
+        filter: drop-shadow(0 0 15px rgba(2, 132, 199, 0.4));
+    }
+}
+.auth-card::before {
+    content: "💪";
+    display: inline-block;
+    font-size: 2.2rem;
+    background: var(--block-bg);
+    border: 1px solid var(--border-color);
+    width: 65px;
+    height: 65px;
+    line-height: 60px;
+    border-radius: 50%;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-sm);
+    /* 👈 Applicazione dell'animazione pulsante in loop continuo (durata 2 secondi) */
+    animation: pulseAnimation 2 ease-in-out infinite;
 }
 
 .auth-card h2 {
-    margin-top: 0;
-    color: var(--accent-color);
-    font-size: 1.4rem;
+    margin: 0 0 8px 0;
+    color: var(--text-color);
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+/* Sottotitolo descrittivo opzionale */
+.auth-card p.auth-subtitle {
+    font-size: 0.825rem;
+    color: var(--text-muted);
+    margin-bottom: 24px;
+    line-height: 1.4;
 }
 
 .auth-card input {
     width: 100%;
     box-sizing: border-box;
-    margin-bottom: 12px;
-    padding: 12px;
+    margin-bottom: 14px;
+    padding: 12px 16px;
     background: var(--bg-color);
     border: 1px solid var(--border-color);
     color: var(--text-color);
-    border-radius: 8px;
-    font-size: 0.9rem;
+    border-radius: 10px;
+    font-size: 0.92rem;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.auth-card input:focus {
+    border-color: var(--accent-color);
+    background: var(--card-bg);
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+.auth-card button.btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-top: 6px;
+    cursor: pointer;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.auth-card button.btn:hover {
+    background: var(--accent-hover);
 }
 
 .auth-toggle {
     font-size: 0.85rem;
     color: var(--accent-color);
     cursor: pointer;
-    margin-top: 12px;
+    margin-top: 18px;
     display: inline-block;
     font-weight: 600;
+    transition: opacity 0.2s;
+}
+
+.auth-toggle:hover {
+    opacity: 0.8;
+    text-decoration: underline;
 }
 
 /* Menu Analisi in alto */

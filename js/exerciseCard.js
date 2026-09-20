@@ -81,19 +81,25 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             <strong>TARGET:</strong> ${formatExerciseSummary(ex)}
         </div>
 
-        <!-- 2. Selettore Bilanciere e Dischi -->
-        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px; background: #f8fafc; padding: 10px 14px; border-radius: 8px; border: 1px solid #e2e8f0;">
-            <select class="bar-select" data-ex="${exIdx}" style="font-size: 0.95rem; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a; flex-grow: 1;" ${isPastMeso ? 'disabled' : ''}>
-                <option value="20">Bil 20kg</option>
-                <option value="15">Bil 15kg</option>
-                <option value="12">Bil 12kg</option>
-                <option value="10">Bil 10kg</option>
-                <option value="9">Bil 9kg</option>
-                <option value="6">Bil 6kg</option>
-            </select>
+        <!-- 2. Selettore Bilanciere e Dischi (Layout a due livelli moderno e pulito) -->
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; background: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 0.75rem; font-weight: 800; color: #64748b; letter-spacing: 0.5px;">BILANCIERE:</span>
+                <select class="bar-select" data-ex="${exIdx}" style="font-size: 0.95rem; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a; flex-grow: 1;" ${isPastMeso ? 'disabled' : ''}>
+                    <option value="20">Bil 20kg</option>
+                    <option value="15">Bil 15kg</option>
+                    <option value="12">Bil 12kg</option>
+                    <option value="10">Bil 10kg</option>
+                    <option value="9">Bil 9kg</option>
+                    <option value="6">Bil 6kg</option>
+                </select>
+            </div>
     
-            <div class="plates-badge" data-ex="${exIdx}" style="font-size: 0.95rem; padding: 8px 14px; border-radius: 6px; background: #ffffff; border: 1px solid #e2e8f0; color: #64748b; font-weight: 700; font-family: monospace; white-space: nowrap;">
-                🏋️ 0 kg/lato
+            <div class="plates-badge" data-ex="${exIdx}" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; font-size: 0.85rem; padding: 8px 10px; border-radius: 6px; background: #ffffff; border: 1px solid #e2e8f0; color: #64748b; font-weight: 700; gap: 6px;">
+                <span style="font-size: 0.75rem; color: #64748b;">🏋️ CARICO PER LATO:</span>
+                <div class="plates-content" style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-family: monospace;">
+                    0 kg
+                </div>
             </div>
         </div>
     `;
@@ -106,8 +112,8 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             <thead>
                 <tr style="background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; font-size: 0.75rem;">
                     <th style="padding: 6px 2px; text-align: center; width: 8%;">SET</th>
-                    <th style="padding: 6px 4px; text-align: center; width: 34%;">KG</th>
-                    <th style="padding: 6px 4px; text-align: center; width: 34%;">REPS</th>
+                    <th style="padding: 6px 4px; text-align: center; width: 40%;">KG</th>
+                    <th style="padding: 6px 4px; text-align: center; width: 28%;">REPS</th>
                     <th style="padding: 6px 4px; text-align: center; width: 14%;">RPE</th>
                     <th style="padding: 6px 2px; text-align: center; width: 10%;">✓</th>
                 </tr>
@@ -273,16 +279,16 @@ export function updatePlatesBadgeUI(exIdx) {
     const barSelect = card.querySelector('.bar-select');
     const set1Input = card.querySelector('.set-kg[data-set="0"]');
     const badge = card.querySelector('.plates-badge');
-    if (!badge) return;
+    const platesContent = card.querySelector('.plates-content');
+    if (!badge || !platesContent) return;
 
     const barWeight = parseFloat(barSelect?.value || 20);
     const totalKg = parseFloat(set1Input?.value?.replace(',', '.')) || 0;
 
     if (barWeight === 0) {
-        badge.innerHTML = `🏋️ Manubri / Macchina`;
         badge.style.background = '#f1f5f9';
-        badge.style.color = '#475569';
         badge.style.borderColor = '#cbd5e1';
+        platesContent.innerHTML = `<span style="color: #475569; font-weight: 600;">Manubri / Macchina</span>`;
         return;
     }
 
@@ -294,7 +300,19 @@ export function updatePlatesBadgeUI(exIdx) {
         badge.style.color = '#64748b';
         badge.style.borderColor = '#e2e8f0';
     } else {
-        badge.innerHTML = `🏋️ <strong>${breakdown.sideWeight}kg</strong>/lato <span style="color: #166534; font-weight: normal;">[${breakdown.str}]</span>`;
+        // 1. Genera i chip con il segno '+' in mezzo
+        const platesPills = breakdown.plates.map(p => 
+            `<span style="background: #dcfce7; color: #166534; padding: 2px 5px; border-radius: 4px; font-size: 0.75rem; font-weight: 800; border: 1px solid #bbf7d0;">${p}</span>`
+        ).join('<span style="color: #94a3b8; font-size: 0.75rem; font-weight: bold; margin: 0 2px;">+</span>');
+
+        // 2. Struttura a flessibile per affiancare etichetta e chip
+        badge.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: flex-star; width: 100%; gap: 8px; flex-wrap: wrap;">
+                <span>🏋️ <strong>${breakdown.sideWeight}kg</strong>/lato:</span>
+                <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 4px;">${platesPills}</div>
+            </div>
+        `;
+        
         badge.style.background = '#f0fdf4';
         badge.style.color = '#15803d';
         badge.style.borderColor = '#bbf7d0';
