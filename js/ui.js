@@ -186,12 +186,10 @@ export function renderWorkoutList() {
 
     // HEADER SESSIONE E TIMER
     const dayHeader = document.createElement('div');
-    dayHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 8px;';
+    dayHeader.style.cssText = 'display: flex; justify-content; align-items: baseline; margin-bottom: 15px; gap: 12px;';
     dayHeader.innerHTML = `
         <h2 style="margin: 0; color: #0284c7; font-size: 1.4rem;">${currentDay.dayName || 'Giorno ' + activeDayNum}</h2>
-        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <span style="font-size: 0.85rem; color: #64748b; font-weight: 500;">Mesociclo ${mesoIndex + 1} - Settimana ${targetWeek.weekNumber}</span>
-        </div>
+        <span style="font-size: 1.05rem; color: #0d0d0d; font-weight: 500; white-space: nowrap;">Mesociclo ${mesoIndex + 1} - Settimana ${targetWeek.weekNumber}</span>
     `;
     DOM.workoutListContainer.appendChild(dayHeader);
 

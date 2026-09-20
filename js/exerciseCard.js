@@ -268,6 +268,20 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         toggleExclusion();
     });
 
+    // 🧠 Event listener per ricalcolare i dischi al cambio bilanciere o input kg
+    const barSelectEl = exCard.querySelector('.bar-select');
+    if (barSelectEl) {
+        barSelectEl.addEventListener('change', () => updatePlatesBadgeUI(exIdx));
+    }
+
+    const firstSetInputEl = exCard.querySelector('.set-kg[data-set="0"]');
+    if (firstSetInputEl) {
+        firstSetInputEl.addEventListener('input', () => updatePlatesBadgeUI(exIdx));
+    }
+
+    // Calcolo iniziale al caricamento della card
+    updatePlatesBadgeUI(exIdx);
+
     enableCardSwipeGesture(exCard, toggleExclusion, toggleExclusion);
     return exCard;
 }
@@ -280,7 +294,7 @@ export function updatePlatesBadgeUI(exIdx) {
     const set1Input = card.querySelector('.set-kg[data-set="0"]');
     const badge = card.querySelector('.plates-badge');
     const platesContent = card.querySelector('.plates-content');
-    if (!badge || !platesContent) return;
+    if (!badge) return;
 
     const barWeight = parseFloat(barSelect?.value || 20);
     const totalKg = parseFloat(set1Input?.value?.replace(',', '.')) || 0;
@@ -288,7 +302,9 @@ export function updatePlatesBadgeUI(exIdx) {
     if (barWeight === 0) {
         badge.style.background = '#f1f5f9';
         badge.style.borderColor = '#cbd5e1';
+        if (platesContent) {
         platesContent.innerHTML = `<span style="color: #475569; font-weight: 600;">Manubri / Macchina</span>`;
+        }
         return;
     }
 
@@ -307,7 +323,7 @@ export function updatePlatesBadgeUI(exIdx) {
 
         // 2. Struttura a flessibile per affiancare etichetta e chip
         badge.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: flex-star; width: 100%; gap: 8px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; justify-content: flex-start; width: 100%; gap: 8px; flex-wrap: wrap;">
                 <span>🏋️ <strong>${breakdown.sideWeight}kg</strong>/lato:</span>
                 <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 4px;">${platesPills}</div>
             </div>
