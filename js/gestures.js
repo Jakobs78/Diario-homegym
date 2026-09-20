@@ -13,7 +13,7 @@ export function enableCardSwipeGesture(cardElement, onSwipeLeft, onSwipeRight) {
     let currentY = 0;
     let isSwiping = false;
 
-    const MIN_SWIPE_DISTANCE = 200; 
+    const MIN_SWIPE_DISTANCE = 300; 
 
     cardElement.addEventListener('touchstart', (e) => {
         const touch = e.touches[0];
