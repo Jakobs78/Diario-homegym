@@ -24,7 +24,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             <div style="display: flex; align-items: center; gap: 8px;">
                 <div style="font-size: 0.75rem; font-weight: 700; color: #64748b; letter-spacing: 0.5px;">BLOCCO ${ex.block || (exIdx + 1)}</div>
                 ${isDropsetPlan ? '<span style="font-size: 0.7rem; background: #fff7ed; color: #c2410c; border: 1px solid #ffedd5; padding: 2px 8px; border-radius: 6px; font-weight: 800;">🔥 DROP SET</span>' : ''}
-                ${!isExExcluded ? '<span style="font-size: 0.7rem; color: #94a3b8; font-style: italic;">(Doppio click o swipe per escludere)</span>' : ''}
+                ${!isExExcluded ? '<span style="font-size: 0.95rem; color: #94a3b8; font-style: italic;">(Doppio click o swipe per escludere)</span>' : ''}
             </div>
             ${isExExcluded ? '<span style="font-size: 0.7rem; background: #ef4444; color: #ffffff; padding: 2px 8px; border-radius: 12px; font-weight: 800;">ESCLUSO DAI MASSIMALI</span>' : ''}
         </div>
