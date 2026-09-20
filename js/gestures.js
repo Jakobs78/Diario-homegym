@@ -13,7 +13,7 @@ export function enableCardSwipeGesture(cardElement, onSwipeLeft, onSwipeRight) {
     let currentY = 0;
     let isSwiping = false;
 
-    const MIN_SWIPE_DISTANCE = 120; 
+    const MIN_SWIPE_DISTANCE = 200; 
 
     cardElement.addEventListener('touchstart', (e) => {
         const touch = e.touches[0];
@@ -39,7 +39,7 @@ export function enableCardSwipeGesture(cardElement, onSwipeLeft, onSwipeRight) {
 
         if (!isSwiping && absY > absX) return;
 
-        if (absX > 20 && absX > absY * 1.5) {
+        if (absX > 30 && absX > absY * 2) {
             if (deltaX < 0) {
             isSwiping = true;
             cardElement.style.transform = `translateX(${deltaX}px)`;
