@@ -39,11 +39,13 @@ export function enableCardSwipeGesture(cardElement, onSwipeLeft, onSwipeRight) {
 
         if (!isSwiping && absY > absX) return;
 
-        if (absX > 15 && absX > absY * 1.5) {
+        if (absX > 20 && absX > absY * 1.5) {
+            if (deltaX < 0) {
             isSwiping = true;
             cardElement.style.transform = `translateX(${deltaX}px)`;
             cardElement.style.opacity = `${1 - Math.min(absX / 300, 0.5)}`;
         }
+    }
     }, { passive: true });
 
     cardElement.addEventListener('touchend', () => {
