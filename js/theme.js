@@ -6,7 +6,7 @@
  * Inizializza il tema salvato nel LocalStorage o imposta il tema Dark di default.
  */
 export function initTheme() {
-    const savedTheme = localStorage.getItem('app-theme') || 'dark';
+    const savedTheme = localStorage.getItem('app-theme') || 'light';
     applyTheme(savedTheme);
 }
 

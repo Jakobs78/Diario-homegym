@@ -318,19 +318,19 @@ export function updatePlatesBadgeUI(exIdx) {
     } else {
         // 1. Genera i chip con il segno '+' in mezzo
         const platesPills = breakdown.plates.map(p => 
-            `<span style="background: #dcfce7; color: #166534; padding: 2px 5px; border-radius: 4px; font-size: 0.75rem; font-weight: 800; border: 1px solid #bbf7d0;">${p}</span>`
-        ).join('<span style="color: #94a3b8; font-size: 0.75rem; font-weight: bold; margin: 0 2px;">+</span>');
+            `<span style="background: #dcfcf2; color: #0d0e0d; padding: 2px 5px; border-radius: 4px; font-size: 0.9rem; font-weight: 800; border: 1px solid #29d967;">${p}</span>`
+        ).join('<span style="color: #94a3b8; font-size: 0.9rem; font-weight: bold; margin: 0 2px;">+</span>');
 
         // 2. Struttura a flessibile per affiancare etichetta e chip
         badge.innerHTML = `
             <div style="display: flex; align-items: center; justify-content: flex-start; width: 100%; gap: 8px; flex-wrap: wrap;">
-                <span>🏋️ <strong>${breakdown.sideWeight}kg</strong>/lato:</span>
-                <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 4px;">${platesPills}</div>
+                <span>🏋️<strong>${breakdown.sideWeight}kg</strong>/lato:</span>
+                <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 1px;">${platesPills}</div>
             </div>
         `;
         
         badge.style.background = '#f0fdf4';
-        badge.style.color = '#15803d';
+        badge.style.color = '#787505';
         badge.style.borderColor = '#bbf7d0';
     }
 }

@@ -23,8 +23,7 @@ import { setupBottomSheet } from './bottomSheet.js';
 import { initDevBanner } from './bannerSviluppo.js';
 import { applyUserToUI, checkSubscriptionStatus, deleteUserAccount } from './accountManager.js';
 // Corretto il percorso dell'import relativo
-import { startCoachChatAndGenerate } from '../mycoatch/mycoatch-adapter.js';
-import { generateAndDownloadMesocycleCSV } from '../mycoatch/mycoatch-adapter.js';
+import { startCoachChatAndGenerate, generateAndDownloadMesocycleCSV } from '../mycoatch/mycoatch-adapter.js';
 
 // Esposizione globale per eventi inline / retrocompatibilità
 window.logoutUser = logoutUser;
@@ -61,12 +60,6 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 async function initApp() {
     console.log(`Avvio Advanced Workout Tracker v${CONFIG.APP_VERSION}`);
     applyUserToUI(null);
-
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('../sw.js')
-            .then(reg => console.log('Service Worker registrato:', reg.scope))
-            .catch(err => console.warn('Errore registrazione Service Worker:', err));
-    }
 
     initTheme();
     initDevBanner();

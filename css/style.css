@@ -495,7 +495,7 @@ input[type="date"]:focus, select:focus {
     margin-bottom: 16px;
     box-shadow: var(--shadow-sm);
     /* 👈 Applicazione dell'animazione pulsante in loop continuo (durata 2 secondi) */
-    animation: pulseAnimation 2 ease-in-out infinite;
+    animation: pulseAnimation 2s ease-in-out infinite;
 }
 
 .auth-card h2 {
