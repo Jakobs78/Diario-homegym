@@ -293,7 +293,6 @@ export function updatePlatesBadgeUI(exIdx) {
     const barSelect = card.querySelector('.bar-select');
     const set1Input = card.querySelector('.set-kg[data-set="0"]');
     const badge = card.querySelector('.plates-badge');
-    const platesContent = card.querySelector('.plates-content');
     if (!badge) return;
 
     const barWeight = parseFloat(barSelect?.value || 20);
@@ -302,35 +301,40 @@ export function updatePlatesBadgeUI(exIdx) {
     if (barWeight === 0) {
         badge.style.background = '#f1f5f9';
         badge.style.borderColor = '#cbd5e1';
-        if (platesContent) {
-        platesContent.innerHTML = `<span style="color: #475569; font-weight: 600;">Manubri / Macchina</span>`;
-        }
+        badge.innerHTML = `<span style="color: #475569; font-weight: 600;">🏋️ Manubri / Macchina</span>`;
         return;
     }
 
     const breakdown = getPlateBreakdown(totalKg, barWeight);
 
-    if (!breakdown) {
+    if (!breakdown || !breakdown.plates || breakdown.plates.length === 0) {
         badge.innerHTML = `🏋️ 0 kg/lato`;
         badge.style.background = '#f8fafc';
         badge.style.color = '#64748b';
         badge.style.borderColor = '#e2e8f0';
     } else {
-        // 1. Genera i chip con il segno '+' in mezzo
-        const platesPills = breakdown.plates.map(p => 
-            `<span style="background: #dcfcf2; color: #0d0e0d; padding: 2px 5px; border-radius: 4px; font-size: 0.9rem; font-weight: 800; border: 1px solid #29d967;">${p}</span>`
-        ).join('<span style="color: #94a3b8; font-size: 0.9rem; font-weight: bold; margin: 0 2px;">+</span>');
+        // 🧠 Raggruppamento intelligente dei dischi uguali (es. 3×20 anziché 20 + 20 + 20)
+        const counts = {};
+        breakdown.plates.forEach(p => counts[p] = (counts[p] || 0) + 1);
+        const sortedPlates = Object.keys(counts).map(Number).sort((a, b) => b - a);
 
-        // 2. Struttura a flessibile per affiancare etichetta e chip
+        // Genera chip compatti (es. "3×20", "10", "5")
+        const platesPills = sortedPlates.map(p => {
+            const count = counts[p];
+            const label = count > 1 ? `${count}×${p}` : `${p}`;
+            return `<span style="background: #dcfcf2; color: #0d0e0d; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; font-weight: 800; border: 1px solid #29d967; white-space: nowrap;">${label}</span>`;
+        }).join('<span style="color: #94a3b8; font-size: 0.85rem; font-weight: bold; margin: 0 2px;">+</span>');
+
+        // 👈 Spostato tutto a sinistra con justify-content: flex-start
         badge.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: flex-start; width: 100%; gap: 8px; flex-wrap: wrap;">
-                <span>🏋️<strong>${breakdown.sideWeight}kg</strong>/lato:</span>
-                <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 1px;">${platesPills}</div>
+            <div style="display: flex; align-items: center; justify-content: flex-start; width: 100%; gap: 6px; flex-wrap: wrap;">
+                <span style="white-space: nowrap;">🏋️ <strong>${breakdown.sideWeight}kg</strong>/lato:</span>
+                <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 2px;">${platesPills}</div>
             </div>
         `;
         
         badge.style.background = '#f0fdf4';
-        badge.style.color = '#787505';
+        badge.style.color = '#070703';
         badge.style.borderColor = '#bbf7d0';
     }
 }

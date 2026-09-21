@@ -175,6 +175,7 @@ export function renderWorkoutList() {
         dayBtn.textContent = day.dayName || `Giorno ${dayIndex}`;
         dayBtn.onclick = () => {
             state.activeDay = dayIndex;
+            localStorage.setItem('ui_active_day', state.activeDay); // 👈 Salva il numero del giorno attivo, cosi appare direttamente all'apertura della webapp
             renderWorkoutList();
         };
         dayTabsContainer.appendChild(dayBtn);

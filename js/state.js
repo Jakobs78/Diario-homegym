@@ -4,8 +4,11 @@
 
 export const state = {
     currentUser: null,
-    activeMesocycleIndex: 0,
-    activeWeek: 1,
+    // 🧠 Legge la posizione visiva salvata dal browser
+    activeMesocycleIndex: parseInt(localStorage.getItem('ui_active_meso')) || 0,
+    activeWeek: parseInt(localStorage.getItem('ui_active_week')) || 1,
+    activeDay: parseInt(localStorage.getItem('ui_active_day')) || 1,
+
     activeView: 'workout',
     workoutData: {
         athlete: { email: null },

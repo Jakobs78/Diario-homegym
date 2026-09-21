@@ -151,8 +151,14 @@ function setupEventListeners() {
         }
     });
 
-    document.getElementById('prev-meso-btn')?.addEventListener('click', () => changeMesocycle(-1));
-    document.getElementById('next-meso-btn')?.addEventListener('click', () => changeMesocycle(1));
+    document.getElementById('prev-meso-btn')?.addEventListener('click', () => { changeMesocycle(-1);
+        localStorage.setItem('ui_active_meso', state.activeMesocycleIndex);
+        localStorage.setItem('ui_active_week', state.activeWeek);
+    }); 
+    document.getElementById('next-meso-btn')?.addEventListener('click', () => { changeMesocycle(1);
+        localStorage.setItem('ui_active_meso', state.activeMesocycleIndex);
+        localStorage.setItem('ui_active_week', state.activeWeek);
+    });
     document.getElementById('toggle-lock-meso-btn')?.addEventListener('click', toggleCurrentMesocycleLock);
     document.getElementById('btn-generate-mycoatch-csv')?.addEventListener('click', async () => {
         const userGoalSettings = {
@@ -291,6 +297,7 @@ function setupEventListeners() {
 
     document.getElementById('week-selector')?.addEventListener('change', (e) => {
         state.activeWeek = parseInt(e.target.value, 10);
+        localStorage.setItem('ui_active_week', state.activeWeek); // 👈 Salva il numero della settimana attiva, cosi appare direttamente all'apertura della webapp
         renderWorkoutList();
     });
 }

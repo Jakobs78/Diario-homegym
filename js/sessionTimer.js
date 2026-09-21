@@ -11,6 +11,9 @@ import { state } from './state.js';
  */
 export function updateSessionAndCompletionState(currentDay) {
     if (!currentDay || !currentDay.exercises) return;
+
+    // Se la sessione è già completata, il timer è congelato e i click successivi non devono fare nulla
+    if (currentDay.completed) return;
     const exercises = currentDay.exercises;
     if (exercises.length === 0) return;
 
