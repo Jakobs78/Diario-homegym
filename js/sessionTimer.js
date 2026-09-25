@@ -67,15 +67,24 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
         timerWrapper.style.alignItems = 'center';
         timerWrapper.style.gap = '6px';
         timerWrapper.classList.add('session-timer-wrapper');
+
+        // Inserisce automaticamente l'etichetta "SESSIONE" se non è già presente nel DOM
+        let timerLabel = timerWrapper.querySelector('.session-timer-label');
+        if (!timerLabel) {
+            timerLabel = document.createElement('span');
+            timerLabel.className = 'session-timer-label';
+            timerLabel.textContent = 'DURATA SESSIONE:';
+            timerEl.before(timerLabel);
+        }
         
         const pauseSessionBtn = document.createElement('button');
         pauseSessionBtn.id = 'pause-session-timer-btn';
         pauseSessionBtn.className = 'btn btn-secondary';
-        pauseSessionBtn.style.cssText = 'padding: 4px 8px; font-size: 0.75rem; display: none;';
+        pauseSessionBtn.style.cssText = 'padding: 4px 8px; font-size: 0.75rem; display: none; margin-left: 10px;';
 
         const actionSessionBtn = document.createElement('button');
         actionSessionBtn.id = 'reset-session-timer-btn'; 
-        actionSessionBtn.style.cssText = 'padding: 4px 8px; font-size: 0.75rem; font-weight: 700; display: none;';
+        actionSessionBtn.style.cssText = 'padding: 4px 8px; font-size: 0.75rem; font-weight: 700; display: none; margin-left: 10px;';
         
         timerEl.after(actionSessionBtn);
         actionSessionBtn.after(pauseSessionBtn);
@@ -140,7 +149,7 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
         } else {
             actionBtn.innerHTML = '⏹️ Termina';
             actionBtn.className = 'btn btn-danger';
-            actionBtn.style.cssText = 'padding: 4px 8px; font-size: 0.75rem;';
+            actionBtn.style.cssText = 'padding: 4px 8px; font-size: 0.75rem; margin-left: 10px;';
             actionBtn.title = 'Resetta o interrompi sessione';
             
             if (currentDay.sessionStart || currentDay.accumulatedSeconds > 0) {
@@ -166,7 +175,7 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
     if (currentDay.completed && currentDay.totalDurationMinutes !== undefined) {
         timerEl.style.background = 'var(--block-bg)';
         timerEl.style.color = 'var(--success-color)';
-        timerEl.textContent = `✅ ${currentDay.totalDurationMinutes} min`;
+        timerEl.textContent = `${currentDay.totalDurationMinutes} min`;
         if (pauseBtn) pauseBtn.style.display = 'none';
     } else {
         const totalSecs = (currentDay.accumulatedSeconds || 0) + (currentDay.sessionStart ? Math.floor((Date.now() - currentDay.sessionStart) / 1000) : 0);

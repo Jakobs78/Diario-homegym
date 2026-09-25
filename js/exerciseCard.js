@@ -77,7 +77,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
 
     cardHtml += `
         <!-- Box Target -->
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.85rem; color: #334155; font-family: monospace;">
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.95rem; color: #334155; font-family: monospace;">
             <strong>TARGET:</strong> ${formatExerciseSummary(ex)}
         </div>
 

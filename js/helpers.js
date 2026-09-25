@@ -101,7 +101,7 @@ export function formatExerciseSummary(ex) {
     if (weightParts.length > 0) {
         weightPart = `<span style="color: #dc2626; font-weight: 700;">${weightParts.join(' | ')}</span>`;
     } else {
-        weightPart = `<span style="color: #dc2626; font-weight: 700;">--</span>`;
+        weightPart = `<span style="color: #dc2626; font-weight: 700;">Kg liberi</span>`;
     }
 
     const setsVal = Array.isArray(sets) ? sets.length : (sets || '-');
@@ -115,7 +115,11 @@ export function formatExerciseSummary(ex) {
     const restVal = recupero && recupero !== '-' ? recupero : '';
     const restPart = restVal ? `rest ${restVal}` : '';
 
-    return [weightPart, setRepsPart, restPart].filter(Boolean).join(' | ');
+    // 👈 Raggruppiamo i dettagli in un'unica variabile per la seconda riga
+    const detailsPart = [setRepsPart, restPart].filter(Boolean).join(' | ');
+
+    // 👈 Restituiamo le due righe separate da <br> con un piccolo margine di spaziatura
+    return `${weightPart}<br><span style="display: inline-block; margin-top: 4px; color: #334155;">${detailsPart}</span>`;
 }
 
 /**
