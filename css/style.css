@@ -1740,3 +1740,22 @@ body.dark-mode #import-plan-modal div[style*="background"] {
     justify-content: center;
     height: 36px;
 }
+/* ==========================================================================
+   INGRANDIMENTO PULSANTI E TAB "ANALISI" E "STRUMENTI"
+   ========================================================================== */
+
+/* Pulsanti principali nella barra di controllo */
+#open-analytics-btn, 
+#open-tools-btn {
+    font-size: 0,85rem !important;        /* Testo più grande e leggibile */
+    padding: 8px 14px !important;     /* Area cliccabile più ampia */
+    border-radius: 12px !important;    /* Bordi arrotondati */
+    font-weight: 700 !important;       /* Testo in grassetto */
+}
+
+/* Voci interne dei menu a tendina (Bottom Sheet) */
+.bottom-sheet-menu .sheet-item {
+    font-size: 0.95rem !important;     /* Testo delle voci ingrandito */
+    padding: 14px 18px !important;     /* Spaziatura interna maggiore */
+    margin-bottom: 8px !important;     /* Distacco ottimizzato tra i pulsanti */
+}
