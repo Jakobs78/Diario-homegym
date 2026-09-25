@@ -50,7 +50,6 @@
 
     <div class="container">
        <!-- Header Principale -->
-    <!-- Header Principale -->
         <header>
             <div style="display: flex; align-items: center; gap: 10px;">
                 <h1 style="margin: 0;">🏋️ HomeGym Diary</h1>
@@ -81,15 +80,7 @@
         <!-- Barra Controlli -->
         <div class="controls-bar">
             <div class="control-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-                    <div style="display: flex; gap: 6px; align-items: center;">
-                        <label style="font-size: 0.8rem; font-weight: 600;">Mesociclo:</label>
-                        <button class="btn btn-secondary" id="prev-meso-btn" style="padding: 2px 6px;">-</button>
-                        <span id="meso-display" style="font-weight: 700; font-size: 0.9rem;">1</span>
-                        <button class="btn btn-secondary" id="next-meso-btn" style="padding: 2px 6px;">+</button>
-                        <button class="btn btn-secondary" id="toggle-lock-meso-btn" style="padding: 2px 8px;" title="Blocca/Sblocca Mesociclo">🔓</button>
-                    </div>
-                </div>
+                
 
                 <div style="display: flex; gap: 8px;">
                     <button id="open-analytics-btn" class="analytics-trigger-btn">
@@ -104,27 +95,7 @@
 
         <!-- Hidden file input per importazione storico -->
         <input type="file" id="import-history-input" accept=".csv" style="display: none;">
-
-        <!-- Contenitore della barra di navigazione (Settimana + Giorni) -->
-        <div class="tabs" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 15px;">
-            <div style="display: flex; gap: 4px; align-items: center; background: var(--bg-card); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color);">
-                <label for="week-selector" style="font-size: 0.95rem; font-weight: 700;">Settimana:</label>
-                <select id="week-selector" style="font-size: 0.85rem; padding: 2px 4px;">
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                </select>
-            </div>
-
-            <!-- Timer di Sessione -->
-            <div id="workout-timer-pill" class="timer-pill">
-                <span class="timer-dot"></span>
-                <span class="timer-icon">⏱️</span>
-                <span id="live-session-timer">0:00</span>
-            </div>
-            <div id="dynamic-day-tabs" style="display: flex; gap: 4px; align-items: center;"></div>
-        </div>
+   
 
        <!-- Lista e Contenitori Allenamento -->
         <div id="workout-list-container"></div>
@@ -330,6 +301,7 @@
             <div id="import-status-msg" style="display: none; font-size: 0.82rem; text-align: center; padding: 8px; border-radius: 6px;"></div>
         </div>
     </div>
+    
 
     <!-- Timer Mobile Flottante -->
     <div id="floating-timer">

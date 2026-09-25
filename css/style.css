@@ -1759,3 +1759,16 @@ body.dark-mode #import-plan-modal div[style*="background"] {
     padding: 14px 18px !important;     /* Spaziatura interna maggiore */
     margin-bottom: 8px !important;     /* Distacco ottimizzato tra i pulsanti */
 }
+/* --- Box Unificato Intestazione e Navigazione --- */
+.unified-header-box {
+    background: var(--block-bg); /* Usa lo sfondo secondario definito nel tuo tema */
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    color: var(--text-color);
+}
