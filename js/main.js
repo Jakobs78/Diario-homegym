@@ -15,7 +15,7 @@ import { downloadExcelTemplate, handleUniversalImport } from './importer.js';
 import { readCsvFile, importProgressCSV, exportToCSV } from './csvHandler.js';
 import { initTheme, toggleTheme } from './theme.js';
 import { setupAuthListeners, logoutUser } from './auth.js';
-import { deleteCurrentMesocycle, changeMesocycle, toggleCurrentMesocycleLock, exportMesoToPDF, getActiveMesocycleObject } from './mesocycle.js';
+import { deleteCurrentMesocycle, changeMesocycle, exportMesoToPDF, getActiveMesocycleObject } from './mesocycle.js';
 import { renderManualView } from './manual.js';
 import { initAudioUnlock } from './audio.js';
 import { switchAnalyticsTab } from './analytics.js';
@@ -75,7 +75,7 @@ async function initApp() {
         if (user) {
             state.currentUser = user;
             const authOverlay = document.getElementById('auth-overlay');
-            if (authOverlay) authOverlay.style.display = 'none';
+            if (authOverlay) authOverlay.classList.add('d-none');
 
             applyUserToUI(user);
             await checkSubscriptionStatus(user);
@@ -133,33 +133,35 @@ function setupEventListeners() {
         const btnManual = e.currentTarget;
         const manualView = document.getElementById('manual');
         const workoutContainer = document.getElementById('workout-list-container');
-        const isOpen = manualView && manualView.style.display === 'block';
+        const isOpen = manualView && !manualView.classList.contains('d-none');
 
         if (isOpen) {
-            if (manualView) manualView.style.display = 'none';
-            if (workoutContainer) workoutContainer.style.display = 'block';
+            if (manualView) manualView.classList.add('d-none');
+            if (workoutContainer) workoutContainer.classList.remove('d-none');
             btnManual.textContent = "📖 Manuale d'uso";
         } else {
-            if (workoutContainer) workoutContainer.style.display = 'none';
-            document.querySelectorAll('.day-view').forEach(el => el.style.display = 'none');
+            if (workoutContainer) workoutContainer.classList.add('d-none');
+            document.querySelectorAll('.day-view').forEach(el => el.classList.add('d-none'));
             
             if (manualView) {
-                manualView.style.display = 'block';
+                manualView.classList.remove('d-none');
                 renderManualView();
             }
             btnManual.textContent = "✖️ Chiudi Manuale";
         }
     });
 
-    document.getElementById('prev-meso-btn')?.addEventListener('click', () => { changeMesocycle(-1);
+    document.getElementById('prev-meso-btn')?.addEventListener('click', () => { 
+        changeMesocycle(-1);
         localStorage.setItem('ui_active_meso', state.activeMesocycleIndex);
         localStorage.setItem('ui_active_week', state.activeWeek);
     }); 
-    document.getElementById('next-meso-btn')?.addEventListener('click', () => { changeMesocycle(1);
+    document.getElementById('next-meso-btn')?.addEventListener('click', () => { 
+        changeMesocycle(1);
         localStorage.setItem('ui_active_meso', state.activeMesocycleIndex);
         localStorage.setItem('ui_active_week', state.activeWeek);
     });
-    document.getElementById('toggle-lock-meso-btn')?.addEventListener('click', toggleCurrentMesocycleLock);
+    
     document.getElementById('btn-generate-mycoatch-csv')?.addEventListener('click', async () => {
         const userGoalSettings = {
             userAge: parseInt(document.getElementById('input-age')?.value, 10) || 30,
@@ -190,17 +192,17 @@ function setupEventListeners() {
             const workoutContainer = document.getElementById('workout-list-container');
             const analyticsView = document.getElementById('analytics');
 
-            if (workoutContainer) workoutContainer.style.display = 'none';
-            document.querySelectorAll('.day-view').forEach(el => el.style.display = 'none');
+            if (workoutContainer) workoutContainer.classList.add('d-none');
+            document.querySelectorAll('.day-view').forEach(el => el.classList.add('d-none'));
 
             if (targetId === 'workout') {
                 state.activeView = 'workout';
-                if (workoutContainer) workoutContainer.style.display = 'block';
+                if (workoutContainer) workoutContainer.classList.remove('d-none');
                 renderWorkoutList();
             } else {
                 state.activeView = 'analytics';
                 if (analyticsView) {
-                    analyticsView.style.display = 'block';
+                    analyticsView.classList.remove('d-none');
                 }
                 const activeTab = (targetId && targetId !== 'analytics') ? targetId : 'subtab-macro';
                 window.switchAnalyticsTab(activeTab);
@@ -238,8 +240,7 @@ function setupEventListeners() {
                 case 'import-plan': {
                     const importModal = document.getElementById('import-plan-modal');
                     if (importModal) {
-                        importModal.classList.remove('hidden');
-                        importModal.style.display = 'flex';
+                        importModal.classList.remove('hidden', 'd-none');
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                         const modalContent = importModal.querySelector('.modal-content');
                         if (modalContent) modalContent.scrollTop = 0;
@@ -297,7 +298,7 @@ function setupEventListeners() {
 
     document.getElementById('week-selector')?.addEventListener('change', (e) => {
         state.activeWeek = parseInt(e.target.value, 10);
-        localStorage.setItem('ui_active_week', state.activeWeek); // 👈 Salva il numero della settimana attiva, cosi appare direttamente all'apertura della webapp
+        localStorage.setItem('ui_active_week', state.activeWeek);
         renderWorkoutList();
     });
 }
@@ -305,7 +306,6 @@ function setupEventListeners() {
 function closeImportModal() {
     const importModal = document.getElementById('import-plan-modal');
     if (importModal) {
-        importModal.classList.add('hidden');
-        importModal.style.display = 'none';
+        importModal.classList.add('hidden', 'd-none');
     }
 }

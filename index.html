@@ -12,96 +12,81 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
     <!-- jsPDF per esportazione report -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <!-- SheetJS per la lettura nativa dei file Excel della scheda allenamento (.xlsx, .xls) e CSV -->
+    <!-- SheetJS per la lettura nativa dei file Excel e CSV -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- PDF.js per la lettura dei file PDF della scheda allenamento -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- Favicon Emoji -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏋️</text></svg>">
 </head>
 <body>
     
-
     <!-- Finestra di Autenticazione Supabase -->
     <div id="auth-overlay">
         <div class="auth-card">
             <h2 id="auth-title">Accedi al Diario</h2>
-            <div id="auth-error" style="color: #dc2626; font-size: 0.8rem; margin-bottom: 10px; display: none;"></div>
+            <div id="auth-error" class="text-danger text-sm mb-lg d-none"></div>
             
-            <!-- Campi aggiuntivi per Nome e Cognome (Visibili solo in registrazione) -->
-            <div id="auth-name-fields" style="display: none; text-align: left; margin-bottom: 12px;">
-                <div style="margin-bottom: 8px;">
-                    <label for="auth-name" style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 3px;">Nome <span style="font-weight: normal; color: var(--text-muted);">(Obbligatorio)</span></label>
-                    <input type="text" id="auth-name" placeholder="es. Mario" class="form-input" style="width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px;">
+            <!-- Campi aggiuntivi per Nome e Cognome -->
+            <div id="auth-name-fields" class="text-left mb-md d-none">
+                <div class="mb-md">
+                    <label for="auth-name" class="auth-label">Nome <span>(Obbligatorio)</span></label>
+                    <input type="text" id="auth-name" placeholder="es. Mario" class="form-input auth-input-full">
                 </div>
-                <div style="margin-bottom: 6px;">
-                    <label for="auth-surname" style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 3px;">Cognome <span style="font-weight: normal; color: var(--text-muted);">(Opzionale)</span></label>
-                    <input type="text" id="auth-surname" placeholder="es. Rossi" class="form-input" style="width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px;">
+                <div class="mb-sm">
+                    <label for="auth-surname" class="auth-label">Cognome <span>(Opzionale)</span></label>
+                    <input type="text" id="auth-surname" placeholder="es. Rossi" class="form-input auth-input-full">
                 </div>
-                <p style="font-size: 0.72rem; color: #64748b; margin: 4px 0 0 0; line-height: 1.3;">
+                <p class="auth-info-text">
                     ℹ️ Il tuo nome (e opzionalmente il cognome) serve unicamente per personalizzare l'intestazione dei report PDF giornalieri dei tuoi allenamenti. I dati restano strettamente personali.
                 </p>
             </div>
 
             <input type="email" id="auth-email" placeholder="Email">
             <input type="password" id="auth-password" placeholder="Password">
-            <button class="btn" style="width: 100%; padding: 10px;" id="auth-submit-btn">Accedi</button>
+            <button class="btn btn-block" id="auth-submit-btn">Accedi</button>
             <span class="auth-toggle" id="auth-toggle-text">Non hai un account? Registrati</span>
         </div>
     </div>
 
     <div class="container">
-       <!-- Header Principale -->
-        <header>
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <h1 style="margin: 0;">🏋️ HomeGym Diary</h1>
-                <button class="btn btn-secondary" id="btn-user-manual" style="padding: 4px 10px; font-size: 0.8rem; white-space: nowrap;">📖 Manuale d'uso</button>
+       <!-- Header Principale Unificato -->
+        <header class="app-header-container">
+            <div class="top-nav-bar">
+                <div class="app-brand">
+                    <span>🏋️‍♂️</span> HomeGym Diary
+                </div>
+                <div class="flex-row gap-sm">
+                    <button class="btn btn-secondary btn-sm" id="btn-user-manual">📖 Manuale</button>
+                    <button class="btn btn-secondary btn-sm" id="theme-toggle-btn">🌙 Dark</button>
+                </div>
             </div>
            
-            <div style="display: flex; gap: 8px; align-items: center;">
-                <span id="sync-status" class="sync-badge" title="Stato sincronizzazione cloud">🟢 Sincronizzato</span>
+            <div class="header-status-bar">
+                <span id="sync-status" class="status-badge-pill" title="Stato sincronizzazione cloud">
+                    <span class="pulse-dot-green"></span> Sincronizzato
+                </span>
                 
-                <!-- Barra Info Utente (Solo Email e Pulsante Esci) -->
-                <div id="user-info-bar" style="display: none; align-items: center; gap: 6px; font-size: 0.8rem; background: rgba(255, 255, 255, 0.08); padding: 4px 10px; border-radius: 20px; cursor: pointer;" title="Clicca per uscire dall'account">
-                    <span id="user-email-display" style="font-weight: 500; margin-right: 2px;"></span>
-                    <span style="opacity: 0.3; margin: 0 2px;">|</span>
-                    <span style="display: inline-flex; align-items: center; gap: 4px; color: #ef4444; font-weight: 600;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                            <polyline points="16 17 21 12 16 7"></polyline>
-                            <line x1="21" y1="12" x2="9" y2="12"></line>
-                        </svg>
-                        Esci
-                    </span>
+                <div id="user-info-bar" class="status-badge-pill user-info-pill d-none" title="Clicca per uscire dall'account">
+                    <span id="user-email-display"></span>
+                    <span class="user-logout-btn">✕ Esci</span>
                 </div>
+            </div>
 
-                <button class="btn btn-secondary" id="theme-toggle-btn">🌙 Dark</button>
+            <div class="main-nav-pills">
+                <button id="open-analytics-btn" class="nav-pill-btn-modern">📊 Analisi & Dashboards</button>
+                <button id="open-tools-btn" class="nav-pill-btn-modern">⚙️ Strumenti & Gestione</button>
             </div>
         </header>
 
-        <!-- Barra Controlli -->
-        <div class="controls-bar">
-            <div class="control-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                
-
-                <div style="display: flex; gap: 8px;">
-                    <button id="open-analytics-btn" class="analytics-trigger-btn">
-                        📊 Analisi & Dashboards
-                    </button>
-                    <button id="open-tools-btn" class="tools-trigger-btn">
-                        ⚙️ Strumenti & Gestione
-                    </button>
-                </div>
-            </div>
-        </div>
-
         <!-- Hidden file input per importazione storico -->
-        <input type="file" id="import-history-input" accept=".csv" style="display: none;">
+        <input type="file" id="import-history-input" accept=".csv" class="d-none">
    
-
-       <!-- Lista e Contenitori Allenamento -->
+       <!-- Lista e Contenitori Allenamento (Generati Dinamicamente da JS) -->
         <div id="workout-list-container"></div>
 
-        <!-- NUOVA SEZIONE ANALISI & DASHBOARD UNIFICATA -->
-        <div class="day-view" id="analytics" style="display: none;">
+        <!-- SEZIONE ANALISI & DASHBOARD UNIFICATA -->
+        <div class="day-view d-none" id="analytics">
             <div class="day-card">
                 
                 <!-- Filtri Temporali Rapidi -->
@@ -145,11 +130,9 @@
 
                 <!-- SUB-TAB 2: MICRO ESERCIZIO & PR -->
                 <div id="subtab-micro" class="sub-tab-content">
-                    <div class="exercise-selector-wrapper" style="margin-bottom: 12px;">
-                        <label for="analytics-ex-select" style="font-size: 0.8rem;"><strong>Seleziona Esercizio:</strong></label>
-                        <select id="analytics-ex-select" class="analytics-select" style="width: 100%; margin-top: 4px;">
-                            <!-- Popolato Dinamicamente via JS -->
-                        </select>
+                    <div class="exercise-selector-wrapper mb-md">
+                        <label for="analytics-ex-select" class="text-sm font-bold">Seleziona Esercizio:</label>
+                        <select id="analytics-ex-select" class="analytics-select w-100 mt-sm"></select>
                     </div>
 
                     <!-- Badge PR Automatici -->
@@ -186,15 +169,15 @@
 
                 <!-- SUB-TAB 3: CONFRONTO MESOCICLI -->
                 <div id="subtab-compare" class="sub-tab-content">
-                    <div class="compare-selectors">
-                        <div style="flex: 1;">
-                            <label style="font-size: 0.75rem;">Mesociclo A:</label>
-                            <select id="compare-meso-a" class="analytics-select" style="width: 100%;"></select>
+                    <div class="compare-selectors flex-row">
+                        <div class="flex-1">
+                            <label class="text-xs">Mesociclo A:</label>
+                            <select id="compare-meso-a" class="analytics-select w-100"></select>
                         </div>
-                        <strong style="margin-top: 15px;">VS</strong>
-                        <div style="flex: 1;">
-                            <label style="font-size: 0.75rem;">Mesociclo B:</label>
-                            <select id="compare-meso-b" class="analytics-select" style="width: 100%;"></select>
+                        <strong class="mt-md">VS</strong>
+                        <div class="flex-1">
+                            <label class="text-xs">Mesociclo B:</label>
+                            <select id="compare-meso-b" class="analytics-select w-100"></select>
                         </div>
                     </div>
                     <div class="chart-card">
@@ -202,12 +185,11 @@
                         <canvas id="chart-compare-mesos"></canvas>
                     </div>
                 </div>
-
             </div>
         </div>
 
         <!-- MANUALE DI ISTRUZIONI -->
-        <div class="day-view" id="manual" style="display: none;">
+        <div class="day-view d-none" id="manual">
             <div class="day-card">
                 <div class="day-title"><span>Manuale di Istruzioni</span></div>
                 <div id="manual-content"></div>
@@ -215,8 +197,6 @@
         </div>
 
         <!-- MODALI E BOTTOM SHEETS -->
-        
-        <!-- Bottom Sheet Analytics -->
         <div id="analytics-modal" class="bottom-sheet-overlay hidden">
             <div class="bottom-sheet-content">
                 <div class="bottom-sheet-header">
@@ -232,125 +212,103 @@
             </div>
         </div>
 
-    <!-- Bottom Sheet Strumenti & Gestione -->
-    <div id="tools-modal" class="bottom-sheet-overlay hidden">
-        <div class="bottom-sheet-content">
-            <div class="bottom-sheet-header">
-                <span>⚙️ Strumenti & Gestione</span>
-                <button id="close-tools-btn" class="close-sheet">&times;</button>
-            </div>
-            <div class="bottom-sheet-menu">
-                <button class="sheet-item" data-action="export-pdf">🖨️ Scarica PDF scheda giornaliera</button>
-                <button class="sheet-item" data-action="export-meso-pdf">📑 Esporta Intero Mesociclo (PDF)</button>
-               <!-- PULSANTE UNICO MYCOATCH AI -->
-                <button class="sheet-item" data-action="generate-mycoatch-csv" style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; font-weight: 700;">
-                    🤖 Scarica Nuovo Mesociclo (.CSV) - MyCoatch
-                </button>
-                <button class="sheet-item" data-action="import-plan">📥 Importa scheda allenamento</button>
-                <button class="sheet-item" data-action="export-csv">💾 Backup storico CSV</button>
-                <button class="sheet-item" data-action="import-history">📥 Import storico CSV</button>
-                
-                <a href="mailto:tetrix@outlook.it?subject=Segnalazione%20Bug%20/%20Supporto%20Webapp&body=Ciao,%20ti%20scrivo%20perchè..." 
-                class="btn btn-secondary" 
-                style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; text-decoration: none; margin-top: 8px; font-weight: 600;">
-                    ✉️ Hai bisogno d'aiuto?
-                </a>
+        <!-- Bottom Sheet Strumenti & Gestione -->
+        <div id="tools-modal" class="bottom-sheet-overlay hidden">
+            <div class="bottom-sheet-content">
+                <div class="bottom-sheet-header">
+                    <span>⚙️ Strumenti & Gestione</span>
+                    <button id="close-tools-btn" class="close-sheet">&times;</button>
+                </div>
+                <div class="bottom-sheet-menu">
+                    <button class="sheet-item" data-action="export-pdf">🖨️ Scarica PDF scheda giornaliera</button>
+                    <button class="sheet-item" data-action="export-meso-pdf">📑 Esporta Intero Mesociclo (PDF)</button>
+                    <button class="sheet-item mycoatch-btn" data-action="generate-mycoatch-csv">🤖 Scarica Nuovo Mesociclo (.CSV) - MyCoatch</button>
+                    <button class="sheet-item" data-action="import-plan">📥 Importa scheda allenamento</button>
+                    <button class="sheet-item" data-action="export-csv">💾 Backup storico CSV</button>
+                    <button class="sheet-item" data-action="import-history">📥 Import storico CSV</button>
+                    
+                    <a href="mailto:tetrix@outlook.it?subject=Segnalazione%20Bug%20/%20Supporto%20Webapp&body=Ciao,%20ti%20scrivo%20perchè..." class="btn btn-secondary support-btn">
+                        ✉️ Hai bisogno d'aiuto?
+                    </a>
 
-                <hr class="sheet-divider">
-                <span class="sheet-section-title">Zona Pericolosa</span>
+                    <hr class="sheet-divider">
+                    <span class="sheet-section-title">Zona Pericolosa</span>
 
-                <button class="sheet-item sheet-item-danger" data-action="reset-meso">
-                    🗑️ Elimina scheda mesociclo
-                </button>
-                <button class="sheet-item sheet-item-danger-critical" data-action="clear-data">
-                    ⚠️ Elimina tutto lo storico!
-                </button>
-                <button class="sheet-item sheet-item-danger" data-action="delete-account">
-                    🗑️ Elimina Definitivamente Account
-                </button>
+                    <button class="sheet-item sheet-item-danger" data-action="reset-meso">🗑️ Elimina scheda mesociclo</button>
+                    <button class="sheet-item sheet-item-danger-critical" data-action="clear-data">⚠️ Elimina tutto lo storico!</button>
+                    <button class="sheet-item sheet-item-danger" data-action="delete-account">🗑️ Elimina Definitivamente Account</button>
+                </div>
             </div>
         </div>
-    </div>
 
-   <!-- Modale Importazione Scheda Allenamento -->
-    <div id="import-plan-modal" class="hidden" style="display: none;">
-        <div class="modal-content">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h3 style="margin: 0; color: var(--accent-color);">📥 Importa Scheda Allenamento</h3>
-                <button id="close-import-modal-btn" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+        <!-- Modale Importazione Scheda Allenamento -->
+        <div id="import-plan-modal" class="hidden d-none">
+            <div class="modal-content">
+                <div class="import-modal-header">
+                    <h3 class="import-modal-title">📥 Importa Scheda Allenamento</h3>
+                    <button id="close-import-modal-btn" class="import-close-btn">&times;</button>
+                </div>
+
+                <div class="import-box">
+                    <p class="import-box-title">📄 Metodo 1: Carica il PDF del Coach</p>
+                    <p class="import-box-desc">La webapp leggerà il PDF interpretando in autonomia la struttura del tuo preparatore, anche con layout differenti. Controlla comunque se ha riportato tutto correttamente.</p>
+                    <input type="file" id="import-file-input" accept=".pdf, .xlsx, .xls, .csv" class="import-file-input">
+                </div>
+
+                <div class="import-box mb-lg">
+                    <p class="import-box-title">📊 Metodo 2: File Tabellare (Excel / CSV)</p>
+                    <p class="import-box-desc">Se preferisci i fogli di calcolo, puoi caricare un file Excel ma <strong>devi seguire rigorosamente lo schema ufficiale</strong> per evitare errori di lettura.</p>
+                    <a href="#" id="btn-download-template" class="import-template-link">⬇️ Scarica il modello Excel di riferimento</a>            
+                </div>
+
+                <div id="import-status-msg" class="import-status d-none"></div>
             </div>
-
-            <!-- Metodo 1: PDF del Coach (Flessibile) -->
-            <div style="background: var(--block-bg, #f1f5f9); border: 1px solid var(--border-color, #cbd5e1); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
-                <p style="margin: 0 0 6px 0; font-weight: 700; font-size: 0.85rem;">📄 Metodo 1: Carica il PDF del Coach</p>
-                <p style="margin: 0 0 10px 0; font-size: 0.78rem; color: var(--text-muted, #64748b); line-height: 1.4;">
-                    La webapp leggerà il PDF interpretando in autonomia la struttura del tuo preparatore, anche con layout differenti. Controlla comunque se ha riportato tutto correttamente.
-                </p>
-                <input type="file" id="import-file-input" accept=".pdf, .xlsx, .xls, .csv" style="font-size: 0.8rem; width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--card-bg);">
-            </div>
-
-            <!-- Metodo 2: Excel / CSV (Richiede Modello) -->
-            <div style="background: var(--block-bg, #f1f5f9); border: 1px solid var(--border-color, #cbd5e1); border-radius: 8px; padding: 12px; margin-bottom: 14px;">
-                <p style="margin: 0 0 6px 0; font-weight: 700; font-size: 0.85rem;">📊 Metodo 2: File Tabellare (Excel / CSV)</p>
-                <p style="margin: 0 0 8px 0; font-size: 0.78rem; color: var(--text-muted, #64748b); line-height: 1.4;">
-                    Se preferisci i fogli di calcolo, puoi caricare un file Excel ma <strong>devi seguire rigorosamente lo schema ufficiale</strong> per evitare errori di lettura.
-                </p>
-            <a href="#" id="btn-download-template" style="font-size: 0.78rem; font-weight: 600; color: var(--accent-color); text-decoration: none; display: inline-block;">⬇️ Scarica il modello Excel di riferimento</a>            </div>
-
-            <!-- Messaggio di Stato -->
-            <div id="import-status-msg" style="display: none; font-size: 0.82rem; text-align: center; padding: 8px; border-radius: 6px;"></div>
         </div>
     </div>
     
-
     <!-- Timer Mobile Flottante -->
     <div id="floating-timer">
         <div>
-            <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Recupero</div>
+            <div class="timer-label">Recupero</div>
             <div id="timer-display">01:30</div>
         </div>
-        <div style="display: flex; gap: 4px;">
-            <button class="btn btn-secondary" id="timer-minus-15" style="padding: 4px 8px; font-size: 0.75rem;">-15s</button>
-            <button class="btn btn-secondary" id="timer-plus-30" style="padding: 4px 8px; font-size: 0.75rem;">+30s</button>
-            <button class="btn btn-danger" id="stop-timer-btn" style="padding: 4px 8px; font-size: 0.75rem;">✕</button>
+        <div class="flex-row gap-sm">
+            <button class="btn btn-secondary timer-btn" id="timer-minus-15">-15s</button>
+            <button class="btn btn-secondary timer-btn" id="timer-plus-30">+30s</button>
+            <button class="btn btn-danger timer-btn" id="stop-timer-btn">✕</button>
         </div>
     </div>
 
-    <!-- Script Entry Point ES6 Modulare -->
     <script type="module" src="js/main.js"></script>
-
-    <!-- Registrazione Service Worker -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('./sw.js')
-            .then(() => console.log('✅ Service Worker attivo: webapp pronta per l\'uso offline'))
+            .then(() => console.log('✅ Service Worker attivo'))
             .catch(err => console.error('❌ Errore Service Worker:', err));
         });
       }
     </script>
-    <!-- POPUP NOTIFICA TRIAL (Visualizzato per 3 secondi all'accesso) -->
-    <div id="trial-toast" style="display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #d97706; color: #ffffff; padding: 12px 22px; border-radius: 30px; font-size: 0.88rem; font-weight: 600; z-index: 10001; box-shadow: 0 4px 15px rgba(0,0,0,0.4); transition: opacity 0.5s ease; opacity: 0; pointer-events: none;">
-        ⏳ Ti restano 45 giorni di prova gratuita
-    </div>
+    
+    <!-- POPUP NOTIFICA TRIAL -->
+    <div id="trial-toast" class="toast-trial">⏳ Ti restano 45 giorni di prova gratuita</div>
 
-    <!-- OVERLAY BLOCCO TRIAL / ABBONAMENTO SCADUTO -->
-<div id="trial-expired-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; background: rgba(0,0,0,0.88); backdrop-filter: blur(4px); align-items: center; justify-content: center;">
-    <div class="auth-card" style="text-align: center; max-width: 420px; padding: 32px; border: 1px solid var(--border-color, #333);">
-        <div style="font-size: 3rem; margin-bottom: 12px;">⏳</div>
-        <h2 id="trial-expired-title" style="margin-top: 0; color: #ef4444; font-size: 1.4rem;">Periodo di Prova Terminato</h2>
-        <p id="trial-expired-msg" style="font-size: 0.88rem; color: var(--text-muted, #aaa); margin: 16px 0 20px 0; line-height: 1.5;">
-            I tuoi giorni di prova gratuita sono terminati.<br>
-            Rinnova l'abbonamento per continuare ad utilizzare il Diario HomeGym senza perdere i tuoi dati.
-        </p>
-        
-        <!-- PULSANTE PAGAMENTO STRIPE -->
-        <a href="https://buy.stripe.com/4gM4gBdpDcaq2Jfemz7Re00" target="_blank" class="btn" style="display: block; width: 100%; padding: 12px; font-weight: 600; text-decoration: none; text-align: center; margin-bottom: 12px; box-sizing: border-box;">
-            💳 Attiva Abbonamento (15 €/anno)
-        </a>
+    <!-- OVERLAY BLOCCO TRIAL -->
+    <div id="trial-expired-overlay" class="overlay-expired d-none">
+        <div class="auth-card modal-expired">
+            <div class="modal-expired-icon">⏳</div>
+            <h2 id="trial-expired-title" class="modal-expired-title">Periodo di Prova Terminato</h2>
+            <p id="trial-expired-msg" class="modal-expired-desc">
+                I tuoi giorni di prova gratuita sono terminati.<br>
+                Rinnova l'abbonamento per continuare ad utilizzare il Diario HomeGym senza perdere i tuoi dati.
+            </p>
+            
+            <a href="https://buy.stripe.com/4gM4gBdpDcaq2Jfemz7Re00" target="_blank" class="btn btn-stripe">
+                💳 Attiva Abbonamento (15 €/anno)
+            </a>
 
-        <button class="btn btn-secondary" id="trial-logout-btn" style="width: 100%; padding: 10px; font-weight: 600;">Esci dall'Account</button>
+            <button class="btn btn-secondary btn-block font-semibold" id="trial-logout-btn">Esci dall'Account</button>
+        </div>
     </div>
-</div>
 </body>
 </html>

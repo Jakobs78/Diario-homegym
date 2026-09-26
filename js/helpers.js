@@ -99,9 +99,9 @@ export function formatExerciseSummary(ex) {
 
     let weightPart;
     if (weightParts.length > 0) {
-        weightPart = `<span style="color: #dc2626; font-weight: 700;">${weightParts.join(' | ')}</span>`;
+        weightPart = `<span class="exercise-weight-highlight">${weightParts.join(' | ')}</span>`;
     } else {
-        weightPart = `<span style="color: #dc2626; font-weight: 700;">Kg liberi</span>`;
+        weightPart = `<span class="exercise-weight-highlight">Kg liberi</span>`;
     }
 
     const setsVal = Array.isArray(sets) ? sets.length : (sets || '-');
@@ -115,11 +115,9 @@ export function formatExerciseSummary(ex) {
     const restVal = recupero && recupero !== '-' ? recupero : '';
     const restPart = restVal ? `rest ${restVal}` : '';
 
-    // 👈 Raggruppiamo i dettagli in un'unica variabile per la seconda riga
     const detailsPart = [setRepsPart, restPart].filter(Boolean).join(' | ');
 
-    // 👈 Restituiamo le due righe separate da <br> con un piccolo margine di spaziatura
-    return `${weightPart}<br><span style="display: inline-block; margin-top: 4px; color: #334155;">${detailsPart}</span>`;
+    return `${weightPart}<br><span class="exercise-details-sub">${detailsPart}</span>`;
 }
 
 /**
@@ -255,7 +253,7 @@ export function calculateSetVolumeTrend(currentSet, prevSet) {
 
     return null;
 }
-/**
+
 /**
  * Helper interno per estrarre correttamente il limite numerico da un target (gestendo i range es. "8-10")
  */
@@ -264,7 +262,7 @@ function parseTargetLimit(target, isMax = false) {
     const str = String(target).trim();
     if (str.includes('-')) {
         const parts = str.split('-');
-        const val = parts[isMax ? 1 : 0]; // Prende il secondo valore se è il max, il primo se è il min
+        const val = parts[isMax ? 1 : 0];
         return parseFloat(val.replace(',', '.'));
     }
     return parseFloat(str.replace(',', '.'));
@@ -313,7 +311,6 @@ export function isValueExceedingTarget(value, minTarget, maxTarget) {
 
 /**
  * Assegna i tag visivi e di raggruppamento per Triset, Superset, Dropset, Rest-Pause, Myo-Reps e Jumpset.
- * Riconosce sia il testo piano che i tag formattati generati da MyCoach (es. [DROP_SET], [REST_PAUSE]).
  */
 export function applyTrisetDropsetGrouping(daysArray) {
     if (!Array.isArray(daysArray)) return;
@@ -373,7 +370,6 @@ export function applyTrisetDropsetGrouping(daysArray) {
 
 /**
  * Rimuove simboli non numerici (@, spazi) e converte le virgole decimali in punti.
- * Restituisce sempre un numero float valido o 0.
  */
 export function parseRPE(rpeValue) {
     if (rpeValue === null || rpeValue === undefined) return 0;

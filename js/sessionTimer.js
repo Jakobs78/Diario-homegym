@@ -12,7 +12,6 @@ import { state } from './state.js';
 export function updateSessionAndCompletionState(currentDay) {
     if (!currentDay || !currentDay.exercises) return;
 
-    // Se la sessione è già completata, il timer è congelato e i click successivi non devono fare nulla
     if (currentDay.completed) return;
     const exercises = currentDay.exercises;
     if (exercises.length === 0) return;
@@ -63,12 +62,8 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
 
     let timerWrapper = timerEl.parentElement;
     if (timerWrapper && !timerWrapper.classList.contains('session-timer-wrapper')) {
-        timerWrapper.style.display = 'flex';
-        timerWrapper.style.alignItems = 'center';
-        timerWrapper.style.gap = '6px';
         timerWrapper.classList.add('session-timer-wrapper');
 
-        // Inserisce automaticamente l'etichetta "SESSIONE" se non è già presente nel DOM
         let timerLabel = timerWrapper.querySelector('.session-timer-label');
         if (!timerLabel) {
             timerLabel = document.createElement('span');
@@ -79,12 +74,11 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
         
         const pauseSessionBtn = document.createElement('button');
         pauseSessionBtn.id = 'pause-session-timer-btn';
-        pauseSessionBtn.className = 'btn btn-secondary';
-        pauseSessionBtn.style.cssText = 'padding: 4px 8px; font-size: 0.75rem; display: none; margin-left: 10px;';
+        pauseSessionBtn.className = 'btn btn-secondary btn-timer-action is-hidden';
 
         const actionSessionBtn = document.createElement('button');
         actionSessionBtn.id = 'reset-session-timer-btn'; 
-        actionSessionBtn.style.cssText = 'padding: 4px 8px; font-size: 0.75rem; font-weight: 700; display: none; margin-left: 10px;';
+        actionSessionBtn.className = 'btn-timer-action font-bold is-hidden';
         
         timerEl.after(actionSessionBtn);
         actionSessionBtn.after(pauseSessionBtn);
@@ -128,9 +122,9 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
     if (actionBtn) {
         if (isAllChecked) {
             actionBtn.innerHTML = '🔄 Reset time';
-            actionBtn.className = 'btn-reset-time';
+            actionBtn.className = 'btn-reset-time btn-timer-action font-bold';
             actionBtn.title = 'Resetta il timer per ripetere la sessione';
-            actionBtn.style.display = 'inline-block';
+            actionBtn.classList.remove('is-hidden');
             
             actionBtn.onclick = () => {
                 if (confirm("Vuoi azzerare il timer per ripetere la sessione?")) {
@@ -148,14 +142,13 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
             };
         } else {
             actionBtn.innerHTML = '⏹️ Termina';
-            actionBtn.className = 'btn btn-danger';
-            actionBtn.style.cssText = 'padding: 4px 8px; font-size: 0.75rem; margin-left: 10px;';
+            actionBtn.className = 'btn btn-danger btn-timer-action';
             actionBtn.title = 'Resetta o interrompi sessione';
             
             if (currentDay.sessionStart || currentDay.accumulatedSeconds > 0) {
-                actionBtn.style.display = 'inline-block';
+                actionBtn.classList.remove('is-hidden');
             } else {
-                actionBtn.style.display = 'none';
+                actionBtn.classList.add('is-hidden');
             }
 
             actionBtn.onclick = () => {
@@ -173,22 +166,22 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
     }
 
     if (currentDay.completed && currentDay.totalDurationMinutes !== undefined) {
-        timerEl.style.background = 'var(--block-bg)';
-        timerEl.style.color = 'var(--success-color)';
+        timerEl.classList.add('timer-completed');
         timerEl.textContent = `${currentDay.totalDurationMinutes} min`;
-        if (pauseBtn) pauseBtn.style.display = 'none';
+        if (pauseBtn) pauseBtn.classList.add('is-hidden');
     } else {
+        timerEl.classList.remove('timer-completed');
         const totalSecs = (currentDay.accumulatedSeconds || 0) + (currentDay.sessionStart ? Math.floor((Date.now() - currentDay.sessionStart) / 1000) : 0);
         const mins = Math.floor(totalSecs / 60);
         const secs = totalSecs % 60;
 
         if (!currentDay.sessionStart && !currentDay.accumulatedSeconds && !currentDay.isPaused) {
             timerEl.textContent = `0:00`;
-            if (pauseBtn) pauseBtn.style.display = 'none';
+            if (pauseBtn) pauseBtn.classList.add('is-hidden');
         } else {
             timerEl.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
             if (pauseBtn) {
-                pauseBtn.style.display = 'inline-block';
+                pauseBtn.classList.remove('is-hidden');
                 pauseBtn.innerHTML = currentDay.isPaused ? '▶️ Riprendi' : '⏸️ Pausa';
             }
         }

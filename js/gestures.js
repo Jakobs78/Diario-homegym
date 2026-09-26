@@ -5,8 +5,6 @@
 export function enableCardSwipeGesture(cardElement, onSwipeLeft, onSwipeRight) {
     if (!cardElement) return;
 
-    cardElement.style.touchAction = 'pan-y';
-
     let startX = 0;
     let startY = 0;
     let currentX = 0;
@@ -41,15 +39,15 @@ export function enableCardSwipeGesture(cardElement, onSwipeLeft, onSwipeRight) {
 
         if (absX > 30 && absX > absY * 2) {
             if (deltaX < 0) {
-            isSwiping = true;
-            cardElement.style.transform = `translateX(${deltaX}px)`;
-            cardElement.style.opacity = `${1 - Math.min(absX / 300, 0.5)}`;
+                isSwiping = true;
+                cardElement.style.transform = `translateX(${deltaX}px)`;
+                cardElement.style.opacity = `${1 - Math.min(absX / 300, 0.5)}`;
+            }
         }
-    }
     }, { passive: true });
 
     cardElement.addEventListener('touchend', () => {
-        cardElement.style.transition = 'transform 0.25s ease-out, opacity 0.25s ease-out';
+        cardElement.style.transition = ''; // Ripristina la transizione CSS di default
         const deltaX = currentX - startX;
         const deltaY = currentY - startY;
         const absX = Math.abs(deltaX);

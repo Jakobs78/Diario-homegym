@@ -8,18 +8,23 @@ import { state } from './state.js';
 import { saveAndSync } from './storage.js';
 import { renderWorkoutList, showNotification } from './ui.js';
 
-
 // ==========================================
-// 2. RECUPERO MESOCICLO ATTIVO
+// 2. RECUPERO MESOCICLO ATTIVO (Sincronizzato con ui.js)
 // ==========================================
-/**
- * Recupera l'oggetto del mesociclo attualmente attivo
- */
 export function getActiveMesocycleObject() {
+    const yearsObj = state.workoutData?.history?.years || {};
     const currentYear = new Date().getFullYear().toString();
-    const mesocycles = state.workoutData?.history?.years?.[currentYear]?.mesocycles || [];
-    const currentIndex = state.activeMesocycleIndex || 0;
-    return mesocycles[currentIndex] || null;
+    
+    let yearData = yearsObj[currentYear];
+    if (!yearData || !yearData.mesocycles || yearData.mesocycles.length === 0) {
+        const yearKeys = Object.keys(yearsObj);
+        if (yearKeys.length > 0) {
+            yearData = yearsObj[yearKeys[0]];
+        }
+    }
+    
+    const mesoIndex = state.activeMesocycleIndex || 0;
+    return yearData?.mesocycles?.[mesoIndex] || yearData?.mesocycles?.[0] || null;
 }
 
 // ==========================================
@@ -91,42 +96,30 @@ export function toggleCurrentMesocycleLock() {
     const currentMeso = getActiveMesocycleObject();
     if (!currentMeso) return;
 
+    // Normalizziamo in booleano puro ed invertiamo
     currentMeso.locked = !currentMeso.locked;
     
+    // Salva lo stato
     saveAndSync(state.workoutData);
-    updateMesocycleLockUI();
+    
+    // 🔄 Ridisegna la lista per applicare/rimuovere i blocchi dagli input e aggiornare il pulsante
     renderWorkoutList();
+    
+    showNotification(currentMeso.locked ? "Mesociclo bloccato" : "Mesociclo sbloccato");
 }
 
 export function updateMesocycleLockUI() {
     const currentMeso = getActiveMesocycleObject();
-    const container = document.getElementById('workout-list-container');
     const lockBtn = document.getElementById('toggle-lock-meso-btn');
 
-    if (!currentMeso) return;
+    if (!currentMeso || !lockBtn) return;
 
-    if (currentMeso.locked) {
-        if (container) {
-            container.setAttribute('inert', '');
-            container.style.opacity = '0.85';
-        }
-        if (lockBtn) {
-            lockBtn.innerHTML = '🔒 Bloccato';
-            lockBtn.style.background = '#fef2f2';
-            lockBtn.style.borderColor = '#fca5a5';
-            lockBtn.style.color = '#991b1b';
-        }
+    const isLocked = Boolean(currentMeso.locked);
+    lockBtn.innerHTML = isLocked ? '🔒 Sblocca' : '🔓 Blocca';
+    if (isLocked) {
+        lockBtn.classList.add('is-locked');
     } else {
-        if (container) {
-            container.removeAttribute('inert');
-            container.style.opacity = '1';
-        }
-        if (lockBtn) {
-            lockBtn.innerHTML = '🔓 Sbloccato';
-            lockBtn.style.background = '';
-            lockBtn.style.borderColor = '';
-            lockBtn.style.color = '';
-        }
+        lockBtn.classList.remove('is-locked');
     }
 }
 
@@ -174,7 +167,6 @@ export function exportMesoToPDF(mesoData) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
 
-    // Raccoglie gli esercizi gestendo in modo flessibile la struttura (days o exercises diretti)
     const exercisesList = [];
     if (Array.isArray(week.days)) {
       week.days.forEach(day => {

@@ -14,6 +14,7 @@ import { bindWorkoutTableEvents } from './workoutEvents.js';
 import { parseCoachPDF } from './pdfParser.js';
 import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
 import { MyCoatch } from '../mycoatch/index.js';
+import { toggleCurrentMesocycleLock } from './mesocycle.js';
 
 export const DOM = {
     appContainer: document.getElementById('app-container'),
@@ -31,19 +32,18 @@ export function showNotification(message) {
 
 // ==========================================
 // 2.5 MODULO DI UPLOAD UNIVERSALE (PDF / EXCEL / XML)
-// Spostato o richiamabile dal sottomenu "Strumenti e gestione" -> "Importa scheda"
 // ==========================================
 export function renderUploadCard(onFileProcessed) {
     const uploadWrapper = document.createElement('div');
-    uploadWrapper.style.cssText = 'background: var(--bg-card, #18181b); border: 2px dashed #3f3f46; border-radius: 12px; padding: 20px; margin: 10px 0; text-align: center; transition: all 0.2s ease;';
+    uploadWrapper.className = 'upload-wrapper-card text-center mb-md';
     
     uploadWrapper.innerHTML = `
-        <input type="file" id="universal-coach-file" accept=".xlsx, .xlsm, .xml, .csv, .pdf" style="display: none;" />
-        <label for="universal-coach-file" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px;">
-            <span style="font-size: 2rem;">📥</span>
-            <span style="font-weight: 600; color: #f4f4f5; font-size: 1rem;">Seleziona la scheda del coach (PDF, Excel o XML)</span>
-            <span style="font-size: 0.8rem; color: #a1a1aa;">Trascina o carica il file per importare automaticamente i dati nella webapp.</span>
-            <span style="font-size: 0.75rem; color: #f59e0b; margin-top: 6px; font-weight: 500;">⚠️ Nota: Per la lettura dei file PDF è richiesta una connessione a internet attiva.</span>
+        <input type="file" id="universal-coach-file" accept=".xlsx, .xlsm, .xml, .csv, .pdf" class="d-none" />
+        <label for="universal-coach-file" class="upload-card-label">
+            <span class="upload-icon">📥</span>
+            <span class="upload-title">Seleziona la scheda del coach (PDF, Excel o XML)</span>
+            <span class="upload-desc">Trascina o carica il file per importare automaticamente i dati nella webapp.</span>
+            <span class="upload-warning">⚠️ Nota: Per la lettura dei file PDF è richiesta una connessione a internet attiva.</span>
         </label>
     `;
 
@@ -59,7 +59,7 @@ export function renderUploadCard(onFileProcessed) {
         } else if (ext === 'pdf') {
             console.log("Rilevato file PDF, avvio parsing...", file.name);
             
-            const labelSpan = uploadWrapper.querySelector('span:nth-child(2)');
+            const labelSpan = uploadWrapper.querySelector('.upload-title');
             const originalText = labelSpan.textContent;
             labelSpan.textContent = "⏳ Analisi e pulizia del PDF in corso...";
 
@@ -96,17 +96,12 @@ export function renderUploadCard(onFileProcessed) {
 }
 
 // ==========================================
-// 3. EVENT DELEGATION TIMER STATICO
-// ==========================================
-
-// ==========================================
 // FUNZIONE DI SUPPORTO: RECUPERO SICURO MESOCICLO ATTIVO
 // ==========================================
 function getActiveYearAndMeso() {
     const yearsObj = state.workoutData?.history?.years || {};
     const currentYear = new Date().getFullYear().toString();
     
-    // Cerca prima l'anno corrente, altrimenti prende il primo anno disponibile nello storico
     let yearData = yearsObj[currentYear];
     if (!yearData || !yearData.mesocycles || yearData.mesocycles.length === 0) {
         const yearKeys = Object.keys(yearsObj);
@@ -121,51 +116,47 @@ function getActiveYearAndMeso() {
 }
 
 // ==========================================
-// 3. EVENT DELEGATION TIMER E CONTROLLI MESOCICLO
+// 3. EVENT DELEGATION UNIFICATO (TIMER & MESOCICLO)
 // ==========================================
 document.addEventListener('click', (e) => {
     if (!e.target) return;
     
-    // Gestione timer di recupero
+    // Controlli Timer Flottante
     if (e.target.id === 'timer-minus-15') {
         adjustTimer(-15, handleTick, handleComplete);
+        return;
     } else if (e.target.id === 'timer-plus-30') {
         adjustTimer(30, handleTick, handleComplete);
+        return;
     } else if (e.target.id === 'stop-timer-btn' || e.target.id === 'timer-close') {
         stopTimer();
         const floatingTimerEl = document.getElementById('floating-timer');
         if (floatingTimerEl) floatingTimerEl.classList.remove('active');
+        return;
     }
 
-    // Gestione Pulsanti Mesociclo (Precedente, Successivo, Blocca/Sblocca)
-    const target = e.target.closest('button');
-    if (!target) return;
+    const clickedBtn = e.target.closest('button');
+    if (!clickedBtn) return;
 
-    const { yearData, meso, mesoIndex } = getActiveYearAndMeso();
+    const { yearData } = getActiveYearAndMeso();
 
-    if (target.id === 'prev-meso-btn') {
+    if (clickedBtn.id === 'prev-meso-btn') {
         if (state.activeMesocycleIndex > 0) {
             state.activeMesocycleIndex--;
             localStorage.setItem('ui_active_meso', state.activeMesocycleIndex);
             renderWorkoutList();
         }
-    } else if (target.id === 'next-meso-btn') {
+    } else if (clickedBtn.id === 'next-meso-btn') {
         if (yearData && yearData.mesocycles && state.activeMesocycleIndex < yearData.mesocycles.length - 1) {
             state.activeMesocycleIndex++;
             localStorage.setItem('ui_active_meso', state.activeMesocycleIndex);
             renderWorkoutList();
         }
-    } else if (target.id === 'toggle-lock-meso-btn') {
-        if (meso) {
-            meso.locked = !meso.locked;
-            saveAndSync(state.workoutData);
-            renderWorkoutList(); // Ricarica la vista aggiornando immediatamente lo stato del lucchetto
-        } else {
-            console.warn("Impossibile trovare il mesociclo attivo per il cambio stato.");
-        }
+    } else if (clickedBtn.id === 'toggle-lock-meso-btn') {
+        e.preventDefault();
+        toggleCurrentMesocycleLock();
     }
 });
-
 
 // ==========================================
 // 4. RENDERING SCHEDA ALLENAMENTO
@@ -176,167 +167,69 @@ export function renderWorkoutList() {
 
     if (!state.activeView) state.activeView = 'workout';
     if (state.activeView !== 'workout') {
-        DOM.workoutListContainer.style.display = 'none';
+        DOM.workoutListContainer.classList.add('d-none');
         return;
     }
     
-    DOM.workoutListContainer.style.display = 'block';
+    DOM.workoutListContainer.classList.remove('d-none');
 
     const { yearData, meso, mesoIndex } = getActiveYearAndMeso();
 
     if (!yearData || !yearData.mesocycles || yearData.mesocycles.length === 0) {
         const emptyNotice = document.createElement('div');
-        emptyNotice.className = 'day-card';
-        emptyNotice.style.cssText = 'text-align: center; padding: 30px;';
-        emptyNotice.innerHTML = `<p style="color: var(--text-muted); font-size: 0.9rem;">Nessuna scheda di allenamento trovata. Vai su <strong>Strumenti e gestione -> Importa scheda</strong> per caricarne una.</p>`;
+        emptyNotice.className = 'day-card text-center padding-lg';
+        emptyNotice.innerHTML = `<p class="text-muted text-sm m-0">Nessuna scheda di allenamento trovata. Vai su <strong>Strumenti e gestione -> Importa scheda</strong> per caricarne una.</p>`;
         DOM.workoutListContainer.appendChild(emptyNotice);
         return;
     }
 
-    const isPastMeso = meso.locked || false;
+    const isPastMeso = Boolean(meso.locked);
     const activeWeekNum = state.activeWeek || 1;
     const targetWeek = (meso.weeks || []).find(w => w.weekNumber === activeWeekNum) || meso.weeks?.[0];
 
     if (!targetWeek) return;
 
-    // ❌ RIMOSSE LE CHIAMATE A updateMesocycleUI() e updateMesocycleLockUI() CHE CAUSAVANO IL CONFLITTO
-
     // BANNER MESOCICLO BLOCCATO
     if (isPastMeso) {
         const archiveBadge = document.createElement('div');
-        archiveBadge.style.cssText = 'background: #fffbebf1; border: 1px solid #fcd34d; color: #b45309; padding: 8px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; gap: 6px;';
+        archiveBadge.className = 'meso-locked-badge mb-md flex-center gap-md';
         archiveBadge.innerHTML = '🔒 <span><strong>Mesociclo Bloccato:</strong> I dati sono congelati in sola lettura. Clicca sul tasto Sblocca per modificarli.</span>';
         DOM.workoutListContainer.appendChild(archiveBadge);
     }
-/* Sotto c'è il codice originale
-document.addEventListener('click', (e) => {
-    if (!e.target) return;
-    // Gestione timer di recupero
-    if (e.target.id === 'timer-minus-15') {
-        adjustTimer(-15, handleTick, handleComplete);
-    } else if (e.target.id === 'timer-plus-30') {
-        adjustTimer(30, handleTick, handleComplete);
-    } else if (e.target.id === 'stop-timer-btn' || e.target.id === 'timer-close') {
-        stopTimer();
-        const floatingTimerEl = document.getElementById('floating-timer');
-        if (floatingTimerEl) floatingTimerEl.classList.remove('active');
-    }
-    // Gestione Pulsanti Mesociclo (Precedente, Successivo, Blocca/Sblocca)
-    const target = e.target.closest('button');
-    if (!target) return;
-
-    // 🧠 Ricerca sicura del mesociclo attivo indipendentemente dalla chiave dell'anno
-    const yearsObj = state.workoutData?.history?.years || {};
-    const yearKeys = Object.keys(yearsObj);
-    const yearData = yearKeys.length > 0 ? yearsObj[yearKeys[0]] : null;
-    const mesoIndex = state.activeMesocycleIndex || 0;
-    const meso = yearData?.mesocycles?.[mesoIndex];
-
-    if (target.id === 'prev-meso-btn') {
-        if (state.activeMesocycleIndex > 0) {
-            state.activeMesocycleIndex--;
-            localStorage.setItem('ui_active_meso', state.activeMesocycleIndex);
-            renderWorkoutList();
-        }
-    } else if (target.id === 'next-meso-btn') {
-        if (yearData && yearData.mesocycles && state.activeMesocycleIndex < yearData.mesocycles.length - 1) {
-            state.activeMesocycleIndex++;
-            localStorage.setItem('ui_active_meso', state.activeMesocycleIndex);
-            renderWorkoutList();
-        }
-    } else if (target.id === 'toggle-lock-meso-btn') {
-        if (meso) {
-            meso.locked = !meso.locked;
-            saveAndSync(state.workoutData);
-            renderWorkoutList();
-        } else {
-            console.warn("Impossibile trovare il mesociclo attivo per il cambio stato.");
-        }
-    }
-});
-
-
-// ==========================================
-// 4. RENDERING SCHEDA ALLENAMENTO
-// ==========================================
-export function renderWorkoutList() {
-    if (!DOM.workoutListContainer) return;
-    DOM.workoutListContainer.innerHTML = '';
-
-    if (!state.activeView) state.activeView = 'workout';
-    if (state.activeView !== 'workout') {
-        DOM.workoutListContainer.style.display = 'none';
-        return;
-    }
     
-    DOM.workoutListContainer.style.display = 'block';
-
-    // NOTA: Il box di upload è stato rimosso da qui ed è ora integrato nel sottomenu Strumenti e gestione.
-
-    const yearsObj = state.workoutData?.history?.years || {};
-    const currentYear = new Date().getFullYear().toString();
-    const yearData = yearsObj[currentYear];
-
-    if (!yearData || !yearData.mesocycles || yearData.mesocycles.length === 0) {
-        const emptyNotice = document.createElement('div');
-        emptyNotice.className = 'day-card';
-        emptyNotice.style.cssText = 'text-align: center; padding: 30px;';
-        emptyNotice.innerHTML = `<p style="color: var(--text-muted); font-size: 0.9rem;">Nessuna scheda di allenamento trovata per il ${currentYear}. Vai su <strong>Strumenti e gestione -> Importa scheda</strong> per caricarne una.</p>`;
-        DOM.workoutListContainer.appendChild(emptyNotice);
-        return;
-    }
-
-    const mesoIndex = state.activeMesocycleIndex || 0;
-    const meso = yearData.mesocycles[mesoIndex] || yearData.mesocycles[0];
-    const isPastMeso = meso.locked || false;
-    const activeWeekNum = state.activeWeek || 1;
-    const targetWeek = (meso.weeks || []).find(w => w.weekNumber === activeWeekNum) || meso.weeks?.[0];
-
-    if (!targetWeek) return;
-
-    updateMesocycleUI();
-    updateMesocycleLockUI();
-
-    // BANNER MESOCICLO BLOCCATO
-    if (isPastMeso) {
-        const archiveBadge = document.createElement('div');
-        archiveBadge.style.cssText = 'background: #fffbebf1; border: 1px solid #fcd34d; color: #b45309; padding: 8px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; gap: 6px;';
-        archiveBadge.innerHTML = '🔒 <span><strong>Mesociclo Bloccato:</strong> I dati sono congelati in sola lettura. Clicca sul lucchetto in alto per sbloccarlo.</span>';
-        DOM.workoutListContainer.appendChild(archiveBadge);
-    }
-    
-     Fine codice originale */
-    
-    // BARRA NAVIGAZIONE GIORNI
-    // --- BOX UNIFICATO IN SEQUENZA ---
+    // BARRA NAVIGAZIONE GIORNI - BOX UNIFICATO
     const unifiedHeaderBox = document.createElement('div');
     unifiedHeaderBox.className = 'unified-header-box';
 
-    // 1. Tab di selezione mesociclo con etichetta dinamica per il blocco/sblocco
+   // 1. Tab di selezione mesociclo
+    const isLocked = Boolean(meso.locked);
     const mesoRow = document.createElement('div');
-    mesoRow.style.cssText = 'display: flex; gap: 6px; align-items: center;';
+    mesoRow.className = 'flex-center gap-sm';
     mesoRow.innerHTML = `
-        <label style="font-size: 0.8rem; font-weight: 600;">Mesociclo:</label>
-        <button class="btn btn-secondary" id="prev-meso-btn" style="padding: 2px 6px;">-</button>
-        <span id="meso-display" style="font-weight: 700; font-size: 0.9rem;">${mesoIndex + 1}</span>
-        <button class="btn btn-secondary" id="next-meso-btn" style="padding: 2px 6px;">+</button>
-        <button class="btn btn-secondary" id="toggle-lock-meso-btn" style="padding: 2px 8px; font-size: 0.75rem;" title="Blocca/Sblocca Mesociclo">${meso.locked ? '🔒 Sblocca' : '🔓 Blocca'}</button>
+        <label class="text-sm font-semibold">Mesociclo:</label>
+        <button class="btn btn-secondary btn-mini" id="prev-meso-btn">-</button>
+        <span id="meso-display" class="font-bold text-sm">${mesoIndex + 1}</span>
+        <button class="btn btn-secondary btn-mini" id="next-meso-btn">+</button>
+        <button class="btn btn-secondary btn-sm ${isLocked ? 'is-locked' : ''}" id="toggle-lock-meso-btn" title="Blocca/Sblocca Mesociclo">
+            ${isLocked ? '🔒 Sblocca' : '🔓 Blocca'}
+        </button>
     `;
     unifiedHeaderBox.appendChild(mesoRow);
-
+    
+    
     // 2. Tab di selezione settimana
     const weekRow = document.createElement('div');
-    weekRow.style.cssText = 'display: flex; gap: 6px; align-items: center; background: var(--card-bg); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color); width: fit-content; color: var(--text-color);';
+    weekRow.className = 'week-selector-container flex-center gap-sm';
     const weeksOptions = (meso.weeks || []).map(w => `<option value="${w.weekNumber}" ${w.weekNumber === targetWeek.weekNumber ? 'selected' : ''}>${w.weekNumber}</option>`).join('');
     weekRow.innerHTML = `
-        <label for="week-selector" style="font-size: 0.85rem; font-weight: 700;">Settimana:</label>
-        <select id="week-selector" style="font-size: 0.85rem; padding: 2px 4px; background: var(--block-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px;">
+        <label for="week-selector" class="text-sm font-bold">Settimana:</label>
+        <select id="week-selector" class="week-select-input">
             ${weeksOptions}
         </select>
     `;
     const weekSelectEl = weekRow.querySelector('#week-selector');
     weekSelectEl.onchange = (e) => {
-        state.activeWeek = parseInt(e.target.value);
+        state.activeWeek = parseInt(e.target.value, 10);
         localStorage.setItem('ui_active_week', state.activeWeek);
         renderWorkoutList();
     };
@@ -344,14 +237,12 @@ export function renderWorkoutList() {
 
     // 3. Tab di selezione giorno
     const dayTabsContainer = document.createElement('div');
-    dayTabsContainer.className = 'day-tabs';
-    dayTabsContainer.style.cssText = 'display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px;';
+    dayTabsContainer.className = 'day-tabs flex-row gap-md';
     const activeDayNum = state.activeDay || 1;
     (targetWeek.days || []).forEach((day, idx) => {
         const dayBtn = document.createElement('button');
         const dayIndex = idx + 1;
-        dayBtn.className = `btn ${dayIndex === activeDayNum ? 'btn-primary' : 'btn-secondary'}`;
-        dayBtn.style.cssText = `padding: 6px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; white-space: nowrap; ${dayIndex === activeDayNum ? 'background: #0284c7; color: #fff;' : 'background: #f1f5f9; color: #475569;'}`;
+        dayBtn.className = `btn ${dayIndex === activeDayNum ? 'btn-primary active-day-btn' : 'btn-secondary inactive-day-btn'}`;
         dayBtn.textContent = day.dayName || `Giorno ${dayIndex}`;
         dayBtn.onclick = () => {
             state.activeDay = dayIndex;
@@ -365,19 +256,19 @@ export function renderWorkoutList() {
     const currentDay = targetWeek.days?.[activeDayNum - 1] || targetWeek.days?.[0];
     if (!currentDay) return;
 
-    // 4. Riassunto (es: Giorno 4, Mesociclo 1 - Settimana 1)
+    // 4. Riassunto
     const summaryRow = document.createElement('div');
-    summaryRow.style.cssText = 'font-size: 1.1rem; font-weight: 800; color: #0284c7; margin-top: 4px;';
+    summaryRow.className = 'workout-summary-title mt-sm';
     summaryRow.textContent = `${currentDay.dayName || 'Giorno ' + activeDayNum}, Mesociclo ${mesoIndex + 1} - Settimana ${targetWeek.weekNumber}`;
     unifiedHeaderBox.appendChild(summaryRow);
 
     // 5. Timer di sessione
     const timerRow = document.createElement('div');
-    timerRow.style.cssText = 'display: inline-flex; align-items: center; gap: 6px; background: var(--block-bg); color: var(--text-color); padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color); width: fit-content; font-size: 0.85rem;';
+    timerRow.className = 'session-timer-box flex-center gap-sm';
     timerRow.innerHTML = `
-        <span class="timer-dot" style="width: 8px; height: 8px; background: #22c55e; border-radius: 50%;"></span>
+        <span class="timer-dot"></span>
         <span class="timer-icon">⏱️</span>
-        <span id="live-session-timer" style="font-weight: 700; font-family: monospace; color: var(--text-color);">0:00</span>
+        <span id="live-session-timer" class="session-timer-text">0:00</span>
     `;
     unifiedHeaderBox.appendChild(timerRow);
 
@@ -422,14 +313,14 @@ export function renderWorkoutList() {
             const groupType = ex.groupType;
 
             const groupWrapper = document.createElement('div');
-            groupWrapper.style.cssText = `border: 2px solid #0284c7; background: rgba(2, 132, 199, 0.02); border-radius: 12px; padding: 12px; margin-bottom: 20px; position: relative;`;
+            groupWrapper.className = 'exercise-group-wrapper mb-lg';
 
             groupWrapper.innerHTML = `
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px dashed #bae6fd; padding-bottom: 6px;">
-                    <span style="font-size: 0.75rem; font-weight: 800; color: #0284c7; background: #e0f2fe; padding: 3px 10px; border-radius: 6px; text-transform: uppercase;">
+                <div class="group-header flex-between mb-md">
+                    <span class="group-title-badge">
                         🔗 ${groupType.toUpperCase()} (BLOCCO ${currentGroupBase}) - NO PAUSA INTERMEDIA
                     </span>
-                    <span style="font-size: 0.7rem; color: #64748b; font-style: italic;">Recupero al termine del blocco</span>
+                    <span class="group-subtitle">Recupero al termine del blocco</span>
                 </div>
             `;
 
@@ -454,11 +345,11 @@ export function renderWorkoutList() {
 
     bindWorkoutTableEvents(currentDay, isPastMeso, renderWorkoutList);
 }
+
 function appendCoachingFeedbackCard(exerciseContainer, exerciseName) {
     const historyYears = state.workoutData?.history?.years || {};
     let exerciseHistory = [];
 
-    // 🛠️ RISOLTO: Raccoglie i blocchi di sessione passati estraendo l'array reale 'loggedSets'
     Object.values(historyYears).forEach(yearObj => {
         (yearObj.mesocycles || []).forEach(meso => {
             (meso.weeks || []).forEach(week => {
@@ -467,7 +358,6 @@ function appendCoachingFeedbackCard(exerciseContainer, exerciseName) {
                         const currentName = ex.name || ex.nome;
                         const sets = ex.loggedSets || ex.sets || [];
                         if (currentName === exerciseName && sets.length > 0) {
-                            // Salva l'intera sessione con i suoi set compilati per l'analisi longitudinale
                             exerciseHistory.push(ex);
                         }
                     });
@@ -478,33 +368,24 @@ function appendCoachingFeedbackCard(exerciseContainer, exerciseName) {
 
     if (exerciseHistory.length === 0) return;
 
-    // Interroga MyCoatch per ottenere il feedback di progressione
     const advice = MyCoatch.evaluateProgress(exerciseHistory);
     if (!advice) return;
 
-    // Crea il contenitore grafico per il consiglio sotto la scheda dell'esercizio
     const coachingBox = document.createElement('div');
-        coachingBox.style.cssText = "margin-top: 8px; padding: 8px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 500; border-left: 4px solid;";
+    coachingBox.className = "coaching-feedback-box mt-sm";
 
-        // Mostriamo i feedback importanti (incrementi, stalli o regolazioni), ma eliminiamo il blocco "Target" neutro
-        if (advice.action === "INCREMENT_LOAD") {
-            coachingBox.style.background = "rgba(16, 185, 129, 0.1)";
-            coachingBox.style.borderColor = "#10b981";
-            coachingBox.style.color = "#065f46";
-            coachingBox.innerHTML = `🔥 <strong>MyCoatch Progression:</strong> ${advice.message}`;
-        } else if (advice.action === "TRIGGER_DELOAD_OR_VARIATION") {
-            coachingBox.style.background = "rgba(239, 68, 68, 0.1)";
-            coachingBox.style.borderColor = "#ef4444";
-            coachingBox.style.color = "#991b1b";
-            coachingBox.innerHTML = `⚠️ <strong>MyCoatch Stallo:</strong> ${advice.message}`;
-        } else if (advice.action === "REDUCE_LOAD") {
-            coachingBox.style.background = "rgba(245, 158, 11, 0.1)";
-            coachingBox.style.borderColor = "#f59e0b";
-            coachingBox.style.color = "#92400e";
-            coachingBox.innerHTML = `⚠️ <strong>MyCoatch Regolazione:</strong> ${advice.message}`;
-        } else {
-            return; // Esce senza mostrare alcun banner se si tratta di un semplice "Target"
-        }
-
-        exerciseContainer.appendChild(coachingBox);
+    if (advice.action === "INCREMENT_LOAD") {
+        coachingBox.classList.add("coaching-increment");
+        coachingBox.innerHTML = `🔥 <strong>MyCoatch Progression:</strong> ${advice.message}`;
+    } else if (advice.action === "TRIGGER_DELOAD_OR_VARIATION") {
+        coachingBox.classList.add("coaching-stall");
+        coachingBox.innerHTML = `⚠️ <strong>MyCoatch Stallo:</strong> ${advice.message}`;
+    } else if (advice.action === "REDUCE_LOAD") {
+        coachingBox.classList.add("coaching-adjust");
+        coachingBox.innerHTML = `⚠️ <strong>MyCoatch Regolazione:</strong> ${advice.message}`;
+    } else {
+        return;
     }
+
+    exerciseContainer.appendChild(coachingBox);
+}
