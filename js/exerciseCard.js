@@ -3,11 +3,12 @@
  * Summary: Genera dinamicamente le card per ogni esercizio gestendo lo stato di esclusione dai massimali, i selettori del bilanciere, il calcolo dei dischi per lato e l'evidenziatura automatica fuori target per KG (inclusi Topset), REPS ed RPE (con supporto al feedback verde di miglioramento).
  */
 
-import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange, calculateSetVolumeTrend, isValueExceedingTarget, parseRPE } from './helpers.js';
+import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange, calculateSetVolumeTrend, isValueExceedingTarget, parseRPE, checkFatigueAlert } from './helpers.js';
 import { state } from './state.js';
 import { enableCardSwipeGesture } from './gestures.js';
 import { saveAndSync } from './storage.js';
 import { renderWorkoutList } from './ui.js';
+import { analyzeUserHistory, generateNextSessionReminder, evaluateRealTimePerformance } from '../mycoatch/autoregulation.js';
 
 export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, activeDayNum, isPastMeso) {
     const isExExcluded = ex.isExcluded || false;
@@ -17,6 +18,29 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     const exCard = document.createElement('div');
     exCard.className = `ex-card ${isExExcluded ? 'is-excluded' : ''} ${isDropsetPlan ? 'is-dropset' : ''}`;
     exCard.dataset.ex = exIdx;
+
+    // --- 1. Analisi MyCoach & Promemoria Dinamico ---
+    let reminderHtml = '';
+    if (ex.history || ex.loggedSets) {
+        const exerciseHistory = ex.history || [];
+        const lastAnalysis = analyzeUserHistory(exerciseHistory);
+        const reminder = generateNextSessionReminder(lastAnalysis, {
+            isIsolation: ex.isIsolation || false
+        });
+
+        if (reminder) {
+            const themeClass = reminder.type?.startsWith('STRENGTH') 
+                ? 'strength-theme' 
+                : (reminder.type?.startsWith('HYPERTROPHY') ? 'hypertrophy-theme' : 'warning-theme');
+
+            reminderHtml = `
+                <div class="mycoach-reminder-box ${themeClass} mb-md">
+                    <div class="reminder-badge">${reminder.badge}</div>
+                    <p class="reminder-text">${reminder.prompt}</p>
+                </div>
+            `;
+        }
+    }
 
     let cardHtml = `
         <div class="ex-card-header flex-between mb-sm">
@@ -28,11 +52,14 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             ${isExExcluded ? '<span class="badge-danger">ESCLUSO DAI MASSIMALI</span>' : ''}
         </div>
         
-        <!-- 1. Nome Esercizio in primo piano -->
+        <!-- Nome Esercizio in primo piano -->
         <h3 class="ex-name mb-md">${exIdx + 1}. ${ex.name}</h3>
-    `;
         
-    const prevExercise = findPreviousExercise(state.workoutData, mesoIndex, targetWeek.weekNumber, activeDayNum - 1, ex);
+        <!-- Promemoria dinamico MyCoach -->
+        ${reminderHtml}
+    `;
+
+    const prevExercise = findPreviousExercise(state.workoutData, mesoIndex, targetWeek.weekNumber, activeDayNum - 1, ex, true);
     let lastSessionSetsHtml = '';
 
     if (prevExercise && prevExercise.loggedSets && prevExercise.loggedSets.length > 0) {
@@ -95,7 +122,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             </div>
     
             <div class="plates-badge flex-between gap-sm" data-ex="${exIdx}">
-                <span class="plates-label">🏋️ CARICO PER LATO:</span>
+                <span class="plates-label">🏋️️ CARICO PER LATO:</span>
                 <div class="plates-content flex-center gap-xs">
                     0 kg
                 </div>
@@ -119,18 +146,28 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     `;
 
     (ex.loggedSets || []).forEach((setObj, setIdx) => {
-        const isLocked = setObj.isLocked || false;
+        const isLocked = setObj.isLocked || setObj.completed || false;
         const isDisabled = isLocked || isPastMeso;
 
         const prevSet = isFirstWeek ? null : prevExercise?.loggedSets?.[setIdx];
-        const prevKg = prevSet ? parseFloat(prevSet.weight) || 0 : 0;
-        const prevReps = prevSet ? parseInt(prevSet.reps) || 0 : 0;
-        
-        const currentKg = parseFloat(setObj.weight) || 0;
-        const currentReps = parseInt(setObj.reps) || 0;
+
+        const isCurrentSetConfirmed = Boolean(setObj.isLocked || setObj.completed);
+        const isPrevSetConfirmed = Boolean(prevSet?.isLocked || prevSet?.completed);
+
+        const parseRepsSafe = (val) => {
+            if (!val) return 0;
+            const match = String(val).match(/\d+/);
+            return match ? parseInt(match[0], 10) : 0;
+        };
+
+        const currentKg = isCurrentSetConfirmed ? (parseFloat(String(setObj.weight || 0).replace(',', '.')) || 0) : 0;
+        const currentReps = isCurrentSetConfirmed ? parseRepsSafe(setObj.reps) : 0;
+
+        const prevKg = isPrevSetConfirmed ? (parseFloat(String(prevSet?.weight || prevSet?.kg || 0).replace(',', '.')) || 0) : 0;
+        const prevReps = isPrevSetConfirmed ? parseRepsSafe(prevSet?.reps) : 0;
 
         let trendHtml = '';
-        if (!isFirstWeek) {
+        if (!isFirstWeek && isCurrentSetConfirmed && isPrevSetConfirmed && currentKg > 0 && currentReps > 0 && prevKg > 0 && prevReps > 0) {
             const trend = calculateSetVolumeTrend(
                 { weight: currentKg, reps: currentReps }, 
                 { weight: prevKg, reps: prevReps }
@@ -141,7 +178,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                 trendHtml = `<span class="${trendClass} text-xs font-bold whitespace-nowrap">${trend.text}</span>`;
             }
         }
-
+        
         const isRangeTarget = (ex.minReps && ex.maxReps) || (typeof ex.reps === 'string' && ex.reps.includes('-'));
         const rawTargetReps = ex.reps || ex.targetReps || '';
         const defaultTargetReps = isRangeTarget 
@@ -213,11 +250,13 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             <tr>
                 <td class="td-set flex-column flex-center">
                     <span class="font-bold text-sm">${setIdx + 1}</span>
-                    ${trendHtml}
                     ${intensityBadgeHtml}
                 </td>
-                <td class="td-input">
-                    <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-kg ios-no-zoom ${kgClass} ${isUnsavedKg ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${displayWeight}" placeholder="${targetWeightDefault || 'Kg'}" ${isDisabled ? 'disabled' : ''}>
+                <td class="td-input td-kg-container">
+                    <div class="kg-input-wrapper flex-column flex-center">
+                        <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-kg ios-no-zoom ${kgClass} ${isUnsavedKg ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${displayWeight}" placeholder="${targetWeightDefault || 'Kg'}" ${isDisabled ? 'disabled' : ''}>
+                        ${trendHtml ? `<div class="set-trend-badge">${trendHtml}</div>` : ''}
+                    </div>
                 </td>
                 <td class="td-input">
                     <input type="text" inputmode="numeric" autocomplete="off" class="set-input set-reps ios-no-zoom ${repsClass} ${isUnsavedReps ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${displayReps}" placeholder="${defaultTargetReps || 'reps'}" ${isDisabled ? 'disabled' : ''}>
@@ -235,11 +274,80 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     cardHtml += `
             </tbody> 
         </table>
-        <div id="mycoach-advice-${exIdx}" class="mycoach-fatigue-alert"></div>
+        <div id="mycoach-advice-${exIdx}" class="mycoach-fatigue-alert is-hidden"></div>
         <input type="text" placeholder="Note esercizio..." value="${ex.userNotes || ''}" class="ex-user-notes w-100" data-ex="${exIdx}" ${isPastMeso ? 'disabled' : ''}>
     `;
 
     exCard.innerHTML = cardHtml;
+
+    // --- FUNZIONE PER VALUTARE ED EVIDENZIARE IL ADVICE IN TEMPO REALE ---
+    // --- FUNZIONE PER VALUTARE ED EVIDENZIARE IL ADVICE IN TEMPO REALE ---
+    const updateRealTimeAdviceUI = () => {
+        const adviceBox = exCard.querySelector(`#mycoach-advice-${exIdx}`);
+        if (!adviceBox) return;
+
+        const targetReps = ex.reps || ex.targetReps || "8-10";
+        const targetRpe = ex.targetRpe || ex.rpe || 8;
+
+        const allSetRows = exCard.querySelectorAll('tbody tr');
+        let activeAdvice = null;
+
+        allSetRows.forEach((row, setIdx) => {
+            const kgVal = row.querySelector('.set-kg')?.value?.replace(',', '.').trim() || '';
+            const repsVal = row.querySelector('.set-reps')?.value?.replace(',', '.').trim() || '';
+            const rpeVal = row.querySelector('.set-rpe')?.value?.replace(',', '.').trim() || '';
+
+            if (kgVal || repsVal) {
+                const setObj = { weight: kgVal, reps: repsVal, rpe: rpeVal };
+                const perf = evaluateRealTimePerformance(setObj, targetReps, targetRpe);
+
+                if (perf && perf.feedbackNote) {
+                    if (!activeAdvice || perf.status !== 'PERFECT') {
+                        activeAdvice = {
+                            setNum: setIdx + 1,
+                            ...perf
+                        };
+                    }
+                }
+            }
+        });
+
+        if (activeAdvice && activeAdvice.feedbackNote) {
+            adviceBox.innerHTML = `
+                <div class="mycoach-rt-advice status-${(activeAdvice.status || '').toLowerCase()}">
+                    <strong>SET ${activeAdvice.setNum}:</strong> ${activeAdvice.feedbackNote}
+                </div>
+            `;
+            adviceBox.classList.remove('is-hidden');
+        } else {
+            adviceBox.innerHTML = '';
+            adviceBox.classList.add('is-hidden');
+        }
+    };
+
+    // --- EVENT DELEGATION SULLA CARD (Cattura input, change, keyup e blur su iOS/Safari) ---
+    ['input', 'change', 'keyup', 'blur'].forEach(eventType => {
+        exCard.addEventListener(eventType, (e) => {
+            if (e.target.matches('.set-input, .set-lock-check')) {
+                updateRealTimeAdviceUI();
+            }
+        });
+    });
+
+    // Controllo iniziale all'avvio
+    updateRealTimeAdviceUI();
+    
+    // Aggiungiamo i listener sugli input
+    exCard.querySelectorAll('.set-input, .set-lock-check').forEach(input => {
+        input.addEventListener('input', updateRealTimeAdviceUI);
+        input.addEventListener('change', updateRealTimeAdviceUI);
+    });
+
+    // Controllo iniziale
+    updateRealTimeAdviceUI();
+
+    // Verifica dello stato iniziale della fatica via helper
+    checkFatigueAlert(ex, exIdx);
 
     const toggleExclusion = () => {
         if (isPastMeso) return;
@@ -290,7 +398,7 @@ export function updatePlatesBadgeUI(exIdx) {
     const breakdown = getPlateBreakdown(totalKg, barWeight);
 
     if (!breakdown || !breakdown.plates || breakdown.plates.length === 0) {
-        badge.innerHTML = `🏋️ 0 kg/lato`;
+        badge.innerHTML = `🏋️️ 0 kg/lato`;
         badge.className = 'plates-badge plates-badge-empty';
     } else {
         const counts = {};

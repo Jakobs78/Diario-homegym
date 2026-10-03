@@ -355,58 +355,67 @@ export async function exportWorkoutPDF(dayData = null, metadata = null) {
         }
 
         // 5. Box Note Allenatore / Ultima Sessione Precedente
-        if (ex.notes || prevSessionLines.length > 0) {
-            let boxHeight = 4;
-            if (ex.notes) boxHeight += 7;
-            if (prevSessionLines.length > 0) boxHeight += (prevSessionLines.length * 4.5) + 5;
+        // 5. Box Note Allenatore / Ultima Sessione Precedente
+if (ex.notes || prevSessionLines.length > 0) {
+    let boxHeight = 4;
+    if (ex.notes) boxHeight += 8.5; // 3.5 (titolo) + 5 (spazio sotto)
+    if (prevSessionLines.length > 0) {
+        if (ex.notes) boxHeight += 1.5; // spazio per la linea separatrice
+        boxHeight += 3.5 + (prevSessionLines.length * 4.5); // 3.5 titolo + altezza righe
+    }
 
-            if (cursorY + boxHeight > 270) {
-                doc.addPage();
-                cursorY = 14;
-            }
+    if (cursorY + boxHeight > 270) {
+        doc.addPage();
+        cursorY = 14;
+    }
 
-            doc.setFillColor(240, 249, 255);
-            doc.setDrawColor(224, 242, 254);
-            doc.roundedRect(14, cursorY, pageWidth - 28, boxHeight, 1, 1, 'FD');
+    doc.setFillColor(240, 249, 255);
+    doc.setDrawColor(224, 242, 254);
+    doc.roundedRect(14, cursorY, pageWidth - 28, boxHeight, 1, 1, 'FD');
 
-            let innerY = cursorY + 4;
-            if (ex.notes) {
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(7);
-                doc.setTextColor(3, 105, 161);
-                doc.text("NOTE ALLENATORE", 17, innerY);
-                innerY += 3.5;
-                doc.setFont("helvetica", "normal");
-                doc.setFontSize(8);
-                doc.setTextColor(15, 23, 42);
-                doc.text(ex.notes, 17, innerY, { maxWidth: pageWidth - 36 });
-                innerY += 5;
-            }
+    let innerY = cursorY + 4;
+    
+    // NOTE ALLENATORE
+    if (ex.notes) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.setTextColor(3, 105, 161);
+        doc.text("NOTE ALLENATORE", 17, innerY);
+        innerY += 3.5;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(15, 23, 42);
+        doc.text(ex.notes, 17, innerY, { maxWidth: pageWidth - 36 });
+        innerY += 5;
+    }
 
-            if (prevSessionLines.length > 0) {
-                if (ex.notes) {
-                    doc.setDrawColor(186, 230, 253);
-                    doc.line(17, innerY - 2, pageWidth - 17, innerY - 2);
-                    innerY += 1.5;
-                }
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(7);
-                doc.setTextColor(2, 132, 199);
-                doc.text("ULTIMA SESSIONE PRECEDENTE", 17, innerY);
-                innerY += 4;
-
-                doc.setFont("helvetica", "normal");
-                doc.setFontSize(7.5);
-                doc.setTextColor(15, 23, 42);
-                prevSessionLines.forEach(line => {
-                    doc.text(line, 17, innerY);
-                    innerY += 4.5;
-                });
-            }
-
-            cursorY += boxHeight + 3;
+    // ULTIMA SESSIONE PRECEDENTE (Identico a Note Allenatore)
+    if (prevSessionLines.length > 0) {
+        if (ex.notes) {
+            doc.setDrawColor(186, 230, 253);
+            doc.line(17, innerY - 2, pageWidth - 17, innerY - 2);
+            innerY += 1.5;
         }
+        
+        // Titolo: FontSize 7, Colore (3, 105, 161)
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.setTextColor(3, 105, 161);
+        doc.text("ULTIMA SESSIONE PRECEDENTE", 17, innerY);
+        innerY += 3.5;
 
+        // Testo: FontSize 8
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(15, 23, 42);
+        prevSessionLines.forEach(line => {
+            doc.text(line, 17, innerY);
+            innerY += 4.5;
+        });
+    }
+
+    cursorY += boxHeight + 3;
+}
         // 6. Tabella Set
         const loggedSets = ex.loggedSets || [];
         if (loggedSets.length > 0) {

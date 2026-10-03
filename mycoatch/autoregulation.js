@@ -1,158 +1,275 @@
-// mycoatch/autoregulation.js
+/**
+ * Module: mycoatch/autoregulation.js
+ * Summary: Gestisce l'autoregolazione intelligente dell'allenamento.
+ * Analizza ogni singola serie e l'e1RM reale ponderato su RPE, suggerendo incrementi
+ * proporzionali al carico base (microcarichi) o rilevando overshooting e stalli reali.
+ */
 
 /**
- * Calcola l'1RM Stimato (e1RM) incorporando il buffer (RIR = 10 - RPE)
- * Formula di Epley modificata per l'Evidence-Based Fitness
+ * Calcola l'e1RM (1RM stimato) basandosi su peso, reps ed RPE.
  */
-export function calculateE1RM(weight, reps, rpe = 10) {
-    const numericKg = parseFloat(weight) || 0;
-    const numericReps = parseInt(reps, 10) || 0;
-    const numericRpe = parseFloat(rpe) || 10;
+export function calculateE1RM(weight, reps, rpe = 8) {
+    const w = parseFloat(weight) || 0;
+    const r = parseInt(reps, 10) || 0;
+    const rpeVal = parseFloat(rpe) || 8;
 
-    if (numericKg <= 0 || numericReps <= 0) return 0;
+    if (w <= 0 || r <= 0) return 0;
 
-    // Reps stimate a cedimento reale = reps eseguite + (10 - RPE)
-    const effectiveReps = numericReps + Math.max(0, 10 - numericRpe);
-    
-    // Epley Formula: 1RM = Weight * (1 + 0.0333 * Reps)
-    const e1RM = numericKg * (1 + 0.0333 * effectiveReps);
-    return Math.round(e1RM * 10) / 10;
+    const rir = Math.max(0, 10 - rpeVal);
+    const estimatedMaxReps = r + rir;
+
+    const e1rm = w * (1 + estimatedMaxReps / 30);
+    return Math.round(e1rm * 10) / 10;
 }
 
 /**
- * Analisi longitudinale delle prestazioni basata sull'e1RM e sulla varianza RPE
+ * Sanifica qualsiasi valore RPE (es. "@6,5", "7.0", " 8 ") restituendo un numero valido.
  */
-export function analyzeUserHistory(exerciseHistory, currentConfig = {}) {
-    // Se la cronologia è vuota o indefinita, esci subito in modalità standard
+export function cleanRpeValue(rawRpe, fallback = 8) {
+    if (rawRpe === null || rawRpe === undefined) return fallback;
+    const str = String(rawRpe).replace('@', '').replace(',', '.').trim();
+    const parsed = parseFloat(str);
+    return isNaN(parsed) || parsed <= 0 ? fallback : parsed;
+}
+
+/**
+ * Calcola l'incremento di peso ideale basato sulla fisiologia e sul peso attuale.
+ */
+export function calculateSmartIncrement(currentKg, isIsolation = false) {
+    if (currentKg <= 0) return 1.0;
+
+    if (currentKg <= 12.0 || isIsolation) {
+        if (currentKg < 6.0) return 0.5;
+        if (currentKg <= 12.0) return 1.0;
+        return 1.25;
+    }
+
+    if (currentKg <= 50.0) return 2.5;
+    return currentKg >= 100.0 ? 5.0 : 2.5;
+}
+
+/**
+ * Analizza lo storico dell'esercizio e decide il feedback / progressione per l'utente.
+ */
+export function analyzeUserHistory(exerciseHistory) {
     if (!exerciseHistory || exerciseHistory.length === 0) {
-        return { 
-            action: "PROCEED_STANDARD", 
-            message: "Nessun dato storico. Inizio del mesociclo con parametri di carico base.",
-            suggestedKgIncrement: 0
-        };
+        return null;
     }
 
     const lastSession = exerciseHistory[exerciseHistory.length - 1];
-    
-    // Recuperiamo i dati adattandoli alla struttura reale della tua WebApp (loggedSets)
     const sets = lastSession.loggedSets || lastSession.sets || [];
-    const targetReps = lastSession.reps || lastSession.targetReps || "8-10";
-    const targetRpe = parseFloat(String(lastSession.rpeTarget || lastSession.targetRpe || lastSession.rpe || "8").replace('@', '')) || 8;
-
-    // Estraiamo i valori reali dalle serie completate (reps, kg, rpe)
-    const repsCompleted = sets.map(s => parseInt(s.reps, 10) || 0).filter(r => r > 0);
-    const weightsUsed = sets.map(s => parseFloat(s.weight) || 0).filter(w => w > 0);
-    const rpeValues = sets.map(s => parseFloat(String(s.rpe).replace('@', '')) || targetRpe);
-
-    // Prendiamo il carico massimo usato nella sessione precedente, o 0
-    const currentKg = weightsUsed.length > 0 ? Math.max(...weightsUsed) : 0;
-
-    // Se l'array delle ripetizioni reali è vuoto, è davvero un esercizio nuovo o senza storico
-    if (repsCompleted.length === 0) {
-        return {
-            action: "PROCEED_STANDARD",
-            message: "", // <-- SCRITTA FASTIDIOSA RIMOSSA!
-            suggestedKgIncrement: 0
-        };
-    }
     
-    const maxTargetReps = parseInt(targetReps?.toString().split('-')[1], 10) || parseInt(targetReps, 10) || 10;
-    const minTargetReps = parseInt(targetReps?.toString().split('-')[0], 10) || parseInt(targetReps, 10) || 8;
+    const confirmedSets = sets.filter(s => (s.isLocked || s.completed) && s.reps && parseInt(s.reps, 10) > 0);
+    if (confirmedSets.length === 0) return null;
 
-    // 1. Calcolo dell'e1RM della sessione corrente
+    const repsCompleted = confirmedSets.map(s => parseInt(s.reps, 10) || 0);
+    const weightsUsed = confirmedSets.map(s => parseFloat(String(s.weight || '0').replace(',', '.')) || 0);
+    const rpeValues = confirmedSets.map(s => cleanRpeValue(s.rpe, 8));
+
+    const currentKg = Math.max(...weightsUsed);
+    if (currentKg === 0) return null;
+
+    const targetRepsStr = String(lastSession.targetReps || lastSession.reps || "8").trim();
+    let minTargetReps = 8, maxTargetReps = 10;
+
+    if (targetRepsStr.includes('-')) {
+        const parts = targetRepsStr.split('-');
+        minTargetReps = parseInt(parts[0], 10) || 8;
+        maxTargetReps = parseInt(parts[1], 10) || 10;
+    } else {
+        minTargetReps = parseInt(targetRepsStr, 10) || 8;
+        maxTargetReps = minTargetReps;
+    }
+
+    const targetRpe = cleanRpeValue(lastSession.targetRpe || lastSession.rpe || "8", 8);
+
     const avgReps = repsCompleted.reduce((a, b) => a + b, 0) / repsCompleted.length;
     const avgRpe = rpeValues.reduce((a, b) => a + b, 0) / rpeValues.length;
     const currentE1RM = calculateE1RM(currentKg, avgReps, avgRpe);
+    const isIsolation = Boolean(lastSession.isIsolation || currentKg <= 12);
 
-    // 2. Controllo Overshooting (RPE troppo alto rispetto al target)
+    const baseMetaData = {
+        currentKg,
+        minTargetReps,
+        maxTargetReps,
+        avgReps,
+        avgRpe,
+        targetRpe,
+        isIsolation,
+        currentE1RM
+    };
+
     if (avgRpe >= targetRpe + 1.5) {
-        const kgReduction = currentKg >= 100 ? 5.0 : 2.5;
+        const kgReduction = currentKg >= 100 ? 5.0 : (currentKg <= 12 ? 1.0 : 2.5);
         return {
+            ...baseMetaData,
             action: "REDUCE_LOAD",
             suggestedKgIncrement: -kgReduction,
-            currentE1RM,
-            message: `⚠️ Overshooting rilevato (RPE ${avgRpe} vs Target @${targetRpe}). Riduzione preventiva del carico a ${currentKg - kgReduction}kg per tutelare il recupero.`
+            message: `⚠️ **Overshooting:** RPE medio elevato (@${avgRpe.toFixed(1)} vs Target @${targetRpe}). Per evitare accumulo di fatica, considera di ridurre a **${currentKg - kgReduction}kg**.`
         };
     }
 
-    // 3. Saturazione del Target & Progressione
     const allSetsMaxed = repsCompleted.every(r => r >= maxTargetReps);
     if (allSetsMaxed && avgRpe <= targetRpe) {
-        let increment = currentConfig.stepKg || 2.5;
-        if (currentKg < 12.5) increment = 1.0;
-        else if (currentKg >= 100) increment = 2.5;
+        const step = calculateSmartIncrement(currentKg, isIsolation);
+        const nextTargetKg = currentKg + step;
 
         return {
+            ...baseMetaData,
             action: "INCREMENT_LOAD",
-            suggestedKgIncrement: increment,
-            currentE1RM,
-            message: `🔥 Target saturato con successo (e1RM: ${currentE1RM}kg). Incremento del carico consigliato di +${increment}kg.`
+            suggestedKgIncrement: step,
+            nextTargetKg,
+            message: `🔥 **MyCoach Progression:** Target chiuso con ottima riserva! (e1RM: ${currentE1RM}kg). Per la prossima sessione ti consiglio di salire a **${nextTargetKg}kg** (+${step}kg).`
         };
     }
 
-    // 4. Stallo Rilevato (Reps sotto la soglia minima su più sessioni reali consecutive)
-    const isUnderperforming = repsCompleted.every(r => r < minTargetReps);
-    if (isUnderperforming && exerciseHistory.length >= 2) {
+    if (exerciseHistory.length >= 2) {
         const prevSession = exerciseHistory[exerciseHistory.length - 2];
-        const prevRepsRaw = Array.isArray(prevSession.actualReps) ? prevSession.actualReps : [prevSession.actualReps];
-        const prevReps = prevRepsRaw.map(r => parseInt(r, 10) || 0).filter(r => r > 0);
+        const prevSets = (prevSession.loggedSets || prevSession.sets || []).filter(s => (s.isLocked || s.completed) && s.reps);
         
-        // Verifichiamo lo stallo solo se anche la penultima sessione aveva dati reali validi
-        if (prevReps.length > 0 && prevReps.every(r => r < minTargetReps)) {
-            return {
-                action: "TRIGGER_DELOAD_OR_VARIATION",
-                suggestedKgIncrement: 0,
-                currentE1RM,
-                message: "🛡️ Stallo prolungato confermato su 2 microcicli. Attivazione scarico locale o rotazione variante biomeccanica."
-            };
+        if (prevSets.length > 0) {
+            const prevKg = Math.max(...prevSets.map(s => parseFloat(String(s.weight || '0').replace(',', '.')) || 0));
+            const prevRepsArr = prevSets.map(s => parseInt(s.reps, 10) || 0);
+            const prevRpeArr = prevSets.map(s => cleanRpeValue(s.rpe, 8));
+
+            const prevAvgReps = prevRepsArr.reduce((a, b) => a + b, 0) / prevRepsArr.length;
+            const prevAvgRpe = prevRpeArr.reduce((a, b) => a + b, 0) / prevRpeArr.length;
+            const prevE1RM = calculateE1RM(prevKg, prevAvgReps, prevAvgRpe);
+
+            if (currentE1RM > prevE1RM) {
+                return {
+                    ...baseMetaData,
+                    action: "PROGRESSING",
+                    message: `💪 **Miglioramento Rilevato:** Prestazione e1RM salita a ${currentE1RM}kg (vs ${prevE1RM}kg precedente).`
+                };
+            }
+
+            if (currentE1RM < prevE1RM * 0.98 && repsCompleted.every(r => r < minTargetReps)) {
+                return {
+                    ...baseMetaData,
+                    action: "TRIGGER_DELOAD_OR_VARIATION",
+                    suggestedKgIncrement: 0,
+                    message: `🛡 **MyCoach Stallo:** Calo di prestazione confermato su 2 microcicli. Si consiglia un taglio del 10% del carico nella prossima sessione.`
+                };
+            }
         }
     }
 
     return {
+        ...baseMetaData,
         action: "MAINTAIN",
-        suggestedKgIncrement: 0,
-        currentE1RM,
-        message: `✅ Prestazione in linea con il target (e1RM: ${currentE1RM}kg). Mantenimento del carico corrente.`
+        message: null
     };
 }
 
 /**
- * Autoregolazione Intra-Sessione in Tempo Reale (Systemic Fatigue & Velocity Loss)
+ * Genera il promemoria specifico per la sessione successiva in base al focus.
  */
-export function evaluateRealTimePerformance(exerciseLog = [], dailyReadiness = { sleepHours: 8, stressLevel: 5 }) {
-    if (!exerciseLog || exerciseLog.length < 2) {
-        return { action: "PROCEED", adjustmentKg: 0, cutSet: false };
+export function generateNextSessionReminder(lastAnalysis) {
+    if (!lastAnalysis) return null;
+
+    const { currentKg, maxTargetReps, minTargetReps, avgReps, avgRpe, targetRpe, isIsolation } = lastAnalysis;
+    const isStrengthFocus = maxTargetReps <= 6;
+
+    if (lastAnalysis.action === "INCREMENT_LOAD") {
+        const step = calculateSmartIncrement(currentKg, isIsolation);
+        const nextKg = currentKg + step;
+
+        if (isStrengthFocus) {
+            return {
+                type: "STRENGTH_INCREASE",
+                badge: `🏋️ Forza: Sali a ${nextKg}kg`,
+                prompt: `🎯 **Target Forza Sbloccato:** Nella scorsa sessione hai gestito ${currentKg}kg x ${avgReps.toFixed(1)} @${avgRpe.toFixed(1)}. Oggi carica **${nextKg}kg** (+${step}kg) mantenendo ${minTargetReps}-${maxTargetReps} reps.`
+            };
+        } else {
+            return {
+                type: "HYPERTROPHY_LOAD_STEP",
+                badge: `🔥 Ipertrofia: ${nextKg}kg (Reps reset)`,
+                prompt: `🔥 **Progressione Doppia:** Hai saturato il range di reps col peso precedente. Oggi sali a **${nextKg}kg** e punta a chiudere il limite minimo (${minTargetReps} reps).`
+            };
+        }
     }
 
-    const lastSet = exerciseLog[exerciseLog.length - 1];
-    const prevSet = exerciseLog[exerciseLog.length - 2];
-
-    const lastReps = parseInt(lastSet.reps || lastSet.actualReps, 10) || 0;
-    const prevReps = parseInt(prevSet.reps || prevSet.actualReps, 10) || 0;
-    
-    // Se i set non sono stati ancora compilati, non fare nessuna correzione live
-    if (lastReps === 0 || prevReps === 0) {
-        return { action: "PROCEED", adjustmentKg: 0, cutSet: false };
-    }
-
-    const repDrop = prevReps - lastReps;
-
-    // Fatica sistemica alta (Sonno critico o crollo verticale di reps)
-    const isCriticalReadiness = dailyReadiness.sleepHours <= 4 || dailyReadiness.stressLevel >= 8;
-
-    if (repDrop >= 3 || (repDrop >= 2 && isCriticalReadiness)) {
+    if (!isStrengthFocus && avgReps < maxTargetReps && avgRpe <= targetRpe) {
         return {
-            action: "CUT_VOLUME_OR_LOAD",
-            adjustmentKg: -2.5,
-            cutSet: true,
-            message: "⚡ Crollo di prestazione rilevato inter-set (>20% drop). Consiglio: ferma l'esercizio o riduci il carico del 10% per evitare volume spazzatura."
+            type: "HYPERTROPHY_REP_STEP",
+            badge: `📈 Ipertrofia: Mantieni ${currentKg}kg, cerca +1/+2 reps`,
+            prompt: `📈 **Target Reps:** Carico confermato a **${currentKg}kg**. L'obiettivo di oggi è spingere ogni serie verso **${maxTargetReps} reps** mantenendo RPE @${targetRpe}.`
         };
     }
 
+    if (lastAnalysis.action === "REDUCE_LOAD") {
+        const kgReduction = currentKg >= 100 ? 5.0 : (currentKg <= 12 ? 1.0 : 2.5);
+        const suggestedKg = currentKg - kgReduction;
+        return {
+            type: "DELOAD_ADJUSTMENT",
+            badge: `⚠ Gestione Fatica: Consiglio ${suggestedKg}kg`,
+            prompt: `🛡 **Gestione Fatica:** Nella sessione precedente l'RPE è stato troppo elevato. Oggi si consiglia di usare **${suggestedKg}kg** per garantire qualità tecnica ed evitare sovraccarico.`
+        };
+    }
+
+    return null;
+}
+
+/**
+ * Valuta le prestazioni in TEMPO REALE per la singola serie compilata, 
+ * confrontandola direttamente con i target prescritti nella scheda.
+ */
+/**
+ * Valuta le prestazioni in TEMPO REALE per la singola serie compilata, 
+ * confrontandola direttamente con i target prescritti nella scheda.
+ */
+export function evaluateRealTimePerformance(setObj, targetReps = "8-10", targetRpe = 8) {
+    if (!setObj || (!setObj.weight && !setObj.reps)) return null;
+
+    const weight = parseFloat(String(setObj.weight || '0').replace(',', '.')) || 0;
+    const reps = parseInt(setObj.reps, 10) || 0;
+    const rpe = cleanRpeValue(setObj.rpe, 8);
+
+    if (weight <= 0 || reps <= 0) return null;
+
+    // Parsing dinamico del range di ripetizioni target (es. "8-10" o "6")
+    const repsTargetStr = String(targetReps || "8").trim();
+    let minReps, maxReps;
+
+    if (repsTargetStr.includes('-')) {
+        const parts = repsTargetStr.split('-');
+        minReps = parseInt(parts[0], 10) || 8;
+        maxReps = parseInt(parts[1], 10) || 10;
+    } else {
+        const parsedSingle = parseInt(repsTargetStr, 10) || 8;
+        minReps = parsedSingle;
+        maxReps = parsedSingle;
+    }
+
+    const expectedRpe = cleanRpeValue(targetRpe, 8);
+    const e1rm = calculateE1RM(weight, reps, rpe);
+
+    // Analisi prestazione serie per serie da Coach
+    let status = "PERFECT"; 
+    let feedbackNote = "Serie perfettamente in target!";
+
+    if (rpe > expectedRpe + 1.0) {
+        status = "OVERSHOOT_RPE";
+        feedbackNote = `⚠️ **Overshooting:** RPE @${rpe} troppo alto rispetto al target @${expectedRpe}. Fatica accumulata elevata.`;
+    } else if (reps < minReps) {
+        status = "UNDER_REPS";
+        feedbackNote = `🔻 **Sotto Target:** Fatte ${reps} reps su un minimo di ${minReps}. Calare leggermente il peso alla prossima serie.`;
+    } else if (reps > maxReps && rpe <= expectedRpe) {
+        status = "OVER_REPS";
+        feedbackNote = `🔥 **Superato Target:** Chiuse ${reps} reps (target max ${maxReps}). Ottimo margine per salire di carico!`;
+    } else if (reps >= minReps && rpe <= expectedRpe - 1.5) {
+        status = "UNDERSHOOT_RPE";
+        feedbackNote = `💪 **Carico Leggero:** RPE @${rpe} troppo basso rispetto a @${expectedRpe}. C'è margine per caricare di più.`;
+    }
+
     return {
-        action: "PROCEED",
-        adjustmentKg: 0,
-        cutSet: false,
-        message: "✅ Tasso di affaticamento ottimale. Procedi con la serie successiva."
+        weight,
+        reps,
+        rpe,
+        e1rm,
+        status,
+        feedbackNote,
+        isTargetMet: reps >= minReps && reps <= maxReps && Math.abs(rpe - expectedRpe) <= 1.0
     };
 }

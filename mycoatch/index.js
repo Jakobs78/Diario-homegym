@@ -43,26 +43,31 @@ export const MyCoatch = {
        /**
      * Valuta l'andamento di un singolo esercizio calcolando l'e1RM e la varianza RPE.
      */
-    evaluateProgress(exerciseHistory) {
-        const config = coachState.getConfig();
-        // Mappiamo l'array della webapp nel formato digerito dall'analisi longitudinale
-        const mappedHistory = exerciseHistory.map(session => {
-            const sets = session.loggedSets || session.sets || [];
-            if (sets.length === 0) return null;
+        evaluateProgress(exerciseHistory) {
+            const config = coachState.getConfig();
             
-            // Prendiamo l'ultimo set completato come riferimento della sessione
-            const lastSet = sets[sets.length - 1]; 
-            return {
-                targetReps: session.reps || "8",
-                actualReps: sets.map(s => parseInt(s.reps, 10) || 0),
-                actualKg: lastSet?.weight || 0,
-                rpe: sets.map(s => parseFloat(s.rpe) || 8),
-                targetRpe: 8
-            };
-        }).filter(Boolean);
+            // Mappiamo l'array della webapp prendendo SOLO le serie confermate col Check ✓
+            const mappedHistory = exerciseHistory.map(session => {
+                const rawSets = session.loggedSets || session.sets || [];
+                
+                // 🔒 Filtro rigoroso: consideriamo solo le serie con il Check spuntato e valori reali
+                const confirmedSets = rawSets.filter(s => (s.isLocked || s.completed) && s.reps && parseInt(s.reps, 10) > 0);
+                if (confirmedSets.length === 0) return null;
+                
+                const lastSet = confirmedSets[confirmedSets.length - 1]; 
+                return {
+                    targetReps: session.reps || "8",
+                    actualReps: confirmedSets.map(s => parseInt(s.reps, 10) || 0),
+                    actualKg: lastSet?.weight || 0,
+                    rpe: confirmedSets.map(s => parseFloat(s.rpe) || 8),
+                    targetRpe: 8
+                };
+            }).filter(Boolean);
 
-        return analyzeUserHistory(mappedHistory, config);
-    },
+            if (mappedHistory.length === 0) return null;
+
+            return analyzeUserHistory(mappedHistory, config);
+        },
 
 
     /**

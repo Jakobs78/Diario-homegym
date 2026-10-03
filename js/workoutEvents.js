@@ -4,33 +4,11 @@
  */
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
-import { isValueOutOfRange, isValueExceedingTarget, findPreviousExercise, calculateSetVolumeTrend, parseRPE } from './helpers.js';
+import { isValueOutOfRange, isValueExceedingTarget, findPreviousExercise, calculateSetVolumeTrend, parseRPE, checkFatigueAlert } from './helpers.js';
 import { startTimer, handleTick, handleComplete, parseRecoveryTime } from './timer.js';
 import { updatePlatesBadgeUI } from './exerciseCard.js';
 import { updateSessionAndCompletionState, updateSessionHeaderUI } from './sessionTimer.js';
 
-function evaluateFatigue(exerciseIndex, targetRepsString, actualRepsValue) {
-    const adviceBox = document.getElementById(`mycoach-advice-${exerciseIndex}`);
-    if (!adviceBox) return;
-
-    if (!actualRepsValue || String(actualRepsValue).trim() === "") {
-        adviceBox.classList.add('is-hidden');
-        adviceBox.classList.remove('is-visible');
-        return;
-    }
-
-    const targetMin = parseInt(String(targetRepsString).split('-')[0]) || 0;
-    const actual = parseInt(actualRepsValue) || 0;
-
-    if (actual > 0 && actual <= targetMin - 2) {
-        adviceBox.innerHTML = `⚠️ <strong>MyCoach:</strong> Hai chiuso ${actual} rep (Target: ${targetMin}). Il drop di performance è eccessivo. Scala il carico del 10% nella prossima serie o il volume diventerà spazzatura.`;
-        adviceBox.classList.remove('is-hidden');
-        adviceBox.classList.add('is-visible');
-    } else {
-        adviceBox.classList.add('is-hidden');
-        adviceBox.classList.remove('is-visible');
-    }
-}
 
 function updateInputStatusClasses(element, isOut, isImprovedOrExceeding) {
     element.classList.remove('input-out-of-range', 'input-improved', 'input-normal');
@@ -116,7 +94,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                 const yearData = state.workoutData?.history?.years?.[currentYear];
                 const targetWeek = yearData?.mesocycles?.[mesoIndex]?.weeks?.find(w => w.weekNumber === (state.activeWeek || 1));
                 const activeDayNum = state.activeDay || 1;
-                const prevEx = findPreviousExercise(state.workoutData, mesoIndex, targetWeek?.weekNumber || 1, activeDayNum - 1, ex);
+                const prevEx = findPreviousExercise(state.workoutData, mesoIndex, targetWeek?.weekNumber || 1, activeDayNum - 1, ex, true);
                 const prevSet = prevEx?.loggedSets?.[setIdx];
 
                 const currentKg = parseFloat(ex.loggedSets[setIdx]?.weight) || 0;
@@ -170,8 +148,8 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                     }
                 }
             }
-
-            const rowCard = workoutListContainer.querySelector(`.exercise-card[data-ex="${exIdx}"]`);
+            
+            const rowCard = workoutListContainer.querySelector(`.ex-card[data-ex="${exIdx}"], .exercise-card[data-ex="${exIdx}"]`);
             const kgInput = rowCard?.querySelector(`.set-kg[data-set="${setIdx}"]`);
             const repsInput = rowCard?.querySelector(`.set-reps[data-set="${setIdx}"]`);
             const rpeInput = rowCard?.querySelector(`.set-rpe[data-set="${setIdx}"]`);
@@ -203,28 +181,21 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             if (!ex.sets) ex.sets = [];
             ex.sets[setIdx] = { ...setObj };
 
-            if (isChecked) {
-                const targetStr = ex.minReps ? `${ex.minReps}-${ex.maxReps || ex.minReps}` : (ex.reps || '');
-                evaluateFatigue(exIdx, targetStr, setObj.reps);
-            } else {
-                const adviceBox = document.getElementById(`mycoach-advice-${exIdx}`);
-                if (adviceBox) {
-                    adviceBox.classList.add('is-hidden');
-                    adviceBox.classList.remove('is-visible');
-                }
-            }
+            checkFatigueAlert(ex, setIdx);
 
+            // 2. Aggiornamento dinamico delle classi e dei trend per ogni riga
             if (rowCard) {
                 const mesoIndex = state.activeMesocycleIndex || 0;
                 const currentYear = new Date().getFullYear().toString();
                 const yearData = state.workoutData?.history?.years?.[currentYear];
                 const targetWeek = yearData?.mesocycles?.[mesoIndex]?.weeks?.find(w => w.weekNumber === (state.activeWeek || 1));
                 const activeDayNum = state.activeDay || 1;
-                const prevEx = findPreviousExercise(state.workoutData, mesoIndex, targetWeek?.weekNumber || 1, activeDayNum - 1, ex);
+                const prevEx = findPreviousExercise(state.workoutData, mesoIndex, targetWeek?.weekNumber || 1, activeDayNum - 1, ex, true);
 
                 rowCard.querySelectorAll('.set-input').forEach(inp => {
                     const sIdx = parseInt(inp.dataset.set, 10);
-                    const isRowLocked = ex.loggedSets[sIdx]?.isLocked || false;
+                    const setObj = ex.loggedSets[sIdx];
+                    const isRowLocked = setObj?.isLocked || setObj?.completed || false;
                     inp.disabled = isRowLocked;
 
                     const isKgField = inp.classList.contains('set-kg');
@@ -242,11 +213,15 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                     }
 
                     const prevSet = prevEx?.loggedSets?.[sIdx];
-                    const curKg = parseFloat(ex.loggedSets[sIdx]?.weight) || 0;
-                    const curReps = parseInt(ex.loggedSets[sIdx]?.reps, 10) || 0;
-                    const pKg = prevSet ? parseFloat(prevSet.weight) || 0 : 0;
-                    const pReps = prevSet ? parseInt(prevSet.reps) || 0 : 0;
-                    const t = calculateSetVolumeTrend({ weight: curKg, reps: curReps }, { weight: pKg, reps: pReps });
+                    const isCurrentConfirmed = Boolean(setObj?.isLocked || setObj?.completed);
+                    const isPrevConfirmed = Boolean(prevSet?.isLocked || prevSet?.completed);
+
+                    const curKg = isCurrentConfirmed ? (parseFloat(setObj?.weight) || 0) : 0;
+                    const curReps = isCurrentConfirmed ? (parseInt(setObj?.reps, 10) || 0) : 0;
+                    const pKg = isPrevConfirmed ? (parseFloat(prevSet?.weight) || 0) : 0;
+                    const pReps = isPrevConfirmed ? (parseInt(prevSet?.reps, 10) || 0) : 0;
+
+                    const t = (isCurrentConfirmed && isPrevConfirmed) ? calculateSetVolumeTrend({ weight: curKg, reps: curReps }, { weight: pKg, reps: pReps }) : null;
                     const improved = t && t.isPositive;
 
                     updateInputStatusClasses(inp, isOut, improved && (isKgField || isRepsField));

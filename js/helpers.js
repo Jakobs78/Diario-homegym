@@ -121,27 +121,97 @@ export function formatExerciseSummary(ex) {
 }
 
 /**
- * Determina se l'esercizio ha un target a Range (es. 6-8) o a Reps Fisse (es. 8)
+ * Determina se l'esercizio ha un target a Range (es. 8-10) o a Reps Fisse (es. 5)
+ * analizzando ESCLUSIVAMENTE la definizione del target in scheda.
  */
 export function isRangeExercise(ex) {
     if (!ex) return false;
-    if (ex.minReps && ex.maxReps && ex.minReps !== ex.maxReps) return true;
-    const repsStr = String(ex.reps || ex.targetReps || '').trim();
-    return repsStr.includes('-');
+
+    // 1. Controlla minReps e maxReps espliciti se diversi
+    if (ex.minReps && ex.maxReps && String(ex.minReps) !== String(ex.maxReps)) {
+        return true;
+    }
+
+    // 2. Controlla la stringa delle reps/targetReps nel riassunto della scheda (es. "8-10" o "10-12")
+    const repsStr = String(ex.reps || ex.targetReps || ex.rip || ex.ripetizioni || '').trim();
+    if (repsStr.includes('-')) {
+        const parts = repsStr.split('-');
+        if (parts.length === 2 && parts[0].trim() !== parts[1].trim()) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /**
- * Genera la firma univoca dell'esercizio
+ * Genera la firma univoca dell'esercizio integrando la modalità (fixed o range)
  */
 export function getExerciseSignature(ex) {
     if (!ex) return '';
-    const name = typeof ex === 'string' ? ex : (ex.name || '');
+    const name = typeof ex === 'string' ? ex : (ex.name || ex.nome || '');
     const slug = slugify(name);
     
     if (typeof ex === 'string') return slug;
 
     const mode = isRangeExercise(ex) ? 'range' : 'fixed';
     return `${slug}_${mode}`;
+}
+
+/**
+ * Cerca l'esercizio nelle sessioni precedenti basandosi sulla firma univoca.
+ * IMPORTANTE: Considera valido solo lo storico di serie CONFERMATE con Check ✓ (isLocked / completed).
+ */
+export function findPreviousExercise(workoutData, currentMesoIdx, currentWeekNum, currentDayIdx, currentExercise, sameMesoOnly = true) {
+    if (!workoutData?.history?.years || !currentExercise) return null;
+    
+    const currentYear = new Date().getFullYear().toString();
+    const yearData = workoutData.history.years[currentYear];
+    if (!yearData || !yearData.mesocycles) return null;
+
+    const meso = yearData.mesocycles[currentMesoIdx];
+    if (!meso || !meso.weeks) return null;
+
+    const currentSig = getExerciseSignature(currentExercise);
+
+    // 1. Cerca prima nelle settimane precedenti dello STESSO mesociclo
+    for (let w = currentWeekNum - 1; w >= 1; w--) {
+        const prevWeek = meso.weeks.find(item => item.weekNumber === w);
+        if (!prevWeek || !prevWeek.days) continue;
+
+        const day = prevWeek.days[currentDayIdx] || prevWeek.days.find(d => d.dayNumber === (currentDayIdx + 1));
+        if (!day) continue;
+
+        const exs = day.exercises || day.esercizi || [];
+        const foundEx = exs.find(ex => getExerciseSignature(ex) === currentSig);
+        
+        // 🔒 Filtra SOLO le serie che hanno il Check spuntato (isLocked || completed) e valori > 0
+        if (foundEx && foundEx.loggedSets && foundEx.loggedSets.some(s => (s.isLocked || s.completed) && parseFloat(s.weight) > 0 && parseInt(s.reps, 10) > 0)) {
+            return foundEx;
+        }
+    }
+
+    // 2. Se non lo trova e sameMesoOnly è false, cerca nel mesociclo precedente
+    if (!sameMesoOnly && currentMesoIdx > 0) {
+        const prevMeso = yearData.mesocycles[currentMesoIdx - 1];
+        if (prevMeso && prevMeso.weeks) {
+            for (let w = prevMeso.weeks.length; w >= 1; w--) {
+                const prevWeek = prevMeso.weeks[w - 1];
+                if (!prevWeek || !prevWeek.days) continue;
+
+                const day = prevWeek.days[currentDayIdx] || prevWeek.days.find(d => d.dayNumber === (currentDayIdx + 1));
+                if (!day) continue;
+
+                const exs = day.exercises || day.esercizi || [];
+                const foundEx = exs.find(ex => getExerciseSignature(ex) === currentSig);
+                if (foundEx && foundEx.loggedSets && foundEx.loggedSets.some(s => (s.isLocked || s.completed) && parseFloat(s.weight) > 0 && parseInt(s.reps, 10) > 0)) {
+                    return foundEx;
+                }
+            }
+        }
+    }
+
+    return null;
 }
 
 /**
@@ -172,52 +242,6 @@ export function getPlateBreakdown(totalWeight, barWeight = 20) {
 }
 
 /**
- * Cerca l'esercizio nelle sessioni precedenti basandosi sulla signature univoca
- */
-export function findPreviousExercise(workoutData, currentMesoIdx, currentWeekNum, currentDayIdx, currentExercise) {
-    if (!workoutData?.history?.years || !currentExercise) return null;
-    
-    const currentYear = new Date().getFullYear().toString();
-    const yearData = workoutData.history.years[currentYear];
-    if (!yearData || !yearData.mesocycles) return null;
-
-    const meso = yearData.mesocycles[currentMesoIdx];
-    if (!meso || !meso.weeks) return null;
-
-    const currentSig = getExerciseSignature(currentExercise);
-
-    for (let w = currentWeekNum - 1; w >= 1; w--) {
-        const prevWeek = meso.weeks.find(item => item.weekNumber === w);
-        if (prevWeek && prevWeek.days && prevWeek.days[currentDayIdx]) {
-            const day = prevWeek.days[currentDayIdx];
-            const foundEx = (day.exercises || []).find(ex => getExerciseSignature(ex) === currentSig);
-            
-            if (foundEx && foundEx.loggedSets && foundEx.loggedSets.some(s => s.weight || s.reps)) {
-                return foundEx;
-            }
-        }
-    }
-
-    if (currentMesoIdx > 0) {
-        const prevMeso = yearData.mesocycles[currentMesoIdx - 1];
-        if (prevMeso && prevMeso.weeks) {
-            for (let w = prevMeso.weeks.length; w >= 1; w--) {
-                const prevWeek = prevMeso.weeks[w - 1];
-                if (prevWeek && prevWeek.days && prevWeek.days[currentDayIdx]) {
-                    const day = prevWeek.days[currentDayIdx];
-                    const foundEx = (day.exercises || []).find(ex => getExerciseSignature(ex) === currentSig);
-                    if (foundEx && foundEx.loggedSets && foundEx.loggedSets.some(s => s.weight || s.reps)) {
-                        return foundEx;
-                    }
-                }
-            }
-        }
-    }
-
-    return null;
-}
-
-/**
  * Calcola il delta del volume tra il set attuale e quello precedente
  */
 export function calculateSetVolumeTrend(currentSet, prevSet) {
@@ -236,7 +260,7 @@ export function calculateSetVolumeTrend(currentSet, prevSet) {
         if (volDiff > 0) {
             return {
                 volDiff,
-                text: `▲ +${volDiff} kg`,
+                text: `▲ +${volDiff}`,
                 isPositive: true,
                 isNegative: false
             };
@@ -244,7 +268,7 @@ export function calculateSetVolumeTrend(currentSet, prevSet) {
             const absDiff = Math.abs(volDiff);
             return {
                 volDiff,
-                text: `▼ -${absDiff} kg`,
+                text: `▼ -${absDiff}`,
                 isPositive: false,
                 isNegative: true
             };
@@ -395,4 +419,35 @@ export function normalizeExerciseName(name) {
         .split(/\s+/)
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
+}
+/**
+ * Valuta il calo prestazionale su un esercizio e aggiorna il box di alert MyCoach.
+ */
+export function checkFatigueAlert(ex, exIdx) {
+    const alertEl = document.getElementById(`mycoach-advice-${exIdx}`);
+    if (!alertEl) return;
+
+    const targetMinReps = ex.minReps || (typeof ex.reps === 'string' && ex.reps.includes('-') ? parseInt(ex.reps.split('-')[0], 10) : parseInt(ex.reps, 10)) || 0;
+    let coachAdviceHtml = '';
+
+    if (targetMinReps > 0 && ex.loggedSets) {
+        for (const sObj of ex.loggedSets) {
+            if ((sObj.isLocked || sObj.completed) && sObj.reps) {
+                const actualReps = parseInt(String(sObj.reps).replace(/\D+/g, ''), 10) || 0;
+                if (actualReps > 0 && actualReps <= targetMinReps - 2) {
+                    coachAdviceHtml = `⚠️ <strong>MyCoach:</strong> Hai chiuso ${actualReps} rep (Target: ${targetMinReps}). Il drop di performance è eccessivo. Scala il carico del 10% nella prossima serie o il volume diventerà spazzatura.`;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (coachAdviceHtml) {
+        alertEl.innerHTML = coachAdviceHtml;
+        alertEl.classList.remove('is-hidden');
+        alertEl.classList.add('is-visible');
+    } else {
+        alertEl.classList.remove('is-visible');
+        alertEl.classList.add('is-hidden');
+    }
 }
