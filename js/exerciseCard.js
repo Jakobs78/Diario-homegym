@@ -281,7 +281,6 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     exCard.innerHTML = cardHtml;
 
     // --- FUNZIONE PER VALUTARE ED EVIDENZIARE IL ADVICE IN TEMPO REALE ---
-    // --- FUNZIONE PER VALUTARE ED EVIDENZIARE IL ADVICE IN TEMPO REALE ---
     const updateRealTimeAdviceUI = () => {
         const adviceBox = exCard.querySelector(`#mycoach-advice-${exIdx}`);
         if (!adviceBox) return;
@@ -291,6 +290,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
 
         const allSetRows = exCard.querySelectorAll('tbody tr');
         let activeAdvice = null;
+        let currentSetIndex = -1; // Traccia l'indice per trovare la serie successiva
 
         allSetRows.forEach((row, setIdx) => {
             const kgVal = row.querySelector('.set-kg')?.value?.replace(',', '.').trim() || '';
@@ -299,6 +299,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
 
             if (kgVal || repsVal) {
                 const setObj = { weight: kgVal, reps: repsVal, rpe: rpeVal };
+                // Calcola lo status tramite la funzione di autoregulation
                 const perf = evaluateRealTimePerformance(setObj, targetReps, targetRpe);
 
                 if (perf && perf.feedbackNote) {
@@ -307,17 +308,56 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                             setNum: setIdx + 1,
                             ...perf
                         };
+                        currentSetIndex = setIdx;
                     }
                 }
             }
         });
 
         if (activeAdvice && activeAdvice.feedbackNote) {
+            // Renderizza il testo del feedback
             adviceBox.innerHTML = `
                 <div class="mycoach-rt-advice status-${(activeAdvice.status || '').toLowerCase()}">
                     <strong>SET ${activeAdvice.setNum}:</strong> ${activeAdvice.feedbackNote}
                 </div>
             `;
+            
+            // --- INIEZIONE BOTTONE (PILLOLA) ---
+            if (activeAdvice.suggestedNextWeight && activeAdvice.suggestedNextWeight !== activeAdvice.weight) {
+                const applyBtn = document.createElement('button');
+                applyBtn.className = 'mycoach-apply-btn mt-xs';
+                const icon = activeAdvice.suggestedNextWeight > activeAdvice.weight ? '⬆️' : '⬇️';
+                applyBtn.innerHTML = `${icon} Usa ${activeAdvice.suggestedNextWeight} kg`;
+
+                // Trova l'input del peso della serie SUCCESSIVA sfruttando il data-set
+                const nextSetIdx = currentSetIndex + 1;
+                const nextWeightInput = exCard.querySelector(`.set-kg[data-set="${nextSetIdx}"]`);
+
+                if (nextWeightInput && !nextWeightInput.disabled) {
+                    // Clic sul bottone: autocompila l'input
+                    applyBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        nextWeightInput.value = activeAdvice.suggestedNextWeight;
+                        nextWeightInput.classList.add('highlight-update');
+                        setTimeout(() => nextWeightInput.classList.remove('highlight-update'), 1000);
+                        
+                        applyBtn.style.opacity = '0';
+                        setTimeout(() => applyBtn.remove(), 300);
+                        
+                        // Scatena un evento input manuale per aggiornare i calcoli (es. totale kg)
+                        nextWeightInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    });
+
+                    // Clic diretto sull'input: fai sparire il bottone
+                    nextWeightInput.addEventListener('focus', () => {
+                        applyBtn.style.opacity = '0';
+                        setTimeout(() => applyBtn.remove(), 300);
+                    }, { once: true });
+
+                    adviceBox.querySelector('.mycoach-rt-advice').appendChild(applyBtn);
+                }
+            }
+
             adviceBox.classList.remove('is-hidden');
         } else {
             adviceBox.innerHTML = '';
@@ -336,7 +376,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
 
     // Controllo iniziale all'avvio
     updateRealTimeAdviceUI();
-    
+
     // Aggiungiamo i listener sugli input
     exCard.querySelectorAll('.set-input, .set-lock-check').forEach(input => {
         input.addEventListener('input', updateRealTimeAdviceUI);

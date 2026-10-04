@@ -213,11 +213,8 @@ export function generateNextSessionReminder(lastAnalysis) {
 
 /**
  * Valuta le prestazioni in TEMPO REALE per la singola serie compilata, 
- * confrontandola direttamente con i target prescritti nella scheda.
- */
-/**
- * Valuta le prestazioni in TEMPO REALE per la singola serie compilata, 
- * confrontandola direttamente con i target prescritti nella scheda.
+ * confrontandola direttamente con i target prescritti nella scheda
+ * e calcolando il carico suggerito per la serie successiva.
  */
 export function evaluateRealTimePerformance(setObj, targetReps = "8-10", targetRpe = 8) {
     if (!setObj || (!setObj.weight && !setObj.reps)) return null;
@@ -243,24 +240,44 @@ export function evaluateRealTimePerformance(setObj, targetReps = "8-10", targetR
     }
 
     const expectedRpe = cleanRpeValue(targetRpe, 8);
+    
+    // Calcolo e1RM della serie appena eseguita
     const e1rm = calculateE1RM(weight, reps, rpe);
+
+    // Calcolo del carico ideale per la prossima serie (Reverse Epley)
+    // Usiamo maxReps come target ideale di ripetizioni da raggiungere
+    const targetRir = Math.max(0, 10 - expectedRpe);
+    const expectedMaxReps = maxReps + targetRir;
+    let idealNextWeight = e1rm / (1 + expectedMaxReps / 30);
+    
+    // Arrotondamento ai 2.5kg più vicini (o 1.25kg per carichi bassi)
+    if (idealNextWeight < 15) {
+        idealNextWeight = Math.round(idealNextWeight / 1.25) * 1.25;
+    } else {
+        idealNextWeight = Math.round(idealNextWeight / 2.5) * 2.5;
+    }
 
     // Analisi prestazione serie per serie da Coach
     let status = "PERFECT"; 
     let feedbackNote = "Serie perfettamente in target!";
+    let suggestedWeight = weight; // Di base mantiene il peso
 
     if (rpe > expectedRpe + 1.0) {
         status = "OVERSHOOT_RPE";
-        feedbackNote = `⚠️ **Overshooting:** RPE @${rpe} troppo alto rispetto al target @${expectedRpe}. Fatica accumulata elevata.`;
+        suggestedWeight = idealNextWeight < weight ? idealNextWeight : weight - 2.5;
+        feedbackNote = `⚠️ **Overshooting:** RPE @${rpe} troppo alto (Target @${expectedRpe}). Per la prossima serie scala a **${suggestedWeight}kg**.`;
     } else if (reps < minReps) {
         status = "UNDER_REPS";
-        feedbackNote = `🔻 **Sotto Target:** Fatte ${reps} reps su un minimo di ${minReps}. Calare leggermente il peso alla prossima serie.`;
+        suggestedWeight = idealNextWeight < weight ? idealNextWeight : weight - 2.5;
+        feedbackNote = `🔻 **Sotto Target:** Fatte ${reps} reps (minimo ${minReps}). Calo consigliato: usa **${suggestedWeight}kg** alla prossima.`;
     } else if (reps > maxReps && rpe <= expectedRpe) {
         status = "OVER_REPS";
-        feedbackNote = `🔥 **Superato Target:** Chiuse ${reps} reps (target max ${maxReps}). Ottimo margine per salire di carico!`;
+        suggestedWeight = idealNextWeight > weight ? idealNextWeight : weight + 2.5;
+        feedbackNote = `🔥 **Superato Target:** Chiuse ${reps} reps con RPE @${rpe}. Ottimo margine, sali a **${suggestedWeight}kg**.`;
     } else if (reps >= minReps && rpe <= expectedRpe - 1.5) {
         status = "UNDERSHOOT_RPE";
-        feedbackNote = `💪 **Carico Leggero:** RPE @${rpe} troppo basso rispetto a @${expectedRpe}. C'è margine per caricare di più.`;
+        suggestedWeight = idealNextWeight > weight ? idealNextWeight : weight + 2.5;
+        feedbackNote = `💪 **Carico Leggero:** RPE @${rpe} basso (Target @${expectedRpe}). C'è margine, prova con **${suggestedWeight}kg**.`;
     }
 
     return {
@@ -270,6 +287,7 @@ export function evaluateRealTimePerformance(setObj, targetReps = "8-10", targetR
         e1rm,
         status,
         feedbackNote,
+        suggestedNextWeight: suggestedWeight,
         isTargetMet: reps >= minReps && reps <= maxReps && Math.abs(rpe - expectedRpe) <= 1.0
     };
 }

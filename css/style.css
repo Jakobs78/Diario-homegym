@@ -1632,6 +1632,16 @@ input[type="date"]:focus, select:focus {
     color: #073927;
 }
 
+/* Flash visivo verde quando l'input si autocompila */
+.highlight-update {
+    animation: pulse-success 0.8s ease-out forwards;
+}
+
+@keyframes pulse-success {
+    0% { background-color: rgba(48, 209, 88, 0.25); } /* Verde in stile iOS */
+    100% { background-color: transparent; }
+}
+
 /* ==========================================================================
    MANUALE D'USO (#manual)
    ========================================================================== */
@@ -1793,3 +1803,4 @@ body.dark-mode .group-title-badge {
     background: rgba(255, 255, 255, 0.25);
     color: #ffffff !important;
 }
+
