@@ -25,6 +25,7 @@ import { applyUserToUI, checkSubscriptionStatus, deleteUserAccount } from './acc
 // Corretto il percorso dell'import relativo
 import { startCoachChatAndGenerate, generateAndDownloadMesocycleCSV } from '../mycoatch/mycoatch-adapter.js';
 import { parseCoachPreferences } from '../mycoatch/userPreferences.js';
+import { DEFAULT_HOME_GYM_ACCESSORIES } from '../mycoatch/exercisesDB.js';
 
 // Esposizione globale per eventi inline / retrocompatibilità
 window.logoutUser = logoutUser;
@@ -210,7 +211,12 @@ function setupEventListeners() {
                 customTime: customTime?.value,
                 daysPerWeek: document.getElementById('select-days')?.value,
                 userAge: document.getElementById('input-age')?.value,
-                focus: document.getElementById('select-focus')?.value
+                focus: document.getElementById('select-focus')?.value,
+                preferredLifts: Object.fromEntries(['bench', 'squat', 'military', 'hinge']
+                    .map(lift => [lift, document.getElementById('mycoatch-lift-' + lift)?.value || 'auto'])),
+                availableAccessories: [...DEFAULT_HOME_GYM_ACCESSORIES,
+                    ...Array.from(document.querySelectorAll('.mycoatch-accessory-check:checked'),
+                        input => input.value)]
             });
         } catch (error) {
             if (coachFeedback) coachFeedback.textContent = error.message;
