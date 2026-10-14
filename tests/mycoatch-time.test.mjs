@@ -96,6 +96,22 @@ test('triset: tre accessori contigui, un unico tag e recupero soltanto alla fine
     assert.equal(shouldStartRecoveryTimer(group[2], {}, 0, 3), true);
 });
 
+test('l\'ottimizzatore sceglie un triset quando il superset non basta', () => {
+    const exercises = [
+        { ...accessory('Prima spinta', 'Petto'), pattern: 'horizontal_push', equipment: 'barbell', restTime: '180s' },
+        { ...accessory('Prima tirata', 'Back_Lats'), pattern: 'vertical_pull', equipment: 'barbell', restTime: '150s' },
+        accessory('Croci', 'Petto', 3),
+        accessory('Laterali', 'Spalle', 3),
+        accessory('Curl', 'Bicipiti', 3)
+    ];
+    const result = optimizeSession(exercises, 49);
+    assert.ok(result.estimatedMinutes <= 49);
+    assert.equal(result.reducedAccessorySets, 0);
+    assert.equal(result.groupCount, 1);
+    assert.equal(result.exercises[4].groupType, 'triset');
+    assert.match(result.exercises[2].notes, /TRISET/);
+});
+
 test('timer: superserie, dropset e serie normali', () => {
     assert.equal(shouldStartRecoveryTimer({ groupType: 'superset', isGroupLast: false }, {}, 0, 3), false);
     assert.equal(shouldStartRecoveryTimer({ groupType: 'superset', isGroupLast: true }, {}, 0, 3), true);
