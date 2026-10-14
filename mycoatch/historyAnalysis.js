@@ -53,14 +53,14 @@ export function analyzeCompletedMesocycle(mesocycle) {
                     validSets: 0, status: 'insufficient_data'
                 };
                 record.validSets += sets.length;
-                record.lastKg = sets[sets.length - 1].weight;
+                record.lastKg = Math.max(...sets.map(set => set.weight));
                 const estimates = sets.map(s => estimateE1rm(s.weight, s.reps, s.rpe))
                     .filter(v => v !== null);
                 if (estimates.length) {
-                    record.exposures.push({
-                        week: Number(week.weekNumber),
-                        e1rm: Math.max(...estimates)
-                    });
+                    const weekNum = Number(week.weekNumber);
+                    const existing = record.exposures.find(p => p.week === weekNum);
+                    if (existing) existing.e1rm = Math.max(existing.e1rm, ...estimates);
+                    else record.exposures.push({ week: weekNum, e1rm: Math.max(...estimates) });
                 }
             }
         }
