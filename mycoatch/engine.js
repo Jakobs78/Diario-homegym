@@ -41,7 +41,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
 
     // 1. Parametri di recupero biologico
     const isMaster = false; // Non imporre riduzioni automatiche basate solo sull'età.
-    const deloadWeekNumber = durationWeeks;
+    const deloadWeekNumber = config.deloadWeek === false ? null : durationWeeks; // Scarico di fine blocco disattivabile.
 
     // 2. Vincoli di tempo
     const isShortTime = maxSessionMinutes <= 50;
@@ -63,7 +63,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
 
     for (let w = 1; w <= durationWeeks; w++) {
         const weekDays = [];
-        const isDeloadWeek = (w === deloadWeekNumber);
+        const isDeloadWeek = (deloadWeekNumber !== null && w === deloadWeekNumber);
 
         // Progressione dinamica del target RPE di settimana in settimana
         let rpeString = "8.0";
@@ -84,13 +84,14 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             const MAX_DAILY_CNS = 26;
             let currentDailyCNS = 0;
 
-            let rawExercises = activeSlots.map(slot => {
+            let rawExercises = activeSlots.map((slot, slotIndex) => {
                 const exercise = selectExerciseBySlot(
                     slot, 
                     analysis.stalledExercises || [], 
                     exercisesSelectedToday, 
                     currentDailyCNS, 
-                    MAX_DAILY_CNS
+                    MAX_DAILY_CNS,
+                    slotIndex
                 );
                 
                 if (exercise) {
@@ -264,7 +265,7 @@ function generateContextNote(index, isDeload, focus, useSupersets) {
     return note;
 }
 
-function selectExerciseBySlot(slot, stalledExercises, alreadySelected = [], currentCNS = 0, maxCNS = 26) {
+function selectExerciseBySlot(slot, stalledExercises, alreadySelected = [], currentCNS = 0, maxCNS = 26, slotIndex = 0) {
     // Filtro Home Gym originale
     const availableEquipment = ["barbell", "dumbbell", "bodyweight", "lat_machine", "cable"];
 
@@ -292,7 +293,9 @@ function selectExerciseBySlot(slot, stalledExercises, alreadySelected = [], curr
         return a.cnsCost - b.cnsCost;
     });
 
-    let selected = matches[0]; // Nessuna rotazione automatica per un possibile stallo.
+    const preferred = slotIndex === 0 ? (slot.muscle === "Petto" ? "Panca Piana con Bilanciere" :
+        slot.muscle === "Quadricipiti" ? "Squat con Bilanciere" : null) : null;
+    let selected = (preferred && matches.find(e => e.name === preferred)) || matches[0]; // Evita rotazioni automatiche per uno stallo non verificato.
 
     if ((currentCNS + selected.cnsCost) > maxCNS) {
         selected = { 
