@@ -456,3 +456,52 @@ test('ripetere una seduta pulisce serie reali e timestamp, non solo la spunta', 
   assert.deepEqual(monitor.remoteRequests, []);
   assert.deepEqual(monitor.pageErrors, []);
 });
+
+
+test('scelta atleta: fondamentali alternativi, controllo attrezzi, CSV e anteprima spiegata', async ({ page }) => {
+  const monitoring = await openIsolatedApp(page);
+  await startCoach(page, '60');
+  await page.locator('#mycoatch-lift-bench')
+    .selectOption('Panca Inclinata con Manubri');
+
+  // Non lascia usare un'inclinata senza aver dichiarato la panca inclinabile.
+  await page.locator('#mycoatch-submit').click();
+  await expect(page.locator('#mycoatch-form-feedback'))
+    .toContainText('richiede attrezzatura');
+  await expect(page.locator('#mycoatch-config-modal')).not.toHaveClass(/hidden/);
+  await page.locator('.mycoatch-accessory-check[value="incline_bench"]').check();
+
+  await page.locator('#mycoatch-lift-squat').selectOption('Front Squat');
+  await page.locator('#mycoatch-lift-military')
+    .selectOption('Spinte con Manubri da Seduto');
+  await page.locator('#mycoatch-lift-hinge')
+    .selectOption('Stacco da Terra Convenzionale');
+
+  const previews = [];
+  page.on('dialog', async dialog => {
+    if (dialog.type() === 'confirm') previews.push(dialog.message());
+    await dialog.accept();
+  });
+  const downloaded = page.waitForEvent('download', { timeout: 20000 });
+  await page.locator('#mycoatch-submit').click();
+  const csv = await readFile(await (await downloaded).path(), 'utf8');
+  const firstWeek = csv.trim().split(/\r?\n/).slice(1).filter(row => row.startsWith('1;'));
+  const firstByDay = Object.fromEntries(firstWeek
+    .map(row => row.split(';')).filter(parts => parts[2] === '1')
+    .map(parts => [Number(parts[1]), parts[3]]));
+  assert.deepEqual(firstByDay, {
+    1: 'Panca Inclinata con Manubri',
+    2: 'Front Squat',
+    3: 'Spinte con Manubri da Seduto',
+    4: 'Stacco da Terra Convenzionale'
+  });
+  assert.ok(previews.some(p => p.includes('Movimenti cardine:') &&
+    p.includes('Panca Inclinata con Manubri') &&
+    p.includes('Stacco da Terra Convenzionale')));
+  assert.match(csv, /\[SCELTA MYCOATCH\]/);
+  for (const line of csv.trim().split(/\r?\n/).slice(1)) {
+    assert.equal(line.split(';').length, 12);
+  }
+  assert.deepEqual(monitoring.remoteRequests, []);
+  assert.deepEqual(monitoring.pageErrors, []);
+});
