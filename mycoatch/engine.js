@@ -3,6 +3,7 @@ import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { analyzeCompletedMesocycle } from './historyAnalysis.js';
 import { canonicalExerciseKey } from './exerciseIdentity.js';
 import { optimizeSession } from './groupOptimizer.js';
+import { rebalanceWeeklyAccessories } from './weeklyVolumeBalancer.js';
 
 /**
  * Punti di riferimento del volume ipertrofico settimanale (Evidence-Based) - Spacchettati per distretto anatomico
@@ -64,6 +65,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
 
     for (let w = 1; w <= durationWeeks; w++) {
         const weekDays = [];
+        const intendedDays = [];
         const volumeAdjustmentsApplied = new Set();
         const isDeloadWeek = (deloadWeekNumber !== null && w === deloadWeekNumber);
 
@@ -228,18 +230,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 };
             });
 
+            intendedDays.push(processedExercises);
             const timedPlan = optimizeSession(processedExercises, maxSessionMinutes);
-            const durationNote = `[DURATA STIMATA] ${timedPlan.estimatedMinutes} minuti su ${maxSessionMinutes} disponibili.`;
-            const adjustments = [];
-            if (timedPlan.reducedAccessorySets) adjustments.push(`${timedPlan.reducedAccessorySets} serie accessorie ridotte`);
-            if (timedPlan.removedAccessoryExercises) adjustments.push(`${timedPlan.removedAccessoryExercises} accessori rimossi`);
-            if (adjustments.length) {
-                adjustments.push('verificare il volume settimanale degli accessori');
-            }
-            // Il CSV non contiene colonne extra: rendiamo visibili stima e compromessi nelle Note.
-            timedPlan.exercises[0].notes = [timedPlan.exercises[0].notes, durationNote,
-                adjustments.length ? '[TEMPO RIDOTTO] ' + adjustments.join(', ') + '.' : '']
-                .filter(Boolean).join(' | ');
             weekDays.push({
                 dayNumber: dayIndex + 1,
                 dayName: dayTemplate.name,
@@ -247,9 +239,36 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             });
         });
 
+        // Il limite di minuti si applica a OGNI giornata. Solo dopo avere
+        // costruito la settimana si possono recuperare accessori nei giorni
+        // compatibili con margine sufficiente. Non modificare il deload.
+        const balanced = rebalanceWeeklyAccessories(
+            weekDays, intendedDays, maxSessionMinutes, { isDeloadWeek }
+        );
+        for (const day of balanced.days) {
+            const durationNote = `[DURATA STIMATA] ${day.estimatedMinutes} minuti su ${maxSessionMinutes} disponibili.`;
+            const adjustments = [];
+            if (day.reducedAccessorySets) adjustments.push(`${day.reducedAccessorySets} serie accessorie ridotte`);
+            if (day.removedAccessoryExercises) adjustments.push(`${day.removedAccessoryExercises} esercizi rimossi`);
+            if (day.transferredAccessorySetsIn) {
+                adjustments.push(`${day.transferredAccessorySetsIn} serie accessorie recuperate da altri giorni`);
+            }
+            if (day.transferredAccessorySetsOut) {
+                adjustments.push(`${day.transferredAccessorySetsOut} serie recuperate su un altro giorno`);
+            }
+            if (adjustments.length) {
+                adjustments.push('verificare il riepilogo del volume settimanale');
+            }
+            // Il CSV resta a 12 colonne: note con stima e compromessi.
+            day.exercises[0].notes = [
+                day.exercises[0].notes, durationNote,
+                adjustments.length ? '[TEMPO RIDOTTO] ' + adjustments.join(', ') + '.' : ''
+            ].filter(Boolean).join(' | ');
+        }
         weeks.push({
             weekNumber: w,
-            days: weekDays
+            days: balanced.days,
+            volumeBalance: balanced.report
         });
     }
 
