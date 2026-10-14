@@ -26,5 +26,7 @@ jobs:
           for file in mycoatch/*.js; do
             node --experimental-default-type=module --check "$file"
           done
+          node --experimental-default-type=module --check js/main.js
+          node --experimental-default-type=module --check js/bottomSheet.js
       - name: Run MyCoatch unit and integration tests
         run: node --experimental-default-type=module --test tests/*.test.mjs
