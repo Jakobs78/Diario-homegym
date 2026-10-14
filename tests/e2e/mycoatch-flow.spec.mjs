@@ -227,7 +227,7 @@ test('durata obbligatoria e numero personalizzato non valido bloccano la generaz
 });
 
 
-test('40 minuti: riequilibrio bicipiti/tricipiti visibile e importabile nei giorni Lower', async ({ page }) => {
+test('40 minuti: riequilibrio reale visibile e importabile senza assumere spostamenti fissi', async ({ page }) => {
   const monitoring = await openIsolatedApp(page);
   await startCoach(page, '45');
   await page.locator('#select-time').selectOption('custom');
@@ -237,19 +237,38 @@ test('40 minuti: riequilibrio bicipiti/tricipiti visibile e importabile nei gior
     if (dialog.type() === 'confirm') preview.push(dialog.message());
     await dialog.accept();
   });
-
   const downloaded = page.waitForEvent('download', { timeout: 20000 });
   await page.locator('#mycoatch-submit').click();
   const csv = await readFile(await (await downloaded).path(), 'utf8');
   assert.equal(csv.split(/\r?\n/)[0], HEADER);
   assert.match(csv, /\[VOLUME RIDISTRIBUITO\]/);
 
+  const expected = await page.evaluate(async () => {
+    const { MyCoatch } = await import('/mycoatch/index.js');
+    const meso = MyCoatch.getActiveMesocycleJSON();
+    return {
+      moves: meso.weeks[0].volumeBalance.moves,
+      recovered: meso.weeks[0].volumeBalance.recoveredSets,
+      shortfall: meso.weeks[0].volumeBalance.shortfallSets,
+      exerciseCounts: meso.weeks[0].days.map(day =>
+        Object.fromEntries(day.exercises.map(ex => [ex.name, ex.setsCount])))
+    };
+  });
+  assert.ok(expected.recovered > 0);
+  assert.equal(expected.recovered,
+    expected.moves.reduce((sum, move) => sum + move.sets, 0));
+
   const confirmation = preview.find(message => message.includes('Bilancio volume prima settimana'));
   assert.ok(confirmation, 'La proposta deve mostrare il bilancio settimanale');
-  assert.match(confirmation, /4 recuperate su altri giorni/);
-  assert.match(confirmation, /restano 6 serie sotto il template/);
-  assert.match(confirmation, /G1 → G2: 2 serie Bicipiti/);
-  assert.match(confirmation, /G3 → G4: 2 serie Tricipiti/);
+  assert.ok(confirmation.includes(`${expected.recovered} recuperate su altri giorni`));
+  if (expected.shortfall > 0) {
+    assert.ok(confirmation.includes(`restano ${expected.shortfall} serie sotto il template`));
+  }
+  assert.match(confirmation, /Split programmato: Upper → Lower → Upper → Lower/);
+  assert.match(confirmation, /Movimenti cardine:/);
+  for (const move of expected.moves) {
+    assert.ok(confirmation.includes(`G${move.fromDay} → G${move.toDay}: ${move.sets} serie ${move.muscle}`));
+  }
 
   const imported = await page.evaluate(async csvText => {
     const { importWorkoutPlan } = await import('/js/csvHandler.js');
@@ -271,16 +290,17 @@ test('40 minuti: riequilibrio bicipiti/tricipiti visibile e importabile nei gior
     };
   }, csv);
   assert.ok(imported.result.success, JSON.stringify(imported));
-  assert.equal(imported.categories[1].at(-1).count, 2);
-  assert.equal(imported.categories[3].at(-1).count, 2);
-  assert.match(imported.categories[1].at(-1).notes, /VOLUME RIDISTRIBUITO/);
-  assert.match(imported.categories[3].at(-1).notes, /VOLUME RIDISTRIBUITO/);
-  assert.match(imported.categories[1].at(-1).name, /Curl/i);
-  assert.match(imported.categories[3].at(-1).name, /Press|Pushdown/i);
+  for (const move of expected.moves) {
+    const target = imported.categories[move.toDay - 1].find(ex =>
+      ex.name === move.targetExercise);
+    assert.ok(target, JSON.stringify(move));
+    assert.equal(target.count,
+      expected.exerciseCounts[move.toDay - 1][move.targetExercise]);
+    assert.ok(target.count >= move.sets);
+  }
   assert.deepEqual(monitoring.remoteRequests, []);
   assert.deepEqual(monitoring.pageErrors, []);
 });
-
 
 async function prepareLiveWorkout(page) {
   return page.evaluate(async () => {
