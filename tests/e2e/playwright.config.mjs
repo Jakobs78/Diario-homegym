@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
@@ -15,6 +16,7 @@ export default defineConfig({
   },
   webServer: {
     command: 'python3 -m http.server 4173 --bind 127.0.0.1',
+    cwd: fileURLToPath(new URL('../../', import.meta.url)),
     url: 'http://127.0.0.1:4173/index.html',
     timeout: 20000,
     reuseExistingServer: false
