@@ -119,7 +119,7 @@ const SLOT_PREFERENCES = {
         'Pushdown ai Cavi', 'French Press con Bilanciere EZ'
     ],
     'Polpacci:isolation': ['Calf Raise in Piedi con Manubri', 'Calf Raise Monopodalico'],
-    'Core:isolation': ['Crunch ai Cavi', 'Pallof Press ai Cavi', 'Plank']
+    'Core:isolation': ['Crunch ai Cavi', 'Pallof Press ai Cavi', 'Reverse Crunch su Panca']
 };
 
 function scoreCandidate(exercise, slot, options) {
