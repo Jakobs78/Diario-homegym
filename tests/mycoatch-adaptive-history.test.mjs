@@ -133,9 +133,8 @@ test('fatica ripetuta e regression: riduzione del carico e una serie accessoria 
 });
 
 test('stallo con buona aderenza e RPE moderato: +1 serie accessoria se il tempo lo consente', () => {
-    const meso = mesocycle('Stallo', [
-        [[80, 7, '@7']], [[80, 7, '@7']], [[80, 7, '@7']]
-    ]);
+    const stableSets = Array.from({ length: 3 }, () => [80, 7, '@7']);
+    const meso = mesocycle('Stallo', [stableSets, stableSets, stableSets]);
     const report = analyzeTrainingHistory(historyOf(years(2026, meso)));
     const decision = planAdaptiveDecisions(report);
     assert.equal(decision.byExercise[canonicalExerciseKey('panca')].action, 'review_stall');
@@ -151,6 +150,9 @@ test('deload RPE basso non diventa riferimento artificioso per il nuovo carico',
         [[80, 8, '@8']], [[82.5, 8, '@8']], [[85, 7, '@8']],
         [[60, 6, '@6.5']]
     ]);
+    // Uno scarico è identificato dal target prescritto, non da un RPE casualmente basso.
+    meso.weeks.at(-1).days[0].exercises[0].targetRpe = '@6.5';
+    meso.weeks.at(-1).days[0].exercises[0].rpe = '@6.5';
     const report = analyzeTrainingHistory(historyOf(years(2026, meso)));
     const bench = report.byExercise[canonicalExerciseKey('panca')];
     assert.equal(bench.lastKg, 85);
