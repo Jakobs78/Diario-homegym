@@ -412,8 +412,10 @@ export function getTemplateForDays(daysPerWeek = 3) {
                     'Panca Inclinata con Manubri', 'Panca Inclinata con Bilanciere',
                     'Push-up a Terra'
                 ] },
-                { muscle: 'Back_Lats', pattern: 'vertical_pull', optional: true },
+                // I tricipiti hanno la priorità sui richiami facoltativi del dorso:
+                // la spinta verticale non sostituisce sempre serie dirette di estensione.
                 { muscle: 'Tricipiti', pattern: 'isolation' },
+                { muscle: 'Back_Lats', pattern: 'vertical_pull', optional: true },
                 { muscle: 'Spalle', pattern: 'isolation', prefer: [
                     'Alzate Posteriori con Manubri', 'Face Pull ai Cavi',
                     'Reverse Fly ai Cavi'
