@@ -241,6 +241,49 @@
             </div>
         </div>
 
+        <!-- Configurazione MyCoatch: il tempo è richiesto a ogni generazione -->
+        <div id="mycoatch-config-modal" class="bottom-sheet-overlay hidden">
+            <div class="bottom-sheet-content mycoatch-config-sheet" role="dialog" aria-modal="true" aria-labelledby="mycoatch-config-title">
+                <div class="bottom-sheet-header">
+                    <span id="mycoatch-config-title">🤖 Crea il tuo mesociclo</span>
+                    <button id="close-mycoatch-config" type="button" class="close-sheet" aria-label="Chiudi configurazione">&times;</button>
+                </div>
+                <form id="mycoatch-config-form" class="mycoatch-config-form">
+                    <label for="select-time">Quanto tempo hai a disposizione per ogni allenamento?</label>
+                    <select id="select-time" name="maxSessionMinutes" required>
+                        <option value="" selected disabled>Seleziona la durata massima…</option>
+                        <option value="30">30 minuti</option>
+                        <option value="45">45 minuti</option>
+                        <option value="60">60 minuti</option>
+                        <option value="75">75 minuti</option>
+                        <option value="90">90 minuti</option>
+                        <option value="120">120 minuti</option>
+                        <option value="custom">Altro tempo…</option>
+                    </select>
+                    <div id="mycoatch-custom-time-wrap" class="hidden">
+                        <label for="mycoatch-custom-time">Durata personalizzata (25–180 minuti)</label>
+                        <input id="mycoatch-custom-time" name="customMinutes" type="number" min="25" max="180" step="1" inputmode="numeric" placeholder="Es. 50" disabled>
+                    </div>
+                    <label for="select-days">Quanti giorni vuoi allenarti a settimana?</label>
+                    <select id="select-days" name="daysPerWeek" required>
+                        <option value="3">3 giorni</option>
+                        <option value="4" selected>4 giorni</option>
+                    </select>
+                    <label for="input-age">Età</label>
+                    <input id="input-age" type="number" min="18" max="100" step="1" inputmode="numeric" placeholder="Età in anni" required>
+                    <label for="select-focus">Obiettivo principale</label>
+                    <select id="select-focus" name="focus" required>
+                        <option value="hybrid" selected>Powerbuilding — forza e ipertrofia</option>
+                        <option value="strength">Forza</option>
+                        <option value="hypertrophy">Ipertrofia</option>
+                    </select>
+                    <p class="mycoatch-form-hint">MyCoatch usa la durata scelta per progettare la seduta. Il riscaldamento generale non è obbligatorio; le serie di avvicinamento ai fondamentali restano consigliate.</p>
+                    <p id="mycoatch-form-feedback" class="mycoatch-form-feedback" role="alert" aria-live="polite"></p>
+                    <button id="mycoatch-submit" type="submit" class="btn btn-primary">Genera e scarica CSV</button>
+                </form>
+            </div>
+        </div>
+
         <!-- Modale Importazione Scheda Allenamento -->
         <div id="import-plan-modal" class="hidden d-none">
             <div class="modal-content">
