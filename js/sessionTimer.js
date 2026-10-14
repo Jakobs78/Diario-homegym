@@ -132,16 +132,22 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
             
             actionBtn.onclick = () => {
                 if (confirm("Vuoi azzerare il timer per ripetere la sessione?")) {
-                    currentDay.sessionStart = Date.now();
+                    currentDay.sessionStart = null; // Parte dal prossimo set realmente confermato.
                     currentDay.accumulatedSeconds = 0;
                     currentDay.isPaused = false;
                     currentDay.completed = false;
                     currentDay.totalDurationMinutes = undefined;
-                    
-                    exercises.forEach(ex => (ex.loggedSets || []).forEach(s => {
-                        s.isLocked = false;
-                        s.completed = false;
-                        delete s.completedAt;
+                    delete currentDay.sessionCompletedAt;
+
+                    exercises.forEach(ex => (ex.loggedSets || []).forEach((set, index) => {
+                        set.isLocked = false;
+                        set.completed = false;
+                        delete set.completedAt;
+                        if (Array.isArray(ex.sets) && ex.sets[index]) {
+                            ex.sets[index].isLocked = false;
+                            ex.sets[index].completed = false;
+                            delete ex.sets[index].completedAt;
+                        }
                     }));
                     
                     saveAndSync(state.workoutData);
