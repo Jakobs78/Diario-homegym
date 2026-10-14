@@ -73,7 +73,28 @@ async function openIsolatedApp(page) {
   });
   await expect(page.locator('#open-tools-btn')).toBeVisible();
   // Aspetta il rendering del mesociclo: certifica che main.js e gli event listener siano stati inizializzati.
-  await expect(page.locator('#meso-display')).toHaveText('1');
+  try {
+    await expect(page.locator('#meso-display')).toHaveText('1', { timeout: 3000 });
+  } catch (error) {
+    const diagnostics = await page.evaluate(async () => {
+      const raw = localStorage.getItem('workoutApp_data');
+      let currentState;
+      try {
+        const module = await import('/js/state.js');
+        currentState = { activeYear: module.state.currentYear,
+          workoutYears: Object.keys(module.state.workoutData?.history?.years || {}),
+          currentUser: module.state.currentUser?.email || null };
+      } catch (importError) { currentState = { error: String(importError) }; }
+      return {
+        localStorageBytes: raw?.length || 0,
+        currentState,
+        appText: document.getElementById('workout-list-container')?.textContent?.slice(0, 400),
+        mainScript: Boolean(document.querySelector('script[src="js/main.js"]'))
+      };
+    });
+    throw new Error('Browser initialization failure: ' +
+      JSON.stringify({ diagnostics, pageErrors }, null, 2) + '\\n' + error.message);
+  }
   assert.deepEqual(remoteRequests, []);
   return { remoteRequests, pageErrors };
 }
