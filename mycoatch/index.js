@@ -1,7 +1,9 @@
 // mycoatch/index.js
 import { coachState } from './state.js';
 import { generateSmartMesocycle } from './engine.js';
-import { analyzeCompletedMesocycle } from './historyAnalysis.js';
+import { analyzeTrainingHistory } from './historyInsights.js';
+import { planAdaptiveDecisions } from './adaptiveDecisions.js';
+import { compareMesocyclePlans } from './mesocycleComparison.js';
 import { analyzeUserHistory, evaluateRealTimePerformance, calculateE1RM } from './autoregulation.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 
@@ -10,27 +12,36 @@ export const MyCoatch = {
      * Analizza lo storico reale e genera il nuovo mesociclo in formato JSON pronto per la webapp.
      */
     generateNextFromHistory(userHistory, goalSettings = {}) {
-        const historyObj = userHistory?.history || userHistory || {};
-        const yearsObj = historyObj.years || {};
-        const years = Object.keys(yearsObj).sort((a, b) => Number(a) - Number(b));
-        
-        const currentYear = years[years.length - 1] || new Date().getFullYear();
-        const mesocycles = yearsObj[currentYear]?.mesocycles || [];
-        const lastMesocycle = mesocycles[mesocycles.length - 1] || null;
+        // Analisi longitudinale: tutti gli anni e i mesocicli, soltanto serie confermate.
+        const report = analyzeTrainingHistory(userHistory);
+        const decisions = planAdaptiveDecisions(report);
+        const analysis = { ...report, decisions };
 
-        // 1. Analisi stalli e performance pregresse
-        const analysis = analyzeCompletedMesocycle(lastMesocycle);
-        
-        // 2. Aggiornamento stato globale del Coach
         if (Object.keys(goalSettings).length > 0) {
             coachState.updateConfig(goalSettings);
         }
         const config = coachState.getConfig();
-        
-        // 3. Generazione e attivazione mesociclo
-        const newMesocycle = generateSmartMesocycle(config, analysis, lastMesocycle);
+
+        // I dati storici non vengono modificati: proponiamo un mesociclo separato.
+        const newMesocycle = generateSmartMesocycle(config, analysis, report.lastMesocycle);
+        const comparison = compareMesocyclePlans(report.lastMesocycle, newMesocycle, analysis);
+        newMesocycle.coachReport = {
+            inspectedYears: report.inspectedYears,
+            inspectedMesocycles: report.inspectedMesocycles,
+            sessionsAnalyzed: report.sessionsAnalyzed,
+            exerciseSignals: Object.values(report.byExercise).map(item => ({
+                name: item.name, status: item.status,
+                e1rmChangePct: item.e1rmChangePct,
+                lastKg: item.lastKg, avgRpe: item.avgRpe,
+                exposuresCount: item.exposuresCount
+            })),
+            muscleSignals: report.byMuscle,
+            decisions,
+            comparison,
+            notice: 'Stima di prestazione e stimolo allenante, non misura diretta della crescita muscolare.'
+        };
         coachState.setActiveMesocycle(newMesocycle);
-        
+
         return newMesocycle;
     },
 
