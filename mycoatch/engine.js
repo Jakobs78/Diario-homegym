@@ -1,6 +1,7 @@
 // mycoatch/engine.js
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { exerciseKey } from './historyAnalysis.js';
+import { optimizeSession } from './groupOptimizer.js';
 
 /**
  * Punti di riferimento del volume ipertrofico settimanale (Evidence-Based) - Spacchettati per distretto anatomico
@@ -44,15 +45,14 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
     const deloadWeekNumber = config.deloadWeek === false ? null : durationWeeks; // Scarico di fine blocco disattivabile.
 
     // 2. Vincoli di tempo
-    const isShortTime = maxSessionMinutes <= 50;
-    const useSupersets = maxSessionMinutes <= 60;
+    // Il vincolo è il tempo realmente stimato, non un taglio prefissato degli slot.
 
     const templateDays = getTemplateForDays(daysPerWeek);
     
     // Calcolo della frequenza settimanale reale per ogni gruppo muscolare nel template
     const muscleFrequencyMap = {};
     templateDays.forEach(day => {
-        const slots = isShortTime ? day.slots.slice(0, 4) : day.slots;
+        const slots = day.slots;
         slots.forEach(slot => {
             const mainMuscle = slot.muscle;
             muscleFrequencyMap[mainMuscle] = (muscleFrequencyMap[mainMuscle] || 0) + 1;
@@ -76,7 +76,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
         }
 
         templateDays.forEach((dayTemplate, dayIndex) => {
-            const activeSlots = isShortTime ? dayTemplate.slots.slice(0, 4) : dayTemplate.slots;
+            const activeSlots = dayTemplate.slots;
             
             const exercisesSelectedToday = [];
             
@@ -147,7 +147,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 }
 
                 let topsetStr = "";
-                let noteFinal = autoNote + generateContextNote(index, isDeloadWeek, focus, useSupersets && dayTemplate.slots.length === 5 && index === 3) + (exItem.noteOverride ? " | " + exItem.noteOverride : "");
+                let noteFinal = autoNote + generateContextNote(index, isDeloadWeek, focus) + (exItem.noteOverride ? " | " + exItem.noteOverride : "");
 
                 const isFirstCompound = index === 0 && ["squat", "hinge", "horizontal_push", "vertical_push", "vertical_pull"].includes(ex.pattern);
                 
@@ -196,7 +196,10 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     reps: reps,
                     kgMin: String(targetKgMin),
                     kgMax: String(targetKgMax),
-                    restTime: index === 0 ? "180s" : (ex.pattern === "isolation" ? (useSupersets && dayTemplate.slots.length === 5 && index === 4 ? "75s" : "90s") : "150s"),
+                    restTime: index === 0 ? "180s" : (ex.pattern === "isolation" ? "90s" : "150s"),
+                    category: ex.category,
+                    pattern: ex.pattern,
+                    equipment: ex.equipment,
                     topset: topsetStr,
                     rpe: rpeString,
                     notes: noteFinal, // <-- Visibile direttamente nel tab delle note della WebApp per spiegare le decisioni
@@ -204,10 +207,11 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 };
             });
 
+            const timedPlan = optimizeSession(processedExercises, maxSessionMinutes);
             weekDays.push({
                 dayNumber: dayIndex + 1,
                 dayName: dayTemplate.name,
-                exercises: processedExercises
+                ...timedPlan
             });
         });
 
@@ -245,7 +249,7 @@ function calculateTargetSets({ category = "", focusMuscleGroup, isDeloadWeek, we
     return Math.max(2, Math.min(targetSets, maxAllowed));
 }
 
-function generateContextNote(index, isDeload, focus, useSupersets) {
+function generateContextNote(index, isDeload, focus) {
     let note;
     if (isDeload) {
         note = "🛡️ Scarico attivo: mantieni il controllo eccentrico, fermati a 2-3 RIR dal cedimento.";
@@ -259,9 +263,6 @@ function generateContextNote(index, isDeload, focus, useSupersets) {
         note = "💧 Gestione metabolica: controlla la fase negativa (2-3s) ed evita slanci parassiti.";
     }
 
-    if (useSupersets) {
-        note += " [SUPERSERIE]: Accoppia questo esercizio con il successivo, senza recupero intermedio e avvia il timer alla fine della coppia.";
-    }
     return note;
 }
 
