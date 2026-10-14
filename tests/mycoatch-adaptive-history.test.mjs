@@ -164,7 +164,12 @@ test('se lo storico manca, genera una scheda non personalizzata senza inventare 
     assert.equal(meso.coachReport.sessionsAnalyzed, 0);
     assert.equal(meso.coachReport.inspectedMesocycles, 0);
     assert.equal(meso.weeks[0].days[0].exercises[0].kgMin, '');
-    assert.match(meso.coachReport.comparison.warnings.join(''), /^$/);
+    // Il pianificatore può segnalare tagli dovuti a una durata insufficiente
+    // anche per il primo mesociclo; non deve inventare regressioni storiche.
+    assert.ok(meso.coachReport.comparison.warnings.every(
+        warning => warning.includes('limite di tempo')
+    ));
+    assert.ok(meso.coachReport.exerciseSignals.length === 0);
 });
 
 test('prima settimana: confronto strutturato tra il mesociclo precedente e la proposta', () => {
