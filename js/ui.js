@@ -13,7 +13,7 @@ import { updateSessionHeaderUI } from './sessionTimer.js';
 import { bindWorkoutTableEvents } from './workoutEvents.js';
 import { parseCoachPDF } from './pdfParser.js';
 import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
-import { createLiveCoachPanel, updateLiveCoachPanel } from './liveCoachUI.js';
+import { createLiveCoachPanel, updateLiveCoachPanel, refreshLiveCoachClock } from './liveCoachUI.js';
 import { toggleCurrentMesocycleLock } from './mesocycle.js';
 
 export const DOM = {
@@ -299,7 +299,7 @@ export function renderWorkoutList() {
         const secs = totalSecs % 60;
         timerEl.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
         // Il coach segue l'avanzamento senza ricaricare le schede a ogni secondo.
-        if (totalSecs % 10 === 0) updateLiveCoachPanel(currentDay, { readOnly: isPastMeso });
+        if (totalSecs % 10 === 0) refreshLiveCoachClock(currentDay);
     }, 1000);
 
     updateSessionHeaderUI(currentDay, renderWorkoutList);
