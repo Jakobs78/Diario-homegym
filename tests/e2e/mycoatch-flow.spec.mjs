@@ -1,0 +1,203 @@
+import { test, expect } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+
+const ORIGIN = 'http://127.0.0.1:4173';
+const HEADER = 'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset';
+
+// Non usa dati del proprietario e non effettua alcuna richiesta a Supabase.
+const sample = (kg, reps, rpe) => ({
+  weight: String(kg), reps: String(reps), rpe: String(rpe), isLocked: true, completed: true
+});
+const week = (weekNumber, weight) => ({
+  weekNumber,
+  days: [{
+    dayNumber: 1,
+    dayName: 'Upper A',
+    exercises: [{
+      block: 1, name: 'Panca Piana con Bilanciere', set: '1 set',
+      reps: '6-8', kgMin: String(weight), kgMax: String(weight),
+      rpe: '@8', targetRpe: '@8', recupero: '180s',
+      notes: 'Test sintetico', loggedSets: [sample(weight, 8, 8)]
+    }]
+  }]
+});
+const fixture = {
+  athlete: { email: 'test-e2e@invalid.example' },
+  history: { years: {
+    2025: { mesocycles: [{ name: 'Primo mesociclo', weeks: [week(1, 70)] }] },
+    2026: { mesocycles: [{
+      name: 'Secondo mesociclo',
+      weeks: [week(1, 72.5), week(2, 75), week(3, 77.5)]
+    }] }
+  }}
+};
+
+const offlineConfig = `
+export const CONFIG = { STORAGE_KEY: 'workoutApp_data', APP_VERSION: 'e2e-isolated' };
+export const supabase = {
+  auth: {
+    async getUser() { return { data: { user: null } }; },
+    async getSession() { return { data: { session: null } }; },
+    onAuthStateChange() {
+      return { data: { subscription: { unsubscribe() {} } } };
+    },
+    async signOut() { return { error: null }; }
+  },
+  from() { throw new Error('E2E security violation: remote Supabase queried'); },
+  functions: { invoke() { throw new Error('Unexpected function call'); } }
+};
+`;
+
+async function openIsolatedApp(page) {
+  const remoteRequests = [];
+  const pageErrors = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
+  page.on('request', request => {
+    if (request.url().includes('supabase.co')) remoteRequests.push(request.url());
+  });
+  await page.route('**/*', async route => {
+    if (route.request().url().startsWith(ORIGIN)) return route.continue();
+    return route.abort(); // Non contattare CDN, Supabase o la produzione.
+  });
+  await page.route('**/js/config.js', route =>
+    route.fulfill({ status: 200, contentType: 'application/javascript', body: offlineConfig }));
+  await page.addInitScript(seed => {
+    localStorage.setItem('workoutApp_data', JSON.stringify(seed));
+    localStorage.setItem('dev_banner_closed', 'true');
+  }, fixture);
+  await page.goto('/index.html', { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => {
+    const auth = document.getElementById('auth-overlay');
+    if (auth) auth.style.display = 'none';
+  });
+  await expect(page.locator('#open-tools-btn')).toBeVisible();
+  // Aspetta il rendering del mesociclo: certifica che main.js e gli event listener siano stati inizializzati.
+  await expect(page.locator('#meso-display')).toHaveText('1');
+  assert.deepEqual(remoteRequests, []);
+  return { remoteRequests, pageErrors };
+}
+
+async function startCoach(page, minutes = '45') {
+  await page.locator('#open-tools-btn').click();
+  await page.locator('[data-action="generate-mycoatch-csv"]').click();
+  await expect(page.locator('#mycoatch-config-modal')).not.toHaveClass(/hidden/);
+  await expect(page.locator('#select-time')).toHaveValue('');
+  await page.locator('#select-time').selectOption(minutes);
+  await page.locator('#select-days').selectOption('4');
+  await page.locator('#input-age').fill('49');
+  await page.locator('#select-focus').selectOption('hybrid');
+}
+
+test('percorso reale: tempo scelto, storico multianno, anteprima, download, import e timer superset', async ({ page }) => {
+  const monitoring = await openIsolatedApp(page);
+  await startCoach(page);
+
+  const dialogues = [];
+  page.on('dialog', async dialog => {
+    dialogues.push({ type: dialog.type(), text: dialog.message() });
+    await dialog.accept();
+  });
+
+  const downloadPromise = page.waitForEvent('download', { timeout: 20000 });
+  await page.locator('#mycoatch-submit').click();
+  const download = await downloadPromise;
+  const csv = await readFile(await download.path(), 'utf8');
+  assert.ok(download.suggestedFilename().endsWith('.csv'));
+  assert.equal(csv.split(/\r?\n/)[0], HEADER);
+  const rows = csv.trim().split(/\r?\n/);
+  assert.ok(rows.length > 25);
+  for (const row of rows.slice(1)) assert.equal(row.split(';').length, 12, row);
+  assert.ok(rows.some(row => row.includes('[DURATA STIMATA]')));
+  assert.ok(rows.some(row => row.includes('[SUPERSERIE]')));
+  assert.ok(dialogues.some(d => d.type === 'confirm' &&
+    d.text.includes('2 mesocicli') && d.text.includes('Confermi la proposta')));
+  assert.ok(dialogues.some(d => d.type === 'alert' && d.text.includes('successo')));
+
+  const storedAfter = await page.evaluate(() => JSON.parse(localStorage.getItem('workoutApp_data')));
+  assert.deepEqual(storedAfter, fixture, 'Il download non deve sovrascrivere lo storico');
+
+  // Importazione effettuata con il vero parser della webapp e lo stesso CSV scaricato.
+  const imported = await page.evaluate(async content => {
+    const { importWorkoutPlan } = await import('/js/csvHandler.js');
+    const { state } = await import('/js/state.js');
+    const { renderWorkoutList } = await import('/js/ui.js');
+    const result = importWorkoutPlan(content);
+    if (!result.success) return { result };
+    renderWorkoutList();
+    const years = state.workoutData.history.years;
+    const current = years[new Date().getFullYear()].mesocycles.at(-1);
+    const day = current.weeks[0].days[0];
+    return {
+      result, totalMesocycles: years[new Date().getFullYear()].mesocycles.length,
+      exerciseCount: day.exercises.length,
+      group: day.exercises.map((ex, index) => ({ index, groupType: ex.groupType,
+        isGroupLast: ex.isGroupLast, notes: ex.notes }))
+        .filter(ex => ex.groupType === 'superset'),
+      recovery: day.exercises.map(ex => ex.recupero)
+    };
+  }, csv);
+  assert.ok(imported.result.success, JSON.stringify(imported));
+  assert.equal(imported.totalMesocycles, 2);
+  assert.ok(imported.exerciseCount >= 4);
+  assert.equal(imported.group.length, 2);
+  assert.equal(imported.group[0].isGroupLast, false);
+  assert.equal(imported.group[1].isGroupLast, true);
+  assert.ok(imported.recovery.every(x => /^\d+s$/.test(x)));
+
+  // Gli stessi checkbox e listener usati dall'utente: prima serie del primo
+  // accessorio in superserie non deve avviare il timer; il secondo sì.
+  async function completeSet(exIndex) {
+    await page.locator(`.set-kg[data-ex="${exIndex}"][data-set="0"]`).fill('10');
+    await page.locator(`.set-reps[data-ex="${exIndex}"][data-set="0"]`).fill('12');
+    await page.locator(`.set-rpe[data-ex="${exIndex}"][data-set="0"]`).fill('8');
+    await page.locator(`.set-lock-check[data-ex="${exIndex}"][data-set="0"]`).check();
+  }
+  await completeSet(imported.group[0].index);
+  await expect(page.locator('#floating-timer')).not.toHaveClass(/active/);
+  await completeSet(imported.group[1].index);
+  await expect(page.locator('#floating-timer')).toHaveClass(/active/);
+  const timerDisplay = await page.locator('#timer-display').textContent();
+  assert.match(timerDisplay, /^\d\d:\d\d$/);
+  assert.deepEqual(monitoring.remoteRequests, []);
+  assert.deepEqual(monitoring.pageErrors, []);
+});
+
+test('annullare l\'anteprima non scarica il CSV né modifica lo storico', async ({ page }) => {
+  const monitoring = await openIsolatedApp(page);
+  await startCoach(page, '60');
+  const dialogs = [];
+  let downloads = 0;
+  page.on('download', () => { downloads++; });
+  page.on('dialog', async dialog => {
+    dialogs.push(dialog.type());
+    if (dialog.type() === 'confirm') await dialog.dismiss();
+    else await dialog.accept();
+  });
+  await page.locator('#mycoatch-submit').click();
+  await expect(page.locator('#mycoatch-form-feedback')).toContainText('nessun file CSV scaricato');
+  assert.ok(dialogs.includes('confirm'));
+  assert.equal(downloads, 0);
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('workoutApp_data')));
+  assert.deepEqual(stored, fixture);
+  const active = await page.evaluate(async () => {
+    const { MyCoatch } = await import('/mycoatch/index.js');
+    return MyCoatch.getActiveMesocycleJSON();
+  });
+  assert.equal(active, null);
+  assert.deepEqual(monitoring.remoteRequests, []);
+  assert.deepEqual(monitoring.pageErrors, []);
+});
+
+test('durata obbligatoria e numero personalizzato non valido bloccano la generazione', async ({ page }) => {
+  await openIsolatedApp(page);
+  await startCoach(page, '45');
+  await page.locator('#select-time').selectOption('custom');
+  await expect(page.locator('#mycoatch-custom-time')).toBeVisible();
+  await page.locator('#mycoatch-custom-time').fill('20');
+  await page.locator('#mycoatch-submit').click();
+  await expect(page.locator('#mycoatch-config-modal')).not.toHaveClass(/hidden/);
+  assert.equal(await page.locator('#mycoatch-custom-time').evaluate(el => el.validity.rangeUnderflow), true);
+  await page.locator('#mycoatch-custom-time').fill('55');
+  assert.equal(await page.locator('#mycoatch-custom-time').evaluate(el => el.checkValidity()), true);
+});
