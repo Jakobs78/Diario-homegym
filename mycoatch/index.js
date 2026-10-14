@@ -1,6 +1,7 @@
 // mycoatch/index.js
 import { coachState } from './state.js';
-import { generateSmartMesocycle, analyzePreviousMesocycle } from './engine.js';
+import { generateSmartMesocycle } from './engine.js';
+import { analyzeCompletedMesocycle } from './historyAnalysis.js';
 import { analyzeUserHistory, evaluateRealTimePerformance, calculateE1RM } from './autoregulation.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 
@@ -11,14 +12,14 @@ export const MyCoatch = {
     generateNextFromHistory(userHistory, goalSettings = {}) {
         const historyObj = userHistory?.history || userHistory || {};
         const yearsObj = historyObj.years || {};
-        const years = Object.keys(yearsObj);
+        const years = Object.keys(yearsObj).sort((a, b) => Number(a) - Number(b));
         
         const currentYear = years[years.length - 1] || new Date().getFullYear();
         const mesocycles = yearsObj[currentYear]?.mesocycles || [];
         const lastMesocycle = mesocycles[mesocycles.length - 1] || null;
 
         // 1. Analisi stalli e performance pregresse
-        const analysis = analyzePreviousMesocycle(lastMesocycle);
+        const analysis = analyzeCompletedMesocycle(lastMesocycle);
         
         // 2. Aggiornamento stato globale del Coach
         if (Object.keys(goalSettings).length > 0) {
@@ -27,7 +28,7 @@ export const MyCoatch = {
         const config = coachState.getConfig();
         
         // 3. Generazione e attivazione mesociclo
-        const newMesocycle = generateSmartMesocycle(config, analysis, userHistory);
+        const newMesocycle = generateSmartMesocycle(config, analysis, lastMesocycle);
         coachState.setActiveMesocycle(newMesocycle);
         
         return newMesocycle;
@@ -59,8 +60,8 @@ export const MyCoatch = {
                     targetReps: session.reps || "8",
                     actualReps: confirmedSets.map(s => parseInt(s.reps, 10) || 0),
                     actualKg: lastSet?.weight || 0,
-                    rpe: confirmedSets.map(s => parseFloat(s.rpe) || 8),
-                    targetRpe: 8
+                    rpe: confirmedSets.map(s => s.rpe ?? null),
+                    targetRpe: session.targetRpe || session.rpe || null
                 };
             }).filter(Boolean);
 
@@ -107,15 +108,15 @@ export const MyCoatch = {
                 
                 day.exercises.forEach((ex, exIndex) => {
                     const blockNum = ex.block || (exIndex + 1);
-                    const kgMinStr = ex.kgMin || "0";
-                    const kgMaxStr = ex.kgMax || "0";
+                    const kgMinStr = ex.kgMin ?? "";
+                    const kgMaxStr = ex.kgMax ?? "";
                     const rpeStr = ex.rpe || "@8";
                     const topsetVal = (ex.topset || "").replace(/"/g, '""');
 
                     // Conteggio totale dei set (es. 3, 4) da inserire nella colonna 'Set'
                     const totalSets = ex.setsCount || (Array.isArray(ex.sets) ? ex.sets.length : 3);
                     const repsForExercise = ex.reps || "8";
-                    const recuperoStr = ex.restTime || "2min";
+                    const recuperoStr = ex.restTime || "120s";
 
                     // ESTRAZIONE E CODIFICA DELLE TECNICHE DI INTENSITÀ NEL CSV
                     // Se l'ultimo set dell'esercizio contiene una tecnica di intensità, iniettiamo il tag a inizio nota
