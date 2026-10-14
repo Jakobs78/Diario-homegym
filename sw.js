@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v2';
+const CACHE_NAME = 'workout-app-v3-live-coach';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -6,7 +6,24 @@ const ASSETS_TO_CACHE = [
   '/index.html',
   '/css/style.css',
   '/js/main.js',
-  '/mycoatch/userPreferences.js'
+  '/js/ui.js',
+  '/js/workoutEvents.js',
+  '/js/exerciseCard.js',
+  '/js/liveCoachUI.js',
+  '/js/sessionTimer.js',
+  '/js/timer.js',
+  '/js/helpers.js',
+  '/js/restPolicy.js',
+  '/mycoatch/userPreferences.js',
+  '/mycoatch/index.js',
+  '/mycoatch/engine.js',
+  '/mycoatch/liveCoach.js',
+  '/mycoatch/historyAnalysis.js',
+  '/mycoatch/historyInsights.js',
+  '/mycoatch/adaptiveDecisions.js',
+  '/mycoatch/weeklyVolumeBalancer.js',
+  '/mycoatch/groupOptimizer.js',
+  '/mycoatch/timeEstimator.js'
 ];
 
 self.addEventListener('install', (event) => {
