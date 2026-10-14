@@ -168,18 +168,6 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                 if (repsInput) repsInput.value = String(setObj.reps);
                 if (rpeInput) rpeInput.value = String(setObj.rpe);
 
-                // Solo se la prima serie e' confermata, predisponi i campi
-                // successivi come suggerimento visibile e NON confermato.
-                if (setIdx === 0) {
-                    for (let i = 1; i < ex.loggedSets.length; i++) {
-                        const following = ex.loggedSets[i];
-                        if (!following.isLocked && !following.completed) {
-                            if (!following.weight) following.weight = setObj.weight;
-                            // Non copiare le ripetizioni e l'RPE reali come se
-                            // fossero stati eseguiti anche nelle serie seguenti.
-                        }
-                    }
-                }
             } else {
                 delete setObj.completedAt;
             }
