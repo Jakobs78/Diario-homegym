@@ -1,6 +1,10 @@
 name: MyCoatch browser E2E (isolated)
 
 on:
+  push:
+    branches:
+      - main
+      - release/mycoatch-adattivo-2026-10-14
   pull_request:
     paths:
       - 'mycoatch/**'
