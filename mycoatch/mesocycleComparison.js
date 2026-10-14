@@ -125,6 +125,12 @@ export function formatCoachReview(comparison, report) {
                 .join(', ');
             lines.push(`Attenzione: restano ${volume.shortfallSets} serie sotto il template iniziale (${missed}). Tempo troppo breve per recuperarle senza compromettere le priorità.`);
         }
+        if (volume.missingCompoundExercises?.length) {
+            lines.push('ATTENZIONE FONDAMENTALI: il tempo scelto ha escluso questi multiarticolari: ' +
+                volume.missingCompoundExercises
+                    .map(ex => `G${ex.day} ${ex.exercise}`).join(', ') +
+                '. Valuta più minuti o più giorni di allenamento.');
+        }
     }
     lines.push(`Confronto vecchio/nuovo: ${comparison.changes.length} modifiche nella prima settimana.`);
     for (const c of comparison.changes.slice(0, 6)) {
