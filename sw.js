@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v3-live-coach';
+const CACHE_NAME = 'workout-app-v4-exercise-planner';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -17,6 +17,12 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/userPreferences.js',
   '/mycoatch/index.js',
   '/mycoatch/engine.js',
+  '/mycoatch/exercisesDB.js',
+  '/mycoatch/exerciseSelection.js',
+  '/mycoatch/weeklyCoverage.js',
+  '/mycoatch/exerciseIdentity.js',
+  '/mycoatch/mesocycleComparison.js',
+  '/mycoatch/mycoatch-adapter.js',
   '/mycoatch/liveCoach.js',
   '/mycoatch/liveHistory.js',
   '/mycoatch/historyAnalysis.js',
