@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v1';
+const CACHE_NAME = 'workout-app-v2';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -6,11 +6,7 @@ const ASSETS_TO_CACHE = [
   '/index.html',
   '/css/style.css',
   '/js/main.js',
-  '/js/ui.js',
-  '/js/vector/jspdf.js',
-  '/js/vector/chart.js',
-  '/js/vector/supabase.js',
-  // Aggiungi qui gli altri moduli JS o asset statici essenziali
+  '/mycoatch/userPreferences.js'
 ];
 
 self.addEventListener('install', (event) => {
