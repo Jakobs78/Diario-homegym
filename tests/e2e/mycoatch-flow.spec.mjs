@@ -291,8 +291,11 @@ test('40 minuti: riequilibrio reale visibile e importabile senza assumere sposta
   }, csv);
   assert.ok(imported.result.success, JSON.stringify(imported));
   for (const move of expected.moves) {
+    // L'importatore del diario applica Title Case ("ai" → "Ai"),
+    // quindi confrontiamo l'identità senza attribuire un errore ai maiuscoli.
     const target = imported.categories[move.toDay - 1].find(ex =>
-      ex.name === move.targetExercise);
+      ex.name.toLocaleLowerCase('it-IT') ===
+        move.targetExercise.toLocaleLowerCase('it-IT'));
     assert.ok(target, JSON.stringify(move));
     assert.equal(target.count,
       expected.exerciseCounts[move.toDay - 1][move.targetExercise]);
