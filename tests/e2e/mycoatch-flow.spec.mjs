@@ -155,6 +155,7 @@ test('percorso reale: tempo scelto, storico multianno, anteprima, download, impo
     return {
       result, totalMesocycles: years[new Date().getFullYear()].mesocycles.length,
       exerciseCount: day.exercises.length,
+      dayNames: current.weeks[0].days.map(d => d.dayName),
       group: day.exercises.map((ex, index) => ({ index, groupType: ex.groupType,
         isGroupLast: ex.isGroupLast, notes: ex.notes }))
         .filter(ex => ex.groupType === 'superset'),
@@ -163,6 +164,7 @@ test('percorso reale: tempo scelto, storico multianno, anteprima, download, impo
   }, csv);
   assert.ok(imported.result.success, JSON.stringify(imported));
   assert.equal(imported.totalMesocycles, 2);
+  assert.deepEqual(imported.dayNames, ['Upper A', 'Lower A', 'Upper B', 'Lower B']);
   assert.ok(imported.exerciseCount >= 4);
   assert.equal(imported.group.length, 2);
   assert.equal(imported.group[0].isGroupLast, false);
