@@ -208,6 +208,17 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             });
 
             const timedPlan = optimizeSession(processedExercises, maxSessionMinutes);
+            const durationNote = `[DURATA STIMATA] ${timedPlan.estimatedMinutes} minuti su ${maxSessionMinutes} disponibili.`;
+            const adjustments = [];
+            if (timedPlan.reducedAccessorySets) adjustments.push(`${timedPlan.reducedAccessorySets} serie accessorie ridotte`);
+            if (timedPlan.removedAccessoryExercises) adjustments.push(`${timedPlan.removedAccessoryExercises} accessori rimossi`);
+            if (adjustments.length) {
+                adjustments.push('verificare il volume settimanale degli accessori');
+            }
+            // Il CSV non contiene colonne extra: rendiamo visibili stima e compromessi nelle Note.
+            timedPlan.exercises[0].notes = [timedPlan.exercises[0].notes, durationNote,
+                adjustments.length ? '[TEMPO RIDOTTO] ' + adjustments.join(', ') + '.' : '']
+                .filter(Boolean).join(' | ');
             weekDays.push({
                 dayNumber: dayIndex + 1,
                 dayName: dayTemplate.name,
