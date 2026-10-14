@@ -4,6 +4,7 @@
 
 import { saveAndSync } from './storage.js';
 import { state } from './state.js';
+import { refreshLiveCoachClock } from './liveCoachUI.js';
 
 /**
  * Aggiorna lo stato di completamento e i tempi della sessione corrente in base ai set bloccati.
@@ -107,6 +108,7 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
             }
             saveAndSync(state.workoutData);
             updateSessionHeaderUI(currentDay, renderCallback);
+            refreshLiveCoachClock(currentDay);
         };
     }
 
