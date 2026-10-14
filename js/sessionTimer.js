@@ -144,10 +144,16 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
                     exercises.forEach(ex => (ex.loggedSets || []).forEach((set, index) => {
                         set.isLocked = false;
                         set.completed = false;
+                        set.weight = '';
+                        set.reps = '';
+                        set.rpe = '';
                         delete set.completedAt;
                         if (Array.isArray(ex.sets) && ex.sets[index]) {
                             ex.sets[index].isLocked = false;
                             ex.sets[index].completed = false;
+                            ex.sets[index].weight = '';
+                            ex.sets[index].reps = '';
+                            ex.sets[index].rpe = '';
                             delete ex.sets[index].completedAt;
                         }
                     }));
