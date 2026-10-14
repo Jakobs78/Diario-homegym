@@ -136,13 +136,18 @@ const CATEGORY_SECONDARIES = {
     Core: []
 };
 const REQUIRES = {
+    'Panca Piana con Bilanciere': ['rack', 'flat_bench'],
+    'Squat con Bilanciere': ['rack'],
+    'Front Squat': ['rack'],
+    'Panca Inclinata con Bilanciere': ['rack', 'incline_bench'],
+    'Hip Thrust con Bilanciere': ['flat_bench'],
+    'Reverse Crunch su Panca': ['flat_bench'],
     'Dip alle Parallele (sovraccarico)': ['dip_station'],
     'Trazioni alla Sbarra (Pull-up)': ['pullup_bar'],
     'Curl con Bilanciere EZ': ['ez_bar'],
     'French Press con Bilanciere EZ': ['ez_bar'],
     'Leg Curl ai Cavi (cavigliera)': ['ankle_strap'],
     'Panca Inclinata con Manubri': ['incline_bench'],
-    'Panca Inclinata con Bilanciere': ['incline_bench'],
     'Rematore con Manubri su Panca Inclinata': ['incline_bench'],
     'Curl Manubri su Panca Inclinata': ['incline_bench']
 };
