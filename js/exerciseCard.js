@@ -3,12 +3,11 @@
  * Summary: Genera dinamicamente le card per ogni esercizio gestendo lo stato di esclusione dai massimali, i selettori del bilanciere, il calcolo dei dischi per lato e l'evidenziatura automatica fuori target per KG (inclusi Topset), REPS ed RPE (con supporto al feedback verde di miglioramento).
  */
 
-import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange, calculateSetVolumeTrend, isValueExceedingTarget, parseRPE, checkFatigueAlert } from './helpers.js';
+import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange, calculateSetVolumeTrend, isValueExceedingTarget, parseRPE } from './helpers.js';
 import { state } from './state.js';
 import { enableCardSwipeGesture } from './gestures.js';
 import { saveAndSync } from './storage.js';
 import { renderWorkoutList } from './ui.js';
-import { analyzeUserHistory, generateNextSessionReminder, evaluateRealTimePerformance } from '../mycoatch/autoregulation.js';
 
 export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, activeDayNum, isPastMeso) {
     const isExExcluded = ex.isExcluded || false;
@@ -19,28 +18,6 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     exCard.className = `ex-card ${isExExcluded ? 'is-excluded' : ''} ${isDropsetPlan ? 'is-dropset' : ''}`;
     exCard.dataset.ex = exIdx;
 
-    // --- 1. Analisi MyCoach & Promemoria Dinamico ---
-    let reminderHtml = '';
-    if (ex.history || ex.loggedSets) {
-        const exerciseHistory = ex.history || [];
-        const lastAnalysis = analyzeUserHistory(exerciseHistory);
-        const reminder = generateNextSessionReminder(lastAnalysis, {
-            isIsolation: ex.isIsolation || false
-        });
-
-        if (reminder) {
-            const themeClass = reminder.type?.startsWith('STRENGTH') 
-                ? 'strength-theme' 
-                : (reminder.type?.startsWith('HYPERTROPHY') ? 'hypertrophy-theme' : 'warning-theme');
-
-            reminderHtml = `
-                <div class="mycoach-reminder-box ${themeClass} mb-md">
-                    <div class="reminder-badge">${reminder.badge}</div>
-                    <p class="reminder-text">${reminder.prompt}</p>
-                </div>
-            `;
-        }
-    }
 
     let cardHtml = `
         <div class="ex-card-header flex-between mb-sm">
@@ -55,8 +32,6 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         <!-- Nome Esercizio in primo piano -->
         <h3 class="ex-name mb-md">${exIdx + 1}. ${ex.name}</h3>
         
-        <!-- Promemoria dinamico MyCoach -->
-        ${reminderHtml}
     `;
 
     const prevExercise = findPreviousExercise(state.workoutData, mesoIndex, targetWeek.weekNumber, activeDayNum - 1, ex, true);
@@ -254,15 +229,15 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                 </td>
                 <td class="td-input td-kg-container">
                     <div class="kg-input-wrapper flex-column flex-center">
-                        <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-kg ios-no-zoom ${kgClass} ${isUnsavedKg ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${displayWeight}" placeholder="${targetWeightDefault || 'Kg'}" ${isDisabled ? 'disabled' : ''}>
+                        <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-kg ios-no-zoom ${kgClass} ${isUnsavedKg ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.weight ?? ''}" placeholder="${displayWeight || targetWeightDefault || 'Kg'}" ${isDisabled ? 'disabled' : ''}>
                         ${trendHtml ? `<div class="set-trend-badge">${trendHtml}</div>` : ''}
                     </div>
                 </td>
                 <td class="td-input">
-                    <input type="text" inputmode="numeric" autocomplete="off" class="set-input set-reps ios-no-zoom ${repsClass} ${isUnsavedReps ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${displayReps}" placeholder="${defaultTargetReps || 'reps'}" ${isDisabled ? 'disabled' : ''}>
+                    <input type="text" inputmode="numeric" autocomplete="off" class="set-input set-reps ios-no-zoom ${repsClass} ${isUnsavedReps ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.reps ?? ''}" placeholder="${displayReps || defaultTargetReps || 'reps'}" ${isDisabled ? 'disabled' : ''}>
                 </td>
                 <td class="td-input">
-                    <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe ios-no-zoom ${rpeClass} ${isUnsavedRpe ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${displayRpe}" placeholder="RPE" ${isDisabled ? 'disabled' : ''}>
+                    <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe ios-no-zoom ${rpeClass} ${isUnsavedRpe ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.rpe ?? ''}" placeholder="${displayRpe || 'RPE'}" ${isDisabled ? 'disabled' : ''}>
                 </td>
                 <td class="td-check text-center">
                     <input type="checkbox" class="set-lock-check custom-big-check" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''}>
@@ -280,115 +255,8 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
 
     exCard.innerHTML = cardHtml;
 
-    // --- FUNZIONE PER VALUTARE ED EVIDENZIARE IL ADVICE IN TEMPO REALE ---
-    const updateRealTimeAdviceUI = () => {
-        const adviceBox = exCard.querySelector(`#mycoach-advice-${exIdx}`);
-        if (!adviceBox) return;
-
-        const targetReps = ex.reps || ex.targetReps || "8-10";
-        const targetRpe = ex.targetRpe || ex.rpe || 8;
-
-        const allSetRows = exCard.querySelectorAll('tbody tr');
-        let activeAdvice = null;
-        let currentSetIndex = -1; // Traccia l'indice per trovare la serie successiva
-
-        allSetRows.forEach((row, setIdx) => {
-            const kgVal = row.querySelector('.set-kg')?.value?.replace(',', '.').trim() || '';
-            const repsVal = row.querySelector('.set-reps')?.value?.replace(',', '.').trim() || '';
-            const rpeVal = row.querySelector('.set-rpe')?.value?.replace(',', '.').trim() || '';
-
-            if (kgVal || repsVal) {
-                const setObj = { weight: kgVal, reps: repsVal, rpe: rpeVal };
-                // Calcola lo status tramite la funzione di autoregulation
-                const perf = evaluateRealTimePerformance(setObj, targetReps, targetRpe);
-
-                if (perf && perf.feedbackNote) {
-                    if (!activeAdvice || perf.status !== 'PERFECT') {
-                        activeAdvice = {
-                            setNum: setIdx + 1,
-                            ...perf
-                        };
-                        currentSetIndex = setIdx;
-                    }
-                }
-            }
-        });
-
-        if (activeAdvice && activeAdvice.feedbackNote) {
-            // Renderizza il testo del feedback
-            adviceBox.innerHTML = `
-                <div class="mycoach-rt-advice status-${(activeAdvice.status || '').toLowerCase()}">
-                    <strong>SET ${activeAdvice.setNum}:</strong> ${activeAdvice.feedbackNote}
-                </div>
-            `;
-            
-            // --- INIEZIONE BOTTONE (PILLOLA) ---
-            if (activeAdvice.suggestedNextWeight && activeAdvice.suggestedNextWeight !== activeAdvice.weight) {
-                const applyBtn = document.createElement('button');
-                applyBtn.className = 'mycoach-apply-btn mt-xs';
-                const icon = activeAdvice.suggestedNextWeight > activeAdvice.weight ? '⬆️' : '⬇️';
-                applyBtn.innerHTML = `${icon} Usa ${activeAdvice.suggestedNextWeight} kg`;
-
-                // Trova l'input del peso della serie SUCCESSIVA sfruttando il data-set
-                const nextSetIdx = currentSetIndex + 1;
-                const nextWeightInput = exCard.querySelector(`.set-kg[data-set="${nextSetIdx}"]`);
-
-                if (nextWeightInput && !nextWeightInput.disabled) {
-                    // Clic sul bottone: autocompila l'input
-                    applyBtn.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        nextWeightInput.value = activeAdvice.suggestedNextWeight;
-                        nextWeightInput.classList.add('highlight-update');
-                        setTimeout(() => nextWeightInput.classList.remove('highlight-update'), 1000);
-                        
-                        applyBtn.style.opacity = '0';
-                        setTimeout(() => applyBtn.remove(), 300);
-                        
-                        // Scatena un evento input manuale per aggiornare i calcoli (es. totale kg)
-                        nextWeightInput.dispatchEvent(new Event('input', { bubbles: true }));
-                    });
-
-                    // Clic diretto sull'input: fai sparire il bottone
-                    nextWeightInput.addEventListener('focus', () => {
-                        applyBtn.style.opacity = '0';
-                        setTimeout(() => applyBtn.remove(), 300);
-                    }, { once: true });
-
-                    adviceBox.querySelector('.mycoach-rt-advice').appendChild(applyBtn);
-                }
-            }
-
-            adviceBox.classList.remove('is-hidden');
-        } else {
-            adviceBox.innerHTML = '';
-            adviceBox.classList.add('is-hidden');
-        }
-    };
-
-    // --- EVENT DELEGATION SULLA CARD (Cattura input, change, keyup e blur su iOS/Safari) ---
-    ['input', 'change', 'keyup', 'blur'].forEach(eventType => {
-        exCard.addEventListener(eventType, (e) => {
-            if (e.target.matches('.set-input, .set-lock-check')) {
-                updateRealTimeAdviceUI();
-            }
-        });
-    });
-
-    // Controllo iniziale all'avvio
-    updateRealTimeAdviceUI();
-
-    // Aggiungiamo i listener sugli input
-    exCard.querySelectorAll('.set-input, .set-lock-check').forEach(input => {
-        input.addEventListener('input', updateRealTimeAdviceUI);
-        input.addEventListener('change', updateRealTimeAdviceUI);
-    });
-
-    // Controllo iniziale
-    updateRealTimeAdviceUI();
-
-    // Verifica dello stato iniziale della fatica via helper
-    checkFatigueAlert(ex, exIdx);
-
+    // Il coaching in seduta è calcolato centralmente solo dai set confermati.
+    // Nessun consiglio si basa su placeholder o su RPE inventati.
     const toggleExclusion = () => {
         if (isPastMeso) return;
         currentDay.exercises[exIdx].isExcluded = !currentDay.exercises[exIdx].isExcluded;
