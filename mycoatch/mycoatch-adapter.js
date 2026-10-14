@@ -7,6 +7,11 @@ import { CONFIG } from '../js/config.js'; // 🚀 AGGANCIO COMPATIBILITÀ: Impor
  */
 export async function generateAndDownloadMesocycleCSV(options = {}) {
     try {
+        // La durata è un dato obbligatorio, mai un default silenzioso.
+        const minutes = Number(options.maxSessionMinutes);
+        if (!Number.isInteger(minutes) || minutes < 25 || minutes > 180) {
+            throw new Error('Prima di generare la scheda, scegli quanto tempo hai per ogni allenamento.');
+        }
         // 🛠️ RISOLTO: Utilizziamo la chiave di memoria esatta dichiarata in storage.js della WebApp
         const storageKey = CONFIG.STORAGE_KEY;
         let userHistory = null;
@@ -101,64 +106,29 @@ export async function generateAndDownloadMesocycleCSV(options = {}) {
 }
 
 /**
- * Entry point: Intervista l'utente step-by-step sui parametri fisiologici e logistici.
+ * Apre la configurazione MyCoatch. La scelta del tempo e' obbligatoria a ogni generazione.
+ * Il submit convalida i dati in js/main.js prima di chiamare l'adapter.
  */
-export async function startCoachChatAndGenerate() {
-    const ageInput = document.getElementById('input-age');
-    const daysInput = document.getElementById('select-days');
-    const timeInput = document.getElementById('select-time');
-    const focusInput = document.getElementById('select-focus');
-
-    let userAge, daysPerWeek, maxSessionMinutes, focus, primaryGoal;
-
-    if (!ageInput || !daysInput || !timeInput || !focusInput) {
-        const rawAge = prompt("🤖 MyCoatch: Inserisci la tua età (fondamentale per calcolare il recupero sistemico e la tolleranza al volume):", "30");
-        if (rawAge === null) return; 
-        userAge = parseInt(rawAge, 10) || 30;
-
-        const rawDays = prompt("🤖 MyCoatch: Quanti giorni a settimana vuoi allenarti? (es. 3, 4, 5):", "3");
-        if (rawDays === null) return;
-        daysPerWeek = parseInt(rawDays, 10) || 3;
-
-        const rawTime = prompt("🤖 MyCoatch: Quanti minuti massimi hai a disposizione per ogni sessione? (es. 45, 60, 75, 90):", "60");
-        if (rawTime === null) return;
-        maxSessionMinutes = parseInt(rawTime, 10) || 60;
-
-        const rawGoal = prompt(
-            "🤖 MyCoatch: Qual è il tuo obiettivo primario?\n" +
-            "1 = Bodybuilding (Massima Massa Muscolare)\n" +
-            "2 = Powerbuilding (Estetica & Forza)\n" +
-            "3 = Powerlifting (Prestazione di Forza SBD)", 
-            "1"
-        );
-        if (rawGoal === null) return;
-
-        primaryGoal = "bodybuilding";
-        if (rawGoal === "2") primaryGoal = "powerbuilding";
-        if (rawGoal === "3") primaryGoal = "powerlifting";
-
-        focus = (primaryGoal === "powerlifting") ? "strength" : "hybrid";
-    } else {
-        userAge = parseInt(ageInput.value, 10) || 30;
-        daysPerWeek = parseInt(daysInput.value, 10) || 3;
-        maxSessionMinutes = parseInt(timeInput.value, 10) || 60;
-        focus = focusInput.value || 'hybrid';
-        primaryGoal = 'bodybuilding';
+export function startCoachChatAndGenerate() {
+    const modal = document.getElementById('mycoatch-config-modal');
+    if (!modal) {
+        alert('Configurazione MyCoatch non disponibile. Ricarica la pagina.');
+        return;
     }
 
-    const userGoalSettings = {
-        userAge,
-        daysPerWeek,
-        maxSessionMinutes,
-        focus,
-        primaryGoal
-    };
-
-    const response = await generateAndDownloadMesocycleCSV(userGoalSettings);
-
-    if (response.success) {
-        alert(response.message);
-    } else {
-        alert(`Attenzione: ${response.message}`);
+    // Non riutilizzare automaticamente una durata precedente.
+    const time = document.getElementById('select-time');
+    if (time) time.value = '';
+    const custom = document.getElementById('mycoatch-custom-time');
+    if (custom) {
+        custom.value = '';
+        custom.disabled = true;
+        custom.required = false;
     }
+    document.getElementById('mycoatch-custom-time-wrap')?.classList.add('hidden');
+    const feedback = document.getElementById('mycoatch-form-feedback');
+    if (feedback) feedback.textContent = '';
+
+    modal.classList.remove('hidden');
+    time?.focus();
 }
