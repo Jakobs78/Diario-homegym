@@ -59,7 +59,7 @@ const RAW_EXERCISES = [
     { name: "Calf Raise in Piedi con Manubri", category: "Polpacci", pattern: "isolation", equipment: "dumbbell", cnsCost: 3, defaultReps: "10-20", defaultKg: "" },
     { name: "Calf Raise Monopodalico", category: "Polpacci", pattern: "isolation", equipment: "bodyweight", cnsCost: 2, defaultReps: "12-20", defaultKg: "" },
     { name: "Crunch ai Cavi", category: "Core", pattern: "isolation", equipment: "cable", cnsCost: 3, defaultReps: "10-20", defaultKg: "" },
-    { name: "Plank", category: "Core", pattern: "isolation", equipment: "bodyweight", cnsCost: 2, defaultReps: "20-40", defaultKg: "" },
+    { name: "Reverse Crunch su Panca", category: "Core", pattern: "isolation", equipment: "bodyweight", cnsCost: 2, defaultReps: "12-20", defaultKg: "" },
     { name: "Pallof Press ai Cavi", category: "Core", pattern: "isolation", equipment: "cable", cnsCost: 3, defaultReps: "8-15", defaultKg: "" },
 ];
 
@@ -118,7 +118,7 @@ const STABLE_IDS = new Map([
     ["Calf Raise in Piedi con Manubri", "calf_raise_in_piedi_con_manubri"],
     ["Calf Raise Monopodalico", "calf_raise_monopodalico"],
     ["Crunch ai Cavi", "crunch_ai_cavi"],
-    ["Plank", "plank"],
+    ["Reverse Crunch su Panca", "reverse_crunch_su_panca"],
     ["Pallof Press ai Cavi", "pallof_press_ai_cavi"],
 ]);
 
@@ -142,6 +142,7 @@ const REQUIRES = {
     'French Press con Bilanciere EZ': ['ez_bar'],
     'Leg Curl ai Cavi (cavigliera)': ['ankle_strap'],
     'Panca Inclinata con Manubri': ['incline_bench'],
+    'Panca Inclinata con Bilanciere': ['incline_bench'],
     'Rematore con Manubri su Panca Inclinata': ['incline_bench'],
     'Curl Manubri su Panca Inclinata': ['incline_bench']
 };
