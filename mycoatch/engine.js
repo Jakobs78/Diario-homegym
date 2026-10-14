@@ -4,6 +4,8 @@ import { analyzeCompletedMesocycle } from './historyAnalysis.js';
 import { canonicalExerciseKey } from './exerciseIdentity.js';
 import { optimizeSession } from './groupOptimizer.js';
 import { rebalanceWeeklyAccessories } from './weeklyVolumeBalancer.js';
+import { normalizeSelectionPreferences, selectExerciseForSlot } from './exerciseSelection.js';
+import { auditWeeklyCoverage } from './weeklyCoverage.js';
 
 /**
  * Punti di riferimento del volume ipertrofico settimanale (Evidence-Based) - Spacchettati per distretto anatomico
@@ -17,7 +19,10 @@ export const MUSCLE_VOLUME_LANDMARKS = {
     Spalle: { mev: 8, mav: 14, mrv: 20 },
     Bicipiti: { mev: 6, mav: 10, mrv: 15 },
     Tricipiti: { mev: 6, mav: 10, mrv: 15 },
-    Gambe: { mev: 10, mav: 16, mrv: 22 } // Fallback generico
+    Gambe: { mev: 10, mav: 16, mrv: 22 }, // Fallback generico
+    Glutei: { mev: 4, mav: 8, mrv: 16 },
+    Polpacci: { mev: 4, mav: 8, mrv: 14 },
+    Core: { mev: 4, mav: 8, mrv: 12 }
 };
 
 /**
@@ -50,6 +55,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
     // Il vincolo è il tempo realmente stimato, non un taglio prefissato degli slot.
 
     const templateDays = getTemplateForDays(daysPerWeek);
+    const selectionPreferences = normalizeSelectionPreferences(config);
     
     // Calcolo della frequenza settimanale reale per ogni gruppo muscolare nel template
     const muscleFrequencyMap = {};
@@ -67,6 +73,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
         const weekDays = [];
         const intendedDays = [];
         const volumeAdjustmentsApplied = new Set();
+        const weeklySelectionCounts = new Map();
+        const excludedOptionalSlots = [];
         const isDeloadWeek = (deloadWeekNumber !== null && w === deloadWeekNumber);
 
         // Progressione dinamica del target RPE di settimana in settimana
@@ -83,31 +91,36 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             const activeSlots = dayTemplate.slots;
             
             const exercisesSelectedToday = [];
-            
-            // 🧠 Limite di tolleranza neurale giornaliero
-            const MAX_DAILY_CNS = 26;
-            let currentDailyCNS = 0;
-
-            const previousDay = rawLastMesocycle?.weeks?.[0]?.days?.find(d => Number(d.dayNumber) === dayIndex + 1);
-            let rawExercises = activeSlots.map((slot, slotIndex) => {
-                const preferredName = previousDay?.exercises?.[slotIndex]?.name || null;
-                const exercise = selectExerciseBySlot(
-                    slot, 
-                    analysis.stalledExercises || [], 
-                    exercisesSelectedToday, 
-                    currentDailyCNS, 
-                    MAX_DAILY_CNS,
-                    slotIndex,
-                    preferredName
-                );
-                
-                if (exercise) {
-                    exercisesSelectedToday.push(exercise.name);
-                    currentDailyCNS += (exercise.cnsCost || 5);
+            const previousDay = rawLastMesocycle?.weeks?.[0]?.days
+                ?.find(d => Number(d.dayNumber) === dayIndex + 1);
+            // Il selettore non confonde una preferenza storica con uno schema
+            // motorio diverso. Le quattro alzate fondamentali occupano posizioni
+            // protette contro i tagli per il tempo, ma possono essere sostituite
+            // esplicitamente dall'atleta con varianti dello stesso pattern.
+            let rawExercises = activeSlots.flatMap((slot, slotIndex) => {
+                const previousName = previousDay?.exercises?.[slotIndex]?.name || null;
+                const selected = selectExerciseForSlot(slot, {
+                    preferences: selectionPreferences,
+                    focus,
+                    previousName,
+                    selectedToday: exercisesSelectedToday,
+                    weeklyCounts: weeklySelectionCounts
+                });
+                if (!selected.exercise) {
+                    excludedOptionalSlots.push({
+                        dayNumber: dayIndex + 1,
+                        muscle: slot.muscle,
+                        pattern: slot.pattern,
+                        reason: selected.reason
+                    });
+                    return [];
                 }
-                return exercise;
+                const exercise = selected.exercise;
+                exercisesSelectedToday.push(exercise.name);
+                weeklySelectionCounts.set(exercise.id,
+                    (weeklySelectionCounts.get(exercise.id) || 0) + 1);
+                return [{ ...exercise, selectionReason: selected.reason }];
             });
-            if (rawExercises.some(ex => !ex)) throw new Error("Template incompatibile con attrezzatura disponibile: generazione annullata.");
 
             // Integrazione della funzione di specializzazione originale
             rawExercises = applySpecializationFocus(rawExercises, safeHistory);
@@ -170,7 +183,9 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 if (loadDecision && loadDecision.action !== 'maintain') {
                     autoNote += `${loadDecision.reason} | `;
                 }
-                let noteFinal = autoNote + generateContextNote(index, isDeloadWeek, focus) + (exItem.noteOverride ? " | " + exItem.noteOverride : "");
+                let noteFinal = autoNote + generateContextNote(index, isDeloadWeek, focus) +
+                    (exItem.selectionReason ? ' | [SCELTA MYCOATCH] ' + exItem.selectionReason : '') +
+                    (exItem.noteOverride ? ' | ' + exItem.noteOverride : '');
 
                 const isFirstCompound = index === 0 && ["squat", "hinge", "horizontal_push", "vertical_push", "vertical_pull"].includes(ex.pattern);
                 
@@ -268,7 +283,9 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
         weeks.push({
             weekNumber: w,
             days: balanced.days,
-            volumeBalance: balanced.report
+            volumeBalance: balanced.report,
+            weeklyCoverage: auditWeeklyCoverage(balanced.days, templateDays),
+            optionalSlotsNotAvailable: excludedOptionalSlots
         });
     }
 
@@ -317,117 +334,104 @@ function generateContextNote(index, isDeload, focus) {
     return note;
 }
 
-function selectExerciseBySlot(slot, stalledExercises, alreadySelected = [], currentCNS = 0, maxCNS = 26, slotIndex = 0, preferredName = null) {
-    // Filtro Home Gym originale
-    const availableEquipment = ["barbell", "dumbbell", "bodyweight", "lat_machine", "cable"];
-
-    let matches = EXERCISE_DATABASE.filter(e => {
-        const categoryMatch = e.category.toLowerCase() === slot.muscle.toLowerCase();
-        const patternMatch = slot.pattern ? e.pattern === slot.pattern : true;
-        const isNotDuplicate = !alreadySelected.includes(e.name);
-        const hasEquipment = availableEquipment.includes(e.equipment);
-        return categoryMatch && patternMatch && isNotDuplicate && hasEquipment;
-    });
-
-    if (matches.length === 0) {
-        matches = EXERCISE_DATABASE.filter(e => {
-            return e.category.toLowerCase() === slot.muscle.toLowerCase() && 
-                   !alreadySelected.includes(e.name) && 
-                   availableEquipment.includes(e.equipment);
-        });
-    }
-
-    if (matches.length === 0) return null;
-
-    // Preferisci varianti ripetibili e sostenibili rispetto al costo neurale massimo.
-    matches.sort((a, b) => {
-        if (slot.pattern === "hinge") return Number(b.name.includes("Rumeno")) - Number(a.name.includes("Rumeno"));
-        return a.cnsCost - b.cnsCost;
-    });
-
-    const preferred = slotIndex === 0 ? (slot.muscle === "Petto" ? "Panca Piana con Bilanciere" :
-        slot.muscle === "Quadricipiti" ? "Squat con Bilanciere" : null) : null;
-    let selected = (preferredName && matches.find(e => canonicalExerciseKey(e.name) === canonicalExerciseKey(preferredName))) ||
-        (preferred && matches.find(e => e.name === preferred)) || matches[0]; // Evita rotazioni automatiche per uno stallo non verificato.
-
-    // La tolleranza alla fatica va valutata dai risultati, non da un punteggio CNS fisso.
-
-    return selected;
-}
-
 export function getTemplateForDays(daysPerWeek = 3) {
     if (daysPerWeek === 3) {
+        // Con tre sedute si preferisce la Full Body: i quattro fondamentali
+        // restano distribuiti nella settimana, senza tre lower consecutivi.
         return [
             {
-                name: "Full Body A (Focus Spinta Petto, Lat Machine & Quadricipiti)",
+                name: 'Full Body A (Panca, dorsali, quadricipiti)',
                 slots: [
-                    { muscle: "Petto", pattern: "horizontal_push" },
-                    { muscle: "Back_Lats", pattern: "vertical_pull" },
-                    { muscle: "Quadricipiti", pattern: "squat" },
-                    { muscle: "Spalle", pattern: "isolation" },
-                    { muscle: "Bicipiti", pattern: "isolation" }
+                    { muscle: 'Petto', pattern: 'horizontal_push', anchor: 'bench' },
+                    { muscle: 'Back_Lats', pattern: 'vertical_pull' },
+                    { muscle: 'Quadricipiti', pattern: 'squat' },
+                    { muscle: 'Spalle', pattern: 'isolation' },
+                    { muscle: 'Bicipiti', pattern: 'isolation' },
+                    { muscle: 'Polpacci', pattern: 'isolation', optional: true }
                 ]
             },
             {
-                name: "Full Body B (Focus Stacco Rumeno, Spalla & Dorso Spessore)",
+                name: 'Full Body B (Hip hinge, spinta verticale, dorso)',
                 slots: [
-                    { muscle: "Femorali", pattern: "hinge" },
-                    { muscle: "Spalle", pattern: "vertical_push" },
-                    { muscle: "Back_Thickness", pattern: "horizontal_pull" },
-                    { muscle: "Petto", pattern: "isolation" },
-                    { muscle: "Tricipiti", pattern: "isolation" }
+                    { muscle: 'Femorali', pattern: 'hinge', anchor: 'hinge' },
+                    { muscle: 'Spalle', pattern: 'vertical_push', anchor: 'military' },
+                    { muscle: 'Back_Thickness', pattern: 'horizontal_pull' },
+                    { muscle: 'Petto', pattern: 'isolation' },
+                    { muscle: 'Tricipiti', pattern: 'isolation' },
+                    { muscle: 'Core', pattern: 'isolation', optional: true }
                 ]
             },
             {
-                name: "Full Body C (Focus Leg Press, Petto Inclinato & Braccia)",
+                name: 'Full Body C (Squat, petto, dorsali)',
                 slots: [
-                    { muscle: "Quadricipiti", pattern: "squat" },
-                    { muscle: "Petto", pattern: "horizontal_push" },
-                    { muscle: "Back_Lats", pattern: "vertical_pull" },
-                    { muscle: "Bicipiti", pattern: "isolation" },
-                    { muscle: "Tricipiti", pattern: "isolation" }
+                    { muscle: 'Quadricipiti', pattern: 'squat', anchor: 'squat' },
+                    { muscle: 'Petto', pattern: 'horizontal_push' },
+                    { muscle: 'Back_Lats', pattern: 'vertical_pull' },
+                    { muscle: 'Glutei', pattern: 'hip_thrust', optional: true },
+                    { muscle: 'Bicipiti', pattern: 'isolation' },
+                    { muscle: 'Core', pattern: 'isolation', optional: true }
                 ]
             }
         ];
     }
+    if (daysPerWeek !== 4) throw new Error('MyCoatch supporta 3 o 4 giorni a settimana.');
 
     return [
         {
-            name: "Upper A (Focus Petto Piano, Lat Machine & Bicipiti)",
+            name: 'Upper A (Priorità panca, dorsali)',
             slots: [
-                { muscle: "Petto", pattern: "horizontal_push" },
-                { muscle: "Back_Lats", pattern: "vertical_pull" },
-                { muscle: "Petto", pattern: "isolation" },
-                { muscle: "Spalle", pattern: "isolation" },
-                { muscle: "Bicipiti", pattern: "isolation" }
+                { muscle: 'Petto', pattern: 'horizontal_push', anchor: 'bench' },
+                { muscle: 'Back_Lats', pattern: 'vertical_pull' },
+                { muscle: 'Back_Thickness', pattern: 'horizontal_pull' },
+                { muscle: 'Spalle', pattern: 'isolation', prefer: [
+                    'Alzate Laterali con Manubri', 'Alzate Laterali ai Cavi'
+                ] },
+                { muscle: 'Bicipiti', pattern: 'isolation' }
             ]
         },
         {
-            name: "Lower A (Focus Squat & Femorali)",
+            name: 'Lower A (Priorità squat, glutei)',
             slots: [
-                { muscle: "Quadricipiti", pattern: "squat" },
-                { muscle: "Femorali", pattern: "hinge" },
-                { muscle: "Quadricipiti", pattern: "squat" },
-                { muscle: "Femorali", pattern: "isolation" }
+                { muscle: 'Quadricipiti', pattern: 'squat', anchor: 'squat' },
+                { muscle: 'Glutei', pattern: 'hip_thrust' },
+                { muscle: 'Quadricipiti', pattern: 'squat', prefer: [
+                    'Bulgarian Split Squat con Manubri', 'Affondi con Manubri',
+                    'Goblet Squat con Manubrio', 'Front Squat'
+                ] },
+                { muscle: 'Femorali', pattern: 'isolation', optional: true },
+                { muscle: 'Polpacci', pattern: 'isolation' },
+                { muscle: 'Core', pattern: 'isolation', optional: true }
             ]
         },
         {
-            name: "Upper B (Focus Military Press, Rematore & Tricipiti)",
+            name: 'Upper B (Priorità military press, richiamo petto e dorso)',
             slots: [
-                { muscle: "Back_Lats", pattern: "vertical_pull" },
-                { muscle: "Spalle", pattern: "vertical_push" },
-                { muscle: "Back_Thickness", pattern: "horizontal_pull" },
-                { muscle: "Petto", pattern: "isolation" },
-                { muscle: "Tricipiti", pattern: "isolation" }
+                { muscle: 'Spalle', pattern: 'vertical_push', anchor: 'military' },
+                { muscle: 'Back_Thickness', pattern: 'horizontal_pull' },
+                { muscle: 'Petto', pattern: 'horizontal_push', prefer: [
+                    'Panca Inclinata con Manubri', 'Panca Inclinata con Bilanciere',
+                    'Push-up a Terra'
+                ] },
+                { muscle: 'Back_Lats', pattern: 'vertical_pull', optional: true },
+                { muscle: 'Tricipiti', pattern: 'isolation' },
+                { muscle: 'Spalle', pattern: 'isolation', prefer: [
+                    'Alzate Posteriori con Manubri', 'Face Pull ai Cavi',
+                    'Reverse Fly ai Cavi'
+                ], optional: true }
             ]
         },
         {
-            name: "Lower B (Focus Stacco Rumeno & Quadricipiti)",
+            name: 'Lower B (Priorità stacco rumeno o convenzionale)',
             slots: [
-                { muscle: "Femorali", pattern: "hinge" },
-                { muscle: "Quadricipiti", pattern: "squat" },
-                { muscle: "Quadricipiti", pattern: "squat" },
-                { muscle: "Femorali", pattern: "isolation" }
+                { muscle: 'Femorali', pattern: 'hinge', anchor: 'hinge' },
+                { muscle: 'Quadricipiti', pattern: 'squat', prefer: [
+                    'Front Squat', 'Goblet Squat con Manubrio',
+                    'Bulgarian Split Squat con Manubri'
+                ] },
+                { muscle: 'Femorali', pattern: 'isolation', optional: true },
+                { muscle: 'Glutei', pattern: 'hip_thrust', optional: true },
+                { muscle: 'Polpacci', pattern: 'isolation' },
+                { muscle: 'Core', pattern: 'isolation', optional: true }
             ]
         }
     ];
