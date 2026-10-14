@@ -204,3 +204,73 @@ test('la proposta annullata si elimina solo dalla memoria di MyCoatch', () => {
     assert.equal(MyCoatch.getActiveMesocycleJSON(), null);
     assert.equal(JSON.stringify(history), snapshot);
 });
+
+test('tre esposizioni nella stessa settimana non sono uno stallo longitudinale', () => {
+    const days = [1, 2, 3].map(dayNumber => ({
+        dayNumber,
+        exercises: [plannedExercise('Panca Piana con Bilanciere', [[80, 7, '@8']])]
+    }));
+    const meso = { name: 'Settimana ripetuta', weeks: [{ weekNumber: 1, days }] };
+    const report = analyzeTrainingHistory(historyOf(years(2026, meso)));
+    assert.equal(report.byExercise[canonicalExerciseKey('panca')].status, 'insufficient_data');
+    assert.equal(report.stalledExercises.length, 0);
+});
+
+test('serie di riscaldamento escluse dal volume e dalla progressione', () => {
+    const day = {
+        dayNumber: 1,
+        exercises: [{
+            ...plannedExercise('Panca Piana con Bilanciere', [[80, 8, '@8'], [82.5, 8, '@8']]),
+            set: '2 set',
+            loggedSets: [
+                { ...set(20, 10, '@8'), isWarmup: true },
+                { ...set(80, 8, '@8') },
+                { ...set(82.5, 8, '@8') }
+            ]
+        }]
+    };
+    const report = analyzeTrainingHistory(historyOf(years(2026, {
+        name: 'Warmup',
+        weeks: [{ weekNumber: 1, days: [day] }]
+    })));
+    const bench = report.byExercise[canonicalExerciseKey('panca')];
+    assert.equal(bench.completedSets, 2);
+    assert.equal(report.byMuscle.Petto.avgWeeklySets, 2);
+    assert.equal(report.byMuscle.Petto.recentAdherence, 1);
+});
+
+test('dropset 10+8+6 non inventa e1RM, ma conta la serie base', () => {
+    const rep = plannedExercise('Curl ai Cavi Bassi', [[10, 10, '@8']]);
+    rep.loggedSets[0].reps = '10+8+6';
+    const report = analyzeTrainingHistory(historyOf(years(2026, {
+        name: 'Dropset',
+        weeks: [{ weekNumber: 1, days: [{ dayNumber: 1, exercises: [rep] }] }]
+    })));
+    const curl = report.byExercise[canonicalExerciseKey('Curl ai Cavi Bassi')];
+    assert.equal(curl.completedSets, 1);
+    assert.equal(curl.exposures[0].e1rm, null);
+});
+
+test('scarico programmato non abbassa artificialmente il volume medio allenante', () => {
+    const meso = mesocycle('Volume con scarico', [
+        [[80, 7, '@8'], [80, 7, '@8'], [80, 7, '@8']],
+        [[80, 7, '@8'], [80, 7, '@8'], [80, 7, '@8']],
+        [[80, 7, '@8'], [80, 7, '@8'], [80, 7, '@8']],
+        [[60, 6, '@6.5']]
+    ]);
+    const deload = meso.weeks[3].days[0].exercises[0];
+    deload.targetRpe = '@6.5';
+    deload.rpe = '@6.5';
+    const report = analyzeTrainingHistory(historyOf(years(2026, meso)));
+    assert.equal(report.byMuscle.Petto.avgWeeklySets, 3);
+    assert.equal(report.byExercise[canonicalExerciseKey('panca')].lastKg, 80);
+});
+
+test('anteprima riporta carichi, ripetizioni e durata prevista', () => {
+    const old = mesocycle('Primo', [[[80, 8, '@8']]]);
+    const result = MyCoatch.generateNextFromHistory(historyOf(years(2026, old)), baseConfig);
+    const text = formatCoachReview(result.coachReport.comparison,
+        result.coachReport);
+    assert.match(text, /durate previste/i);
+    assert.match(text, /×/);
+});
