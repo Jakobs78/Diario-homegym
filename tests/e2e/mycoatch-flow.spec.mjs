@@ -229,7 +229,9 @@ test('durata obbligatoria e numero personalizzato non valido bloccano la generaz
 
 test('40 minuti: riequilibrio bicipiti/tricipiti visibile e importabile nei giorni Lower', async ({ page }) => {
   const monitoring = await openIsolatedApp(page);
-  await startCoach(page, '40');
+  await startCoach(page, '45');
+  await page.locator('#select-time').selectOption('custom');
+  await page.locator('#mycoatch-custom-time').fill('40');
   const preview = [];
   page.on('dialog', async dialog => {
     if (dialog.type() === 'confirm') preview.push(dialog.message());
