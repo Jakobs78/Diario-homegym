@@ -225,6 +225,10 @@ function setupEventListeners() {
 
         try {
             const result = await generateAndDownloadMesocycleCSV(options);
+            if (result.cancelled) {
+                if (coachFeedback) coachFeedback.textContent = result.message;
+                return;
+            }
             if (!result.success) throw new Error(result.message || 'Generazione non riuscita.');
             closeCoachModal();
             alert(result.message);
