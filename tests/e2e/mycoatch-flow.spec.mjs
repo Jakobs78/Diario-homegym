@@ -225,3 +225,211 @@ test('durata obbligatoria e numero personalizzato non valido bloccano la generaz
   await page.locator('#mycoatch-custom-time').fill('55');
   assert.equal(await page.locator('#mycoatch-custom-time').evaluate(el => el.checkValidity()), true);
 });
+
+
+test('40 minuti: riequilibrio bicipiti/tricipiti visibile e importabile nei giorni Lower', async ({ page }) => {
+  const monitoring = await openIsolatedApp(page);
+  await startCoach(page, '45');
+  await page.locator('#select-time').selectOption('custom');
+  await page.locator('#mycoatch-custom-time').fill('40');
+  const preview = [];
+  page.on('dialog', async dialog => {
+    if (dialog.type() === 'confirm') preview.push(dialog.message());
+    await dialog.accept();
+  });
+
+  const downloaded = page.waitForEvent('download', { timeout: 20000 });
+  await page.locator('#mycoatch-submit').click();
+  const csv = await readFile(await (await downloaded).path(), 'utf8');
+  assert.equal(csv.split(/\r?\n/)[0], HEADER);
+  assert.match(csv, /\[VOLUME RIDISTRIBUITO\]/);
+
+  const confirmation = preview.find(message => message.includes('Bilancio volume prima settimana'));
+  assert.ok(confirmation, 'La proposta deve mostrare il bilancio settimanale');
+  assert.match(confirmation, /4 recuperate su altri giorni/);
+  assert.match(confirmation, /restano 6 serie sotto il template/);
+  assert.match(confirmation, /G1 → G2: 2 serie Bicipiti/);
+  assert.match(confirmation, /G3 → G4: 2 serie Tricipiti/);
+
+  const imported = await page.evaluate(async csvText => {
+    const { importWorkoutPlan } = await import('/js/csvHandler.js');
+    const { state } = await import('/js/state.js');
+    const result = importWorkoutPlan(csvText);
+    if (!result.success) return { result };
+    const week = state.workoutData.history.years[new Date().getFullYear()]
+      .mesocycles.at(-1).weeks[0];
+    return {
+      result,
+      categories: week.days.map(day =>
+        day.exercises.map(ex => ({
+          name: ex.name,
+          notes: ex.notes,
+          count: ex.loggedSets.length,
+          group: ex.groupType || null
+        }))
+      )
+    };
+  }, csv);
+  assert.ok(imported.result.success, JSON.stringify(imported));
+  assert.equal(imported.categories[1].at(-1).count, 2);
+  assert.equal(imported.categories[3].at(-1).count, 2);
+  assert.match(imported.categories[1].at(-1).notes, /VOLUME RIDISTRIBUITO/);
+  assert.match(imported.categories[3].at(-1).notes, /VOLUME RIDISTRIBUITO/);
+  assert.match(imported.categories[1].at(-1).name, /Curl/i);
+  assert.match(imported.categories[3].at(-1).name, /Press|Pushdown/i);
+  assert.deepEqual(monitoring.remoteRequests, []);
+  assert.deepEqual(monitoring.pageErrors, []);
+});
+
+
+async function prepareLiveWorkout(page) {
+  return page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    const { renderWorkoutList } = await import('/js/ui.js');
+    const year = state.workoutData.history.years[new Date().getFullYear()];
+    if (!year) throw new Error('Missing synthetic year in browser fixture');
+    const day = year.mesocycles[0].weeks[0].days[0];
+    day.exercises = [{
+      block: 1, name: 'Panca Piana con Bilanciere',
+      reps: '6-8', kgMin: '80', kgMax: '80', targetRpe: '@8',
+      rpe: '@8', recupero: '180s',
+      notes: '[DURATA STIMATA] 32 minuti su 45 disponibili.',
+      loggedSets: [0, 1, 2].map(i => ({
+        setNumber: i + 1, weight: '', reps: '', rpe: '',
+        isLocked: false, completed: false
+      }))
+    }];
+    state.activeMesocycleIndex = 0;
+    state.activeWeek = 1;
+    state.activeDay = 1;
+    renderWorkoutList();
+  });
+}
+
+test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue tempo e riapertura', async ({ page }) => {
+  const monitoring = await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+  await expect(page.locator('#mycoatch-live-panel')).toBeVisible();
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/3');
+  await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('');
+  await expect(page.locator('.set-reps[data-set="0"]')).toHaveValue('');
+  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('');
+  assert.equal(await page.locator('.set-kg[data-set="0"]').getAttribute('placeholder'), '80');
+
+  // Nessuna conferma da valori prescritti: le serie devono avere dati realmente inseriti.
+  await page.locator('.set-lock-check[data-set="0"]').click();
+  await expect(page.locator('.set-lock-check[data-set="0"]')).not.toBeChecked();
+  await expect(page.locator('#mycoatch-live-input-error')).toContainText('peso realmente usato');
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/3');
+
+  await page.locator('.set-kg[data-set="0"]').fill('80');
+  await page.locator('.set-reps[data-set="0"]').fill('8');
+  await page.locator('.set-rpe[data-set="0"]').fill('9.5');
+  await page.locator('.set-lock-check[data-set="0"]').check();
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 1/3');
+  await expect(page.locator('#mycoatch-live-guidance')).toContainText('RPE molto alto');
+  await expect(page.locator('#mycoatch-live-guidance')).toContainText('Ultima prestazione comparabile');
+  await expect(page.locator('#mycoatch-live-guidance')).toContainText('Differenza e1RM');
+  await expect(page.locator('.mycoatch-live-apply')).toBeVisible();
+  await expect(page.locator('.set-kg[data-set="1"]')).toHaveValue('');
+  await expect(page.locator('.set-reps[data-set="1"]')).toHaveValue('');
+  await expect(page.locator('.set-rpe[data-set="1"]')).toHaveValue('');
+  await expect(page.locator('#live-session-timer')).not.toHaveText('0:00');
+
+  await page.locator('.mycoatch-live-apply').click();
+  await expect(page.locator('.set-kg[data-set="1"]')).toHaveValue('75');
+  await expect(page.locator('.set-lock-check[data-set="1"]')).not.toBeChecked();
+  await page.locator('.set-reps[data-set="1"]').fill('7');
+  await page.locator('.set-rpe[data-set="1"]').fill('8');
+  await page.locator('.set-lock-check[data-set="1"]').check();
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 2/3');
+
+  await page.locator('.set-kg[data-set="2"]').fill('75');
+  await page.locator('.set-reps[data-set="2"]').fill('7');
+  await page.locator('.set-rpe[data-set="2"]').fill('8');
+  await page.locator('.set-lock-check[data-set="2"]').check();
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 3/3');
+  await expect(page.locator('#mycoatch-live-guidance')).toContainText('Seduta completata');
+
+  const completed = await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    const day = state.workoutData.history.years[new Date().getFullYear()]
+      .mesocycles[0].weeks[0].days[0];
+    return { completed: day.completed, duration: day.totalDurationMinutes,
+      stamps: day.exercises[0].loggedSets.map(s => s.completedAt || null) };
+  });
+  assert.equal(completed.completed, true);
+  assert.ok(completed.duration > 0);
+  assert.ok(completed.stamps.every(Boolean));
+
+  // Correggere una serie riapre la sessione anche dopo l'ultimo check.
+  await page.locator('.set-lock-check[data-set="2"]').uncheck();
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 2/3');
+  const reopened = await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    const day = state.workoutData.history.years[new Date().getFullYear()]
+      .mesocycles[0].weeks[0].days[0];
+    return { completed: day.completed, stamp: day.exercises[0].loggedSets[2].completedAt,
+      elapsed: day.accumulatedSeconds };
+  });
+  assert.equal(reopened.completed, false);
+  assert.equal(reopened.stamp, undefined);
+  assert.ok(reopened.elapsed >= 0);
+  assert.deepEqual(monitoring.remoteRequests, []);
+  assert.deepEqual(monitoring.pageErrors, []);
+});
+
+test('MyCoatch LIVE con RPE mancante non inventa massimale o suggerimenti', async ({ page }) => {
+  const monitoring = await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+  await page.locator('.set-kg[data-set="0"]').fill('80');
+  await page.locator('.set-reps[data-set="0"]').fill('8');
+  await page.locator('.set-lock-check[data-set="0"]').check();
+  await expect(page.locator('#mycoatch-live-guidance')).toContainText('senza RPE');
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('RPE misurato: 0/1');
+  await expect(page.locator('.mycoatch-live-apply')).toHaveCount(0);
+  await expect(page.locator('#mycoatch-live-guidance')).not.toContainText('e1RM stimato');
+  assert.deepEqual(monitoring.remoteRequests, []);
+  assert.deepEqual(monitoring.pageErrors, []);
+});
+
+
+test('ripetere una seduta pulisce serie reali e timestamp, non solo la spunta', async ({ page }) => {
+  const monitor = await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+  for (let set = 0; set < 3; set++) {
+    await page.locator(`.set-kg[data-set="${set}"]`).fill('80');
+    await page.locator(`.set-reps[data-set="${set}"]`).fill('8');
+    await page.locator(`.set-rpe[data-set="${set}"]`).fill('8');
+    await page.locator(`.set-lock-check[data-set="${set}"]`).check();
+  }
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 3/3');
+  page.on('dialog', async dialog => await dialog.accept());
+  await page.locator('#reset-session-timer-btn').click();
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/3');
+  for (let set = 0; set < 3; set++) {
+    await expect(page.locator(`.set-lock-check[data-set="${set}"]`)).not.toBeChecked();
+    await expect(page.locator(`.set-kg[data-set="${set}"]`)).toHaveValue('');
+    await expect(page.locator(`.set-reps[data-set="${set}"]`)).toHaveValue('');
+    await expect(page.locator(`.set-rpe[data-set="${set}"]`)).toHaveValue('');
+  }
+  const result = await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    const day = state.workoutData.history.years[new Date().getFullYear()]
+      .mesocycles[0].weeks[0].days[0];
+    return {
+      started: day.sessionStart,
+      completed: day.completed,
+      completedAt: day.sessionCompletedAt,
+      series: day.exercises[0].loggedSets.map(s =>
+        ({ weight: s.weight, reps: s.reps, rpe: s.rpe, stamp: s.completedAt }))
+    };
+  });
+  assert.equal(result.completed, false);
+  assert.equal(result.started, null);
+  assert.equal(result.completedAt, undefined);
+  assert.ok(result.series.every(s =>
+    s.weight === '' && s.reps === '' && s.rpe === '' && s.stamp === undefined));
+  assert.deepEqual(monitor.remoteRequests, []);
+  assert.deepEqual(monitor.pageErrors, []);
+});

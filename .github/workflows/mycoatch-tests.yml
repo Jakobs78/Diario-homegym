@@ -28,6 +28,11 @@ jobs:
           for file in mycoatch/*.js; do
             node --experimental-default-type=module --check "$file"
           done
+          node --experimental-default-type=module --check js/ui.js
+          node --experimental-default-type=module --check js/liveCoachUI.js
+          node --experimental-default-type=module --check js/exerciseCard.js
+          node --experimental-default-type=module --check js/sessionTimer.js
+          node --experimental-default-type=module --check sw.js
           node --experimental-default-type=module --check js/workoutEvents.js
           node --experimental-default-type=module --check js/restPolicy.js
           node --experimental-default-type=module --check js/main.js

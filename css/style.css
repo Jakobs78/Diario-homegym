@@ -1856,3 +1856,63 @@ body.dark-mode .group-title-badge {
     margin-top: 4px;
     min-height: 44px;
 }
+
+/* MyCoatch Live — unico pannello autoregolativo, accessibile e leggibile. */
+.mycoatch-live-panel {
+    background: var(--card-bg);
+    color: var(--text-color);
+    border: 1px solid var(--accent-color);
+    border-left: 4px solid var(--accent-color);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    padding: 14px 16px;
+    margin: 12px 0 18px;
+    overflow-wrap: anywhere;
+}
+.mycoatch-live-title { margin: 0; font-size: 1.1rem; }
+.mycoatch-live-subtitle {
+    font-size: .8rem; color: var(--text-muted);
+    margin: 5px 0 12px;
+}
+.mycoatch-live-progress { display: grid; gap: 5px; font-size: .87rem; font-weight: 650; }
+.mycoatch-live-progress progress {
+    width: 100%; height: 11px; accent-color: var(--accent-color);
+    border-radius: 9px;
+}
+.mycoatch-live-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 155px), 1fr));
+    gap: 7px;
+    margin: 12px 0;
+}
+.mycoatch-live-metrics > span {
+    background: var(--bg-color); border: 1px solid var(--border-color);
+    border-radius: 8px; padding: 8px; font-size: .82rem;
+}
+.mycoatch-live-time-estimate, .mycoatch-live-soft-warning {
+    font-size: .8rem; color: var(--text-muted); line-height: 1.5;
+    margin: 8px 0;
+}
+.mycoatch-live-guidance { font-size: .86rem; line-height: 1.5; }
+.mycoatch-live-guidance p { margin: 7px 0; }
+.mycoatch-live-advice {
+    border-radius: 9px; padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-color);
+}
+.mycoatch-live-advice.is-caution, .mycoatch-live-warning {
+    border-color: #d97706; border-left: 4px solid #d97706;
+}
+.mycoatch-live-advice.is-ok { border-left: 4px solid var(--success-color); }
+.mycoatch-live-advice.is-info { border-left: 4px solid var(--accent-color); }
+.mycoatch-live-advice small { display: block; margin-top: 6px; color: var(--text-muted); }
+.mycoatch-live-apply { display: block; margin: 10px 0 0; white-space: normal; }
+.mycoatch-live-input-error {
+    margin: 8px 0 0; padding: 8px 10px; color: #b91c1c;
+    border: 1px solid #dc2626; border-radius: 8px; font-size: .85rem;
+}
+[data-theme="dark"] .mycoatch-live-input-error { color: #fca5a5; }
+@media (max-width: 480px) {
+    .mycoatch-live-panel { padding: 12px; }
+    .mycoatch-live-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

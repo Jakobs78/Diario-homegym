@@ -4,6 +4,7 @@
 
 import { saveAndSync } from './storage.js';
 import { state } from './state.js';
+import { refreshLiveCoachClock } from './liveCoachUI.js';
 
 /**
  * Aggiorna lo stato di completamento e i tempi della sessione corrente in base ai set bloccati.
@@ -12,7 +13,6 @@ import { state } from './state.js';
 export function updateSessionAndCompletionState(currentDay) {
     if (!currentDay || !currentDay.exercises) return;
 
-    if (currentDay.completed) return;
     const exercises = currentDay.exercises;
     if (exercises.length === 0) return;
 
@@ -41,13 +41,18 @@ export function updateSessionAndCompletionState(currentDay) {
 
         currentDay.date = new Date().toISOString().split('T')[0];
         currentDay.totalDurationMinutes = Math.max(1, durationMinutes);
+        currentDay.accumulatedSeconds = totalSecs; // Mantieni l'effettivo anche se una serie viene riaperta.
         currentDay.completed = true;
+        currentDay.sessionCompletedAt = new Date().toISOString();
 
         currentDay.sessionStart = null; 
         currentDay.isPaused = false;
     } else if (completedSets < totalSets && currentDay.completed) {
+        // Correzione di una serie spuntata: riapri davvero la sessione.
         currentDay.completed = false;
         currentDay.totalDurationMinutes = undefined;
+        delete currentDay.sessionCompletedAt;
+        if (completedSets > 0 && !currentDay.isPaused) currentDay.sessionStart = Date.now();
     }
 }
 
@@ -103,6 +108,7 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
             }
             saveAndSync(state.workoutData);
             updateSessionHeaderUI(currentDay, renderCallback);
+            refreshLiveCoachClock(currentDay);
         };
     }
 
@@ -128,13 +134,29 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
             
             actionBtn.onclick = () => {
                 if (confirm("Vuoi azzerare il timer per ripetere la sessione?")) {
-                    currentDay.sessionStart = Date.now();
+                    currentDay.sessionStart = null; // Parte dal prossimo set realmente confermato.
                     currentDay.accumulatedSeconds = 0;
                     currentDay.isPaused = false;
                     currentDay.completed = false;
                     currentDay.totalDurationMinutes = undefined;
-                    
-                    exercises.forEach(ex => (ex.loggedSets || []).forEach(s => s.isLocked = false));
+                    delete currentDay.sessionCompletedAt;
+
+                    exercises.forEach(ex => (ex.loggedSets || []).forEach((set, index) => {
+                        set.isLocked = false;
+                        set.completed = false;
+                        set.weight = '';
+                        set.reps = '';
+                        set.rpe = '';
+                        delete set.completedAt;
+                        if (Array.isArray(ex.sets) && ex.sets[index]) {
+                            ex.sets[index].isLocked = false;
+                            ex.sets[index].completed = false;
+                            ex.sets[index].weight = '';
+                            ex.sets[index].reps = '';
+                            ex.sets[index].rpe = '';
+                            delete ex.sets[index].completedAt;
+                        }
+                    }));
                     
                     saveAndSync(state.workoutData);
                     if (typeof renderCallback === 'function') renderCallback();
@@ -158,6 +180,7 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
                     currentDay.isPaused = false;
                     currentDay.completed = false;
                     currentDay.totalDurationMinutes = undefined;
+                    delete currentDay.sessionCompletedAt;
                     saveAndSync(state.workoutData);
                     if (typeof renderCallback === 'function') renderCallback();
                 }

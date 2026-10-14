@@ -16,6 +16,13 @@ function resetGroups(exercises) {
         delete copy.groupType;
         delete copy.groupBase;
         delete copy.isGroupLast;
+        // Un piano ricalcolato non deve conservare vecchie etichette TRISET
+        // o SUPERSERIE: l'importatore le userebbe per raggruppare i vicini sbagliati.
+        for (const note of Object.values(GROUP_NOTES)) {
+            if (String(copy.notes || '').startsWith(note)) {
+                copy.notes = String(copy.notes).slice(note.length).replace(/^\\s*\\|\\s*/, '').trim();
+            }
+        }
         return copy;
     });
 }
