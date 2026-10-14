@@ -215,16 +215,18 @@ export function rebalanceWeeklyAccessories(days, requestedDays, maxSessionMinute
     const crossFocusCount = updatedDays.map(() => 0);
 
     if (!isDeloadWeek) {
-        for (const deficit of donorDeficits(updatedDays, requestedDays)) {
-            let outstanding = deficit.missingSets;
-            while (outstanding > 0) {
+        // Round-robin per evitare di usare tutti i giorni liberi per un solo
+        // muscolo (es. bicipiti), lasciando esclusi gli altri (es. tricipiti).
+        const deficits = donorDeficits(updatedDays, requestedDays);
+        let madeProgress = true;
+        while (madeProgress) {
+            madeProgress = false;
+            for (const deficit of deficits) {
+                if (deficit.missingSets <= 0) continue;
                 const choice = findReceiver(
-                    updatedDays,
-                    { ...deficit, missingSets: outstanding },
-                    maxSessionMinutes,
-                    crossFocusCount
+                    updatedDays, deficit, maxSessionMinutes, crossFocusCount
                 );
-                if (!choice) break;
+                if (!choice) continue;
 
                 const donor = updatedDays[deficit.fromIndex];
                 const recipient = updatedDays[choice.index];
@@ -245,7 +247,8 @@ export function rebalanceWeeklyAccessories(days, requestedDays, maxSessionMinute
                     sets: choice.count,
                     crossFocus: choice.crossFocus
                 });
-                outstanding -= choice.count;
+                deficit.missingSets -= choice.count;
+                madeProgress = true;
             }
         }
     }
