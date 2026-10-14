@@ -328,6 +328,8 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   await page.locator('.set-lock-check[data-set="0"]').check();
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 1/3');
   await expect(page.locator('#mycoatch-live-guidance')).toContainText('RPE molto alto');
+  await expect(page.locator('#mycoatch-live-guidance')).toContainText('Ultima prestazione comparabile');
+  await expect(page.locator('#mycoatch-live-guidance')).toContainText('Differenza e1RM');
   await expect(page.locator('.mycoatch-live-apply')).toBeVisible();
   await expect(page.locator('.set-kg[data-set="1"]')).toHaveValue('');
   await expect(page.locator('.set-reps[data-set="1"]')).toHaveValue('');
