@@ -1,6 +1,9 @@
 // mycoatch/mycoatch-adapter.js
 import { MyCoatch, downloadMesocycleCSV } from './index.js';
-import { CONFIG } from '../js/config.js'; // 🚀 AGGANCIO COMPATIBILITÀ: Importiamo la costante di configurazione della WebApp
+import { CONFIG } from '../js/config.js';
+import { state } from '../js/state.js';
+import { pullDataFromSupabase } from '../js/sync.js';
+import { formatCoachReview } from './mesocycleComparison.js';
 
 /**
  * Adapter per l'estrazione dello storico e la generazione diretta del CSV.
@@ -12,75 +15,44 @@ export async function generateAndDownloadMesocycleCSV(options = {}) {
         if (!Number.isInteger(minutes) || minutes < 25 || minutes > 180) {
             throw new Error('Prima di generare la scheda, scegli quanto tempo hai per ogni allenamento.');
         }
-        // 🛠️ RISOLTO: Utilizziamo la chiave di memoria esatta dichiarata in storage.js della WebApp
-        const storageKey = CONFIG.STORAGE_KEY;
-        let userHistory = null;
-        const rawLocalData = localStorage.getItem(storageKey);
+        // Lo stato già autenticato della webapp è la prima fonte di verità.
+        // Mai interrogare la tabella Supabase senza filtro sull'utente.
+        const hasHistory = data =>
+            Boolean(data?.history?.years && Object.values(data.history.years)
+                .some(year => Array.isArray(year?.mesocycles) && year.mesocycles.length));
 
-        const supabaseClient = window.supabaseClient || 
-            (window.supabase && typeof window.supabase.from === 'function' ? window.supabase : null);
-
-        if (rawLocalData) {
-            userHistory = JSON.parse(rawLocalData);
-        } else if (supabaseClient) {
-            const { data, error } = await supabaseClient
-                .from('workouts') // Allineato al nome tabella reale registrato in sync.js
-                .select('payload')
-                .single();
-            
-            if (!error && data) {
-                userHistory = data.payload;
-            }
-        }
-
-        // 🛡️ ASSICURIAMO CHE L'OGGETTO ESISTA
+        let userHistory = hasHistory(state.workoutData) ? state.workoutData : null;
         if (!userHistory) {
-            userHistory = {};
-        }
-
-        // 🧠 AGGANCIO lastWorkoutDate: Estraggiamo il timestamp dell'ultimo allenamento registrato nello storico
-        // Cerchiamo nell'albero dei mesocicli o nei log salvati della webapp
-        try {
-            const historyObj = userHistory?.history || userHistory || {};
-            const yearsObj = historyObj.years || {};
-            const years = Object.keys(yearsObj);
-            
-            if (years.length > 0) {
-                const currentYear = years[years.length - 1];
-                const mesocycles = yearsObj[currentYear]?.mesocycles || [];
-                const lastMeso = mesocycles[mesocycles.length - 1];
-                
-                if (lastMeso && lastMeso.weeks) {
-                    // Cerca a ritroso l'ultima data o timestamp disponibile nelle settimane/giorni
-                    for (let w = lastMeso.weeks.length - 1; w >= 0; w--) {
-                        const days = lastMeso.weeks[w].days || [];
-                        for (let d = days.length - 1; d >= 0; d--) {
-                            const day = days[d];
-                            // Se il giorno ha un timestamp o una data di completamento
-                            if (day.date || day.timestamp) {
-                                userHistory.lastWorkoutDate = day.date || day.timestamp;
-                                break;
-                            }
-                        }
-                        if (userHistory.lastWorkoutDate) break;
-                    }
-                }
+            const rawLocalData = localStorage.getItem(CONFIG.STORAGE_KEY);
+            if (rawLocalData) {
+                const local = JSON.parse(rawLocalData);
+                if (hasHistory(local)) userHistory = local;
             }
-
-            // Fallback: se la struttura dati usa una chiave diretta o un array di sessioni recenti
-            if (!userHistory.lastWorkoutDate && Array.isArray(userHistory.sessions) && userHistory.sessions.length > 0) {
-                const lastSession = userHistory.sessions[userHistory.sessions.length - 1];
-                userHistory.lastWorkoutDate = lastSession.date || lastSession.timestamp;
-            }
-        } catch (e) {
-            console.warn("Impossibile estrarre automaticamente la lastWorkoutDate, procedo senza data di stop.", e);
         }
+        if (!userHistory && state.currentUser) {
+            const remote = await pullDataFromSupabase(state.currentUser);
+            if (hasHistory(remote)) userHistory = remote;
+        }
+        userHistory ||= {};
 
         // 2. Generazione del mesociclo tramite l'engine adattivo
         const newMesocycle = MyCoatch.generateNextFromHistory(userHistory, options);
 
         if (!newMesocycle) {
             throw new Error("Impossibile generare il mesociclo. Verificare i dati di input.");
+        }
+
+        // Un confronto leggibile precede sempre il download.
+        const preview = formatCoachReview(
+            newMesocycle.coachReport.comparison, newMesocycle.coachReport
+        );
+        if (!window.confirm(preview)) {
+            MyCoatch.clearProposal();
+            return {
+                success: false,
+                cancelled: true,
+                message: 'Proposta non accettata: nessun file CSV scaricato e nessun dato storico modificato.'
+            };
         }
 
         // 3. Generazione e download del file CSV sul device
