@@ -45,29 +45,9 @@ export const MyCoatch = {
      * Valuta l'andamento di un singolo esercizio calcolando l'e1RM e la varianza RPE.
      */
         evaluateProgress(exerciseHistory) {
-            const config = coachState.getConfig();
-            
-            // Mappiamo l'array della webapp prendendo SOLO le serie confermate col Check ✓
-            const mappedHistory = exerciseHistory.map(session => {
-                const rawSets = session.loggedSets || session.sets || [];
-                
-                // 🔒 Filtro rigoroso: consideriamo solo le serie con il Check spuntato e valori reali
-                const confirmedSets = rawSets.filter(s => (s.isLocked || s.completed) && s.reps && parseInt(s.reps, 10) > 0);
-                if (confirmedSets.length === 0) return null;
-                
-                const lastSet = confirmedSets[confirmedSets.length - 1]; 
-                return {
-                    targetReps: session.reps || "8",
-                    actualReps: confirmedSets.map(s => parseInt(s.reps, 10) || 0),
-                    actualKg: lastSet?.weight || 0,
-                    rpe: confirmedSets.map(s => s.rpe ?? null),
-                    targetRpe: session.targetRpe || session.rpe || null
-                };
-            }).filter(Boolean);
-
-            if (mappedHistory.length === 0) return null;
-
-            return analyzeUserHistory(mappedHistory, config);
+            if (!Array.isArray(exerciseHistory)) return null;
+            // analyzeUserHistory consuma direttamente loggedSets confermati.
+            return analyzeUserHistory(exerciseHistory);
         },
 
 
