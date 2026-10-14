@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateCompletedSet, assessExerciseLive, buildLiveSessionSnapshot } from '../mycoatch/liveCoach.js';
+import { MyCoatch } from '../mycoatch/index.js';
 
 function exercise(sets, extra = {}) {
     return {
@@ -168,4 +169,12 @@ test('nessun carico suggerito quando non ci sono set futuri, anche a RPE altissi
     const advice = assessExerciseLive(ex);
     assert.equal(advice.suggestedWeight, null);
     assert.equal(advice.nextSetIndex, -1);
+});
+
+test('API pubblica MyCoatch usa il giudizio sui set confermati e non inventa RPE', () => {
+    const ex = exercise([confirmed(80, 8, ''), empty()]);
+    assert.equal(MyCoatch.evaluateSet(ex).code, 'missing_rpe');
+    assert.equal(MyCoatch.getE1RM(80, 8, null), null);
+    assert.ok(MyCoatch.getE1RM(80, 8, 8) > 80);
+    assert.equal(MyCoatch.evaluateSet({ weight: 80, reps: 8, rpe: 8 }), null);
 });
