@@ -1,5 +1,6 @@
 // mycoatch/engine.js
 import { EXERCISE_DATABASE } from './exercisesDB.js';
+import { exerciseKey } from './historyAnalysis.js';
 
 /**
  * Punti di riferimento del volume ipertrofico settimanale (Evidence-Based) - Spacchettati per distretto anatomico
@@ -24,7 +25,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
     const safeHistory = historicalData || {};
     
     // Analizziamo lo storico con il motore avanzato basato su e1RM e note trasparenti
-    const analysis = analyzePreviousMesocycle(rawLastMesocycle);
+    const analysis = safeHistory.byExercise ? safeHistory : analyzePreviousMesocycle(rawLastMesocycle);
     
     const { 
         name = "Mesociclo Adattivo MyCoach", 
@@ -39,10 +40,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
     } = config;
 
     // 1. Parametri di recupero biologico
-    const isMaster = userAge >= 45;
-    const ageRecoveryFactor = isMaster ? 0.8 : (userAge > 35 ? 0.9 : 1.0);
-    const experienceMultiplier = trainingYears < 2 ? 0.9 : 1.0;
-    const deloadWeekNumber = isMaster ? 3 : durationWeeks;
+    const isMaster = false; // Non imporre riduzioni automatiche basate solo sull'età.
+    const deloadWeekNumber = durationWeeks;
 
     // 2. Vincoli di tempo
     const isShortTime = maxSessionMinutes <= 50;
@@ -55,7 +54,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
     templateDays.forEach(day => {
         const slots = isShortTime ? day.slots.slice(0, 4) : day.slots;
         slots.forEach(slot => {
-            const mainMuscle = Object.keys(MUSCLE_VOLUME_LANDMARKS).find(m => slot.muscle.toLowerCase().includes(m.toLowerCase())) || "Petto";
+            const mainMuscle = slot.muscle;
             muscleFrequencyMap[mainMuscle] = (muscleFrequencyMap[mainMuscle] || 0) + 1;
         });
     });
@@ -99,7 +98,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     currentDailyCNS += (exercise.cnsCost || 5);
                 }
                 return exercise;
-            }).filter(Boolean);
+            });
+            if (rawExercises.some(ex => !ex)) throw new Error("Template incompatibile con attrezzatura disponibile: generazione annullata.");
 
             // Integrazione della funzione di specializzazione originale
             rawExercises = applySpecializationFocus(rawExercises, safeHistory);
@@ -107,13 +107,11 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             const processedExercises = rawExercises.map((exItem, index) => {
                 const ex = exItem;
                 
-                let baseKg = safeHistory[ex.name]?.lastKg !== undefined 
-                    ? safeHistory[ex.name].lastKg 
-                    : (parseFloat(ex.defaultKg) || 0);
+                const prior = analysis.byExercise?.[exerciseKey(ex.name)];
+                let baseKg = Number.isFinite(prior?.lastKg) && prior.lastKg > 0 ? prior.lastKg : null;
 
                 // Auto-Deload Preventivo per Inattività
-                const isReturningFromBreak = safeHistory.lastWorkoutDate && 
-                    ((new Date() - new Date(safeHistory.lastWorkoutDate)) / (1000 * 60 * 60 * 24)) > 7;
+                const isReturningFromBreak = false; // Una pausa deve essere verificata, non dedotta da date eventualmente mancanti.
                 
                 let autoNote = "";
                 if (isReturningFromBreak && w === 1) {
@@ -122,24 +120,17 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 }
                 
                 // Iniettiamo la nota analitica sullo stallo o progresso basata sull'e1RM
-                if (analysis.exerciseNotes && analysis.exerciseNotes[ex.name]) {
-                    autoNote += `${analysis.exerciseNotes[ex.name]} | `;
+                if (analysis.exerciseNotes && analysis.exerciseNotes[exerciseKey(ex.name)]) {
+                    autoNote += `${analysis.exerciseNotes[exerciseKey(ex.name)]} | `;
                 }
                 
-                if (w > 1 && !isDeloadWeek) {
-                    const multiplier = (focus === 'strength' || (focus === 'hybrid' && index === 0)) ? 1 : 0.5;
-                    const effectiveStep = baseKg < 12.5 ? Math.min(stepKg, 1.0) : stepKg;
-                    baseKg += effectiveStep * (w - 1) * multiplier;
-                }
+                // Il carico progredisce in base alle prestazioni e all'RPE, non al calendario.
+                const plannedKg = baseKg === null ? null : (isDeloadWeek ? baseKg * 0.85 : baseKg);
+                const targetKgMin = plannedKg === null ? '' :
+                    String(plannedKg < 12.5 ? Math.round(plannedKg * 2) / 2 : Math.round(plannedKg / 2.5) * 2.5);
+                const targetKgMax = plannedKg === null ? '' : targetKgMin;
 
-                if (isDeloadWeek) {
-                    baseKg = baseKg * 0.85;
-                }
-
-                const targetKgMin = baseKg < 12.5 ? Math.round(baseKg * 2) / 2 : Math.round(baseKg / 2.5) * 2.5;
-                const targetKgMax = targetKgMin + (baseKg < 12.5 ? 2 : 5);
-
-                const mainMuscle = Object.keys(MUSCLE_VOLUME_LANDMARKS).find(m => ex.category.toLowerCase().includes(m.toLowerCase())) || "Petto";
+                const mainMuscle = ex.category;
                 const realFrequency = muscleFrequencyMap[mainMuscle] || 2;
 
                 let baseSets = calculateTargetSets({
@@ -151,7 +142,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     frequency: realFrequency
                 });
                 
-                const setsCount = Math.max(2, Math.round(baseSets * ageRecoveryFactor * experienceMultiplier));
+                const setsCount = Math.max(2, baseSets);
 
                 let reps = ex.defaultReps || "8-12";
                 if (focus === 'strength' && index === 0) {
@@ -161,19 +152,19 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 }
 
                 let topsetStr = "";
-                let noteFinal = autoNote + (exItem.noteOverride || generateContextNote(index, isDeloadWeek, focus, useSupersets));
+                let noteFinal = autoNote + (exItem.noteOverride || generateContextNote(index, isDeloadWeek, focus, useSupersets && dayTemplate.slots.length === 5 && index === 3));
 
                 const isFirstCompound = index === 0 && ["squat", "hinge", "horizontal_push", "vertical_push", "vertical_pull"].includes(ex.pattern);
                 
-                if (isFirstCompound) {
+                if (isFirstCompound && plannedKg !== null) {
                     const w1 = Math.round(baseKg * 0.5);
                     const w2 = Math.round(baseKg * 0.7);
                     const w3 = Math.round(baseKg * 0.85);
                     noteFinal = `🔥 [WARM-UP AUTO]: 8x${w1}kg, 4x${w2}kg, 2x${w3}kg. | ` + noteFinal;
                 }
 
-                if (index === 0 && !isDeloadWeek && focus !== 'strength') {
-                    const topKg = targetKgMin + (baseKg < 12.5 ? 1 : 2.5);
+                if (index === 0 && plannedKg !== null && !isDeloadWeek && focus !== 'strength') {
+                    const topKg = Number(targetKgMin) + (baseKg < 12.5 ? 1 : 2.5);
                     topsetStr = `1x${reps.split('-')[0]} @ ${topKg}kg (RPE 9)`;
                     noteFinal += ` | 🎯 Top Set eseguito, poi Back-Off automatico del 10%.`;
                 }
@@ -181,12 +172,12 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 const currentTechnique = exItem.intensityTechnique || null;
 
                 const setsArray = Array.from({ length: setsCount }, (_, setIdx) => {
-                    let setKg = targetKgMin;
+                    let setKg = plannedKg === null ? null : Number(targetKgMin);
                     
                     if (setIdx === 0 && topsetStr) {
                         setKg = targetKgMin + (baseKg < 12.5 ? 1 : 2.5);
                     } else if (setIdx > 0 && topsetStr) {
-                        const topKg = targetKgMin + (baseKg < 12.5 ? 1 : 2.5);
+                        const topKg = Number(targetKgMin) + (baseKg < 12.5 ? 1 : 2.5);
                         setKg = Math.round((topKg * 0.9) / 2.5) * 2.5;
                     }
 
@@ -195,7 +186,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     return {
                         setNumber: setIdx + 1,
                         targetReps: reps,
-                        targetKg: setKg > 0 ? setKg.toString() : "-",
+                        targetKg: setKg !== null && setKg > 0 ? setKg.toString() : "",
                         actualReps: "",
                         actualKg: "",
                         completed: false,
@@ -208,8 +199,9 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     name: ex.name,
                     setsCount: setsCount,
                     reps: reps,
-                    kgMin: targetKgMin.toString(),
-                    kgMax: targetKgMax.toString(),
+                    kgMin: String(targetKgMin),
+                    kgMax: String(targetKgMax),
+                    restTime: index === 0 ? "180s" : (ex.pattern === "isolation" ? (useSupersets && dayTemplate.slots.length === 5 && index === 4 ? "75s" : "90s") : "150s"),
                     topset: topsetStr,
                     rpe: rpeString,
                     notes: noteFinal, // <-- Visibile direttamente nel tab delle note della WebApp per spiegare le decisioni
@@ -245,7 +237,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
 function calculateTargetSets({ category = "", focusMuscleGroup, isDeloadWeek, weekNumber, isMaster, frequency = 2 }) {
     if (isDeloadWeek) return 2;
 
-    const mainMuscle = Object.keys(MUSCLE_VOLUME_LANDMARKS).find(m => category.toLowerCase().includes(m.toLowerCase())) || "Petto";
+    const mainMuscle = Object.keys(MUSCLE_VOLUME_LANDMARKS).find(m => m.toLowerCase() === category.toLowerCase()) || "Gambe";
     const landmarks = MUSCLE_VOLUME_LANDMARKS[mainMuscle] || MUSCLE_VOLUME_LANDMARKS.Petto;
 
     const isSpecialization = focusMuscleGroup && focusMuscleGroup.toLowerCase() === mainMuscle.toLowerCase();
@@ -254,7 +246,7 @@ function calculateTargetSets({ category = "", focusMuscleGroup, isDeloadWeek, we
     let targetSets = Math.round(targetVolumeLandmark / Math.max(1, frequency));
     if (weekNumber === 3) targetSets += 1;
 
-    const maxAllowed = isMaster ? 3 : Math.min(5, Math.ceil(landmarks.mrv / Math.max(1, frequency)));
+    const maxAllowed = Math.min(3, Math.ceil(landmarks.mrv / Math.max(1, frequency)));
     return Math.max(2, Math.min(targetSets, maxAllowed));
 }
 
@@ -284,7 +276,7 @@ function generateContextNote(index, isDeload, focus, useSupersets) {
 
 function selectExerciseBySlot(slot, stalledExercises, alreadySelected = [], currentCNS = 0, maxCNS = 26) {
     // Filtro Home Gym originale
-    const availableEquipment = ["barbell", "dumbbell", "bodyweight", "lat_machine"];
+    const availableEquipment = ["barbell", "dumbbell", "bodyweight", "lat_machine", "cable"];
 
     let matches = EXERCISE_DATABASE.filter(e => {
         const categoryMatch = e.category.toLowerCase() === slot.muscle.toLowerCase();
@@ -310,7 +302,7 @@ function selectExerciseBySlot(slot, stalledExercises, alreadySelected = [], curr
         matches.sort((a, b) => b.cnsCost - a.cnsCost);
     }
 
-    let selected = matches.find(e => !stalledExercises.includes(e.name)) || matches[0];
+    let selected = matches[0]; // Nessuna rotazione automatica per un possibile stallo.
 
     if ((currentCNS + selected.cnsCost) > maxCNS) {
         selected = { 
@@ -407,12 +399,12 @@ export function getTemplateForDays(daysPerWeek = 3) {
 
 export function applySpecializationFocus(exercises, historicalData) {
     return exercises.map(ex => {
-        const exHistory = historicalData[ex.name];
+        const exHistory = historicalData.byExercise?.[exerciseKey(ex.name)];
         
-        if (exHistory && exHistory.stallsCount >= 2) {
+        if (exHistory && exHistory.status === "possible_stall") {
             return {
                 ...ex,
-                noteOverride: "SPECIALIZZAZIONE STALLO: Utilizza la tecnica Myo-Reps o Rest-Pause sull'ultima serie per sbloccare la crescita."
+                noteOverride: "Possibile stallo: verifica recupero, aderenza e tecnica prima di cambiare il programma."
             };
         }
         return ex;
