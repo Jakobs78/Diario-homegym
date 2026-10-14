@@ -13,7 +13,7 @@ import { updateSessionHeaderUI } from './sessionTimer.js';
 import { bindWorkoutTableEvents } from './workoutEvents.js';
 import { parseCoachPDF } from './pdfParser.js';
 import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
-import { MyCoatch } from '../mycoatch/index.js';
+import { createLiveCoachPanel, updateLiveCoachPanel } from './liveCoachUI.js';
 import { toggleCurrentMesocycleLock } from './mesocycle.js';
 
 export const DOM = {
@@ -273,6 +273,7 @@ export function renderWorkoutList() {
     unifiedHeaderBox.appendChild(timerRow);
 
     DOM.workoutListContainer.appendChild(unifiedHeaderBox);
+    DOM.workoutListContainer.appendChild(createLiveCoachPanel(currentDay, { readOnly: isPastMeso }));
 
     if (currentDay.sessionStart) {
         const startDate = new Date(currentDay.sessionStart).toDateString();
@@ -297,6 +298,8 @@ export function renderWorkoutList() {
         const mins = Math.floor(totalSecs / 60);
         const secs = totalSecs % 60;
         timerEl.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        // Il coach segue l'avanzamento senza ricaricare le schede a ogni secondo.
+        if (totalSecs % 10 === 0) updateLiveCoachPanel(currentDay, { readOnly: isPastMeso });
     }, 1000);
 
     updateSessionHeaderUI(currentDay, renderWorkoutList);
@@ -327,7 +330,6 @@ export function renderWorkoutList() {
             while (i < exercises.length && exercises[i].groupBase === currentGroupBase && exercises[i].groupType === groupType) {
                 const currentEx = exercises[i];
                 const card = createSingleExerciseCard(currentEx, i, currentDay, mesoIndex, targetWeek, activeDayNum, isPastMeso);
-                appendCoachingFeedbackCard(card, currentEx.name);
                 groupWrapper.appendChild(card);
                 updatePlatesBadgeUI(i);
                 i++;
@@ -336,7 +338,6 @@ export function renderWorkoutList() {
             DOM.workoutListContainer.appendChild(groupWrapper);
         } else {
             const card = createSingleExerciseCard(ex, i, currentDay, mesoIndex, targetWeek, activeDayNum, isPastMeso);
-            appendCoachingFeedbackCard(card, ex.name);
             DOM.workoutListContainer.appendChild(card);
             updatePlatesBadgeUI(i);
             i++;
@@ -346,46 +347,3 @@ export function renderWorkoutList() {
     bindWorkoutTableEvents(currentDay, isPastMeso, renderWorkoutList);
 }
 
-function appendCoachingFeedbackCard(exerciseContainer, exerciseName) {
-    const historyYears = state.workoutData?.history?.years || {};
-    let exerciseHistory = [];
-
-    Object.values(historyYears).forEach(yearObj => {
-        (yearObj.mesocycles || []).forEach(meso => {
-            (meso.weeks || []).forEach(week => {
-                (week.days || []).forEach(day => {
-                    (day.exercises || []).forEach(ex => {
-                        const currentName = ex.name || ex.nome;
-                        const sets = ex.loggedSets || ex.sets || [];
-                        if (currentName === exerciseName && sets.length > 0) {
-                            exerciseHistory.push(ex);
-                        }
-                    });
-                });
-            });
-        });
-    });
-
-    if (exerciseHistory.length === 0) return;
-
-    const advice = MyCoatch.evaluateProgress(exerciseHistory);
-    if (!advice) return;
-
-    const coachingBox = document.createElement('div');
-    coachingBox.className = "coaching-feedback-box mt-sm";
-
-    if (advice.action === "INCREMENT_LOAD") {
-        coachingBox.classList.add("coaching-increment");
-        coachingBox.innerHTML = `🔥 <strong>MyCoatch Progression:</strong> ${advice.message}`;
-    } else if (advice.action === "TRIGGER_DELOAD_OR_VARIATION") {
-        coachingBox.classList.add("coaching-stall");
-        coachingBox.innerHTML = `⚠️ <strong>MyCoatch Stallo:</strong> ${advice.message}`;
-    } else if (advice.action === "REDUCE_LOAD") {
-        coachingBox.classList.add("coaching-adjust");
-        coachingBox.innerHTML = `⚠️ <strong>MyCoatch Regolazione:</strong> ${advice.message}`;
-    } else {
-        return;
-    }
-
-    exerciseContainer.appendChild(coachingBox);
-}
