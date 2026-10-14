@@ -24,9 +24,13 @@ function inspectExercise(exercise, context) {
     const logged = Array.isArray(exercise.loggedSets) ? exercise.loggedSets :
         (Array.isArray(exercise.sets) ? exercise.sets : []);
     const valid = logged.flatMap(set => {
-        if (!set || (set.isLocked !== true && set.completed !== true)) return [];
+        if (!set || (set.isLocked !== true && set.completed !== true) ||
+            set.isWarmup || set.warmup || set.is_warmup) return [];
         const kg = numericValue(set.weight ?? set.actualKg);
-        const reps = numericValue(set.reps ?? set.actualReps);
+        const repsText = String(set.reps ?? set.actualReps ?? '');
+        // Per dropset/triset registrati come "10+8+6" conta solo la prima
+        // porzione ai fini del volume; l'e1RM rimane deliberatamente ignoto.
+        const reps = numericValue(repsText.includes('+') ? repsText.split('+')[0] : repsText);
         if (kg === null || kg <= 0 || reps === null || reps <= 0) return [];
         const rpe = parseRpe(set.rpe);
         return [{ kg, reps, rpe, e1rm: rpe !== null &&
@@ -37,9 +41,11 @@ function inspectExercise(exercise, context) {
 
     const targetRpe = parseRpe(exercise.targetRpe ?? exercise.rpe);
     const repsTarget = parseRepRange(exercise.reps);
-    const rawCount = logged.length ||
-        Number.parseInt(String(exercise.set || ''), 10) || valid.length;
-    const plannedSets = Math.max(valid.length, rawCount);
+    const prescribed = Number.parseInt(String(exercise.set || ''), 10);
+    const countWithoutWarmups = logged.filter(set =>
+        !set?.isWarmup && !set?.warmup && !set?.is_warmup).length;
+    const plannedSets = Math.max(valid.length,
+        Number.isFinite(prescribed) && prescribed > 0 ? prescribed : countWithoutWarmups);
     const validRpe = valid.map(set => set.rpe).filter(rpe => rpe !== null);
     const e1rms = valid.map(set => set.e1rm).filter(v => v !== null);
     const avgRpe = mean(validRpe);
@@ -77,12 +83,17 @@ function inspectExercise(exercise, context) {
 
 function determineExerciseStatus(exposures) {
     const standard = exposures.filter(e => !e.isDeload);
-    const e1rm = standard.filter(e => e.e1rm !== null);
-    const recent = e1rm.slice(-3);
+    // Tre esposizioni nello stesso microciclo non provano uno stallo
+    // distribuito nel tempo. Unisci per settimana e confronta almeno 3 settimane.
+    const byWeek = new Map();
+    for (const exposure of standard.filter(e => e.e1rm !== null)) {
+        byWeek.set(exposure.weekId, Math.max(byWeek.get(exposure.weekId) || 0, exposure.e1rm));
+    }
+    const recent = [...byWeek.values()].slice(-3);
     if (recent.length < 3) return { status: 'insufficient_data', percent: null };
-    const first = recent[0].e1rm;
-    const second = recent[1].e1rm;
-    const last = recent[2].e1rm;
+    const first = recent[0];
+    const second = recent[1];
+    const last = recent[2];
     const percent = round(100 * (last / first - 1));
     if (last < first * 0.97) return { status: 'regressing', percent };
     if (last <= first * 1.01 && last <= second * 1.015)
@@ -137,6 +148,9 @@ export function analyzeTrainingHistory(userHistory) {
                             };
                         }
                         byExercise[parsed.key].exposures.push(parsed);
+                        // Le settimane di scarico non sono un riferimento
+                        // valido per la dose di lavoro abituale.
+                        if (parsed.isDeload) continue;
                         if (!weeks.has(weekId)) weeks.set(weekId, new Map());
                         const weekMuscles = weeks.get(weekId);
                         if (!weekMuscles.has(parsed.category)) {
