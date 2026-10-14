@@ -392,3 +392,44 @@ test('MyCoatch LIVE con RPE mancante non inventa massimale o suggerimenti', asyn
   assert.deepEqual(monitoring.remoteRequests, []);
   assert.deepEqual(monitoring.pageErrors, []);
 });
+
+
+test('ripetere una seduta pulisce serie reali e timestamp, non solo la spunta', async ({ page }) => {
+  const monitor = await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+  for (let set = 0; set < 3; set++) {
+    await page.locator(`.set-kg[data-set="${set}"]`).fill('80');
+    await page.locator(`.set-reps[data-set="${set}"]`).fill('8');
+    await page.locator(`.set-rpe[data-set="${set}"]`).fill('8');
+    await page.locator(`.set-lock-check[data-set="${set}"]`).check();
+  }
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 3/3');
+  page.on('dialog', async dialog => await dialog.accept());
+  await page.locator('#reset-session-timer-btn').click();
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/3');
+  for (let set = 0; set < 3; set++) {
+    await expect(page.locator(`.set-lock-check[data-set="${set}"]`)).not.toBeChecked();
+    await expect(page.locator(`.set-kg[data-set="${set}"]`)).toHaveValue('');
+    await expect(page.locator(`.set-reps[data-set="${set}"]`)).toHaveValue('');
+    await expect(page.locator(`.set-rpe[data-set="${set}"]`)).toHaveValue('');
+  }
+  const result = await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    const day = state.workoutData.history.years[new Date().getFullYear()]
+      .mesocycles[0].weeks[0].days[0];
+    return {
+      started: day.sessionStart,
+      completed: day.completed,
+      completedAt: day.sessionCompletedAt,
+      series: day.exercises[0].loggedSets.map(s =>
+        ({ weight: s.weight, reps: s.reps, rpe: s.rpe, stamp: s.completedAt }))
+    };
+  });
+  assert.equal(result.completed, false);
+  assert.equal(result.started, null);
+  assert.equal(result.completedAt, undefined);
+  assert.ok(result.series.every(s =>
+    s.weight === '' && s.reps === '' && s.rpe === '' && s.stamp === undefined));
+  assert.deepEqual(monitor.remoteRequests, []);
+  assert.deepEqual(monitor.pageErrors, []);
+});
