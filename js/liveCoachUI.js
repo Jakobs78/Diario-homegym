@@ -1,4 +1,5 @@
 import { buildLiveSessionSnapshot } from '../mycoatch/liveCoach.js';
+import { state } from './state.js';
 
 function element(tag, className, text) {
     const node = document.createElement(tag);
@@ -28,7 +29,7 @@ export function createLiveCoachPanel(day, { readOnly = false } = {}) {
 export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPanel = null) {
     const panel = explicitPanel || document.getElementById('mycoatch-live-panel');
     if (!panel || !day) return null;
-    const snapshot = buildLiveSessionSnapshot(day);
+    const snapshot = buildLiveSessionSnapshot(day, { history: state.workoutData });
     const locked = readOnly || panel.dataset.readOnly === 'true';
     panel.replaceChildren();
 
@@ -64,7 +65,9 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
 
     if (snapshot.projectedMinutes !== null && !locked) {
         panel.append(element('p', 'mycoatch-live-time-estimate',
-            `Tempo finale approssimativo: ~${snapshot.projectedMinutes} min (serie e recuperi rimanenti; non è una misura).`));
+            `Tempo finale approssimativo: ~${snapshot.projectedMinutes} min (${snapshot.paceCalibration
+                ? 'calibrato su ' + snapshot.paceCalibration.samples + ' sedute precedenti'
+                : 'stimato da serie e recuperi rimanenti'}; non è una misura).`));
     }
 
     const liveMessage = element('div', 'mycoatch-live-guidance');
@@ -97,6 +100,16 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
         detail.append(element('p', '', advice.message));
         if (advice.e1rm !== null) {
             detail.append(element('small', '', `e1RM stimato: ${advice.e1rm} kg (da ripetizioni e RPE realmente registrati).`));
+        }
+        if (snapshot.previousExercise) {
+            const prior = snapshot.previousExercise;
+            detail.append(element('small', '',
+                `Ultima prestazione comparabile: ${prior.kg} kg × ${prior.reps} reps${prior.rpe !== null ? ' @RPE ' + prior.rpe : ' (RPE non registrato)'}.`));
+            if (snapshot.e1rmChangePercent !== null) {
+                const change = snapshot.e1rmChangePercent;
+                detail.append(element('small', '',
+                    `Differenza e1RM rispetto a quella singola seduta: ${change > 0 ? '+' : ''}${change}%. Non equivale da sola a una progressione consolidata.`));
+            }
         }
         if (!locked && advice.suggestedWeight !== null && advice.nextSetIndex >= 0) {
             const targetInput = document.querySelector(
