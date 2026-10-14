@@ -225,3 +225,56 @@ test('durata obbligatoria e numero personalizzato non valido bloccano la generaz
   await page.locator('#mycoatch-custom-time').fill('55');
   assert.equal(await page.locator('#mycoatch-custom-time').evaluate(el => el.checkValidity()), true);
 });
+
+
+test('40 minuti: riequilibrio bicipiti/tricipiti visibile e importabile nei giorni Lower', async ({ page }) => {
+  const monitoring = await openIsolatedApp(page);
+  await startCoach(page, '40');
+  const preview = [];
+  page.on('dialog', async dialog => {
+    if (dialog.type() === 'confirm') preview.push(dialog.message());
+    await dialog.accept();
+  });
+
+  const downloaded = page.waitForEvent('download', { timeout: 20000 });
+  await page.locator('#mycoatch-submit').click();
+  const csv = await readFile(await (await downloaded).path(), 'utf8');
+  assert.equal(csv.split(/\r?\n/)[0], HEADER);
+  assert.match(csv, /\[VOLUME RIDISTRIBUITO\]/);
+
+  const confirmation = preview.find(message => message.includes('Bilancio volume prima settimana'));
+  assert.ok(confirmation, 'La proposta deve mostrare il bilancio settimanale');
+  assert.match(confirmation, /4 recuperate su altri giorni/);
+  assert.match(confirmation, /restano 6 serie sotto il template/);
+  assert.match(confirmation, /G1 → G2: 2 serie Bicipiti/);
+  assert.match(confirmation, /G3 → G4: 2 serie Tricipiti/);
+
+  const imported = await page.evaluate(async csvText => {
+    const { importWorkoutPlan } = await import('/js/csvHandler.js');
+    const { state } = await import('/js/state.js');
+    const result = importWorkoutPlan(csvText);
+    if (!result.success) return { result };
+    const week = state.workoutData.history.years[new Date().getFullYear()]
+      .mesocycles.at(-1).weeks[0];
+    return {
+      result,
+      categories: week.days.map(day =>
+        day.exercises.map(ex => ({
+          name: ex.name,
+          notes: ex.notes,
+          count: ex.loggedSets.length,
+          group: ex.groupType || null
+        }))
+      )
+    };
+  }, csv);
+  assert.ok(imported.result.success, JSON.stringify(imported));
+  assert.equal(imported.categories[1].at(-1).count, 2);
+  assert.equal(imported.categories[3].at(-1).count, 2);
+  assert.match(imported.categories[1].at(-1).notes, /VOLUME RIDISTRIBUITO/);
+  assert.match(imported.categories[3].at(-1).notes, /VOLUME RIDISTRIBUITO/);
+  assert.match(imported.categories[1].at(-1).name, /Curl/i);
+  assert.match(imported.categories[3].at(-1).name, /Press|Pushdown/i);
+  assert.deepEqual(monitoring.remoteRequests, []);
+  assert.deepEqual(monitoring.pageErrors, []);
+});
