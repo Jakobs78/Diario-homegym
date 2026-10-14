@@ -31,7 +31,7 @@ export const EXERCISE_DATABASE = [
     { name: "Curl con Bilanciere EZ", category: "Bicipiti", pattern: "isolation", equipment: "barbell", cnsCost: 4, profile: "Flessione gomito - Minimo stress polsi", defaultReps: "8-10", defaultKg: "" },
     { name: "Curl Manubri su Panca Inclinata", category: "Bicipiti", pattern: "isolation", equipment: "dumbbell", cnsCost: 3, profile: "Enfasi capo lungo in massimo allungamento", defaultReps: "10-12", defaultKg: "" },
     { name: "French Press con Bilanciere EZ", category: "Tricipiti", pattern: "isolation", equipment: "barbell", cnsCost: 4, profile: "Capo mediale e laterale - Allungamento gomito", defaultReps: "8-10", defaultKg: "" },
-    { name: "Pushdown ai Cavi con Corda", category: "Tricipiti", pattern: "isolation", equipment: "cable", cnsCost: 3, profile: "Resistenza lineare - Picco di contrazione", defaultReps: "10-12", defaultKg: "" }
+    { name: "Pushdown ai Cavi con Corda", category: "Tricipiti", pattern: "isolation", equipment: "cable", cnsCost: 3, profile: "Resistenza lineare - Picco di contrazione", defaultReps: "10-12", defaultKg: "" },
     // Varianti compatibili con cavi alti/bassi della home gym.
     { name: "Leg Curl ai Cavi (cavigliera)", category: "Femorali", pattern: "isolation", equipment: "cable", cnsCost: 3, defaultReps: "10-15", defaultKg: "" },
     { name: "Pushdown ai Cavi", category: "Tricipiti", pattern: "isolation", equipment: "cable", cnsCost: 3, defaultReps: "10-15", defaultKg: "" },
