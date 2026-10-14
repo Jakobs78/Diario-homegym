@@ -218,3 +218,17 @@ test('un fondamentale o una regola di frequenza resta protetta anche dopo il tem
         assert.equal(exercise.pattern, slot.pattern);
     }
 });
+
+test('la selezione non è casuale e rimane stabile nelle quattro settimane', () => {
+    const first = plan({ maxSessionMinutes: 60 });
+    const second = plan({ maxSessionMinutes: 60 });
+    const names = meso => meso.weeks.map(week => week.days.map(day =>
+        day.exercises.map(ex => ex.name)));
+    assert.deepEqual(names(first), names(second));
+    assert.ok(first.weeks.every(week => week.weeklyCoverage.allPriorityLiftsPresent));
+    // Le modifiche di carico/serie tra settimane possono essere adattive,
+    // i nomi dei movimenti cardine non cambiano senza una scelta esplicita.
+    assert.deepEqual(first.weeks.map(week => week.days.map(day => day.exercises[0].name)),
+        Array.from({ length: 4 }, () =>
+            first.weeks[0].days.map(day => day.exercises[0].name)));
+});
