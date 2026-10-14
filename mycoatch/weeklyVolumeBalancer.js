@@ -168,6 +168,24 @@ function weeklyTotals(days, requestedDays, moves, isDeloadWeek) {
     for (const day of requestedDays) trackSets(day, wanted);
     for (const day of days) trackSets(day.exercises, scheduled);
 
+    const missingCompoundExercises = [];
+    requestedDays.forEach((requested, dayIndex) => {
+        const current = days[dayIndex];
+        for (const exercise of requested) {
+            if (exercise.pattern === 'isolation') continue;
+            const found = current.exercises.some(ex =>
+                canonicalExerciseKey(ex.name) === canonicalExerciseKey(exercise.name)
+            );
+            if (!found) {
+                missingCompoundExercises.push({
+                    day: current.dayNumber,
+                    exercise: exercise.name,
+                    muscle: exercise.category
+                });
+            }
+        }
+    });
+
     const muscles = [...new Set([...Object.keys(wanted), ...Object.keys(scheduled)])].sort();
     const byMuscle = Object.fromEntries(muscles.map(muscle => [
         muscle, {
@@ -186,7 +204,8 @@ function weeklyTotals(days, requestedDays, moves, isDeloadWeek) {
         plannedSets: Object.values(wanted).reduce((sum, n) => sum + n, 0),
         scheduledSets: Object.values(scheduled).reduce((sum, n) => sum + n, 0),
         byMuscle,
-        moves
+        moves,
+        missingCompoundExercises
     };
 }
 
