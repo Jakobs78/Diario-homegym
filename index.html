@@ -277,6 +277,47 @@
                         <option value="strength">Forza</option>
                         <option value="hypertrophy">Ipertrofia</option>
                     </select>
+                    <fieldset class="mycoatch-preferences-group">
+                        <legend>Fondamentali prioritari (varianti facoltative)</legend>
+                        <p class="mycoatch-form-hint">4 giorni: Upper A → Lower A → Upper B → Lower B. MyCoatch mantiene le alzate cardine, ma puoi scegliere una variante equivalente se più adatta a te.</p>
+                        <label for="mycoatch-lift-bench">Panca (Upper A / Full Body A)</label>
+                        <select id="mycoatch-lift-bench" name="bench">
+                            <option value="auto">Automatica — panca piana bilanciere</option>
+                            <option value="Panca Piana con Bilanciere">Panca piana bilanciere</option>
+                            <option value="Panca Inclinata con Manubri">Panca inclinata manubri (serve panca inclinabile)</option>
+                            <option value="Panca Inclinata con Bilanciere">Panca inclinata bilanciere (serve panca inclinabile)</option>
+                            <option value="Push-up a Terra">Push-up</option>
+                        </select>
+                        <label for="mycoatch-lift-squat">Squat (Lower A / Full Body C)</label>
+                        <select id="mycoatch-lift-squat" name="squat">
+                            <option value="auto">Automatica — squat bilanciere</option>
+                            <option value="Squat con Bilanciere">Squat bilanciere</option>
+                            <option value="Front Squat">Front squat</option>
+                            <option value="Goblet Squat con Manubrio">Goblet squat manubrio</option>
+                            <option value="Bulgarian Split Squat con Manubri">Bulgarian split squat manubri</option>
+                        </select>
+                        <label for="mycoatch-lift-military">Spinta verticale (Upper B / Full Body B)</label>
+                        <select id="mycoatch-lift-military" name="military">
+                            <option value="auto">Automatica — military press bilanciere</option>
+                            <option value="Military Press con Bilanciere">Military press bilanciere</option>
+                            <option value="Spinte con Manubri da Seduto">Spinte manubri da seduto</option>
+                        </select>
+                        <label for="mycoatch-lift-hinge">Hip hinge (Lower B / Full Body B)</label>
+                        <select id="mycoatch-lift-hinge" name="hinge">
+                            <option value="auto">Automatica — rumeno (oppure convenzionale per forza)</option>
+                            <option value="Stacco Rumeno (RDL)">Stacco rumeno (RDL)</option>
+                            <option value="Stacco da Terra Convenzionale">Stacco convenzionale</option>
+                        </select>
+                    </fieldset>
+                    <fieldset class="mycoatch-preferences-group">
+                        <legend>Accessori che possiedi (facoltativi)</legend>
+                        <p class="mycoatch-form-hint">Si presume una home gym con rack, bilanciere, manubri, panca piana e cavi/lat machine. Spunta soltanto gli accessori che hai davvero.</p>
+                        <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="incline_bench"> Panca inclinabile</label>
+                        <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="pullup_bar"> Sbarra per trazioni</label>
+                        <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="ankle_strap"> Cavigliera per cavi</label>
+                        <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="ez_bar"> Bilanciere EZ</label>
+                        <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="dip_station"> Parallele per dip</label>
+                    </fieldset>
                     <p class="mycoatch-form-hint">MyCoatch usa la durata scelta per progettare la seduta. Il riscaldamento generale non è obbligatorio; le serie di avvicinamento ai fondamentali restano consigliate.</p>
                     <p id="mycoatch-form-feedback" class="mycoatch-form-feedback" role="alert" aria-live="polite"></p>
                     <button id="mycoatch-submit" type="submit" class="btn btn-primary">Genera e scarica CSV</button>
