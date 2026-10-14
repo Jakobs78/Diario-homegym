@@ -44,6 +44,10 @@ export const MyCoatch = {
                 weekNumber: week.weekNumber,
                 ...week.volumeBalance
             })),
+            weeklyMovementAudit: newMesocycle.weeks.map(week => ({
+                weekNumber: week.weekNumber,
+                ...week.weeklyCoverage
+            })),
             comparison,
             notice: 'Stima di prestazione e stimolo allenante, non misura diretta della crescita muscolare.'
         };
