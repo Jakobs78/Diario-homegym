@@ -143,6 +143,26 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
     return snapshot;
 }
 
+/**
+ * Il timer aggiorna solo i numeri: non ricrea la regione aria-live e non
+ * rimuove il focus da un eventuale bottone "Applica al prossimo set".
+ */
+export function refreshLiveCoachClock(day) {
+    const panel = document.getElementById('mycoatch-live-panel');
+    if (!panel || !day) return;
+    const snapshot = buildLiveSessionSnapshot(day, { history: state.workoutData });
+    const clock = panel.querySelector('.mycoatch-live-metrics > span');
+    if (clock) {
+        clock.textContent = `⏱ ${formatDuration(snapshot.elapsedSeconds)}${snapshot.paused ? ' · pausa' : ''}`;
+    }
+    const forecast = panel.querySelector('.mycoatch-live-time-estimate');
+    if (forecast && snapshot.projectedMinutes !== null) {
+        forecast.textContent = `Tempo finale approssimativo: ~${snapshot.projectedMinutes} min (${snapshot.paceCalibration
+            ? 'calibrato su ' + snapshot.paceCalibration.samples + ' sedute precedenti'
+            : 'stimato da serie e recuperi rimanenti'}; non è una misura).`;
+    }
+}
+
 export function showLiveCoachInputError(message) {
     const panel = document.getElementById('mycoatch-live-panel');
     if (!panel) return;
