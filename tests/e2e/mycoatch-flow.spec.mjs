@@ -63,6 +63,9 @@ async function openIsolatedApp(page) {
   await page.route('**/js/config.js', route =>
     route.fulfill({ status: 200, contentType: 'application/javascript', body: offlineConfig }));
   await page.addInitScript(seed => {
+    // Il caricamento JS dell'app usa jsPDF anche senza effettuare esportazioni PDF.
+    // Questa e' una dipendenza simulata, non si esegue alcuna funzione PDF.
+    window.jspdf = { jsPDF: class OfflineFakePdf {} };
     localStorage.setItem('workoutApp_data', JSON.stringify(seed));
     localStorage.setItem('dev_banner_closed', 'true');
   }, fixture);
