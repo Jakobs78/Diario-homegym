@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - feature/mycoatch-adattivo
+      - release/mycoatch-adattivo-2026-10-14
+      - main
   pull_request:
     paths:
       - 'mycoatch/**'
