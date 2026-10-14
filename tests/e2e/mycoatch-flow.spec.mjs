@@ -280,3 +280,113 @@ test('40 minuti: riequilibrio bicipiti/tricipiti visibile e importabile nei gior
   assert.deepEqual(monitoring.remoteRequests, []);
   assert.deepEqual(monitoring.pageErrors, []);
 });
+
+
+async function prepareLiveWorkout(page) {
+  return page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    const { renderWorkoutList } = await import('/js/ui.js');
+    const year = state.workoutData.history.years[new Date().getFullYear()];
+    if (!year) throw new Error('Missing synthetic year in browser fixture');
+    const day = year.mesocycles[0].weeks[0].days[0];
+    day.exercises = [{
+      block: 1, name: 'Panca Piana con Bilanciere',
+      reps: '6-8', kgMin: '80', kgMax: '80', targetRpe: '@8',
+      rpe: '@8', recupero: '180s',
+      notes: '[DURATA STIMATA] 32 minuti su 45 disponibili.',
+      loggedSets: [0, 1, 2].map(i => ({
+        setNumber: i + 1, weight: '', reps: '', rpe: '',
+        isLocked: false, completed: false
+      }))
+    }];
+    state.activeMesocycleIndex = 0;
+    state.activeWeek = 1;
+    state.activeDay = 1;
+    renderWorkoutList();
+  });
+}
+
+test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue tempo e riapertura', async ({ page }) => {
+  const monitoring = await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+  await expect(page.locator('#mycoatch-live-panel')).toBeVisible();
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/3');
+  await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('');
+  await expect(page.locator('.set-reps[data-set="0"]')).toHaveValue('');
+  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('');
+  assert.equal(await page.locator('.set-kg[data-set="0"]').getAttribute('placeholder'), '80');
+
+  // Nessuna conferma da valori prescritti: le serie devono avere dati realmente inseriti.
+  await page.locator('.set-lock-check[data-set="0"]').check();
+  await expect(page.locator('.set-lock-check[data-set="0"]')).not.toBeChecked();
+  await expect(page.locator('#mycoatch-live-input-error')).toContainText('peso realmente usato');
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/3');
+
+  await page.locator('.set-kg[data-set="0"]').fill('80');
+  await page.locator('.set-reps[data-set="0"]').fill('8');
+  await page.locator('.set-rpe[data-set="0"]').fill('9.5');
+  await page.locator('.set-lock-check[data-set="0"]').check();
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 1/3');
+  await expect(page.locator('#mycoatch-live-guidance')).toContainText('RPE molto alto');
+  await expect(page.locator('.mycoatch-live-apply')).toBeVisible();
+  await expect(page.locator('.set-kg[data-set="1"]')).toHaveValue('');
+  await expect(page.locator('.set-reps[data-set="1"]')).toHaveValue('');
+  await expect(page.locator('.set-rpe[data-set="1"]')).toHaveValue('');
+  await expect(page.locator('#live-session-timer')).not.toHaveText('0:00');
+
+  await page.locator('.mycoatch-live-apply').click();
+  await expect(page.locator('.set-kg[data-set="1"]')).toHaveValue('75');
+  await expect(page.locator('.set-lock-check[data-set="1"]')).not.toBeChecked();
+  await page.locator('.set-reps[data-set="1"]').fill('7');
+  await page.locator('.set-rpe[data-set="1"]').fill('8');
+  await page.locator('.set-lock-check[data-set="1"]').check();
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 2/3');
+
+  await page.locator('.set-kg[data-set="2"]').fill('75');
+  await page.locator('.set-reps[data-set="2"]').fill('7');
+  await page.locator('.set-rpe[data-set="2"]').fill('8');
+  await page.locator('.set-lock-check[data-set="2"]').check();
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 3/3');
+  await expect(page.locator('#mycoatch-live-guidance')).toContainText('Seduta completata');
+
+  const completed = await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    const day = state.workoutData.history.years[new Date().getFullYear()]
+      .mesocycles[0].weeks[0].days[0];
+    return { completed: day.completed, duration: day.totalDurationMinutes,
+      stamps: day.exercises[0].loggedSets.map(s => s.completedAt || null) };
+  });
+  assert.equal(completed.completed, true);
+  assert.ok(completed.duration > 0);
+  assert.ok(completed.stamps.every(Boolean));
+
+  // Correggere una serie riapre la sessione anche dopo l'ultimo check.
+  await page.locator('.set-lock-check[data-set="2"]').uncheck();
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 2/3');
+  const reopened = await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    const day = state.workoutData.history.years[new Date().getFullYear()]
+      .mesocycles[0].weeks[0].days[0];
+    return { completed: day.completed, stamp: day.exercises[0].loggedSets[2].completedAt,
+      elapsed: day.accumulatedSeconds };
+  });
+  assert.equal(reopened.completed, false);
+  assert.equal(reopened.stamp, undefined);
+  assert.ok(reopened.elapsed >= 0);
+  assert.deepEqual(monitoring.remoteRequests, []);
+  assert.deepEqual(monitoring.pageErrors, []);
+});
+
+test('MyCoatch LIVE con RPE mancante non inventa massimale o suggerimenti', async ({ page }) => {
+  const monitoring = await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+  await page.locator('.set-kg[data-set="0"]').fill('80');
+  await page.locator('.set-reps[data-set="0"]').fill('8');
+  await page.locator('.set-lock-check[data-set="0"]').check();
+  await expect(page.locator('#mycoatch-live-guidance')).toContainText('senza RPE');
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('RPE misurato: 0/1');
+  await expect(page.locator('.mycoatch-live-apply')).toHaveCount(0);
+  await expect(page.locator('#mycoatch-live-guidance')).not.toContainText('e1RM stimato');
+  assert.deepEqual(monitoring.remoteRequests, []);
+  assert.deepEqual(monitoring.pageErrors, []);
+});
