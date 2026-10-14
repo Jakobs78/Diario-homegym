@@ -83,10 +83,13 @@ export function compareMesocyclePlans(previous, generated, analysis) {
         })),
         changes,
         adaptations: analysis?.decisions?.summary || [],
+        // Non confondere il volume originale stimato con il volume davvero
+        // programmato. Sono conteggi per categoria primaria dell'esercizio.
+        weeklyVolume: generated?.weeks?.[0]?.volumeBalance || null,
         warnings: after.flatMap(day => {
             const warnings = [];
             if (day.reducedAccessorySets || day.removedAccessoryExercises) {
-                warnings.push(`Giorno ${day.dayNumber}: per il limite di tempo sono state ridotte ${day.reducedAccessorySets} serie e rimossi ${day.removedAccessoryExercises} accessori. Controllare il volume settimanale.`);
+                warnings.push(`Giorno ${day.dayNumber}: per il limite di tempo sono state inizialmente ridotte ${day.reducedAccessorySets} serie accessorie e rimossi ${day.removedAccessoryExercises} esercizi. Le serie eventualmente recuperate negli altri giorni sono indicate nel bilancio settimanale.`);
             }
             return warnings;
         })
@@ -108,6 +111,20 @@ export function formatCoachReview(comparison, report) {
 
     for (const a of comparison.adaptations.slice(0, 5)) {
         lines.push(`• ${a.target}: ${a.reason}`);
+    }
+    const volume = comparison.weeklyVolume;
+    if (volume) {
+        lines.push(`Bilancio volume prima settimana: ${volume.scheduledSets}/${volume.plannedSets} serie programmate (conteggio per gruppo primario), ${volume.recoveredSets} recuperate su altri giorni.`);
+        for (const move of (volume.moves || []).slice(0, 4)) {
+            lines.push(`• G${move.fromDay} → G${move.toDay}: ${move.sets} serie ${move.muscle} (${move.targetExercise}).`);
+        }
+        if (volume.shortfallSets) {
+            const missed = Object.entries(volume.byMuscle || {})
+                .filter(([, values]) => values.shortfallSets > 0)
+                .map(([muscle, values]) => `${muscle}: -${values.shortfallSets}`)
+                .join(', ');
+            lines.push(`Attenzione: restano ${volume.shortfallSets} serie sotto il template iniziale (${missed}). Tempo troppo breve per recuperarle senza compromettere le priorità.`);
+        }
     }
     lines.push(`Confronto vecchio/nuovo: ${comparison.changes.length} modifiche nella prima settimana.`);
     for (const c of comparison.changes.slice(0, 6)) {
