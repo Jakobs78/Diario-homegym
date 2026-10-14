@@ -1804,3 +1804,55 @@ body.dark-mode .group-title-badge {
     color: #ffffff !important;
 }
 
+
+
+/* MyCoatch: configurazione accessibile e senza durata precompilata. */
+.mycoatch-config-sheet {
+    max-width: 540px;
+    margin: 0 auto;
+    max-height: min(88vh, 780px);
+    overflow-y: auto;
+}
+.mycoatch-config-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.mycoatch-config-form label {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+.mycoatch-config-form input,
+.mycoatch-config-form select {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 44px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--block-bg);
+    color: var(--text-color);
+    font: inherit;
+}
+.mycoatch-config-form #mycoatch-custom-time-wrap:not(.hidden) {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.mycoatch-config-form #mycoatch-custom-time-wrap.hidden { display: none; }
+.mycoatch-form-hint {
+    margin: 4px 0;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+.mycoatch-form-feedback {
+    min-height: 1.2em;
+    margin: 0;
+    color: #d44343;
+    font-size: 0.88rem;
+}
+.mycoatch-config-form button[type="submit"] {
+    margin-top: 4px;
+    min-height: 44px;
+}
