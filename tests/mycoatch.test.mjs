@@ -54,14 +54,16 @@ test('attrezzatura del catalogo compatibile con home gym', () => {
             }
 });
 
-test('recuperi espliciti e superserie su due esercizi consecutivi', () => {
+test('recuperi espliciti e superserie soltanto su isolamenti compatibili', () => {
     for (const week of generate().weeks)
         for (const day of week.days) {
             day.exercises.forEach(ex => assert.match(ex.restTime, /^\d+s$/));
-            if (day.exercises.length === 5) {
-                assert.match(day.exercises[3].notes, /superserie/i);
-                assert.doesNotMatch(day.exercises[4].notes, /superserie/i);
-            }
+            const groups = day.exercises.filter(ex => ex.groupType);
+            if (!groups.length) continue;
+            assert.equal(groups.length, 2);
+            assert.ok(groups.every(ex => ex.pattern === 'isolation'));
+            assert.match(groups[0].notes, /SUPERSERIE/i);
+            assert.doesNotMatch(groups[1].notes, /SUPERSERIE/i);
         }
 });
 
