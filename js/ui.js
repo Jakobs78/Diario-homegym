@@ -345,5 +345,8 @@ export function renderWorkoutList() {
     }
 
     bindWorkoutTableEvents(currentDay, isPastMeso, renderWorkoutList);
+    // Ora le input delle schede esistono: eventuali pulsanti di suggerimento
+    // possono riferirsi solo a set futuri realmente modificabili.
+    updateLiveCoachPanel(currentDay, { readOnly: isPastMeso });
 }
 
