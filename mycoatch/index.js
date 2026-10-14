@@ -4,7 +4,9 @@ import { generateSmartMesocycle } from './engine.js';
 import { analyzeTrainingHistory } from './historyInsights.js';
 import { planAdaptiveDecisions } from './adaptiveDecisions.js';
 import { compareMesocyclePlans } from './mesocycleComparison.js';
-import { analyzeUserHistory, evaluateRealTimePerformance, calculateE1RM } from './autoregulation.js';
+import { analyzeUserHistory } from './autoregulation.js';
+import { assessExerciseLive } from './liveCoach.js';
+import { estimateE1rm } from './historyAnalysis.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 
 export const MyCoatch = {
@@ -53,8 +55,11 @@ export const MyCoatch = {
     /**
      * Valutazione in tempo reale dopo il completamento di una singola serie in palestra.
      */
-    evaluateSet(exerciseLog, dailyReadiness) {
-        return evaluateRealTimePerformance(exerciseLog, dailyReadiness);
+    evaluateSet(exerciseLog) {
+        // Il vecchio calcolo usava RPE=8 quando l'atleta non lo registrava.
+        // La nuova API opera esclusivamente sulle serie confermate.
+        return Array.isArray(exerciseLog?.loggedSets)
+            ? assessExerciseLive(exerciseLog) : null;
     },
 
        /**
@@ -71,7 +76,12 @@ export const MyCoatch = {
      * Calcola l'1RM stimato per qualsiasi serie.
      */
     getE1RM(weight, reps, rpe) {
-        return calculateE1RM(weight, reps, rpe);
+        // RPE obbligatorio per una stima difendibile; nessun default nascosto.
+        const value = v => {
+            if (v === null || v === undefined || v === '') return NaN;
+            return Number(String(v).replace('@', '').replace(',', '.').trim());
+        };
+        return estimateE1rm(value(weight), value(reps), value(rpe));
     },
 
     /**
