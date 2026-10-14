@@ -37,6 +37,11 @@ export const MyCoatch = {
             })),
             muscleSignals: report.byMuscle,
             decisions,
+            // Metriche della proposta settimanale, non dati di prestazione misurati.
+            weeklyVolumeBalance: newMesocycle.weeks.map(week => ({
+                weekNumber: week.weekNumber,
+                ...week.volumeBalance
+            })),
             comparison,
             notice: 'Stima di prestazione e stimolo allenante, non misura diretta della crescita muscolare.'
         };
