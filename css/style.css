@@ -1916,3 +1916,47 @@ body.dark-mode .group-title-badge {
     .mycoatch-live-panel { padding: 12px; }
     .mycoatch-live-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* MyCoatch — scelta ragionata dei fondamentali e attrezzatura. */
+.mycoatch-preferences-group {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    margin: 12px 0;
+    padding: 12px;
+    display: grid;
+    gap: 7px;
+    min-width: 0;
+}
+.mycoatch-preferences-group legend {
+    font-weight: 700;
+    padding: 0 7px;
+    font-size: .9rem;
+}
+.mycoatch-preferences-group > label:not(.mycoatch-accessory-option) {
+    font-size: .84rem;
+    font-weight: 600;
+}
+.mycoatch-preferences-group select {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    color: var(--text-color);
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    padding: 10px;
+    border-radius: 8px;
+}
+.mycoatch-accessory-option {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    cursor: pointer;
+    min-height: 37px;
+    font-size: .86rem;
+}
+.mycoatch-accessory-option input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    accent-color: var(--accent-color);
+}
