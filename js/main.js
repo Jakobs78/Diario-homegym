@@ -24,6 +24,7 @@ import { initDevBanner } from './bannerSviluppo.js';
 import { applyUserToUI, checkSubscriptionStatus, deleteUserAccount } from './accountManager.js';
 // Corretto il percorso dell'import relativo
 import { startCoachChatAndGenerate, generateAndDownloadMesocycleCSV } from '../mycoatch/mycoatch-adapter.js';
+import { parseCoachPreferences } from '../mycoatch/userPreferences.js';
 
 // Esposizione globale per eventi inline / retrocompatibilità
 window.logoutUser = logoutUser;
@@ -162,21 +163,82 @@ function setupEventListeners() {
         localStorage.setItem('ui_active_week', state.activeWeek);
     });
     
-    document.getElementById('btn-generate-mycoatch-csv')?.addEventListener('click', async () => {
-        const userGoalSettings = {
-            userAge: parseInt(document.getElementById('input-age')?.value, 10) || 30,
-            daysPerWeek: parseInt(document.getElementById('select-days')?.value, 10) || 3,
-            maxSessionMinutes: parseInt(document.getElementById('select-time')?.value, 10) || 60,
-            focus: document.getElementById('select-focus')?.value || 'hybrid',
-            focusMuscleGroup: document.getElementById('select-focus-muscle')?.value || null
-        };
+    // Le vecchie scorciatoie aprono lo stesso modulo, senza default implicito.
+    document.getElementById('btn-generate-mycoatch-csv')?.addEventListener('click', startCoachChatAndGenerate);
 
-        const response = await generateAndDownloadMesocycleCSV(userGoalSettings);
-        
-        if (response.success) {
-            alert(response.message);
-        } else {
-            alert(`Attenzione: ${response.message}`);
+    const coachModal = document.getElementById('mycoatch-config-modal');
+    const coachForm = document.getElementById('mycoatch-config-form');
+    const timeSelect = document.getElementById('select-time');
+    const customTime = document.getElementById('mycoatch-custom-time');
+    const customTimeWrap = document.getElementById('mycoatch-custom-time-wrap');
+    const coachFeedback = document.getElementById('mycoatch-form-feedback');
+    const coachSubmit = document.getElementById('mycoatch-submit');
+
+    function closeCoachModal() {
+        coachModal?.classList.add('hidden');
+    }
+    document.getElementById('close-mycoatch-config')?.addEventListener('click', closeCoachModal);
+    coachModal?.addEventListener('click', event => {
+        if (event.target === coachModal) closeCoachModal();
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && coachModal && !coachModal.classList.contains('hidden')) {
+            closeCoachModal();
+        }
+    });
+
+    timeSelect?.addEventListener('change', () => {
+        const isCustom = timeSelect.value === 'custom';
+        customTimeWrap?.classList.toggle('hidden', !isCustom);
+        if (customTime) {
+            customTime.disabled = !isCustom;
+            customTime.required = isCustom;
+            if (!isCustom) customTime.value = '';
+            else customTime.focus();
+        }
+        if (coachFeedback) coachFeedback.textContent = '';
+    });
+
+    coachForm?.addEventListener('submit', async event => {
+        event.preventDefault();
+        if (coachSubmit?.disabled) return;
+
+        let options;
+        try {
+            options = parseCoachPreferences({
+                selectedTime: timeSelect?.value,
+                customTime: customTime?.value,
+                daysPerWeek: document.getElementById('select-days')?.value,
+                userAge: document.getElementById('input-age')?.value,
+                focus: document.getElementById('select-focus')?.value
+            });
+        } catch (error) {
+            if (coachFeedback) coachFeedback.textContent = error.message;
+            return;
+        }
+
+        if (coachFeedback) coachFeedback.textContent = '';
+        if (coachSubmit) {
+            coachSubmit.disabled = true;
+            coachSubmit.textContent = 'Generazione in corso…';
+        }
+
+        try {
+            const result = await generateAndDownloadMesocycleCSV(options);
+            if (result.cancelled) {
+                if (coachFeedback) coachFeedback.textContent = result.message;
+                return;
+            }
+            if (!result.success) throw new Error(result.message || 'Generazione non riuscita.');
+            closeCoachModal();
+            alert(result.message);
+        } catch (error) {
+            if (coachFeedback) coachFeedback.textContent = error.message;
+        } finally {
+            if (coachSubmit) {
+                coachSubmit.disabled = false;
+                coachSubmit.textContent = 'Genera e scarica CSV';
+            }
         }
     });
 

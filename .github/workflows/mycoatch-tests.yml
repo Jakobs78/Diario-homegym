@@ -1,0 +1,36 @@
+name: MyCoatch checks
+
+on:
+  push:
+    branches:
+      - feature/mycoatch-adattivo
+      - release/mycoatch-adattivo-2026-10-14
+      - main
+  pull_request:
+    paths:
+      - 'mycoatch/**'
+      - 'tests/**'
+      - '.github/workflows/mycoatch-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check module syntax
+        run: |
+          for file in mycoatch/*.js; do
+            node --experimental-default-type=module --check "$file"
+          done
+          node --experimental-default-type=module --check js/workoutEvents.js
+          node --experimental-default-type=module --check js/restPolicy.js
+          node --experimental-default-type=module --check js/main.js
+          node --experimental-default-type=module --check js/bottomSheet.js
+      - name: Run MyCoatch unit and integration tests
+        run: node --experimental-default-type=module --test tests/*.test.mjs

@@ -1,6 +1,9 @@
 // mycoatch/index.js
 import { coachState } from './state.js';
-import { generateSmartMesocycle, analyzePreviousMesocycle } from './engine.js';
+import { generateSmartMesocycle } from './engine.js';
+import { analyzeTrainingHistory } from './historyInsights.js';
+import { planAdaptiveDecisions } from './adaptiveDecisions.js';
+import { compareMesocyclePlans } from './mesocycleComparison.js';
 import { analyzeUserHistory, evaluateRealTimePerformance, calculateE1RM } from './autoregulation.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 
@@ -9,27 +12,36 @@ export const MyCoatch = {
      * Analizza lo storico reale e genera il nuovo mesociclo in formato JSON pronto per la webapp.
      */
     generateNextFromHistory(userHistory, goalSettings = {}) {
-        const historyObj = userHistory?.history || userHistory || {};
-        const yearsObj = historyObj.years || {};
-        const years = Object.keys(yearsObj);
-        
-        const currentYear = years[years.length - 1] || new Date().getFullYear();
-        const mesocycles = yearsObj[currentYear]?.mesocycles || [];
-        const lastMesocycle = mesocycles[mesocycles.length - 1] || null;
+        // Analisi longitudinale: tutti gli anni e i mesocicli, soltanto serie confermate.
+        const report = analyzeTrainingHistory(userHistory);
+        const decisions = planAdaptiveDecisions(report);
+        const analysis = { ...report, decisions };
 
-        // 1. Analisi stalli e performance pregresse
-        const analysis = analyzePreviousMesocycle(lastMesocycle);
-        
-        // 2. Aggiornamento stato globale del Coach
         if (Object.keys(goalSettings).length > 0) {
             coachState.updateConfig(goalSettings);
         }
         const config = coachState.getConfig();
-        
-        // 3. Generazione e attivazione mesociclo
-        const newMesocycle = generateSmartMesocycle(config, analysis, userHistory);
+
+        // I dati storici non vengono modificati: proponiamo un mesociclo separato.
+        const newMesocycle = generateSmartMesocycle(config, analysis, report.lastMesocycle);
+        const comparison = compareMesocyclePlans(report.lastMesocycle, newMesocycle, analysis);
+        newMesocycle.coachReport = {
+            inspectedYears: report.inspectedYears,
+            inspectedMesocycles: report.inspectedMesocycles,
+            sessionsAnalyzed: report.sessionsAnalyzed,
+            exerciseSignals: Object.values(report.byExercise).map(item => ({
+                name: item.name, status: item.status,
+                e1rmChangePct: item.e1rmChangePct,
+                lastKg: item.lastKg, avgRpe: item.avgRpe,
+                exposuresCount: item.exposuresCount
+            })),
+            muscleSignals: report.byMuscle,
+            decisions,
+            comparison,
+            notice: 'Stima di prestazione e stimolo allenante, non misura diretta della crescita muscolare.'
+        };
         coachState.setActiveMesocycle(newMesocycle);
-        
+
         return newMesocycle;
     },
 
@@ -44,29 +56,9 @@ export const MyCoatch = {
      * Valuta l'andamento di un singolo esercizio calcolando l'e1RM e la varianza RPE.
      */
         evaluateProgress(exerciseHistory) {
-            const config = coachState.getConfig();
-            
-            // Mappiamo l'array della webapp prendendo SOLO le serie confermate col Check ✓
-            const mappedHistory = exerciseHistory.map(session => {
-                const rawSets = session.loggedSets || session.sets || [];
-                
-                // 🔒 Filtro rigoroso: consideriamo solo le serie con il Check spuntato e valori reali
-                const confirmedSets = rawSets.filter(s => (s.isLocked || s.completed) && s.reps && parseInt(s.reps, 10) > 0);
-                if (confirmedSets.length === 0) return null;
-                
-                const lastSet = confirmedSets[confirmedSets.length - 1]; 
-                return {
-                    targetReps: session.reps || "8",
-                    actualReps: confirmedSets.map(s => parseInt(s.reps, 10) || 0),
-                    actualKg: lastSet?.weight || 0,
-                    rpe: confirmedSets.map(s => parseFloat(s.rpe) || 8),
-                    targetRpe: 8
-                };
-            }).filter(Boolean);
-
-            if (mappedHistory.length === 0) return null;
-
-            return analyzeUserHistory(mappedHistory, config);
+            if (!Array.isArray(exerciseHistory)) return null;
+            // analyzeUserHistory consuma direttamente loggedSets confermati.
+            return analyzeUserHistory(exerciseHistory);
         },
 
 
@@ -82,6 +74,10 @@ export const MyCoatch = {
      */
     getActiveMesocycleJSON() {
         return coachState.getActiveMesocycle();
+    },
+
+    clearProposal() {
+        coachState.clear(); // Rimuove soltanto la proposta in memoria, non tocca lo storico.
     },
 
     /**
@@ -107,15 +103,15 @@ export const MyCoatch = {
                 
                 day.exercises.forEach((ex, exIndex) => {
                     const blockNum = ex.block || (exIndex + 1);
-                    const kgMinStr = ex.kgMin || "0";
-                    const kgMaxStr = ex.kgMax || "0";
+                    const kgMinStr = ex.kgMin ?? "";
+                    const kgMaxStr = ex.kgMax ?? "";
                     const rpeStr = ex.rpe || "@8";
                     const topsetVal = (ex.topset || "").replace(/"/g, '""');
 
                     // Conteggio totale dei set (es. 3, 4) da inserire nella colonna 'Set'
                     const totalSets = ex.setsCount || (Array.isArray(ex.sets) ? ex.sets.length : 3);
                     const repsForExercise = ex.reps || "8";
-                    const recuperoStr = ex.restTime || "2min";
+                    const recuperoStr = ex.restTime || "120s";
 
                     // ESTRAZIONE E CODIFICA DELLE TECNICHE DI INTENSITÀ NEL CSV
                     // Se l'ultimo set dell'esercizio contiene una tecnica di intensità, iniettiamo il tag a inizio nota

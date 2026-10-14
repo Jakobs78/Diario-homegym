@@ -6,6 +6,7 @@ import { state } from './state.js';
 import { saveAndSync } from './storage.js';
 import { isValueOutOfRange, isValueExceedingTarget, findPreviousExercise, calculateSetVolumeTrend, parseRPE, checkFatigueAlert } from './helpers.js';
 import { startTimer, handleTick, handleComplete, parseRecoveryTime } from './timer.js';
+import { shouldStartRecoveryTimer } from './restPolicy.js';
 import { updatePlatesBadgeUI } from './exerciseCard.js';
 import { updateSessionAndCompletionState, updateSessionHeaderUI } from './sessionTimer.js';
 
@@ -229,23 +230,10 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             }
 
             if (isChecked) {
-                const isMiddleOfGroup = ex.groupType && !ex.isGroupLast;
-                const isDropsetPlan = ex.isDropset || ex.groupType === 'dropset';
                 const totalSets = ex.loggedSets?.length || ex.sets?.length || 1;
-                const isLastSetOfExercise = setIdx === (totalSets - 1);
-                const hasIntensityTechnique = !!setObj.intensityTechnique;
+                const startRecovery = shouldStartRecoveryTimer(ex, setObj, setIdx, totalSets);
 
-                const notesLower = (ex.notes || '').toLowerCase();
-                const hasRestBetweenExercises = notesLower.includes('pausa') || 
-                                              notesLower.includes('fra uno') || 
-                                              notesLower.includes('tra uno') || 
-                                              notesLower.includes('riposo');
-
-                const shouldSkipTimer = (isMiddleOfGroup && !hasRestBetweenExercises) || 
-                                        (isDropsetPlan && !isLastSetOfExercise) ||
-                                        hasIntensityTechnique;
-
-                if (!shouldSkipTimer) {
+                if (startRecovery) {
                     let rawRecovery = '';
                     for (const key of Object.keys(ex)) {
                         const lKey = key.toLowerCase();

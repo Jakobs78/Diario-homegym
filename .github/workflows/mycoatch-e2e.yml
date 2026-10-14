@@ -1,0 +1,41 @@
+name: MyCoatch browser E2E (isolated)
+
+on:
+  push:
+    branches:
+      - main
+      - release/mycoatch-adattivo-2026-10-14
+  pull_request:
+    paths:
+      - 'mycoatch/**'
+      - 'js/**'
+      - 'index.html'
+      - 'tests/e2e/**'
+      - '.github/workflows/mycoatch-e2e.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  browser-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated Playwright runner
+        run: npm install --no-save --no-package-lock --ignore-scripts @playwright/test@1.55.0
+      - name: Install Chromium runtime
+        run: npx playwright install --with-deps chromium
+      - name: Run real-webapp tests without network access to Supabase
+        run: npx playwright test --config tests/e2e/playwright.config.mjs
+      - name: Upload browser failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mycoatch-browser-test-results
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 3
