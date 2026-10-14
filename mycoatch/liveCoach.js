@@ -1,4 +1,5 @@
 import { estimateE1rm } from './historyAnalysis.js';
+import { previousExercisePerformance, historicalSessionPace } from './liveHistory.js';
 
 function decimal(value) {
     if (value === null || value === undefined || value === '') return null;
@@ -299,7 +300,7 @@ function timeRemainingSeconds(day) {
  * Riepilogo aggiornabile senza server/API: progresso, tonnellaggio CONFERMATO,
  * e1RM osservato con RPE, ritmo e consigli per l'esercizio in corso.
  */
-export function buildLiveSessionSnapshot(day, { now = Date.now() } = {}) {
+export function buildLiveSessionSnapshot(day, { now = Date.now(), history = null } = {}) {
     const exercises = Array.isArray(day?.exercises) ? day.exercises : [];
     let total = 0, checked = 0, valid = 0, tonnage = 0, rpeCount = 0;
     let lastAdvice = null;
@@ -338,7 +339,18 @@ export function buildLiveSessionSnapshot(day, { now = Date.now() } = {}) {
     });
 
     const seconds = elapsedSeconds(day, now);
-    const remaining = checked && checked < total ? timeRemainingSeconds(day) : null;
+    const pace = history && checked && checked < total
+        ? historicalSessionPace(history, day) : null;
+    const baselineRemaining = checked && checked < total ? timeRemainingSeconds(day) : null;
+    const remaining = baselineRemaining === null ? null : pace
+        ? Math.round((baselineRemaining + (total - checked) * pace.secondsPerSet) / 2)
+        : baselineRemaining;
+    const previous = history && lastAdvice
+        ? previousExercisePerformance(history, day, exercises[lastAdvice.exerciseIndex]?.name)
+        : null;
+    const e1rmChangePercent = previous?.e1rm !== null && previous?.e1rm > 0 &&
+        lastAdvice?.e1rm !== null && lastAdvice?.e1rm !== undefined
+        ? Math.round(1000 * (lastAdvice.e1rm / previous.e1rm - 1)) / 10 : null;
     const time = plannedTimeMinutes(day);
     const projected = remaining === null ? null
         : Math.ceil((seconds + remaining) / 60);
@@ -360,6 +372,9 @@ export function buildLiveSessionSnapshot(day, { now = Date.now() } = {}) {
         remainingSeconds: remaining,
         possibleOverrun,
         lastAdvice,
+        previousExercise: previous,
+        e1rmChangePercent,
+        paceCalibration: pace,
         finished: total > 0 && checked === total && !warnedInvalid,
         paused: Boolean(day?.isPaused),
         readOnly: Boolean(day?.completed)
