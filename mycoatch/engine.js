@@ -147,7 +147,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 }
 
                 let topsetStr = "";
-                let noteFinal = autoNote + (exItem.noteOverride || generateContextNote(index, isDeloadWeek, focus, useSupersets && dayTemplate.slots.length === 5 && index === 3));
+                let noteFinal = autoNote + generateContextNote(index, isDeloadWeek, focus, useSupersets && dayTemplate.slots.length === 5 && index === 3) + (exItem.noteOverride ? " | " + exItem.noteOverride : "");
 
                 const isFirstCompound = index === 0 && ["squat", "hinge", "horizontal_push", "vertical_push", "vertical_pull"].includes(ex.pattern);
                 
