@@ -18,6 +18,7 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/index.js',
   '/mycoatch/engine.js',
   '/mycoatch/liveCoach.js',
+  '/mycoatch/liveHistory.js',
   '/mycoatch/historyAnalysis.js',
   '/mycoatch/historyInsights.js',
   '/mycoatch/adaptiveDecisions.js',
