@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { parseWorkoutDuration, parseCoachPreferences } from '../mycoatch/userPreferences.js';
+import { DEFAULT_HOME_GYM_EQUIPMENT, DEFAULT_HOME_GYM_ACCESSORIES } from '../mycoatch/exercisesDB.js';
 
 test('durata esplicita: i valori mancanti non diventano 60 minuti', () => {
     for (const value of [null, undefined, '', ' ', 'custom', 'abc', '0', '24', '181', '-30', '45.5']) {
@@ -23,7 +24,10 @@ test('trasmette esattamente la durata scelta a MyCoatch', () => {
     const fields = { selectedTime: 'custom', customTime: '55', userAge: '49', daysPerWeek: '4', focus: 'hybrid' };
     assert.deepEqual(parseCoachPreferences(fields), {
         maxSessionMinutes: 55, userAge: 49, daysPerWeek: 4,
-        focus: 'hybrid', primaryGoal: 'powerbuilding'
+        focus: 'hybrid', primaryGoal: 'powerbuilding',
+        availableEquipment: [...DEFAULT_HOME_GYM_EQUIPMENT],
+        availableAccessories: [...DEFAULT_HOME_GYM_ACCESSORIES],
+        preferredLifts: {}
     });
 });
 
