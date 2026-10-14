@@ -76,6 +76,10 @@ export const MyCoatch = {
         return coachState.getActiveMesocycle();
     },
 
+    clearProposal() {
+        coachState.clear(); // Rimuove soltanto la proposta in memoria, non tocca lo storico.
+    },
+
     /**
      * Libreria esercizi.
      */
