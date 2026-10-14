@@ -81,7 +81,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             const exercisesSelectedToday = [];
             
             // 🧠 Limite di tolleranza neurale giornaliero
-            const MAX_DAILY_CNS = isMaster ? 22 : 26;
+            const MAX_DAILY_CNS = 26;
             let currentDailyCNS = 0;
 
             let rawExercises = activeSlots.map(slot => {
@@ -111,13 +111,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 let baseKg = Number.isFinite(prior?.lastKg) && prior.lastKg > 0 ? prior.lastKg : null;
 
                 // Auto-Deload Preventivo per Inattività
-                const isReturningFromBreak = false; // Una pausa deve essere verificata, non dedotta da date eventualmente mancanti.
-                
                 let autoNote = "";
-                if (isReturningFromBreak && w === 1) {
-                    baseKg = baseKg * 0.85; 
-                    autoNote += " 🛡️ [AUTO-DELOAD INATTIVITÀ]: Carico ridotto del 15% per rientro da stop. | ";
-                }
                 
                 // Iniettiamo la nota analitica sullo stallo o progresso basata sull'e1RM
                 if (analysis.exerciseNotes && analysis.exerciseNotes[exerciseKey(ex.name)]) {
@@ -175,7 +169,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     let setKg = plannedKg === null ? null : Number(targetKgMin);
                     
                     if (setIdx === 0 && topsetStr) {
-                        setKg = targetKgMin + (baseKg < 12.5 ? 1 : 2.5);
+                        setKg = Number(targetKgMin) + (baseKg < 12.5 ? 1 : 2.5);
                     } else if (setIdx > 0 && topsetStr) {
                         const topKg = Number(targetKgMin) + (baseKg < 12.5 ? 1 : 2.5);
                         setKg = Math.round((topKg * 0.9) / 2.5) * 2.5;
@@ -264,12 +258,8 @@ function generateContextNote(index, isDeload, focus, useSupersets) {
         note = "💧 Gestione metabolica: controlla la fase negativa (2-3s) ed evita slanci parassiti.";
     }
 
-    if (useSupersets && index >= 2) {
-        if (index % 2 === 1) {
-            note += " ⏱️ [SUPERSERIE]: Esegui abbinato all'esercizio precedente con recupero 45-60s.";
-        } else {
-            note += " ⏱️ [SUPERSERIE]: Passa subito all'esercizio successivo.";
-        }
+    if (useSupersets) {
+        note += " [SUPERSERIE]: Accoppia questo esercizio con il successivo, senza recupero intermedio; avvia il timer alla fine della coppia.";
     }
     return note;
 }
@@ -296,11 +286,11 @@ function selectExerciseBySlot(slot, stalledExercises, alreadySelected = [], curr
 
     if (matches.length === 0) return null;
 
-    if (currentCNS > (maxCNS - 6)) {
-        matches.sort((a, b) => a.cnsCost - b.cnsCost);
-    } else {
-        matches.sort((a, b) => b.cnsCost - a.cnsCost);
-    }
+    // Preferisci varianti ripetibili e sostenibili rispetto al costo neurale massimo.
+    matches.sort((a, b) => {
+        if (slot.pattern === "hinge") return Number(b.name.includes("Rumeno")) - Number(a.name.includes("Rumeno"));
+        return a.cnsCost - b.cnsCost;
+    });
 
     let selected = matches[0]; // Nessuna rotazione automatica per un possibile stallo.
 
@@ -308,11 +298,6 @@ function selectExerciseBySlot(slot, stalledExercises, alreadySelected = [], curr
         selected = { 
             ...selected, 
             noteOverride: `⚠️ [CNS BUDGET LIMIT]: Esercizio inserito ma soglia neurale superata. Consiglio: abbassa i carichi del 10% o esegui 1 set in meno.` 
-        };
-    } else if (stalledExercises.includes(selected.name)) {
-        selected = { 
-            ...selected, 
-            noteOverride: "🔄 Variante di rotazione per stallo registrato nei mesocicli precedenti." 
         };
     }
 
@@ -390,8 +375,8 @@ export function getTemplateForDays(daysPerWeek = 3) {
             slots: [
                 { muscle: "Femorali", pattern: "hinge" },
                 { muscle: "Quadricipiti", pattern: "squat" },
-                { muscle: "Spalle", pattern: "isolation" },
-                { muscle: "Tricipiti", pattern: "isolation" }
+                { muscle: "Quadricipiti", pattern: "squat" },
+                { muscle: "Femorali", pattern: "isolation" }
             ]
         }
     ];
