@@ -4,11 +4,13 @@
  */
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
-import { isValueOutOfRange, isValueExceedingTarget, findPreviousExercise, calculateSetVolumeTrend, parseRPE, checkFatigueAlert } from './helpers.js';
+import { isValueOutOfRange, isValueExceedingTarget, findPreviousExercise, calculateSetVolumeTrend, parseRPE } from './helpers.js';
 import { startTimer, handleTick, handleComplete, parseRecoveryTime } from './timer.js';
 import { shouldStartRecoveryTimer } from './restPolicy.js';
 import { updatePlatesBadgeUI } from './exerciseCard.js';
 import { updateSessionAndCompletionState, updateSessionHeaderUI } from './sessionTimer.js';
+import { validateCompletedSet } from '../mycoatch/liveCoach.js';
+import { updateLiveCoachPanel, showLiveCoachInputError } from './liveCoachUI.js';
 
 
 function updateInputStatusClasses(element, isOut, isImprovedOrExceeding) {
@@ -112,6 +114,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                 updateInputStatusClasses(target, isOut, isExceeding || (isImproved && (isKg || isReps)));
             }
 
+            updateLiveCoachPanel(currentDay, { readOnly: isPastMeso });
             clearTimeout(window._syncTimeout);
             window._syncTimeout = setTimeout(() => {
                 saveAndSync(state.workoutData);
@@ -135,54 +138,56 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             if (!setObj) return;
 
             const isChecked = e.target.checked;
-            
-            setObj.isLocked = isChecked;
-            setObj.completed = isChecked;
-
-            if (setIdx === 0 && isChecked) {
-                const firstSet = ex.loggedSets[0];
-                for (let i = 1; i < ex.loggedSets.length; i++) {
-                    if (!ex.loggedSets[i].isLocked) {
-                        ex.loggedSets[i].weight = firstSet.weight;
-                        ex.loggedSets[i].reps = firstSet.reps;
-                        ex.loggedSets[i].rpe = firstSet.rpe;
-                    }
-                }
-            }
-            
             const rowCard = workoutListContainer.querySelector(`.ex-card[data-ex="${exIdx}"], .exercise-card[data-ex="${exIdx}"]`);
             const kgInput = rowCard?.querySelector(`.set-kg[data-set="${setIdx}"]`);
             const repsInput = rowCard?.querySelector(`.set-reps[data-set="${setIdx}"]`);
             const rpeInput = rowCard?.querySelector(`.set-rpe[data-set="${setIdx}"]`);
 
             if (isChecked) {
-                if (setObj.weight === undefined || setObj.weight === '') {
-                    const val = kgInput?.value || kgInput?.placeholder;
-                    if (val && val !== 'Kg') {
-                        setObj.weight = parseFloat(val.replace(',', '.')) || 0;
-                        if (kgInput) kgInput.value = setObj.weight;
+                // Non memorizzare placeholder, target prescritti o valori di RPE
+                // simulati. Il check richiede i valori realmente compilati.
+                const entered = {
+                    weight: kgInput?.value ?? setObj.weight,
+                    reps: repsInput?.value ?? setObj.reps,
+                    rpe: rpeInput?.value ?? setObj.rpe
+                };
+                const validation = validateCompletedSet(entered, ex, setObj);
+                if (!validation.ok) {
+                    e.target.checked = false;
+                    showLiveCoachInputError(validation.message);
+                    if (!entered.weight) kgInput?.focus();
+                    else repsInput?.focus();
+                    return;
+                }
+                setObj.weight = validation.weight;
+                setObj.reps = validation.reps;
+                setObj.rpe = validation.rpe === null ? '' : validation.rpe;
+                // Metadato JSONB nello storico esistente; nessuna migrazione DB.
+                setObj.completedAt = new Date().toISOString();
+                if (kgInput) kgInput.value = String(setObj.weight);
+                if (repsInput) repsInput.value = String(setObj.reps);
+                if (rpeInput) rpeInput.value = String(setObj.rpe);
+
+                // Solo se la prima serie e' confermata, predisponi i campi
+                // successivi come suggerimento visibile e NON confermato.
+                if (setIdx === 0) {
+                    for (let i = 1; i < ex.loggedSets.length; i++) {
+                        const following = ex.loggedSets[i];
+                        if (!following.isLocked && !following.completed) {
+                            if (!following.weight) following.weight = setObj.weight;
+                            // Non copiare le ripetizioni e l'RPE reali come se
+                            // fossero stati eseguiti anche nelle serie seguenti.
+                        }
                     }
                 }
-                if (!setObj.reps) {
-                    const val = repsInput?.value || repsInput?.placeholder;
-                    if (val && val !== 'reps') {
-                        setObj.reps = val;
-                        if (repsInput) repsInput.value = setObj.reps;
-                    }
-                }
-                if (!setObj.rpe) {
-                    const val = rpeInput?.value || rpeInput?.placeholder;
-                    if (val && val !== 'RPE') {
-                        setObj.rpe = val;
-                        if (rpeInput) rpeInput.value = setObj.rpe;
-                    }
-                }
+            } else {
+                delete setObj.completedAt;
             }
 
+            setObj.isLocked = isChecked;
+            setObj.completed = isChecked;
             if (!ex.sets) ex.sets = [];
             ex.sets[setIdx] = { ...setObj };
-
-            checkFatigueAlert(ex, setIdx);
 
             // 2. Aggiornamento dinamico delle classi e dei trend per ogni riga
             if (rowCard) {
@@ -255,6 +260,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
 
             updateSessionAndCompletionState(currentDay);
             updateSessionHeaderUI(currentDay, renderCallback);
+            updateLiveCoachPanel(currentDay, { readOnly: isPastMeso });
             saveAndSync(state.workoutData);
             if (typeof renderCallback === 'function') renderCallback();
         });
