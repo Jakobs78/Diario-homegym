@@ -317,7 +317,7 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   assert.equal(await page.locator('.set-kg[data-set="0"]').getAttribute('placeholder'), '80');
 
   // Nessuna conferma da valori prescritti: le serie devono avere dati realmente inseriti.
-  await page.locator('.set-lock-check[data-set="0"]').check();
+  await page.locator('.set-lock-check[data-set="0"]').click();
   await expect(page.locator('.set-lock-check[data-set="0"]')).not.toBeChecked();
   await expect(page.locator('#mycoatch-live-input-error')).toContainText('peso realmente usato');
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/3');
