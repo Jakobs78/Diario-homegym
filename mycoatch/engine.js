@@ -382,7 +382,7 @@ export function getTemplateForDays(daysPerWeek = 3) {
             slots: [
                 { muscle: 'Petto', pattern: 'horizontal_push', anchor: 'bench' },
                 { muscle: 'Back_Lats', pattern: 'vertical_pull' },
-                { muscle: 'Back_Thickness', pattern: 'horizontal_pull' },
+                { muscle: 'Petto', pattern: 'isolation' },
                 { muscle: 'Spalle', pattern: 'isolation', prefer: [
                     'Alzate Laterali con Manubri', 'Alzate Laterali ai Cavi'
                 ] },
