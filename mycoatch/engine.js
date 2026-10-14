@@ -297,12 +297,7 @@ function selectExerciseBySlot(slot, stalledExercises, alreadySelected = [], curr
         slot.muscle === "Quadricipiti" ? "Squat con Bilanciere" : null) : null;
     let selected = (preferred && matches.find(e => e.name === preferred)) || matches[0]; // Evita rotazioni automatiche per uno stallo non verificato.
 
-    if ((currentCNS + selected.cnsCost) > maxCNS) {
-        selected = { 
-            ...selected, 
-            noteOverride: `⚠️ [CNS BUDGET LIMIT]: Esercizio inserito ma soglia neurale superata. Consiglio: abbassa i carichi del 10% o esegui 1 set in meno.` 
-        };
-    }
+    // La tolleranza alla fatica va valutata dai risultati, non da un punteggio CNS fisso.
 
     return selected;
 }
