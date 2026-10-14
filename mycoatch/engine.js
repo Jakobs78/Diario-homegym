@@ -260,7 +260,7 @@ function generateContextNote(index, isDeload, focus, useSupersets) {
     }
 
     if (useSupersets) {
-        note += " [SUPERSERIE]: Accoppia questo esercizio con il successivo, senza recupero intermedio; avvia il timer alla fine della coppia.";
+        note += " [SUPERSERIE]: Accoppia questo esercizio con il successivo, senza recupero intermedio e avvia il timer alla fine della coppia.";
     }
     return note;
 }
