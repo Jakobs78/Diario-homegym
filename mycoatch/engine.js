@@ -261,6 +261,11 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             weekDays, intendedDays, maxSessionMinutes, { isDeloadWeek }
         );
         for (const day of balanced.days) {
+            // Il CSV originale non contiene la colonna "nome giornata":
+            // conserviamo lo split nella nota del primo esercizio, così
+            // l'importatore può mostrare Upper A / Lower A / Upper B / Lower B.
+            const dayLabel = String(day.dayName).match(/^(Upper [AB]|Lower [AB]|Full Body [ABC])\b/)?.[1];
+            const splitNote = dayLabel ? `[SPLIT MYCOATCH] ${dayLabel}` : '';
             const durationNote = `[DURATA STIMATA] ${day.estimatedMinutes} minuti su ${maxSessionMinutes} disponibili.`;
             const adjustments = [];
             if (day.reducedAccessorySets) adjustments.push(`${day.reducedAccessorySets} serie accessorie ridotte`);
@@ -276,7 +281,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             }
             // Il CSV resta a 12 colonne: note con stima e compromessi.
             day.exercises[0].notes = [
-                day.exercises[0].notes, durationNote,
+                splitNote, day.exercises[0].notes, durationNote,
                 adjustments.length ? '[TEMPO RIDOTTO] ' + adjustments.join(', ') + '.' : ''
             ].filter(Boolean).join(' | ');
         }
