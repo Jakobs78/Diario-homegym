@@ -42,8 +42,13 @@ export function compareMesocyclePlans(previous, generated, analysis) {
                 sets: ex.setsCount, reps: ex.reps,
                 kg: ex.kgMin || null, rpe: ex.rpe
             };
+            const numericKg = value => {
+                const n = Number(String(value ?? '').replace(/kg/gi, '').replace(',', '.').trim());
+                return String(value ?? '').trim() ? (Number.isFinite(n) ? n : String(value)) : null;
+            };
             if (!old || old.sets !== now.sets || String(old.reps) !== String(now.reps) ||
-                (old.kg && now.kg && String(old.kg) !== String(now.kg))) {
+                numericKg(old.kg) !== numericKg(now.kg) ||
+                String(old.rpe ?? '') !== String(now.rpe ?? '')) {
                 changes.push({
                     day: day.dayNumber,
                     exercise: ex.name,
@@ -106,9 +111,10 @@ export function formatCoachReview(comparison, report) {
     }
     lines.push(`Confronto vecchio/nuovo: ${comparison.changes.length} modifiche nella prima settimana.`);
     for (const c of comparison.changes.slice(0, 6)) {
-        const oldValue = c.previous?.sets ? `${c.previous.sets} serie` : 'non presente';
-        const newValue = c.proposed?.sets ? `${c.proposed.sets} serie` : 'rimosso';
-        lines.push(`G${c.day} · ${c.exercise}: ${oldValue} → ${newValue}`);
+        const format = info => info ?
+            `${info.sets ?? '?'}×${info.reps ?? '?'} ${info.kg ? '@' + info.kg + 'kg' : '(carico non noto)'}` :
+            'non presente';
+        lines.push(`G${c.day} · ${c.exercise}: ${format(c.previous)} → ${format(c.proposed)}`);
     }
     for (const warning of comparison.warnings.slice(0, 4)) lines.push('Attenzione: ' + warning);
     lines.push('', 'Le decisioni si basano su stime e sullo storico, non su misure dirette di crescita muscolare.');
