@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v6-calibration-checkin';
+const CACHE_NAME = 'workout-app-v8-coach-progression';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -30,6 +30,7 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/historyAnalysis.js',
   '/mycoatch/historyInsights.js',
   '/mycoatch/adaptiveDecisions.js',
+  '/mycoatch/progressionPolicy.js',
   '/mycoatch/weeklyVolumeBalancer.js',
   '/mycoatch/groupOptimizer.js',
   '/mycoatch/timeEstimator.js'
