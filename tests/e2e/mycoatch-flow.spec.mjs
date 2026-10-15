@@ -354,13 +354,16 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   await expect(page.locator('#mycoatch-live-guidance')).toContainText('RPE molto alto');
   await expect(page.locator('#mycoatch-live-guidance')).toContainText('Ultima prestazione comparabile');
   await expect(page.locator('#mycoatch-live-guidance')).toContainText('Differenza e1RM');
-  await expect(page.locator('.mycoatch-live-apply')).toBeVisible();
+  await expect(page.locator('#mycoatch-live-toast')).toContainText('RPE molto alto');
+  await expect(page.locator('.mycoatch-live-toast .mycoatch-live-apply')).toBeVisible();
+  await expect(page.locator('.mycoatch-live-advice-history')).not.toHaveAttribute('open', '');
   await expect(page.locator('.set-kg[data-set="1"]')).toHaveValue('80');
   await expect(page.locator('.set-reps[data-set="1"]')).toHaveValue('8');
   await expect(page.locator('.set-rpe[data-set="1"]')).toHaveValue('9.5');
   await expect(page.locator('#live-session-timer')).not.toHaveText('0:00');
 
-  await page.locator('.mycoatch-live-apply').click();
+  await page.locator('.mycoatch-live-toast .mycoatch-live-apply').click();
+  await expect(page.locator('#mycoatch-live-toast')).toHaveCount(0);
   await expect(page.locator('.set-kg[data-set="1"]')).toHaveValue('75');
   await expect(page.locator('.set-lock-check[data-set="1"]')).not.toBeChecked();
   await page.locator('.set-reps[data-set="1"]').fill('7');
@@ -1126,4 +1129,63 @@ test('settimane successive: riusa soltanto le serie confermate dello stesso meso
   await expect(check(0)).not.toBeChecked();
   assert.deepEqual(monitor.remoteRequests,[]);
   assert.deepEqual(monitor.pageErrors,[]);
+});
+
+
+test('feedback MyCoatch flottante: 15 secondi, chiusura manuale e consiglio recuperabile', async ({ page }) => {
+  const monitoring = await openIsolatedApp(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await prepareLiveWorkout(page);
+  const toast = page.locator('#mycoatch-live-toast');
+  await expect(toast).toHaveCount(0);
+
+  // La digitazione NON e' una performance registrata, non apre popup.
+  await page.locator('.set-kg[data-set="0"]').fill('80');
+  await page.locator('.set-reps[data-set="0"]').fill('8');
+  await page.locator('.set-rpe[data-set="0"]').fill('9.5');
+  await expect(toast).toHaveCount(0);
+
+  await page.clock.install();
+  await page.locator('.set-lock-check[data-set="0"]').check();
+  await expect(toast).toBeVisible();
+  await expect(toast).toContainText('RPE molto alto');
+  const coords = await toast.boundingBox();
+  assert.ok(coords && coords.x >= 0 && coords.y >= 0 &&
+    coords.y + coords.height <= 844, 'toast is visible in mobile viewport');
+  await expect(page.locator('.mycoatch-live-advice-history')).not.toHaveAttribute('open', '');
+
+  // Il coach continua a offrire il dettaglio dopo la scadenza.
+  await page.clock.fastForward(14999);
+  await expect(toast).toBeVisible();
+  await page.clock.fastForward(1);
+  await expect(toast).toHaveCount(0);
+  await page.locator('.mycoatch-live-advice-history > summary').click();
+  await expect(page.locator('.mycoatch-live-advice-history .mycoatch-live-advice')).toBeVisible();
+  await expect(page.locator('.mycoatch-live-advice-history')).toContainText('RPE molto alto');
+
+  // Nuovo check -> messaggio nuovo e timer riavviato. X chiude subito.
+  await page.locator('.set-kg[data-set="1"]').fill('75');
+  await page.locator('.set-reps[data-set="1"]').fill('7');
+  await page.locator('.set-rpe[data-set="1"]').fill('8');
+  await page.locator('.set-lock-check[data-set="1"]').check();
+  await expect(toast).toBeVisible();
+  await expect(toast).toContainText('serie 2');
+  await page.locator('.mycoatch-live-toast-dismiss').click();
+  await expect(toast).toHaveCount(0);
+
+  // Uncheck non costituisce una serie nuova e non apre un altro avviso.
+  await page.locator('.set-lock-check[data-set="1"]').uncheck();
+  await expect(toast).toHaveCount(0);
+  assert.deepEqual(monitoring.remoteRequests,[]);
+  assert.deepEqual(monitoring.pageErrors,[]);
+});
+
+test('errore validazione della serie appare anche vicino all atleta in basso', async ({ page }) => {
+  await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+  await page.locator('.set-kg[data-set="0"]').fill('');
+  await page.locator('.set-lock-check[data-set="0"]').check();
+  await expect(page.locator('.set-lock-check[data-set="0"]')).not.toBeChecked();
+  await expect(page.locator('#mycoatch-live-toast')).toContainText('Inserisci il peso');
+  await expect(page.locator('#mycoatch-live-toast')).toHaveAttribute('role','alert');
 });
