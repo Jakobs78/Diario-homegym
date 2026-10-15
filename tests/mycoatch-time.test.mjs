@@ -139,7 +139,10 @@ test('25 minuti: mantiene i fondamentali con volume minimo, senza inventare temp
             assert.ok(day.estimatedMinutes <= 25);
             assert.equal(day.estimatedMinutes, estimateDayMinutes(day.exercises));
             assert.ok(day.exercises.some(ex => ex.anchorKey), 'fondamentale previsto presente');
-            assert.ok(day.exercises.every(ex => ex.setsCount >= 2));
+            // Un accessorio trasferito può avere 1 serie; il minimo di 2
+            // riguarda solo i fondamentali, mai il riempimento facoltativo.
+            assert.ok(day.exercises.every(ex =>
+                (!ex.anchorKey && !ex.priorityProtected) || ex.setsCount >= 2));
         }
     }
 });
