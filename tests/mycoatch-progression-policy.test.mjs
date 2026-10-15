@@ -245,3 +245,41 @@ test('valutazione senza esposizioni: nessuna progressione automatica', () => {
     assert.deepEqual(evaluateExerciseProgression([]).readyForLoad, false);
     assert.equal(evaluateExerciseProgression([]).nextRepTarget, null);
 });
+
+test('due settimane sotto il minimo SENZA RPE: verifica, non diagnosi di fatica o riduzione kg', () => {
+    const { decision, report } = analyse([
+        oneExerciseWeek(80, 4, null),
+        oneExerciseWeek(80, 5, null)
+    ]);
+    assert.equal(report.byExercise[key].fatigueConcern, false);
+    assert.equal(report.byExercise[key].progressionEvidence.repeatedBelowMin, true);
+    assert.equal(decision.action, 'review_missed_reps');
+    assert.equal(decision.plannedKg, 80);
+    assert.match(decision.reason, /Senza RPE alto confermato/);
+});
+
+test('RPE alto in una sola serie e assente nelle altre non prova fatica persistente', () => {
+    const partialRpe = exercise([
+        performed(90, 6, 9.5),
+        performed(90, 6, null)
+    ], { planned: 2 });
+    const { decision, report } = analyse([
+        [[partialRpe]], [[partialRpe]]
+    ]);
+    assert.equal(report.byExercise[key].fatigueConcern, false);
+    assert.equal(decision.action, 'maintain');
+    assert.equal(decision.plannedKg, 90);
+});
+
+test('due sedute della stessa settimana a kg diversi non simulano una progressione stabile', () => {
+    const { decision } = analyse([
+        oneExerciseWeek(80, 8, 7),
+        [
+            [exercise([performed(80, 8, 7.5)])],
+            [exercise([performed(85, 8, 7.5)])]
+        ]
+    ]);
+    assert.equal(decision.action, 'maintain');
+    assert.equal(decision.plannedKg, 80);
+    assert.ok(decision.caveats.includes('tecnica_speciale_o_carichi_misti'));
+});
