@@ -120,9 +120,11 @@ function protectedExercise(exercise, index) {
  * L'ordine della scheda viene usato solo per sciogliere i pari merito.
  */
 function sacrificePriority(exercise) {
+    // Gli slot dichiarati facoltativi sono sempre sacrificabili prima dei
+    // complementari obbligatori, anche se sono multiarticolari secondari.
     if (exercise.isOptional && exercise.pattern === 'isolation') return 0;
-    if (exercise.pattern === 'isolation') return 1;
-    if (exercise.isOptional) return 2;
+    if (exercise.isOptional) return 1;
+    if (exercise.pattern === 'isolation') return 2;
     return 3;
 }
 
