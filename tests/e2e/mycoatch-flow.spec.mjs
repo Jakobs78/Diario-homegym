@@ -420,7 +420,7 @@ test('MyCoatch LIVE con RPE mancante non inventa massimale o suggerimenti', asyn
 });
 
 
-test('ripetere una seduta pulisce serie reali e timestamp, non solo la spunta', async ({ page }) => {
+test('ripetere una seduta archivia la sessione reale prima del nuovo allenamento', async ({ page }) => {
   const monitor = await openIsolatedApp(page);
   await prepareLiveWorkout(page);
   for (let set = 0; set < 3; set++) {
@@ -433,6 +433,10 @@ test('ripetere una seduta pulisce serie reali e timestamp, non solo la spunta', 
   page.on('dialog', async dialog => await dialog.accept());
   await page.locator('#reset-session-timer-btn').click();
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/3');
+  const archives = page.locator('.session-archive-details');
+  await expect(archives).toContainText('Sedute precedenti salvate (1)');
+  await archives.locator('summary').click();
+  await expect(archives).toContainText('80 kg × 8 · RPE 8');
   for (let set = 0; set < 3; set++) {
     await expect(page.locator(`.set-lock-check[data-set="${set}"]`)).not.toBeChecked();
     await expect(page.locator(`.set-kg[data-set="${set}"]`)).toHaveValue('');
@@ -447,6 +451,7 @@ test('ripetere una seduta pulisce serie reali e timestamp, non solo la spunta', 
       started: day.sessionStart,
       completed: day.completed,
       completedAt: day.sessionCompletedAt,
+      archives: day.sessionArchives,
       series: day.exercises[0].loggedSets.map(s =>
         ({ weight: s.weight, reps: s.reps, rpe: s.rpe, stamp: s.completedAt }))
     };
@@ -454,6 +459,11 @@ test('ripetere una seduta pulisce serie reali e timestamp, non solo la spunta', 
   assert.equal(result.completed, false);
   assert.equal(result.started, null);
   assert.equal(result.completedAt, undefined);
+  assert.equal(result.archives.length, 1);
+  assert.deepEqual(result.archives[0].exercises[0].loggedSets.map(s =>
+    [s.weight, s.reps, Number(s.rpe), Boolean(s.isLocked)]),
+    [[80, '8', 8, true], [80, '8', 8, true], [80, '8', 8, true]]);
+  assert.ok(result.archives[0].exercises[0].loggedSets.every(s => s.completedAt));
   assert.ok(result.series.every(s =>
     s.weight === '' && s.reps === '' && s.rpe === '' && s.stamp === undefined));
   assert.deepEqual(monitor.remoteRequests, []);
