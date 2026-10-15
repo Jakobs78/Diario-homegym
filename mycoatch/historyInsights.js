@@ -1,6 +1,7 @@
 import { canonicalExerciseKey, canonicalExerciseName } from './exerciseIdentity.js';
 import { numericValue, estimateE1rm } from './historyAnalysis.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
+import { evaluateExerciseProgression } from './progressionPolicy.js';
 
 const catalog = new Map(EXERCISE_DATABASE.map(ex => [canonicalExerciseKey(ex.name), ex]));
 const orderedKeys = object => Object.keys(object || {}).sort((a, b) => Number(a) - Number(b));
@@ -21,6 +22,7 @@ function parseRpe(value) {
 }
 
 function inspectExercise(exercise, context) {
+    if (!exercise || exercise.isExcluded) return null;
     const logged = Array.isArray(exercise.loggedSets) ? exercise.loggedSets :
         (Array.isArray(exercise.sets) ? exercise.sets : []);
     const valid = logged.flatMap(set => {
@@ -31,11 +33,16 @@ function inspectExercise(exercise, context) {
         // Per dropset/triset registrati come "10+8+6" conta solo la prima
         // porzione ai fini del volume; l'e1RM rimane deliberatamente ignoto.
         const reps = numericValue(repsText.includes('+') ? repsText.split('+')[0] : repsText);
-        if (kg === null || kg <= 0 || reps === null || reps <= 0) return [];
+        if (kg === null || kg <= 0 || reps === null ||
+            !Number.isInteger(reps) || reps <= 0 || reps > 100) return [];
         const rpe = parseRpe(set.rpe);
-        return [{ kg, reps, rpe, e1rm: rpe !== null &&
-            !String(set.reps ?? set.actualReps).includes('+') ?
-            estimateE1rm(kg, reps, rpe) : null }];
+        const special = Boolean(set.intensityTechnique || set.isDropset ||
+            exercise.isDropset || exercise.groupType === 'dropset' ||
+            repsText.includes('+'));
+        return [{
+            kg, reps, rpe, special,
+            e1rm: rpe !== null && !special ? estimateE1rm(kg, reps, rpe) : null
+        }];
     });
     if (!valid.length) return null;
 
@@ -69,14 +76,27 @@ function inspectExercise(exercise, context) {
         avgRpe,
         e1rm: e1rms.length ? Math.max(...e1rms) : null,
         topKg: Math.max(...valid.map(set => set.kg)),
+        // The top set is NOT a safe default for all back-off sets.
+        workingKg: Math.min(...valid.map(set => set.kg)),
+        uniformWeight: valid.every(set => set.kg === valid[0].kg),
+        allStraightSets: valid.every(set => !set.special),
+        minWorkingReps: Math.min(...valid.map(set => set.reps)),
+        allRepsInRange: min !== undefined && max !== undefined &&
+            valid.length === plannedSets &&
+            valid.every(set => set.reps >= min && set.reps <= max),
         totalReps: valid.reduce((sum, set) => sum + set.reps, 0),
         tonnage: valid.reduce((sum, set) => sum + set.kg * set.reps, 0),
-        allRepsAtTop: max !== undefined && valid.length >= plannedSets &&
-            valid.every(set => set.reps >= max),
+        // Overshooting a narrow prescription by 10+ reps does not by
+        // itself validate a safe load jump; at most +2 reps over top.
+        allRepsAtTop: max !== undefined && valid.length === plannedSets &&
+            valid.every(set => set.reps >= max && set.reps <= max + 2),
         allRepsBelowMin: min !== undefined && valid.every(set => set.reps < min),
         allRpeWithinTarget: targetRpe !== null && validRpe.length === valid.length &&
             valid.every(set => set.rpe <= targetRpe),
+        allRpeMeasured: valid.length === plannedSets &&
+            validRpe.length === valid.length,
         rpeOvershoot: targetRpe !== null && avgRpe !== null &&
+            valid.length === plannedSets && validRpe.length === valid.length &&
             avgRpe >= targetRpe + 1
     };
 }
@@ -132,41 +152,54 @@ export function analyzeTrainingHistory(userHistory) {
                 const days = [...(week.days || [])].sort((a, b) =>
                     Number(a.dayNumber) - Number(b.dayNumber));
                 for (const day of days) {
-                    let anyCompleted = false;
-                    for (const ex of (day.exercises || [])) {
-                        const parsed = inspectExercise(ex, {
-                            year, mesocycleIndex: mi, week: weekNumber,
-                            day: Number(day.dayNumber) || 1,
-                            weekId
-                        });
-                        if (!parsed) continue;
-                        anyCompleted = true;
-                        if (!byExercise[parsed.key]) {
-                            byExercise[parsed.key] = {
-                                name: parsed.name, category: parsed.category,
-                                equipment: parsed.equipment, exposures: []
-                            };
-                        }
-                        byExercise[parsed.key].exposures.push(parsed);
-                        // Le settimane di scarico non sono un riferimento
-                        // valido per la dose di lavoro abituale.
-                        if (parsed.isDeload) continue;
-                        if (!weeks.has(weekId)) weeks.set(weekId, new Map());
-                        const weekMuscles = weeks.get(weekId);
-                        if (!weekMuscles.has(parsed.category)) {
-                            weekMuscles.set(parsed.category, {
-                                completedSets: 0, plannedSets: 0, tonnage: 0,
-                                observedRpe: [], distinctExercises: new Set()
+                    // PR #14 stores repeated-session results in sessionArchives.
+                    // Read those as *separate actual sessions*, preserving weekId
+                    // so redoing one planned day cannot count as longitudinal
+                    // progress across two weeks. Never mutate these archives.
+                    const priorSessions = (Array.isArray(day.sessionArchives) ?
+                        day.sessionArchives : []).map((archive, archiveIndex) => ({
+                        exercises: archive.exercises || [],
+                        sessionId: weekId + '/' + day.dayNumber + '/archived/' + archiveIndex
+                    }));
+                    const sessions = [...priorSessions, {
+                        exercises: day.exercises || [],
+                        sessionId: weekId + '/' + day.dayNumber + '/current'
+                    }];
+                    for (const session of sessions) {
+                        let anyCompleted = false;
+                        for (const ex of session.exercises) {
+                            const parsed = inspectExercise(ex, {
+                                year, mesocycleIndex: mi, week: weekNumber,
+                                day: Number(day.dayNumber) || 1,
+                                weekId, sessionId: session.sessionId
                             });
+                            if (!parsed) continue;
+                            anyCompleted = true;
+                            if (!byExercise[parsed.key]) {
+                                byExercise[parsed.key] = {
+                                    name: parsed.name, category: parsed.category,
+                                    equipment: parsed.equipment, exposures: []
+                                };
+                            }
+                            byExercise[parsed.key].exposures.push(parsed);
+                            if (parsed.isDeload) continue;
+                            if (!weeks.has(weekId)) weeks.set(weekId, new Map());
+                            const weekMuscles = weeks.get(weekId);
+                            if (!weekMuscles.has(parsed.category)) {
+                                weekMuscles.set(parsed.category, {
+                                    completedSets: 0, plannedSets: 0, tonnage: 0,
+                                    observedRpe: [], distinctExercises: new Set()
+                                });
+                            }
+                            const stats = weekMuscles.get(parsed.category);
+                            stats.completedSets += parsed.completedSets;
+                            stats.plannedSets += parsed.plannedSets;
+                            stats.tonnage += parsed.tonnage;
+                            stats.distinctExercises.add(parsed.key);
+                            if (parsed.avgRpe !== null) stats.observedRpe.push(parsed.avgRpe);
                         }
-                        const stats = weekMuscles.get(parsed.category);
-                        stats.completedSets += parsed.completedSets;
-                        stats.plannedSets += parsed.plannedSets;
-                        stats.tonnage += parsed.tonnage;
-                        stats.distinctExercises.add(parsed.key);
-                        if (parsed.avgRpe !== null) stats.observedRpe.push(parsed.avgRpe);
+                        if (anyCompleted) sessionsAnalyzed++;
                     }
-                    if (anyCompleted) sessionsAnalyzed++;
                 }
             }
         }
@@ -177,27 +210,24 @@ export function analyzeTrainingHistory(userHistory) {
     for (const [key, item] of Object.entries(byExercise)) {
         const standard = item.exposures.filter(e => !e.isDeload);
         const previous = standard.at(-1) || item.exposures.at(-1);
-        const lastTwo = standard.slice(-2);
         const status = determineExerciseStatus(item.exposures);
         const avgRpe = mean(standard.slice(-3).map(e => e.avgRpe)
             .filter(value => value !== null));
-        const recentOvershoots = lastTwo.length === 2 &&
-            lastTwo.every(e => e.rpeOvershoot);
-        const recentMisses = lastTwo.length === 2 &&
-            lastTwo.every(e => e.allRepsBelowMin);
-        const readyForLoad = lastTwo.length === 2 &&
-            lastTwo.every(e => e.allRepsAtTop && e.allRpeWithinTarget) &&
-            lastTwo.every(e => e.repRange && e.repRange.max === lastTwo[1].repRange.max);
-        const fatigueConcern = recentOvershoots ||
-            (recentMisses && status.status === 'regressing');
+        const progression = evaluateExerciseProgression(item.exposures);
+        const { readyForLoad, readyForReps, nextRepTarget, fatigueConcern } = progression;
         item.status = status.status;
         item.e1rmChangePct = status.percent;
         item.lastKg = previous?.topKg ?? null;
+        item.lastWorkingKg = progression.lastWeekWorkingKg ??
+            previous?.workingKg ?? null;
         item.lastTargetRpe = previous?.targetRpe ?? null;
         item.lastReps = previous?.repRange ?? null;
         item.avgRpe = round(avgRpe);
         item.readyForLoad = readyForLoad;
+        item.readyForReps = readyForReps;
+        item.nextRepTarget = nextRepTarget;
         item.fatigueConcern = fatigueConcern;
+        item.progressionEvidence = progression;
         item.completedSets = item.exposures.reduce((sum, e) =>
             sum + e.completedSets, 0);
         item.exposuresCount = standard.length;

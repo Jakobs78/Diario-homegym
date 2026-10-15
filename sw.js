@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v6-calibration-checkin';
+const CACHE_NAME = 'workout-app-v9-integrated-history-progression';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -11,6 +11,8 @@ const ASSETS_TO_CACHE = [
   '/js/exerciseCard.js',
   '/js/liveCoachUI.js',
   '/js/sessionTimer.js',
+  '/js/historySafety.js',
+  '/js/csvHandler.js',
   '/js/timer.js',
   '/js/helpers.js',
   '/js/restPolicy.js',
@@ -30,6 +32,7 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/historyAnalysis.js',
   '/mycoatch/historyInsights.js',
   '/mycoatch/adaptiveDecisions.js',
+  '/mycoatch/progressionPolicy.js',
   '/mycoatch/weeklyVolumeBalancer.js',
   '/mycoatch/groupOptimizer.js',
   '/mycoatch/timeEstimator.js'

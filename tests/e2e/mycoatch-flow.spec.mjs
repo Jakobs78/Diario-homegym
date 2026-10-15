@@ -420,7 +420,7 @@ test('MyCoatch LIVE con RPE mancante non inventa massimale o suggerimenti', asyn
 });
 
 
-test('ripetere una seduta pulisce serie reali e timestamp, non solo la spunta', async ({ page }) => {
+test('ripetere una seduta archivia la sessione reale prima del nuovo allenamento', async ({ page }) => {
   const monitor = await openIsolatedApp(page);
   await prepareLiveWorkout(page);
   for (let set = 0; set < 3; set++) {
@@ -433,6 +433,10 @@ test('ripetere una seduta pulisce serie reali e timestamp, non solo la spunta', 
   page.on('dialog', async dialog => await dialog.accept());
   await page.locator('#reset-session-timer-btn').click();
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/3');
+  const archives = page.locator('.session-archive-details');
+  await expect(archives).toContainText('Sedute precedenti salvate (1)');
+  await archives.locator('summary').click();
+  await expect(archives).toContainText('80 kg × 8 · RPE 8');
   for (let set = 0; set < 3; set++) {
     await expect(page.locator(`.set-lock-check[data-set="${set}"]`)).not.toBeChecked();
     await expect(page.locator(`.set-kg[data-set="${set}"]`)).toHaveValue('');
@@ -447,6 +451,7 @@ test('ripetere una seduta pulisce serie reali e timestamp, non solo la spunta', 
       started: day.sessionStart,
       completed: day.completed,
       completedAt: day.sessionCompletedAt,
+      archives: day.sessionArchives,
       series: day.exercises[0].loggedSets.map(s =>
         ({ weight: s.weight, reps: s.reps, rpe: s.rpe, stamp: s.completedAt }))
     };
@@ -454,8 +459,33 @@ test('ripetere una seduta pulisce serie reali e timestamp, non solo la spunta', 
   assert.equal(result.completed, false);
   assert.equal(result.started, null);
   assert.equal(result.completedAt, undefined);
+  assert.equal(result.archives.length, 1);
+  assert.deepEqual(result.archives[0].exercises[0].loggedSets.map(s =>
+    [s.weight, s.reps, Number(s.rpe), Boolean(s.isLocked)]),
+    [[80, '8', 8, true], [80, '8', 8, true], [80, '8', 8, true]]);
+  assert.ok(result.archives[0].exercises[0].loggedSets.every(s => s.completedAt));
   assert.ok(result.series.every(s =>
     s.weight === '' && s.reps === '' && s.rpe === '' && s.stamp === undefined));
+
+  const savingArchive = page.waitForEvent('download');
+  await page.evaluate(async () => {
+    const { exportToCSV } = await import('/js/csvHandler.js');
+    const { state } = await import('/js/state.js');
+    exportToCSV(state.workoutData);
+  });
+  const historicalCsv = await readFile(await (await savingArchive).path(), 'utf8');
+  const archival = historicalCsv.split(/\r?\n/).filter(line =>
+    line.includes('[archivio S1 G1 #1]'));
+  assert.equal(archival.length, 3);
+  assert.ok(archival.every(line =>
+    line.includes('80') && line.includes('[ARCHIVIO RIPETIZIONE]')));
+  assert.ok(archival.every(line => line.split(',')[10] === '"8"'),
+    'Esportazione serie completate: RPE reale e non target');
+  assert.ok(historicalCsv.split(/\r?\n/).some(line =>
+    !line.includes('[archivio ') && line.includes('Panca') &&
+    line.split(',')[10] === '""'),
+    'L’RPE delle nuove serie vuote non deve essere inventato');
+
   assert.deepEqual(monitor.remoteRequests, []);
   assert.deepEqual(monitor.pageErrors, []);
 });
@@ -749,4 +779,159 @@ test('data dei carichi autodichiarati: senza data non prescrive kg, con data rec
   assert.equal(getBench(secondCsv)[6], '80');
   assert.deepEqual(monitor.remoteRequests, []);
   assert.deepEqual(monitor.pageErrors, []);
+});
+
+
+test('import scheda: CSV corrotto lascia storico e selezione attiva intatti', async ({ page }) => {
+  const monitor = await openIsolatedApp(page);
+  const result = await page.evaluate(async () => {
+    const { importWorkoutPlan } = await import('/js/csvHandler.js');
+    const { state } = await import('/js/state.js');
+    const before = JSON.stringify(state.workoutData);
+    const view = [state.activeMesocycleIndex, state.activeWeek, state.activeDay];
+    const missingHeader = importWorkoutPlan('Settimana;Giorno;Esercizio;Reps\n1;1;Panca;8');
+    const invalidLaterRow = importWorkoutPlan(
+      'Settimana;Giorno;Blocco;Esercizio;Set;Reps\n' +
+      '1;1;1;Panca Piana con Bilanciere;3;6-8\n' +
+      '1;2;1;Squat con Bilanciere;zero;6-8'
+    );
+    return { missingHeader, invalidLaterRow,
+      historyPreserved: JSON.stringify(state.workoutData) === before,
+      viewPreserved: JSON.stringify(
+        [state.activeMesocycleIndex, state.activeWeek, state.activeDay]
+      ) === JSON.stringify(view)
+    };
+  });
+  assert.equal(result.missingHeader.success, false);
+  assert.equal(result.invalidLaterRow.success, false);
+  assert.match(result.invalidLaterRow.error, /Set non valido/);
+  assert.equal(result.historyPreserved, true);
+  assert.equal(result.viewPreserved, true);
+  assert.deepEqual(monitor.remoteRequests, []);
+  assert.deepEqual(monitor.pageErrors, []);
+});
+
+test('import storico: record duplicati rifiutati e collisioni di nome salvate separatamente', async ({ page }) => {
+  const monitor = await openIsolatedApp(page);
+  const outcome = await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    const { importProgressCSV } = await import('/js/csvHandler.js');
+    const year = new Date().getFullYear();
+    const list = state.workoutData.history.years[year].mesocycles;
+    const before = JSON.stringify(list);
+    const name = list[0].name;
+    const csvSafe = text => '"' + String(text).replaceAll('"','""') + '"';
+    const header = 'Mesociclo,Settimana,Giorno,Data,Blocco,Esercizio,Serie,Kg_Reali,Reps_Reali,Completato,Rpe,Recupero,Note_Esercizio';
+    const record = (n, kg, completed, rpe = '') => [
+      csvSafe(name),1,1,'2026-10-10',1,'Panca Piana con Bilanciere',
+      n,kg,8,completed,rpe,'180s','Test sintetico'
+    ].join(',');
+    const wrong = importProgressCSV(
+      header + '\n' + record(1,80,'SI') + '\n' + record(1,80,'SI')
+    );
+    const intactAfterError = JSON.stringify(list) === before;
+    const passed = importProgressCSV(
+      header + '\n' + record(1,80,'NO') + '\n' + record(2,82.5,'SI',8)
+    );
+    const current = state.workoutData.history.years[year].mesocycles;
+    const imported = current.at(-1);
+    return {
+      wrong, intactAfterError, passed,
+      originalsUnchanged: JSON.stringify(current.slice(0,-1)) === before,
+      name: imported.name,
+      sets: imported.weeks[0].days[0].exercises[0].loggedSets
+    };
+  });
+  assert.equal(outcome.wrong.success, false);
+  assert.equal(outcome.intactAfterError, true);
+  assert.equal(outcome.passed.success, true, outcome.passed.error);
+  assert.equal(outcome.originalsUnchanged, true);
+  assert.match(outcome.name, /\(importazione 2\)$/);
+  assert.equal(outcome.sets.length, 2);
+  assert.equal(outcome.sets[0].isLocked, false);
+  assert.equal(outcome.sets[0].rpe, '');
+  assert.equal(outcome.sets[1].isLocked, true);
+  assert.equal(outcome.sets[1].rpe, '8');
+  assert.deepEqual(monitor.remoteRequests, []);
+  assert.deepEqual(monitor.pageErrors, []);
+});
+
+
+test('anteprima successiva: avvisa se prima settimana calibrata solo in parte e non cancella il diario', async ({ page }) => {
+  const monitoring = await openIsolatedApp(page);
+  const created = await page.evaluate(async () => {
+    const { MyCoatch } = await import('/mycoatch/index.js');
+    const { importWorkoutPlan } = await import('/js/csvHandler.js');
+    const { state } = await import('/js/state.js');
+    const { renderWorkoutList } = await import('/js/ui.js');
+    state.workoutData.history.years = {};
+    MyCoatch.generateNextFromHistory({ history: { years: {} } }, {
+      daysPerWeek: 4, durationWeeks: 4, userAge: 36,
+      focus: 'hybrid', maxSessionMinutes: 75,
+      athleteProfile: {
+        experience: 'beginner', calibration: 'guided',
+        priorityMuscle: null, excludedExercises: [], referenceLoads: {}
+      }
+    });
+    const result = importWorkoutPlan(MyCoatch.exportAsCSV());
+    if (!result.success) return { success: false, error: result.error };
+    const year = state.workoutData.history.years[new Date().getFullYear()];
+    const first = year.mesocycles.at(-1).weeks[0].days[0].exercises[0].loggedSets[0];
+    Object.assign(first, {
+      weight: '40', reps: '8', rpe: '7', isLocked: true, completed: true
+    });
+    first.completedAt = new Date().toISOString();
+    localStorage.setItem('workoutApp_data', JSON.stringify(state.workoutData));
+    renderWorkoutList();
+    return { success: true };
+  });
+  assert.equal(created.success, true, JSON.stringify(created));
+
+  const before = await page.evaluate(() => localStorage.getItem('workoutApp_data'));
+  const previews = [];
+  page.on('dialog', async dialog => {
+    if (dialog.type() === 'confirm') {
+      previews.push(dialog.message());
+      await dialog.dismiss();
+    } else {
+      await dialog.accept();
+    }
+  });
+  await startCoach(page, '75');
+  await page.locator('#mycoatch-submit').click();
+  await expect(page.locator('#mycoatch-form-feedback'))
+    .toContainText('nessun dato storico modificato');
+  assert.ok(previews.some(p => p.includes('calibrazione NON completata') &&
+    p.includes('Riferimenti mancanti: Squat')),
+    'La proposta parziale deve dichiarare gli esercizi ancora mancanti');
+  assert.equal(await page.evaluate(() => localStorage.getItem('workoutApp_data')),
+    before, 'L’anteprima annullata non può riscrivere allenamenti esistenti');
+
+  // Simula poi solo serie confermate davvero, come un utente che abbia
+  // completato il resto della prima settimana. Nessuna macchina remota.
+  const completed = await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    const meso = state.workoutData.history.years[new Date().getFullYear()].mesocycles.at(-1);
+    for (const day of meso.weeks[0].days) {
+      for (const ex of day.exercises) {
+        for (const set of ex.loggedSets) {
+          Object.assign(set, {
+            weight: '40', reps: '8', rpe: '7', isLocked: true, completed: true
+          });
+        }
+      }
+    }
+    localStorage.setItem('workoutApp_data', JSON.stringify(state.workoutData));
+    return meso.weeks[0].days.length;
+  });
+  assert.equal(completed, 4);
+  const allBefore = await page.evaluate(() => localStorage.getItem('workoutApp_data'));
+  await page.locator('#mycoatch-submit').click();
+  assert.ok(previews.some(p => p.includes('Calibrazione della prima settimana registrata') &&
+    p.includes('NON significa che le settimane restanti')),
+    'Anche quando la calibrazione è pronta non deve dichiarare concluso il blocco');
+  assert.equal(await page.evaluate(() => localStorage.getItem('workoutApp_data')),
+    allBefore);
+  assert.deepEqual(monitoring.remoteRequests, []);
+  assert.deepEqual(monitoring.pageErrors, []);
 });

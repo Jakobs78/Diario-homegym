@@ -132,3 +132,33 @@ export function calibrationContextForDay(workoutData, currentDay) {
     }
     return null;
 }
+
+/**
+ * Riepilogo non sensibile per l'anteprima del mesociclo SUCCESSIVO.
+ * Legge solo l'ultima proposta importata e riconosce esplicitamente il tag
+ * della settimana guidata. Non fa inferenze da un generico mese precedente.
+ * Non ritorna valori kg/RPE individuali, soltanto qualita' del campione.
+ */
+export function calibrationHandoffForMesocycle(mesocycle) {
+    if (!Array.isArray(mesocycle?.weeks) || !mesocycle.weeks.length) return null;
+    const firstWeek = mesocycle.weeks.find(week => Number(week.weekNumber) === 1) ||
+        mesocycle.weeks[0];
+    const reviewed = reviewCalibrationWeek(firstWeek);
+    if (!reviewed) return null;
+    return {
+        source: 'guided_first_week_confirmed_sets',
+        status: reviewed.status,
+        readyForReview: reviewed.readyForReview,
+        days: reviewed.days,
+        completeDays: reviewed.completeDays,
+        validSets: reviewed.validSets,
+        totalSets: reviewed.totalSets,
+        withoutRpe: reviewed.withoutRpe,
+        missingAnchors: [...reviewed.missingAnchors],
+        anchorsRecorded: reviewed.anchorsRecorded,
+        anchorsTotal: reviewed.anchorsTotal,
+        // Una calibrazione completata non prova che il resto del mesociclo
+        // sia finito: proponiamo una REVISIONE, non l'avanzamento obbligatorio.
+        requiresAthleteDecision: true
+    };
+}

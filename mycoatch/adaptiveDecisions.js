@@ -15,9 +15,12 @@ export function planAdaptiveDecisions(report) {
     const summary = [];
 
     for (const [key, exercise] of Object.entries(report.byExercise || {})) {
-        const kg = exercise.lastKg;
+        // Apply a historical WORKING-set load, never the heaviest top set
+        // to every back-off set. The top load is retained for reporting.
+        const kg = exercise.lastWorkingKg ?? exercise.lastKg;
         let action = 'maintain';
         let plannedKg = kg;
+        let plannedRepGoal = null;
         let reason = exercise.status === 'insufficient_data'
             ? 'Storico confermato insufficiente: nessuna progressione automatica del carico.'
             : 'Mantieni il carico precedente e monitora la prossima esposizione.';
@@ -29,15 +32,33 @@ export function planAdaptiveDecisions(report) {
             reason = 'RPE ripetutamente superiore al target o ripetizioni sotto target con calo e1RM: alleggerimento prudente e verifica del recupero.';
         } else if (exercise.readyForLoad && kg !== null &&
                    exercise.status !== 'regressing') {
-            action = 'increase_load';
-            plannedKg = roundLoad(kg + incrementFor(kg, exercise.equipment));
-            reason = 'Due esposizioni complete al limite alto delle ripetizioni, con RPE entro il target: piccolo incremento proposto.';
+            const increment = incrementFor(kg, exercise.equipment);
+            if (increment / kg <= 0.10) {
+                action = 'increase_load';
+                plannedKg = roundLoad(kg + increment);
+                reason = 'Due settimane diverse, tutte le serie a ripetizioni alte con RPE misurato entro il target e carichi di lavoro confrontabili: piccolo incremento proposto (verifica i dischi/manubri disponibili).';
+            } else {
+                reason = 'Le due settimane giustificano una progressione, ma il passo minimo standard sarebbe superiore al 10% del carico: mantieni i kg oppure usa microcarichi realmente disponibili.';
+            }
         } else if (exercise.status === 'possible_stall') {
             action = 'review_stall';
             reason = 'Possibile stallo e1RM: conferma tecnica, sonno, pause e andamento dei carichi prima di ruotare esercizio o alzare il volume.';
         } else if (exercise.status === 'regressing') {
             action = 'review_regression';
             reason = 'e1RM in calo, ma dati non sufficienti per attribuirlo alla fatica: mantieni e osserva la seduta seguente.';
+        } else if (exercise.progressionEvidence?.repeatedBelowMin && kg !== null) {
+            action = 'review_missed_reps';
+            reason = 'Due settimane con ripetizioni sotto il minimo previsto: ' +
+                'verifica tecnica, recupero e adeguatezza del target. ' +
+                'Senza RPE alto confermato non attribuiamo il calo alla fatica ' +
+                'e non riduciamo automaticamente i kg.';
+        } else if (exercise.readyForReps && kg !== null) {
+            action = 'build_reps';
+            plannedRepGoal = exercise.nextRepTarget;
+            reason = 'Due settimane complete con RPE misurato entro il target: mantieni ' +
+                kg + ' kg e prova ' + plannedRepGoal +
+                ' ripetizioni in una serie, senza forzare cedimento o tecnica. ' +
+                'Aumenta i kg solo dopo avere consolidato tutte le serie al limite alto.';
         } else if (exercise.status === 'progressing') {
             action = 'maintain_progression';
             reason = 'Forza stimata in miglioramento: conserva il movimento e progredisci solo quando reps e RPE lo consentono.';
@@ -46,13 +67,17 @@ export function planAdaptiveDecisions(report) {
         byExercise[key] = {
             exercise: exercise.name,
             action,
-            lastKg: kg,
+            lastKg: exercise.lastKg,
+            workingKg: kg,
             plannedKg,
+            plannedRepGoal,
+            evidenceWeeks: exercise.progressionEvidence?.evidenceWeeks || [],
+            caveats: exercise.progressionEvidence?.caveats || [],
             status: exercise.status,
             rpe: exercise.avgRpe,
             reason,
-            confidence: exercise.exposuresCount >= 3 && exercise.avgRpe !== null
-                ? 'moderate' : 'low'
+            confidence: (exercise.progressionEvidence?.distinctWeeks || 0) >= 3 &&
+                exercise.avgRpe !== null ? 'moderate' : 'low'
         };
         if (action !== 'maintain' && action !== 'maintain_progression')
             summary.push({ target: exercise.name, action, reason });

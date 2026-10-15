@@ -2039,3 +2039,25 @@ body.dark-mode .group-title-badge {
 .mycoatch-calibration-review.is-ready {
     border-top: 2px solid var(--success-color);
 }
+
+/* Ripetizione della stessa seduta: copia leggibile delle prestazioni precedenti. */
+.session-archive-details {
+    margin-top: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 9px;
+    padding: 8px 12px;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    font-size: .85rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+.session-archive-details summary {
+    cursor: pointer;
+    font-weight: 700;
+    list-style-position: inside;
+}
+.session-archive-details ol,
+.session-archive-details ul { padding-left: 20px; margin: 7px 0; }
+.session-archive-details li { margin: 4px 0; }
