@@ -1917,6 +1917,93 @@ body.dark-mode .group-title-badge {
     .mycoatch-live-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+
+/* LiveCoach: feedback flottante non modale, sempre visibile durante lo
+   scorrimento delle card, sopra al timer di recupero. */
+.mycoatch-live-toast {
+    position: fixed;
+    right: max(12px, env(safe-area-inset-right, 0px));
+    bottom: calc(106px + env(safe-area-inset-bottom, 0px));
+    z-index: 1100;
+    width: min(410px, calc(100vw - 24px));
+    max-height: min(42dvh, 350px);
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+    background: var(--card-bg);
+    color: var(--text-color);
+    border: 1px solid var(--accent-color);
+    border-left: 5px solid var(--accent-color);
+    border-radius: 12px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .25);
+    padding: 12px 14px;
+}
+.mycoatch-live-toast.is-caution {
+    border-color: #d97706;
+    border-left-color: #d97706;
+}
+.mycoatch-live-toast.is-ok { border-left-color: var(--success-color); }
+.mycoatch-live-toast-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    justify-content: space-between;
+    font-size: .91rem;
+}
+.mycoatch-live-toast-header strong { min-width: 0; }
+.mycoatch-live-toast-dismiss {
+    flex: 0 0 38px;
+    height: 38px;
+    margin: -7px -8px 0 0;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-color);
+    font: inherit;
+    font-size: 1.6rem;
+    line-height: 1;
+    cursor: pointer;
+}
+.mycoatch-live-toast-dismiss:hover,
+.mycoatch-live-toast-dismiss:focus-visible { background: var(--block-bg); }
+.mycoatch-live-toast-message {
+    margin: 7px 0;
+    font-size: .88rem;
+    line-height: 1.45;
+}
+.mycoatch-live-toast small {
+    display: block;
+    color: var(--text-muted);
+    font-size: .78rem;
+}
+.mycoatch-live-toast .mycoatch-live-apply {
+    width: 100%;
+    text-align: center;
+    min-height: 42px;
+    margin-top: 9px;
+}
+.mycoatch-live-advice-history { margin-top: 10px; }
+.mycoatch-live-advice-history > summary {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 8px 10px;
+    color: var(--accent-color);
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-weight: 650;
+}
+.mycoatch-live-advice-history[open] > summary { margin-bottom: 8px; }
+@media (max-width: 480px) {
+    .mycoatch-live-toast {
+        right: 12px;
+        bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+        max-height: min(40dvh, 320px);
+    }
+}
+
 /* MyCoatch — scelta ragionata dei fondamentali e attrezzatura. */
 .mycoatch-preferences-group {
     border: 1px solid var(--border-color);
