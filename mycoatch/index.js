@@ -154,7 +154,7 @@ export const MyCoatch = {
                     const recuperoStr = ex.restTime ?? '';
                     if (!Number.isInteger(Number(totalSets)) || Number(totalSets) < 1 ||
                         !String(repsForExercise).trim() || !String(recuperoStr).trim() ||
-                        !/^\\d+(?:[.,]\\d+)?$/.test(rpeStr) ||
+                        !/^\d+(?:[.,]\d+)?$/.test(rpeStr) ||
                         Number(rpeStr.replace(',', '.')) < 6 ||
                         Number(rpeStr.replace(',', '.')) > 10) {
                         throw new Error('Prescrizione MyCoatch incompleta: controlla serie, ripetizioni, recupero e RPE.');
