@@ -8,6 +8,7 @@ import { analyzeUserHistory } from './autoregulation.js';
 import { assessExerciseLive } from './liveCoach.js';
 import { estimateE1rm } from './historyAnalysis.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
+import { calibrationHandoffForMesocycle } from './calibrationReview.js';
 
 export const MyCoatch = {
     /**
@@ -16,6 +17,7 @@ export const MyCoatch = {
     generateNextFromHistory(userHistory, goalSettings = {}) {
         // Analisi longitudinale: tutti gli anni e i mesocicli, soltanto serie confermate.
         const report = analyzeTrainingHistory(userHistory);
+        const calibrationHandoff = calibrationHandoffForMesocycle(report.lastMesocycle);
         const decisions = planAdaptiveDecisions(report);
         const analysis = { ...report, decisions };
 
@@ -44,6 +46,7 @@ export const MyCoatch = {
             muscleSignals: report.byMuscle,
             decisions,
             athleteOnboarding: newMesocycle.athleteOnboarding,
+            calibrationHandoff,
             // Metriche della proposta settimanale, non dati di prestazione misurati.
             weeklyVolumeBalance: newMesocycle.weeks.map(week => ({
                 weekNumber: week.weekNumber,
