@@ -133,30 +133,26 @@ export function updateSyncStatusUI() {
     const syncBadge = document.getElementById('sync-status');
     if (!syncBadge) return;
 
-    if (!navigator.onLine) {
-        syncBadge.textContent = '🔴 Offline (Modifiche in locale)';
-        syncBadge.title = 'Nessuna connessione internet. I dati sono salvati sul dispositivo in attesa di rete.';
-        syncBadge.style.cursor = 'default';
-        syncBadge.style.background = '';
-        syncBadge.style.color = '';
-        syncBadge.style.padding = '';
-    } else if (hasPendingSync()) {
-        syncBadge.textContent = '⚠️ Sincronizza prima di cambiare device!';
-        syncBadge.title = 'Hai modifiche non sincronizzate! Clicca qui per forzare la sincronizzazione prima di usare un altro dispositivo.';
-        syncBadge.style.cursor = 'pointer';
-        syncBadge.style.background = '#f59e0b';
-        syncBadge.style.color = '#000';
-        syncBadge.style.padding = '2px 8px';
-        syncBadge.style.borderRadius = '4px';
-        syncBadge.style.fontWeight = 'bold';
-    } else {
-        syncBadge.textContent = '🟢 Sincronizzato';
-        syncBadge.title = 'Tutti i dati sono allineati con il cloud. Puoi passare ad altri device in sicurezza.';
-        syncBadge.style.cursor = 'default';
-        syncBadge.style.background = '';
-        syncBadge.style.color = '';
-        syncBadge.style.padding = '';
-    }
+    const offline = !navigator.onLine;
+    const pending = !offline && hasPendingSync();
+    // Stato sempre leggibile nel layout compatto: messaggio esteso come
+    // tooltip e nome accessibile, senza nascondere gli avvisi di rischio.
+    const detail = offline
+        ? 'Offline: dati salvati sul dispositivo in attesa di rete.'
+        : pending
+            ? 'Modifiche non sincronizzate: non cambiare dispositivo prima della sincronizzazione.'
+            : 'Sincronizzato: tutti i dati sono allineati con il cloud.';
+    syncBadge.textContent = offline ? '● Offline' : pending ? '⚠ In coda' : '✓ Cloud';
+    syncBadge.title = detail;
+    syncBadge.setAttribute('aria-label', detail);
+    syncBadge.classList.toggle('is-offline', offline);
+    syncBadge.classList.toggle('is-pending', pending);
+    syncBadge.style.cursor = pending ? 'pointer' : 'default';
+    syncBadge.style.background = '';
+    syncBadge.style.color = '';
+    syncBadge.style.padding = '';
+    syncBadge.style.borderRadius = '';
+    syncBadge.style.fontWeight = '';
 }
 
 // Listener per forzatura manuale sincronizzazione via badge UI
