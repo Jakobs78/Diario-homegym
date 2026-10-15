@@ -71,10 +71,14 @@ export function evaluateExerciseProgression(exposures = []) {
         lastTwo[1].repRange &&
         lastTwo[0].repRange.min === lastTwo[1].repRange.min &&
         lastTwo[0].repRange.max === lastTwo[1].repRange.max;
-    const loadNotDecreasing = enoughWeeks && lastTwo[0].workingKg > 0 &&
-        lastTwo[1].workingKg >= lastTwo[0].workingKg * 0.98;
+    // Due settimane di carichi di lavoro COMPARABILI. Se l'atleta ha gia'
+    // aumentato autonomamente i kg, raccogli nuove conferme prima di
+    // suggerire un altro salto, anche quando il nuovo carico e' facile.
+    const comparableLoads = enoughWeeks && lastTwo[0].workingKg > 0 &&
+        lastTwo[1].workingKg > 0 &&
+        Math.abs(lastTwo[1].workingKg / lastTwo[0].workingKg - 1) <= 0.02;
     const qualified = Boolean(enoughWeeks && similarTargets &&
-        lastTwo.every(w => w.safe) && loadNotDecreasing);
+        lastTwo.every(w => w.safe) && comparableLoads);
     const readyForLoad = qualified && lastTwo.every(w => w.allAtTop);
     const readyForReps = qualified && !readyForLoad &&
         last !== null && last.inRange && !last.allAtTop &&
@@ -107,7 +111,7 @@ export function evaluateExerciseProgression(exposures = []) {
         caveats: [
             !enoughWeeks ? 'servono_due_settimane_distinte' : null,
             enoughWeeks && !similarTargets ? 'target_ripetizioni_differente' : null,
-            enoughWeeks && !loadNotDecreasing ? 'carico_di_lavoro_diminuito' : null,
+            enoughWeeks && !comparableLoads ? 'carichi_non_confrontabili' : null,
             ...lastTwo.flatMap(w => w.reasons)
         ].filter((value, index, list) => value !== null &&
             list.indexOf(value) === index)
