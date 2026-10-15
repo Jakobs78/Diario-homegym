@@ -959,6 +959,9 @@ test('CSV precompila davvero gli input, il check copia alle serie dopo senza inv
     return result;
   }, csv);
   assert.equal(imported.success, true, JSON.stringify(imported));
+  // I valori restano suggeriti ma il paragrafo esplicativo non si ripete su ogni card.
+  await expect(page.locator('#workout-list-container')).not.toContainText('Carichi e ripetizioni sono suggeriti dal CSV');
+  await expect(page.locator('#workout-list-container')).not.toContainText("L'RPE mostrato è un obiettivo");
 
   const kg = idx => page.locator(`.set-kg[data-ex="0"][data-set="${idx}"]`);
   const reps = idx => page.locator(`.set-reps[data-ex="0"][data-set="${idx}"]`);
