@@ -34,8 +34,10 @@ export function auditLatestBlock(mesocycle) {
     let completedWeeks = 0, totalWeeks = 0, plannedDays = 0;
     for (const week of weeks) {
         const days = Array.isArray(week?.days) ? week.days : [];
-        if (!days.length) continue;
+        // Una settimana prevista ma senza giornate non equivale a una
+        // settimana allenata: conservarla nel denominatore di completamento.
         totalWeeks++;
+        if (!days.length) continue;
         let completeWeek = true;
         for (const day of days) {
             const exercises = Array.isArray(day?.exercises) ? day.exercises : [];
@@ -87,6 +89,22 @@ const focusLabel = {
     hybrid: 'forza e ipertrofia'
 };
 
+function verifiedPreviousBlocks(userHistory) {
+    const root = userHistory?.history || userHistory || {};
+    const years = root.years || {};
+    let checked = 0;
+    let verified = 0;
+    for (const year of Object.keys(years).sort((a, b) =>
+        Number(a) - Number(b))) {
+        for (const mesocycle of years[year]?.mesocycles || []) {
+            if (!Array.isArray(mesocycle?.weeks)) continue;
+            checked++;
+            if (auditLatestBlock(mesocycle).completed) verified++;
+        }
+    }
+    return { checked, verified };
+}
+
 function trajectory(report) {
     const values = Object.values(report.byExercise || {});
     const weeks = new Set();
@@ -109,7 +127,7 @@ function trajectory(report) {
  * Il piano futuro non deve attribuire kg, 1RM, crescita muscolare o RPE
  * misurati a settimane che l'atleta non ha ancora svolto.
  */
-export function planMacrocycle(report = {}, config = {}) {
+export function planMacrocycle(report = {}, config = {}, userHistory = null) {
     const weeksPerBlock = Number(config.durationWeeks ?? 4);
     if (!Number.isInteger(weeksPerBlock) ||
         weeksPerBlock < 1 || weeksPerBlock > 12) {
@@ -120,6 +138,7 @@ export function planMacrocycle(report = {}, config = {}) {
     const priorityMuscle = config.athleteProfile?.priorityMuscle ||
         config.focusMuscleGroup || null;
     const latest = auditLatestBlock(report.lastMesocycle);
+    const pastBlocks = verifiedPreviousBlocks(userHistory);
     const trend = trajectory(report);
     const fatigue = Object.values(report.byExercise || {}).filter(ex =>
         ex.fatigueConcern === true &&
@@ -162,7 +181,14 @@ export function planMacrocycle(report = {}, config = {}) {
         reassessment: 'Rivalutazione e specializzazione',
         maintenance: 'Consolidamento e gestione della fatica'
     };
-    const roles = [firstRole, 'reassessment', 'maintenance'];
+    // Le fasi avanzano soltanto dopo blocchi verificati e solo quando
+    // il contesto presente e' adatto. Nessun avanzamento per pianificazioni
+    // vuote, non concluse o sessioni replicate nello stesso microciclo.
+    const sequence = ['development', 'reassessment', 'maintenance'];
+    const position = pastBlocks.verified % sequence.length;
+    const roles = readiness === 'ready_for_next_review'
+        ? [0, 1, 2].map(i => sequence[(position + i) % sequence.length])
+        : [firstRole, sequence[position], sequence[(position + 1) % sequence.length]];
     const blocks = roles.map((role, i) => ({
         order: i + 1,
         weekFrom: i * weeksPerBlock + 1,
@@ -192,6 +218,9 @@ export function planMacrocycle(report = {}, config = {}) {
         explanation,
         lastBlock: latest,
         longitudinal: trend,
+        completedHistoricalBlocks: pastBlocks.verified,
+        inspectedHistoricalBlocks: pastBlocks.checked,
+        cyclePosition: position + 1,
         recoverySignals: fatigue,
         blocks,
         safety: 'I blocchi 2 e 3 sono ipotesi, da riprogrammare dopo i dati reali; nessuna modifica dello storico.'
