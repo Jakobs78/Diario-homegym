@@ -181,11 +181,15 @@ export function analyzeTrainingHistory(userHistory) {
         const status = determineExerciseStatus(item.exposures);
         const avgRpe = mean(standard.slice(-3).map(e => e.avgRpe)
             .filter(value => value !== null));
-        const recentOvershoots = lastTwo.length === 2 &&
+        // Due stimoli nello stesso microciclo non costituiscono una
+        // progressione confermata tra settimane: serve piu' di un'occasione.
+        const separateWeeks = lastTwo.length === 2 &&
+            lastTwo[0].weekId !== lastTwo[1].weekId;
+        const recentOvershoots = separateWeeks &&
             lastTwo.every(e => e.rpeOvershoot);
-        const recentMisses = lastTwo.length === 2 &&
+        const recentMisses = separateWeeks &&
             lastTwo.every(e => e.allRepsBelowMin);
-        const readyForLoad = lastTwo.length === 2 &&
+        const readyForLoad = separateWeeks &&
             lastTwo.every(e => e.allRepsAtTop && e.allRpeWithinTarget) &&
             lastTwo.every(e => e.repRange && e.repRange.max === lastTwo[1].repRange.max);
         const fatigueConcern = recentOvershoots ||
