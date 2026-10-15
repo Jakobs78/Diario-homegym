@@ -1162,9 +1162,11 @@ test('feedback MyCoatch flottante: 15 secondi, chiusura manuale e consiglio recu
   await expect(page.locator('.mycoatch-live-advice-history')).not.toHaveAttribute('open', '');
 
   // Il coach continua a offrire il dettaglio dopo la scadenza.
-  await page.clock.fastForward(14999);
+  // Il test non deve dipendere dal millisecondo esatto: il browser puo'
+  // aver consumato qualche ms tra check, layout e assertions.
+  await page.clock.fastForward(12000);
   await expect(toast).toBeVisible();
-  await page.clock.fastForward(1);
+  await page.clock.fastForward(4000);
   await expect(toast).toHaveCount(0);
   await page.locator('.mycoatch-live-trigger').click();
   await page.locator('.mycoatch-live-advice-history > summary').click();

@@ -23,6 +23,8 @@ export function auditWeeklyCoverage(days, templates = []) {
     const patterns = Object.fromEntries(MOVEMENT_GROUPS.map(pattern => [pattern, 0]));
     const anchors = [];
     const exercisesUnknown = [];
+    const shoulderHeadDirectIsolationSets = { laterale: 0, posteriore: 0 };
+    let verticalPressSets = 0;
     const fractionalVolume = summarizeWeeklyMuscleVolume(days);
 
     (days || []).forEach((day, dayIndex) => {
@@ -48,6 +50,12 @@ export function auditWeeklyCoverage(days, templates = []) {
             const count = Number(exercise.setsCount);
             if (!Number.isInteger(count) || count < 1) continue;
             direct[meta.category] = (direct[meta.category] || 0) + count;
+            if (meta.shoulderHeadIsolation) {
+                shoulderHeadDirectIsolationSets[meta.shoulderHeadIsolation] += count;
+            }
+            if (meta.category === 'Spalle' && meta.pattern === 'vertical_push') {
+                verticalPressSets += count;
+            }
             if (Object.hasOwn(patterns, meta.pattern)) patterns[meta.pattern] += count;
             for (const muscle of meta.secondaryMuscles) {
                 indirect[muscle] = (indirect[muscle] || 0) + 1;
@@ -72,6 +80,11 @@ export function auditWeeklyCoverage(days, templates = []) {
         anchors,
         allPriorityLiftsPresent: anchors.every(entry => entry.present),
         directSetsByMuscle: direct,
+        shoulderHeadCoverage: {
+            directIsolationSets: shoulderHeadDirectIsolationSets,
+            verticalPressSets,
+            note: 'Conteggi di programmazione, non misure di attivazione, recupero o ipertrofia.'
+        },
         indirectExerciseExposuresByMuscle: indirect,
         // Crediti frazionari, distinti dalle esposizioni legacy.
         fractionalVolumeByMuscle: fractionalVolume.byMuscle,

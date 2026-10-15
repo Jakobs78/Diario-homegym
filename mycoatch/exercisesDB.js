@@ -167,6 +167,16 @@ const MUSCLE_OVERRIDES = {
     'Pull-through ai Cavi': ['Femorali']
 };
 
+// Copertura dei capi deltoidei: un isolamento diretto non si confonde
+// con il lavoro indiretto di panca/rematore o con una misura di crescita.
+const SHOULDER_HEAD = Object.freeze({
+    'Alzate Laterali con Manubri': 'laterale',
+    'Alzate Laterali ai Cavi': 'laterale',
+    'Alzate Posteriori con Manubri': 'posteriore',
+    'Face Pull ai Cavi': 'posteriore',
+    'Reverse Fly ai Cavi': 'posteriore'
+});
+
 export const EXERCISE_DATABASE = Object.freeze(RAW_EXERCISES.map(exercise => {
     const id = STABLE_IDS.get(exercise.name);
     if (!id) throw new Error('Esercizio privo di ID immutabile: ' + exercise.name);
@@ -177,6 +187,7 @@ export const EXERCISE_DATABASE = Object.freeze(RAW_EXERCISES.map(exercise => {
         ...exercise,
         id,
         primaryMuscle: exercise.category,
+        shoulderHeadIsolation: SHOULDER_HEAD[exercise.name] || null,
         secondaryMuscles: Object.freeze([...secondaries]),
         requires: Object.freeze([...(REQUIRES[exercise.name] || [])]),
         role: exercise.pattern === 'isolation' ? 'accessory' : 'compound',
