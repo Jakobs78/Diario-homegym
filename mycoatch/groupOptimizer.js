@@ -143,9 +143,10 @@ function selectLeastEssential(exercises) {
  * primi due movimenti. Se il tempo e' insufficiente anche senza complementari
  * non nasconde lo squat/panca/stacco: restituisce un errore esplicito.
  *
- * Per gli accessori taglia prima le serie oltre il minimo, poi, se serve,
- * elimina l'esercizio. Le tecniche temporali rimangono limitate ad accessori
- * compatibili e non accorciano le pause dei fondamentali.
+ * Per gli accessori taglia prima le serie oltre il minimo, poi elimina
+ * l'esercizio. Come ULTIMA risorsa riduce le serie dei movimenti protetti
+ * fino a due, senza eliminarli né accorciarne le pause. Se non basta, errore.
+ * Le tecniche temporali rimangono riservate agli accessori compatibili.
  */
 export function optimizeSession(exercises, maxSessionMinutes) {
     const minutes = Number(maxSessionMinutes);
@@ -160,28 +161,47 @@ export function optimizeSession(exercises, maxSessionMinutes) {
     const base = resetGroups(exercises);
     let candidate = choosePlan(base, secondsBudget, minutes);
     let reducedSets = 0;
+    let reducedPrioritySets = 0;
     let removedExercises = 0;
     let iterations = 0;
 
     while (candidate.seconds > secondsBudget && iterations++ < 32) {
         const targetIndex = selectLeastEssential(base);
-        if (targetIndex === -1) {
-            throw new Error(
-                'Non è possibile rispettare ' + minutes +
-                ' minuti mantenendo i fondamentali prioritari. ' +
-                'La seduta minima stimata dura ' +
-                Math.ceil(candidate.seconds / 60) + ' minuti. ' +
-                'Aumenta la durata o rivedi i fondamentali previsti.'
-            );
-        }
-        const exercise = base[targetIndex];
-        if (exercise.setsCount > MIN_ACCESSORY_SETS) {
-            exercise.setsCount--;
-            exercise.sets = exercise.sets.slice(0, exercise.setsCount);
-            reducedSets++;
+        if (targetIndex >= 0) {
+            const exercise = base[targetIndex];
+            if (exercise.setsCount > MIN_ACCESSORY_SETS) {
+                exercise.setsCount--;
+                exercise.sets = exercise.sets.slice(0, exercise.setsCount);
+                reducedSets++;
+            } else {
+                base.splice(targetIndex, 1);
+                removedExercises++;
+            }
         } else {
-            base.splice(targetIndex, 1);
-            removedExercises++;
+            // Il tempo breve puo' richiedere un minimo di volume sui
+            // fondamentali, MA mai eliminarli: prima riduciamo quello piu'
+            // avanti nella scheda, senza alterare la durata del recupero.
+            let priorityIndex = -1;
+            for (let i = base.length - 1; i >= 0; i--) {
+                if (protectedExercise(base[i], i) &&
+                    base[i].setsCount > MIN_ACCESSORY_SETS) {
+                    priorityIndex = i;
+                    break;
+                }
+            }
+            if (priorityIndex === -1) {
+                throw new Error(
+                    'Non è possibile rispettare ' + minutes +
+                    ' minuti mantenendo almeno due serie per ogni fondamentale. ' +
+                    'La seduta minima stimata dura ' +
+                    Math.ceil(candidate.seconds / 60) + ' minuti. ' +
+                    'Aumenta la durata o modifica lo schema di allenamento.'
+                );
+            }
+            const priority = base[priorityIndex];
+            priority.setsCount--;
+            priority.sets = priority.sets.slice(0, priority.setsCount);
+            reducedPrioritySets++;
         }
         candidate = choosePlan(base, secondsBudget, minutes);
     }
@@ -196,6 +216,7 @@ export function optimizeSession(exercises, maxSessionMinutes) {
         timeBudgetMinutes: minutes,
         groupCount: candidate.groups,
         reducedAccessorySets: reducedSets,
+        reducedPrioritySets,
         removedAccessoryExercises: removedExercises
     };
 }
