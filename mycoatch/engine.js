@@ -295,7 +295,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     kgMin: String(targetKgMin),
                     kgMax: String(targetKgMax),
                     restTime: ex.pattern === "isolation" ? "90s" :
-                        (index === 0 || maxSessionMinutes > 45 ? "180s" : "150s"),
+                        (index === 0 ? "180s" : "150s"),
                     category: ex.category,
                     pattern: ex.pattern,
                     equipment: ex.equipment,
