@@ -2148,3 +2148,341 @@ body.dark-mode .group-title-badge {
 .session-archive-details ol,
 .session-archive-details ul { padding-left: 20px; margin: 7px 0; }
 .session-archive-details li { margin: 4px 0; }
+
+
+/* ============================================================
+   HOMEGYM COMPACT SHELL — pochi livelli, superfici leggere.
+   Riduce l'altezza prima del primo esercizio su smartphone.
+   ============================================================ */
+.app-header-container {
+    padding: 9px 12px;
+    margin-bottom: 8px;
+    border-radius: 14px;
+}
+.app-header-container .top-nav-bar {
+    padding-bottom: 0;
+    border-bottom: 0;
+    gap: 8px;
+    min-height: 44px;
+}
+.app-header-container .app-brand {
+    font-size: 1.06rem;
+    flex: 0 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    gap: 4px;
+    filter: none;
+}
+.app-brand-symbol {
+    -webkit-text-fill-color: initial;
+    font-size: 1.2rem;
+}
+.app-brand-name { overflow: hidden; text-overflow: ellipsis; }
+.app-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 5px;
+    min-width: 0;
+    flex: 0 0 auto;
+}
+.app-header-container .app-sync-compact {
+    margin: 0;
+    padding: 5px 7px;
+    min-height: 32px;
+    max-width: 88px;
+    white-space: nowrap;
+    font-size: .68rem;
+    line-height: 1.1;
+    border: 1px solid rgba(255,255,255,.17);
+    background: rgba(255,255,255,.09);
+    color: #c9fbd9;
+}
+.app-header-container .app-sync-compact.is-pending {
+    color: #fff3c1;
+    border-color: rgba(245,158,11,.65);
+    background: rgba(180,83,9,.4);
+}
+.app-header-container .app-sync-compact.is-offline {
+    color: #ffe2e2;
+    border-color: rgba(248,113,113,.5);
+}
+.app-header-actions .app-header-icon-action {
+    flex: 0 0 auto;
+    min-height: 40px;
+    min-width: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 7px 8px !important;
+    border-radius: 10px !important;
+    font-size: .92rem !important;
+    background: rgba(255,255,255,.06);
+}
+.app-utility-menu {
+    position: relative;
+    flex: 0 0 auto;
+}
+.app-utility-menu > summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    width: 40px;
+    padding: 0;
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 10px;
+    color: white;
+    background: rgba(255,255,255,.06);
+    cursor: pointer;
+    font-size: 1.15rem;
+    list-style: none;
+}
+.app-utility-menu > summary::-webkit-details-marker,
+.meso-more-actions > summary::-webkit-details-marker { display: none; }
+.app-utility-menu[open] > summary,
+.app-utility-menu > summary:hover { background: rgba(255,255,255,.15); }
+.app-utility-content {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: min(290px, calc(100vw - 24px));
+    padding: 7px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 12px 28px rgba(0,0,0,.25);
+    background: var(--card-bg);
+    color: var(--text-color);
+    z-index: 1250;
+    display: grid;
+    gap: 4px;
+}
+.app-utility-content .app-menu-action,
+.app-utility-content .app-menu-account {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    min-height: 44px;
+    background: transparent;
+    border: 0;
+    border-radius: 9px;
+    color: var(--text-color);
+    font-size: .85rem;
+    font-weight: 650;
+    text-align: left;
+    white-space: normal;
+    cursor: pointer;
+}
+.app-utility-content .app-menu-action:hover,
+.app-utility-content .app-menu-account:hover {
+    background: var(--block-bg);
+}
+.app-menu-account {
+    border-top: 1px solid var(--border-color) !important;
+    overflow-wrap: anywhere;
+}
+.app-menu-account #user-email-display {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.app-utility-content .user-logout-btn { flex: 0 0 auto; color: var(--text-muted); }
+.app-action-text { display: none; }
+
+/* Navigazione della seduta: niente cornici spesse o tre tab impilati. */
+.unified-header-box {
+    padding: 9px 10px 7px;
+    margin: 0 0 7px;
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--accent-color);
+    border-radius: 13px;
+    box-shadow: var(--shadow-sm);
+}
+.workout-quick-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+.workout-compact-label {
+    color: var(--text-muted);
+    font-size: .7rem;
+    font-weight: 750;
+    white-space: nowrap;
+}
+.unified-header-box .meso-compact-control,
+.unified-header-box .week-selector-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-color);
+    border-radius: 9px;
+    min-height: 38px;
+    padding: 3px 6px;
+    margin: 0;
+}
+.meso-compact-control button {
+    min-width: 26px;
+    min-height: 30px;
+    padding: 1px 5px;
+    font-size: 1.05rem;
+    border: 0;
+    background: var(--card-bg);
+    color: var(--text-color);
+}
+.meso-compact-control button:disabled { opacity: .35; cursor: default; }
+#meso-display { min-width: 12px; text-align: center; }
+.unified-header-box .week-select-input {
+    min-height: 30px;
+    min-width: 45px;
+    padding: 2px 3px;
+    font-size: .78rem;
+    border: 0;
+    border-radius: 6px;
+}
+.unified-header-box .session-timer-box {
+    padding: 0;
+    margin: 0;
+    border-top: 0;
+    min-height: 38px;
+}
+.unified-header-box .session-timer-wrapper {
+    padding: 3px 7px;
+    border-radius: 9px;
+    gap: 5px;
+    box-shadow: none;
+    min-height: 38px;
+}
+.unified-header-box .session-timer-label { display: none; }
+.unified-header-box .session-timer-text { font-size: .85rem; }
+.unified-header-box .session-timer-wrapper button {
+    margin: 0;
+    min-height: 30px;
+    padding: 3px 7px;
+    border-radius: 7px;
+}
+.unified-header-box .day-tabs {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    gap: 6px;
+    padding: 7px 0 1px;
+    margin-top: 6px;
+    border-top: 1px solid var(--border-color);
+}
+.unified-header-box .day-tabs > button {
+    flex: 0 0 auto;
+    min-height: 36px;
+    padding: 5px 11px;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.meso-more-actions {
+    position: relative;
+    margin-left: auto;
+}
+.meso-more-actions > summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    width: 36px;
+    height: 38px;
+    color: var(--text-color);
+    font-size: 1.2rem;
+    border: 1px solid var(--border-color);
+    border-radius: 9px;
+    background: var(--bg-color);
+    list-style: none;
+}
+.meso-more-content {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    min-width: 170px;
+    padding: 7px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 9px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.16);
+    z-index: 80;
+}
+.meso-more-content button { width: 100%; min-height: 40px; }
+
+/* MyCoatch: una riga compatta; il dettaglio resta apribile a richiesta. */
+.mycoatch-live-disclosure {
+    margin: 0 0 9px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--card-bg);
+    overflow: visible;
+}
+.mycoatch-live-disclosure > .mycoatch-live-trigger {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+    color: var(--text-color);
+    cursor: pointer;
+    list-style: none;
+    font-size: .87rem;
+}
+.mycoatch-live-trigger::-webkit-details-marker { display: none; }
+.mycoatch-live-trigger::after {
+    content: '⌄';
+    margin-left: 5px;
+    font-size: 1.15rem;
+    color: var(--accent-color);
+    transition: transform .2s ease;
+}
+.mycoatch-live-disclosure[open] .mycoatch-live-trigger::after { transform: rotate(180deg); }
+.mycoatch-live-trigger .mycoatch-live-count {
+    margin-left: auto;
+    color: var(--text-muted);
+    font-size: .77rem;
+    font-variant-numeric: tabular-nums;
+}
+.mycoatch-live-disclosure .mycoatch-live-panel {
+    border: 0;
+    border-top: 1px solid var(--border-color);
+    border-radius: 0 0 12px 12px;
+    margin: 0;
+    padding: 12px;
+    box-shadow: none;
+}
+.app-utility-menu summary:focus-visible,
+.meso-more-actions summary:focus-visible,
+.mycoatch-live-trigger:focus-visible,
+.app-header-icon-action:focus-visible {
+    outline: 3px solid var(--accent-color);
+    outline-offset: 2px;
+}
+@media (min-width: 800px) {
+    .app-action-text { display: inline; font-size: .78rem; }
+    .app-header-container .app-brand { font-size: 1.15rem; }
+}
+@media (max-width: 385px) {
+    .app-brand-secondary { display: none; }
+    .app-header-container .app-brand { font-size: .98rem; }
+    .app-header-container { padding: 8px; }
+    .app-header-actions { gap: 3px; }
+    .app-header-actions .app-header-icon-action,
+    .app-utility-menu > summary { min-width: 38px; width: 38px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .mycoatch-live-trigger::after { transition: none; }
+}
