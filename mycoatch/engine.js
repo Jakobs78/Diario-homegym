@@ -174,7 +174,12 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 }
                 
                 // Il carico progredisce in base alle prestazioni e all'RPE, non al calendario.
-                const plannedKg = baseKg === null ? null : (isDeloadWeek ? baseKg * 0.85 : baseKg);
+                // Una riduzione deliberata dalla revisione dei dati non deve
+                // essere sommata ciecamente a un altro -15% nella settimana
+                // di recupero: volume e RPE sono gia' ridotti.
+                const plannedKg = baseKg === null ? null :
+                    (isDeloadWeek && loadDecision?.action !== 'reduce_load'
+                        ? baseKg * 0.85 : baseKg);
                 const suggestedIncrement = ex.equipment === 'dumbbell' ? 0.5 :
                     (ex.equipment === 'cable' || ex.equipment === 'lat_machine'
                         ? 1.25 : plannedKg !== null && plannedKg < 12.5 ? 0.5 : 2.5);
@@ -289,7 +294,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     reps: reps,
                     kgMin: String(targetKgMin),
                     kgMax: String(targetKgMax),
-                    restTime: ex.pattern === "isolation" ? "90s" : "180s",
+                    restTime: ex.pattern === "isolation" ? "90s" :
+                        (index === 0 || maxSessionMinutes > 45 ? "180s" : "150s"),
                     category: ex.category,
                     pattern: ex.pattern,
                     equipment: ex.equipment,
