@@ -108,6 +108,21 @@ export function formatCoachReview(comparison, report) {
     if (!comparison.basedOnPrevious) {
         lines.push('Nessun mesociclo precedente disponibile: non sono possibili adattamenti personali dallo storico.');
     }
+    if (report.progressionQuality) {
+        const q = report.progressionQuality;
+        lines.push('PROGRESSIONE FONDATA SUI DATI: ' +
+            q.proposedLoadIncreases + ' piccoli incrementi di carico, ' +
+            q.proposedRepSteps + ' obiettivi di ripetizioni, ' +
+            q.recoveryWarnings + ' revisioni prudenziali per la fatica.');
+        if (q.needsRealRpe.length) {
+            lines.push('RPE insufficienti o sforzo oltre target: NON aumentare automaticamente ' +
+                'per ' + q.needsRealRpe.slice(0, 4).join(', ') +
+                (q.needsRealRpe.length > 4 ? ' (e altri esercizi)' : '') +
+                '. Registra l’RPE reale e mantieni tecnica e recupero.');
+        }
+        lines.push('Gli incrementi di carico sono proposte, non modifiche ai risultati ' +
+            'delle sedute già eseguite. Verifica i microcarichi disponibili.');
+    }
     if (report.calibrationHandoff) {
         const calibration = report.calibrationHandoff;
         lines.push('PASSAGGIO DALLA CALIBRAZIONE: ' +
