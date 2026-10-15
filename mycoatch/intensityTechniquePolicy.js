@@ -39,6 +39,9 @@ export function suggestDropset(exercise, {
         focus !== 'hypertrophy' || exercise.groupType ||
         exercise.pattern !== 'isolation' || exercise.setsCount < 2 ||
         !PREFERRED.has(exercise.name) || !safeTechniqueEvidence(history) ||
+        !Number.isFinite(Number(exercise.kgMin)) || Number(exercise.kgMin) <= 0 ||
+        (history?.lastReps?.max && Number(history.lastReps.max) <
+            Number(String(exercise.reps).split('-')[1])) ||
         !Number.isFinite(availableSeconds) || availableSeconds < 40 ||
         timeBudgetMinutes > 90) return null;
 
