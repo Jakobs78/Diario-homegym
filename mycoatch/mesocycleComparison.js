@@ -108,6 +108,24 @@ export function formatCoachReview(comparison, report) {
     if (!comparison.basedOnPrevious) {
         lines.push('Nessun mesociclo precedente disponibile: non sono possibili adattamenti personali dallo storico.');
     }
+    if (report.macrocycle) {
+        const m = report.macrocycle;
+        lines.push('MACROCICLO MYCOATCH: orizzonte di ' + m.durationWeeks +
+            ' settimane, obiettivo ' + (m.goal === 'strength' ? 'forza' :
+                m.goal === 'hypertrophy' ? 'ipertrofia' : 'forza e ipertrofia') + '.');
+        lines.push('Verifica ultimo blocco: ' + m.lastBlock.weeksCompleted +
+            '/' + m.lastBlock.weeksPlanned + ' settimane completate' +
+            (m.lastBlock.adherence !== null
+                ? ', aderenza osservata ' + Math.round(m.lastBlock.adherence * 100) + '%' : '') +
+            '. ' + m.explanation);
+        for (const block of m.blocks) {
+            lines.push('Blocco ' + block.order + ' (settimane ' + block.weekFrom +
+                '-' + block.weekTo + '): ' + block.label +
+                (block.conditional ? ' — SOLO IPOTESI, da aggiornare con lo storico reale.' : '.'));
+        }
+        lines.push('NESSUNA PROGRESSIONE FUTURA PREAUTORIZZATA: i blocchi successivi ' +
+            'richiedono nuove sedute confermate e una valutazione di carichi, RPE e recupero.');
+    }
     if (report.progressionQuality) {
         const q = report.progressionQuality;
         lines.push('PROGRESSIONE FONDATA SUI DATI: ' +
