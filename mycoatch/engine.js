@@ -8,7 +8,7 @@ import { normalizeSelectionPreferences, selectExerciseForSlot, defaultFundamenta
 import { auditWeeklyCoverage } from './weeklyCoverage.js';
 import { normalizeAthleteProfile, onboardingPlan, eligibleReferenceLoad, profileSummary } from './athleteProfile.js';
 import { deriveMesocyclePolicy } from './periodizationPolicy.js';
-import { prescribeExerciseReps, prescribeExerciseRpe } from './prescriptionPolicy.js';
+import { prescribeExerciseReps, prescribeExerciseRpe, HIGH_REP_EXERCISES } from './prescriptionPolicy.js';
 import { suggestDropset } from './intensityTechniquePolicy.js';
 
 /**
@@ -151,6 +151,17 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     calibrationWeek: onboarding.calibrationWeek && w === 1,
                     weekNumber: w, isDeload: isDeloadWeek, loadDecision
                 });
+                // Un range piu' alto non autorizza a riutilizzare gli stessi
+                // kg della precedente zona di ripetizioni: nessuna stima
+                // automatica oltre il campo osservato.
+                const oldMax = Number(prior?.lastReps?.max);
+                const newMax = Number(reps.split('-')[1]);
+                const requiresHighRepRecalibration = Boolean(
+                    HIGH_REP_EXERCISES[ex.name] &&
+                    Number.isFinite(oldMax) && oldMax > 0 &&
+                    Number.isFinite(newMax) && newMax > oldMax
+                );
+                if (requiresHighRepRecalibration) baseKg = null;
                 const exerciseRpeString = prescribeExerciseRpe(ex, {
                     weekTargetRpe: weekPolicy.targetRpe, isDeload: isDeloadWeek,
                     experience: onboarding.experience,
@@ -171,7 +182,9 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 if (usingReference) baseKg = referenceKg;
 
                 // Auto-Deload Preventivo per Inattività
-                let autoNote = "";
+                let autoNote = requiresHighRepRecalibration
+                    ? '[CALIBRAZIONE NUOVO RANGE] Ripetizioni più alte delle sedute comparabili: scegli e registra un nuovo carico confortevole, senza copiare il peso precedente. | '
+                    : "";
                 
                 // Iniettiamo la nota analitica sullo stallo o progresso basata sull'e1RM
                 if (analysis.exerciseNotes && analysis.exerciseNotes[canonicalExerciseKey(ex.name)]) {
