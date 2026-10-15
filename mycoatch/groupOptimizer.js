@@ -107,11 +107,11 @@ function choosePlan(exercises, maxSeconds, maxSessionMinutes) {
 
 /**
  * L'ordine di scheda NON rappresenta da solo la priorita': un fondamentale
- * (anchorKey) puo' essere il terzo slot della Full Body. I primi due esercizi
+ * (anchorKey o priorityProtected) puo' essere il terzo slot della Full Body. I primi due esercizi
  * continuano a essere protetti per compatibilita' con piani non marcati.
  */
 function protectedExercise(exercise, index) {
-    return index < 2 || Boolean(exercise.anchorKey);
+    return index < 2 || Boolean(exercise.anchorKey) || Boolean(exercise.priorityProtected);
 }
 
 /**
@@ -138,7 +138,8 @@ function selectLeastEssential(exercises) {
 }
 
 /**
- * Ottimizza la durata proteggendo tutti i fondamentali con anchorKey e i
+ * Ottimizza la durata proteggendo i fondamentali con anchorKey o con
+ * priorita' esplicita (es. squat nel terzo slot della Full Body A), oltre ai
  * primi due movimenti. Se il tempo e' insufficiente anche senza complementari
  * non nasconde lo squat/panca/stacco: restituisce un errore esplicito.
  *
