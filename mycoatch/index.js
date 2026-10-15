@@ -71,6 +71,11 @@ export const MyCoatch = {
                 weekNumber: week.weekNumber,
                 ...week.weeklyCoverage
             })),
+            weeklyFractionalMuscleVolume: newMesocycle.weeks.map(week => ({
+                weekNumber: week.weekNumber,
+                method: week.weeklyCoverage.fractionalAccountingMethod,
+                byMuscle: week.weeklyCoverage.fractionalVolumeByMuscle
+            })),
             comparison,
             notice: 'Stima di prestazione e stimolo allenante, non misura diretta della crescita muscolare.'
         };

@@ -1,5 +1,6 @@
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { canonicalExerciseKey } from './exerciseIdentity.js';
+import { summarizeWeeklyMuscleVolume, VOLUME_ACCOUNTING_METHOD } from './volumeAccounting.js';
 
 const byName = new Map(EXERCISE_DATABASE.map(ex => [canonicalExerciseKey(ex.name), ex]));
 const TRACKED_GROUPS = Object.freeze([
@@ -22,6 +23,7 @@ export function auditWeeklyCoverage(days, templates = []) {
     const patterns = Object.fromEntries(MOVEMENT_GROUPS.map(pattern => [pattern, 0]));
     const anchors = [];
     const exercisesUnknown = [];
+    const fractionalVolume = summarizeWeeklyMuscleVolume(days);
 
     (days || []).forEach((day, dayIndex) => {
         const actual = day.exercises || [];
@@ -71,6 +73,10 @@ export function auditWeeklyCoverage(days, templates = []) {
         allPriorityLiftsPresent: anchors.every(entry => entry.present),
         directSetsByMuscle: direct,
         indirectExerciseExposuresByMuscle: indirect,
+        // Crediti frazionari, distinti dalle esposizioni legacy.
+        fractionalVolumeByMuscle: fractionalVolume.byMuscle,
+        fractionalAccountingMethod: VOLUME_ACCOUNTING_METHOD,
+        fractionallyCountedPhysicalSets: fractionalVolume.physicalSets,
         setsByMovement: patterns,
         notDirectlyCovered,
         warnings,

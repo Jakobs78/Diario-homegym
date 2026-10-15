@@ -192,6 +192,19 @@ export function formatCoachReview(comparison, report) {
     }
     if (comparison.weeklyCoverage) {
         const coverage = comparison.weeklyCoverage;
+        if (coverage.fractionalVolumeByMuscle) {
+            const relevant = Object.entries(coverage.fractionalVolumeByMuscle)
+                .filter(([, v]) => v.indirectSetCredits > 0)
+                .sort((a, b) => b[1].indirectSetCredits - a[1].indirectSetCredits)
+                .slice(0, 5);
+            if (relevant.length) {
+                lines.push('VOLUME MUSCOLARE FRAZIONARIO — settimane proposte (serie dirette + 0,5 per coinvolgimento secondario; stima NON misurazione di crescita):');
+                lines.push(relevant.map(([muscle, v]) => muscle + ': ' +
+                    v.directSets + ' dirette + ' +
+                    v.indirectSetCredits + ' crediti indiretti = ' +
+                    v.fractionalSets).join(' · '));
+            }
+        }
         lines.push('Split programmato: ' + coverage.daysOrder.join(' → ') +
             ' (giorni numerati, non appuntamenti fissati in calendario).');
         lines.push('Movimenti cardine: ' + coverage.anchors
