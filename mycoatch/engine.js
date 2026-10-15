@@ -302,7 +302,10 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
         // costruito la settimana si possono recuperare accessori nei giorni
         // compatibili con margine sufficiente. Non modificare il deload.
         const balanced = rebalanceWeeklyAccessories(
-            weekDays, intendedDays, maxSessionMinutes, { isDeloadWeek }
+            weekDays, intendedDays, maxSessionMinutes, {
+                isDeloadWeek,
+                maxAccessorySets: onboarding.volumeCap ?? 4
+            }
         );
         for (const day of balanced.days) {
             // Il CSV originale non contiene la colonna "nome giornata":
