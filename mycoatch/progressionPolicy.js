@@ -96,6 +96,7 @@ export function evaluateExerciseProgression(exposures = []) {
         nextRepTarget,
         fatigueConcern,
         repeatedBelowMin,
+        lastWeekWorkingKg: last?.workingKg ?? null,
         distinctWeeks: weekly.length,
         evidenceWeeks: lastTwo.map(w => w.id),
         recentWeeksQualified: qualified,
