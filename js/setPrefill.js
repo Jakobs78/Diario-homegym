@@ -97,7 +97,8 @@ export function getSetPrefill(exercise, index, { previousExercise = null } = {})
     const plan = plannedFor(exercise, index);
     let previous = null;
     for (let i = index - 1; i >= 0; i--) {
-        if (confirmed(logs[i]) && weightFor(logs[i]) && repsFor(logs[i])) {
+        if (confirmed(logs[i]) && !logs[i].isWarmup && !logs[i].warmup &&
+            !logs[i].is_warmup && weightFor(logs[i]) && repsFor(logs[i])) {
             previous = logs[i];
             break;
         }
