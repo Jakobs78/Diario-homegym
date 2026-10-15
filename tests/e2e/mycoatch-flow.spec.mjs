@@ -1106,7 +1106,7 @@ test('settimane successive: riusa soltanto le serie confermate dello stesso meso
   // La settimana 3 prevede 75 kg; la progressione CSV prevale.
   await page.locator('#week-selector').selectOption('3');
   await expect(kg(0)).toHaveValue('75');
-  await expect(reps(0)).toHaveValue('9');
+  await expect(reps(0)).toHaveValue('8'); // nuovo carico = nuova partenza dal range CSV
   await expect(check(0)).not.toBeChecked();
 
   // Un nuovo mesociclo non eredita i dati del precedente.
