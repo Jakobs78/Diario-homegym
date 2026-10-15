@@ -119,7 +119,21 @@ document.addEventListener('DOMContentLoaded', initApp);
 // 4. LISTENER EVENTI GLOBALI & INTERFACCIA
 // ==========================================
 function setupEventListeners() {
-    document.getElementById('theme-toggle-btn')?.addEventListener('click', toggleTheme);
+    const utilityMenu = document.getElementById('app-utility-menu');
+    document.getElementById('theme-toggle-btn')?.addEventListener('click', () => {
+        toggleTheme();
+        if (utilityMenu) utilityMenu.open = false;
+    });
+    // Chiudi il menu quando si torna alla scheda; Escape evita pannelli pendenti.
+    document.addEventListener('click', event => {
+        if (utilityMenu?.open && !utilityMenu.contains(event.target)) utilityMenu.open = false;
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && utilityMenu?.open) {
+            utilityMenu.open = false;
+            utilityMenu.querySelector('summary')?.focus();
+        }
+    });
     document.getElementById('user-info-bar')?.addEventListener('click', window.logoutUser);
     document.getElementById('trial-logout-btn')?.addEventListener('click', () => window.logoutUser());
 
@@ -132,6 +146,7 @@ function setupEventListeners() {
     });
 
     document.getElementById('btn-user-manual')?.addEventListener('click', (e) => {
+        if (utilityMenu) utilityMenu.open = false;
         const btnManual = e.currentTarget;
         const manualView = document.getElementById('manual');
         const workoutContainer = document.getElementById('workout-list-container');
