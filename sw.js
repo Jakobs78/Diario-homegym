@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v10-verified-set-prefill';
+const CACHE_NAME = 'workout-app-v11-livecoach-toast';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
