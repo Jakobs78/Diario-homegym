@@ -86,6 +86,8 @@ export function compareMesocyclePlans(previous, generated, analysis) {
         // Non confondere il volume originale stimato con il volume davvero
         // programmato. Sono conteggi per categoria primaria dell'esercizio.
         weeklyVolume: generated?.weeks?.[0]?.volumeBalance || null,
+        weeklyCoverage: generated?.weeks?.[0]?.weeklyCoverage || null,
+        unavailableOptionalSlots: generated?.weeks?.[0]?.optionalSlotsNotAvailable || [],
         warnings: after.flatMap(day => {
             const warnings = [];
             if (day.reducedAccessorySets || day.removedAccessoryExercises) {
@@ -105,6 +107,26 @@ export function formatCoachReview(comparison, report) {
     lines.push(`Storico analizzato: ${report.inspectedMesocycles} mesocicli, ${report.sessionsAnalyzed} sedute con serie confermate.`);
     if (!comparison.basedOnPrevious) {
         lines.push('Nessun mesociclo precedente disponibile: non sono possibili adattamenti personali.');
+    }
+    if (comparison.weeklyCoverage) {
+        const coverage = comparison.weeklyCoverage;
+        lines.push('Split programmato: ' + coverage.daysOrder.join(' → ') +
+            ' (giorni numerati, non appuntamenti fissati in calendario).');
+        lines.push('Movimenti cardine: ' + coverage.anchors
+            .map(x => `G${x.dayNumber} ${x.exercise || x.lift + ' NON PRESENTE'}`).join(' · '));
+        if (!coverage.allPriorityLiftsPresent) {
+            lines.push('ATTENZIONE: un fondamentale prioritario non è stato conservato.');
+        }
+        if (coverage.notDirectlyCovered.length) {
+            lines.push('Gruppi senza serie DIRETTE nella prima settimana: ' +
+                coverage.notDirectlyCovered.join(', ') +
+                '. Un contributo indiretto non viene contato come serie diretta.');
+        }
+    }
+    if (comparison.unavailableOptionalSlots.length) {
+        lines.push('Accessori facoltativi esclusi per attrezzatura: ' +
+            comparison.unavailableOptionalSlots
+                .map(x => `G${x.dayNumber} ${x.muscle} (${x.pattern})`).join(', ') + '.');
     }
     lines.push('Durate previste (stime): ' + comparison.estimatedMinutesByDay
         .map(d => `G${d.day} ${d.minutes} min`).join(' · '));

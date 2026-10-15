@@ -1,3 +1,6 @@
+import { normalizeSelectionPreferences, isExerciseAvailable, FUNDAMENTAL_CHOICES } from './exerciseSelection.js';
+import { EXERCISE_DATABASE } from './exercisesDB.js';
+
 /**
  * Convalida la durata scelta dall'utente, senza convertire input vuoti in valori
  * predefiniti. E' una preferenza per singola sessione, in minuti.
@@ -32,11 +35,31 @@ export function parseCoachPreferences(fields = {}) {
         throw new Error("Seleziona un obiettivo di allenamento.");
     }
 
+    const selection = normalizeSelectionPreferences({
+        preferredLifts: fields.preferredLifts,
+        availableAccessories: fields.availableAccessories,
+        availableEquipment: fields.availableEquipment
+    });
+
+    for (const [key, name] of Object.entries(selection.preferredLifts)) {
+        if (!FUNDAMENTAL_CHOICES[key]?.includes(name)) {
+            throw new Error('Preferenza di fondamentale non valida: ' + key);
+        }
+        const exercise = EXERCISE_DATABASE.find(ex => ex.name === name);
+        if (!exercise || !isExerciseAvailable(exercise, selection)) {
+            throw new Error(
+                'La variante ' + name + ' richiede attrezzatura non selezionata. ' +
+                'Abilita l’accessorio necessario o scegli la variante automatica.'
+            );
+        }
+    }
+
     return {
         maxSessionMinutes,
         userAge,
         daysPerWeek,
         focus,
+        ...selection,
         primaryGoal: focus === 'strength' ? 'powerlifting' :
             focus === 'hypertrophy' ? 'bodybuilding' : 'powerbuilding'
     };
