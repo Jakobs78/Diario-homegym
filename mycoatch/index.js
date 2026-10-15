@@ -33,6 +33,16 @@ export const MyCoatch = {
         // I dati storici non vengono modificati: proponiamo un mesociclo separato.
         const newMesocycle = generateSmartMesocycle(config, analysis, report.lastMesocycle);
         const comparison = compareMesocyclePlans(report.lastMesocycle, newMesocycle, analysis);
+        const progressionValues = Object.values(decisions.byExercise);
+        const progressionQuality = {
+            proposedLoadIncreases: progressionValues.filter(x => x.action === 'increase_load').length,
+            proposedRepSteps: progressionValues.filter(x => x.action === 'build_reps').length,
+            recoveryWarnings: progressionValues.filter(x => x.action === 'reduce_load').length,
+            needsRealRpe: progressionValues.filter(x =>
+                x.caveats?.includes('rpe_mancante_o_sopra_target')).map(x => x.exercise),
+            neverAutoApplied: true,
+            basis: 'validated_completed_work_sets_across_distinct_weeks'
+        };
         newMesocycle.coachReport = {
             inspectedYears: report.inspectedYears,
             inspectedMesocycles: report.inspectedMesocycles,
@@ -45,6 +55,7 @@ export const MyCoatch = {
             })),
             muscleSignals: report.byMuscle,
             decisions,
+            progressionQuality,
             athleteOnboarding: newMesocycle.athleteOnboarding,
             calibrationHandoff,
             // Metriche della proposta settimanale, non dati di prestazione misurati.
