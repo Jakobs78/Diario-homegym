@@ -513,17 +513,13 @@ test('scelta atleta: fondamentali alternativi, controllo attrezzi, CSV e antepri
 test('prima scheda atleta principiante: questionario, calibrazione guidata, anteprima e CSV senza kg inventati', async ({ page }) => {
   const monitor = await openIsolatedApp(page);
   // Niente allenamenti: simulazione esplicita del primo utilizzo, senza chiamate remote.
-  await page.evaluate(() => {
-    const data = JSON.parse(localStorage.getItem('workoutApp_data'));
-    data.history.years = {};
-    localStorage.setItem('workoutApp_data', JSON.stringify(data));
+  await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    state.workoutData.history.years = {};
+    // Resta isolato dalla rete: nessun cambio account, nessun refresh che
+    // reinserisca il fixture mediante l'initScript dei test.
+    localStorage.setItem('workoutApp_data', JSON.stringify(state.workoutData));
   });
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.evaluate(() => {
-    const auth = document.getElementById('auth-overlay');
-    if (auth) auth.style.display = 'none';
-  });
-  await expect(page.locator('#open-tools-btn')).toBeVisible();
   await startCoach(page, '60');
   await page.locator('#mycoatch-experience').selectOption('beginner');
   await page.locator('#mycoatch-priority-muscle').selectOption('Petto');
@@ -556,17 +552,13 @@ test('prima scheda atleta principiante: questionario, calibrazione guidata, ante
 
 test('prima scheda intermedio senza storico: rispetta esclusioni e convalida carichi di riferimento', async ({ page }) => {
   const monitor = await openIsolatedApp(page);
-  await page.evaluate(() => {
-    const data = JSON.parse(localStorage.getItem('workoutApp_data'));
-    data.history.years = {};
-    localStorage.setItem('workoutApp_data', JSON.stringify(data));
+  await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    state.workoutData.history.years = {};
+    // Resta isolato dalla rete: nessun cambio account, nessun refresh che
+    // reinserisca il fixture mediante l'initScript dei test.
+    localStorage.setItem('workoutApp_data', JSON.stringify(state.workoutData));
   });
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.evaluate(() => {
-    const auth = document.getElementById('auth-overlay');
-    if (auth) auth.style.display = 'none';
-  });
-  await expect(page.locator('#open-tools-btn')).toBeVisible();
   await startCoach(page, '75');
   await page.locator('#mycoatch-calibration').selectOption('regular');
   await page.locator('.mycoatch-profile-details summary').last().click();
