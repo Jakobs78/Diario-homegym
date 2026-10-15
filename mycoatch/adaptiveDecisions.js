@@ -90,6 +90,14 @@ export function planAdaptiveDecisions(report) {
         const plateau = relevant.some(ex => ex.status === 'possible_stall');
         const enoughWeeks = metrics.weeksObserved >= 3;
         const adherence = metrics.recentAdherence;
+        const fractional = metrics.avgWeeklyFractionalSets;
+        // Soglia <9 ereditata dal precedente criterio di incremento
+        // CONSERVATIVO, non un limite fisiologico validato. Includere i
+        // contributi indiretti evita +1 serie quando il carico reale dello
+        // stesso gruppo e' gia' consistente.
+        const tentativeVolume = fractional ?? metrics.avgWeeklySets;
+        const rpeCoverageSufficient = metrics.fractionalRpeCoverage === undefined ||
+            metrics.fractionalRpeCoverage >= 0.75;
         let volumeDelta = 0;
         let action = 'maintain_volume';
         let reason = 'Mantieni il volume: risultati insufficienti per una modifica sicura.';
@@ -102,10 +110,16 @@ export function planAdaptiveDecisions(report) {
         } else if (enoughWeeks && plateau && !highFatigue &&
             adherence !== null && adherence >= 0.85 &&
             metrics.avgRpe !== null && metrics.avgRpe <= 7.5 &&
-            metrics.avgWeeklySets >= 3 && metrics.avgWeeklySets < 9) {
+            metrics.avgWeeklySets >= 3 && tentativeVolume < 9 &&
+            rpeCoverageSufficient) {
             volumeDelta = 1;
             action = 'trial_accessory_volume';
-            reason = 'Possibile stallo con buona aderenza, RPE gestibile e volume recente moderato: prova una serie accessoria aggiuntiva, rispettando il tempo disponibile.';
+            reason = 'Possibile stallo con buona aderenza, RPE registrati e stimolo frazionario moderato: prova una sola serie accessoria aggiuntiva, rispettando il tempo disponibile.';
+        } else if (enoughWeeks && plateau && fractional !== undefined &&
+            fractional >= 9 && metrics.avgWeeklySets < 9) {
+            reason = 'Lo stallo non dimostra bisogno di piu serie: il lavoro secondario porta gia il volume stimato sopra la soglia prudenziale di prova. Mantieni e osserva.';
+        } else if (enoughWeeks && plateau && !rpeCoverageSufficient) {
+            reason = 'RPE realmente registrati su una frazione insufficiente del volume: non aumentare le serie senza dati migliori.';
         } else if (enoughWeeks && adherence !== null && adherence >= 0.8) {
             reason = 'Volume e aderenza recenti registrati: mantieni le serie finché non emergono segnali più chiari.';
         }
@@ -113,6 +127,8 @@ export function planAdaptiveDecisions(report) {
         byMuscle[muscle] = {
             action, volumeDelta, reason,
             weeklySetsObserved: metrics.avgWeeklySets,
+            weeklyFractionalSetsObserved: fractional ?? null,
+            fractionalRpeCoverage: metrics.fractionalRpeCoverage ?? null,
             recentAdherence: adherence,
             avgRpe: metrics.avgRpe
         };
