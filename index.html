@@ -50,32 +50,37 @@
     </div>
 
     <div class="container">
-       <!-- Header Principale Unificato -->
+        <!-- Barra mobile-first: poche azioni essenziali, il resto nel menu Altro. -->
         <header class="app-header-container">
             <div class="top-nav-bar">
-                <div class="app-brand">
-                    <span>🏋️‍♂️</span> HomeGym Diary
+                <div class="app-brand" aria-label="HomeGym Diary">
+                    <span class="app-brand-symbol" aria-hidden="true">🏋️</span>
+                    <span class="app-brand-name">HomeGym <span class="app-brand-secondary">Diary</span></span>
                 </div>
-                <div class="flex-row gap-sm">
-                    <button class="btn btn-secondary btn-sm" id="btn-user-manual">📖 Manuale</button>
-                    <button class="btn btn-secondary btn-sm" id="theme-toggle-btn">🌙 Dark</button>
+                <div class="app-header-actions">
+                    <span id="sync-status" class="status-badge-pill app-sync-compact" role="status" aria-live="polite"
+                        title="Stato sincronizzazione cloud">✓ Cloud</span>
+                    <button id="open-analytics-btn" class="nav-pill-btn-modern app-header-icon-action"
+                        type="button" title="Analisi e dashboard" aria-label="Analisi e dashboard">
+                        <span aria-hidden="true">📊</span><span class="app-action-text">Analisi</span>
+                    </button>
+                    <button id="open-tools-btn" class="nav-pill-btn-modern app-header-icon-action"
+                        type="button" title="Strumenti e gestione" aria-label="Strumenti e gestione">
+                        <span aria-hidden="true">⚙️</span><span class="app-action-text">Strumenti</span>
+                    </button>
+                    <details class="app-utility-menu" id="app-utility-menu">
+                        <summary title="Altre opzioni" aria-label="Altre opzioni: manuale, tema e account">☰</summary>
+                        <div class="app-utility-content">
+                            <button type="button" class="app-menu-action" id="btn-user-manual">📖 Manuale</button>
+                            <button type="button" class="app-menu-action" id="theme-toggle-btn">🌙 Dark</button>
+                            <div id="user-info-bar" class="app-menu-account d-none"
+                                title="Clicca per uscire dall'account" role="button" tabindex="0">
+                                <span id="user-email-display"></span>
+                                <span class="user-logout-btn">Esci ↗</span>
+                            </div>
+                        </div>
+                    </details>
                 </div>
-            </div>
-           
-            <div class="header-status-bar">
-                <span id="sync-status" class="status-badge-pill" title="Stato sincronizzazione cloud">
-                    <span class="pulse-dot-green"></span> Sincronizzato
-                </span>
-                
-                <div id="user-info-bar" class="status-badge-pill user-info-pill d-none" title="Clicca per uscire dall'account">
-                    <span id="user-email-display"></span>
-                    <span class="user-logout-btn">✕ Esci</span>
-                </div>
-            </div>
-
-            <div class="main-nav-pills">
-                <button id="open-analytics-btn" class="nav-pill-btn-modern">📊 Analisi & Dashboards</button>
-                <button id="open-tools-btn" class="nav-pill-btn-modern">⚙️ Strumenti & Gestione</button>
             </div>
         </header>
 
