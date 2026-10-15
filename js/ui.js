@@ -13,7 +13,7 @@ import { updateSessionHeaderUI } from './sessionTimer.js';
 import { bindWorkoutTableEvents } from './workoutEvents.js';
 import { parseCoachPDF } from './pdfParser.js';
 import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
-import { createLiveCoachPanel, updateLiveCoachPanel, refreshLiveCoachClock } from './liveCoachUI.js';
+import { createLiveCoachPanel, updateLiveCoachPanel, refreshLiveCoachClock, dismissLiveCoachToast } from './liveCoachUI.js';
 import { toggleCurrentMesocycleLock } from './mesocycle.js';
 
 export const DOM = {
@@ -162,6 +162,8 @@ document.addEventListener('click', (e) => {
 // 4. RENDERING SCHEDA ALLENAMENTO
 // ==========================================
 export function renderWorkoutList() {
+    // Cambiare esercizio, settimana o seduta non deve lasciare consigli obsoleti.
+    dismissLiveCoachToast();
     if (!DOM.workoutListContainer) return;
     DOM.workoutListContainer.innerHTML = '';
 
