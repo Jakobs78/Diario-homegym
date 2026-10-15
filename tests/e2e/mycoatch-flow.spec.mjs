@@ -570,6 +570,7 @@ test('prima scheda intermedio senza storico: rispetta esclusioni e convalida car
     .toContainText('kg e ripetizioni reali');
   await page.locator('#mycoatch-load-bench-reps').fill('8');
   await page.locator('#mycoatch-load-bench-rpe').fill('7');
+  await page.locator('#mycoatch-load-bench-date').fill(new Date().toISOString().slice(0, 10));
   await page.locator('.mycoatch-profile-details summary').first().click();
   await page.locator('.mycoatch-avoid-check[value="Squat con Bilanciere"]').check();
 
@@ -608,6 +609,7 @@ test('questionario MyCoatch 3.0 su smartphone: campo esperienza, dettagli e subm
   await expect(page.locator('.mycoatch-avoid-check').first()).toBeVisible();
   await details.last().locator('summary').click();
   await expect(page.locator('#mycoatch-load-bench-kg')).toBeVisible();
+  await expect(page.locator('#mycoatch-load-bench-date')).toBeVisible();
   await expect(page.locator('#mycoatch-submit')).toBeVisible();
   const geometry = await page.evaluate(() => {
     const sheet = document.querySelector('.mycoatch-config-sheet');
