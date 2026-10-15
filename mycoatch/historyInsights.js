@@ -218,7 +218,8 @@ export function analyzeTrainingHistory(userHistory) {
         item.status = status.status;
         item.e1rmChangePct = status.percent;
         item.lastKg = previous?.topKg ?? null;
-        item.lastWorkingKg = previous?.workingKg ?? null;
+        item.lastWorkingKg = progression.lastWeekWorkingKg ??
+            previous?.workingKg ?? null;
         item.lastTargetRpe = previous?.targetRpe ?? null;
         item.lastReps = previous?.repRange ?? null;
         item.avgRpe = round(avgRpe);
