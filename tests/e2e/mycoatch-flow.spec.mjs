@@ -466,6 +466,26 @@ test('ripetere una seduta archivia la sessione reale prima del nuovo allenamento
   assert.ok(result.archives[0].exercises[0].loggedSets.every(s => s.completedAt));
   assert.ok(result.series.every(s =>
     s.weight === '' && s.reps === '' && s.rpe === '' && s.stamp === undefined));
+
+  const savingArchive = page.waitForEvent('download');
+  await page.evaluate(async () => {
+    const { exportToCSV } = await import('/js/csvHandler.js');
+    const { state } = await import('/js/state.js');
+    exportToCSV(state.workoutData);
+  });
+  const historicalCsv = await readFile(await (await savingArchive).path(), 'utf8');
+  const archival = historicalCsv.split(/\\r?\\n/).filter(line =>
+    line.includes('[archivio S1 G1 #1]'));
+  assert.equal(archival.length, 3);
+  assert.ok(archival.every(line =>
+    line.includes('80') && line.includes('[ARCHIVIO RIPETIZIONE]')));
+  assert.ok(archival.every(line => line.split(',')[10] === '"8"'),
+    'Esportazione serie completate: RPE reale e non target');
+  assert.ok(historicalCsv.split(/\\r?\\n/).some(line =>
+    !line.includes('[archivio ') && line.includes('Panca') &&
+    line.split(',')[10] === '""'),
+    'L’RPE delle nuove serie vuote non deve essere inventato');
+
   assert.deepEqual(monitor.remoteRequests, []);
   assert.deepEqual(monitor.pageErrors, []);
 });
