@@ -100,3 +100,13 @@ test('empty suggested RPE does not depend on unrelated kg and reps',()=>{
     assert.equal(p.weight,'60');
     assert.equal(p.reps,'8');
 });
+
+test('a heavy top set cannot be silently copied into a prescribed lighter back-off', () => {
+    const ex=exercise({ kgMin:'70', topset:'1x6 @ 80kg (RPE 8)' });
+    ex.loggedSets[0] = {weight:80,reps:'6',rpe:'8',isLocked:true};
+    assert.equal(getSetPrefill(ex,1).weight,'70');
+    assert.equal(getSetPrefill(ex,1).reps,'8');
+    ex.loggedSets[1] = {weight:70,reps:'9',rpe:'8',isLocked:true};
+    assert.equal(getSetPrefill(ex,2).weight,'70');
+    assert.equal(getSetPrefill(ex,2).reps,'9');
+});
