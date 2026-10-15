@@ -106,12 +106,43 @@ function choosePlan(exercises, maxSeconds, maxSessionMinutes) {
 }
 
 /**
- * Ottimizza la durata preservando gli esercizi principali (posizioni 1 e 2).
- * Prima prova gruppi non interferenti, poi riduce serie di accessori e infine
- * elimina accessori non essenziali. Non accorcia mai i recuperi dei fondamentali.
+ * L'ordine di scheda NON rappresenta da solo la priorita': un fondamentale
+ * (anchorKey) puo' essere il terzo slot della Full Body. I primi due esercizi
+ * continuano a essere protetti per compatibilita' con piani non marcati.
+ */
+function protectedExercise(exercise, index) {
+    return index < 2 || Boolean(exercise.anchorKey);
+}
+
+/**
+ * Prima accessori facoltativi, poi isolamenti necessari al volume; i
+ * multiarticolari non-anchor vengono sacrificati soltanto come ultima risorsa.
+ * L'ordine della scheda viene usato solo per sciogliere i pari merito.
+ */
+function sacrificePriority(exercise) {
+    if (exercise.isOptional && exercise.pattern === 'isolation') return 0;
+    if (exercise.pattern === 'isolation') return 1;
+    if (exercise.isOptional) return 2;
+    return 3;
+}
+
+function selectLeastEssential(exercises) {
+    const removable = exercises.map((exercise, index) =>
+        protectedExercise(exercise, index) ? null : ({
+            index, priority: sacrificePriority(exercise)
+        })).filter(Boolean);
+    removable.sort((a, b) => a.priority - b.priority || b.index - a.index);
+    return removable[0]?.index ?? -1;
+}
+
+/**
+ * Ottimizza la durata proteggendo tutti i fondamentali con anchorKey e i
+ * primi due movimenti. Se il tempo e' insufficiente anche senza complementari
+ * non nasconde lo squat/panca/stacco: restituisce un errore esplicito.
  *
- * Se anche la seduta minima eccede il budget, non restituisce un piano non
- * realistico: solleva un errore esplicito.
+ * Per gli accessori taglia prima le serie oltre il minimo, poi, se serve,
+ * elimina l'esercizio. Le tecniche temporali rimangono limitate ad accessori
+ * compatibili e non accorciano le pause dei fondamentali.
  */
 export function optimizeSession(exercises, maxSessionMinutes) {
     const minutes = Number(maxSessionMinutes);
@@ -130,32 +161,30 @@ export function optimizeSession(exercises, maxSessionMinutes) {
     let iterations = 0;
 
     while (candidate.seconds > secondsBudget && iterations++ < 32) {
-        // Non ridurre le serie dei primi due esercizi prioritari.
-        let targetIndex = -1;
-        for (let i = base.length - 1; i >= 2; i--) {
-            if (base[i].setsCount > MIN_ACCESSORY_SETS) {
-                targetIndex = i;
-                break;
-            }
-        }
-        if (targetIndex !== -1) {
-            const ex = base[targetIndex];
-            ex.setsCount--;
-            ex.sets = ex.sets.slice(0, ex.setsCount);
-            reducedSets++;
-        } else if (base.length > 2) {
-            base.pop();
-            removedExercises++;
-        } else {
+        const targetIndex = selectLeastEssential(base);
+        if (targetIndex === -1) {
             throw new Error(
-                `Non è possibile rispettare ${minutes} minuti senza sacrificare i due esercizi prioritari. ` +
-                `La seduta minima stimata dura ${Math.ceil(candidate.seconds / 60)} minuti. ` +
-                'Aumenta la durata o modifica la distribuzione settimanale.'
+                'Non è possibile rispettare ' + minutes +
+                ' minuti mantenendo i fondamentali prioritari. ' +
+                'La seduta minima stimata dura ' +
+                Math.ceil(candidate.seconds / 60) + ' minuti. ' +
+                'Aumenta la durata o rivedi i fondamentali previsti.'
             );
+        }
+        const exercise = base[targetIndex];
+        if (exercise.setsCount > MIN_ACCESSORY_SETS) {
+            exercise.setsCount--;
+            exercise.sets = exercise.sets.slice(0, exercise.setsCount);
+            reducedSets++;
+        } else {
+            base.splice(targetIndex, 1);
+            removedExercises++;
         }
         candidate = choosePlan(base, secondsBudget, minutes);
     }
-    if (candidate.seconds > secondsBudget) throw new Error('Impossibile rispettare il limite di tempo richiesto.');
+    if (candidate.seconds > secondsBudget) {
+        throw new Error('Impossibile rispettare il limite di tempo richiesto.');
+    }
 
     return {
         exercises: candidate.exercises,
