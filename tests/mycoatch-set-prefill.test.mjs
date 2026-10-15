@@ -25,7 +25,7 @@ test('numeric CSV prescriptions appear as editable suggestions with no mutation'
 });
 
 test('reps ranges choose a numeric conservative starting suggestion', () => {
-    const ex = exercise({ kgMin: '60,5', kgMax: '65', reps: '10–15', rpe:'@7.5' });
+    const ex = exercise({ kgMin: '60,5', kgMax: '65', reps: '10–15', rpe:'@7.5', targetRpe:'@7.5' });
     const values = getSetPrefill(ex, 0);
     assert.equal(values.weight, '60.5');
     assert.equal(values.reps, '10');
