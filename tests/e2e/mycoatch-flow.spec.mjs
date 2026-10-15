@@ -595,3 +595,33 @@ test('prima scheda intermedio senza storico: rispetta esclusioni e convalida car
   assert.deepEqual(monitor.remoteRequests, []);
   assert.deepEqual(monitor.pageErrors, []);
 });
+
+
+test('questionario MyCoatch 3.0 su smartphone: campo esperienza, dettagli e submit raggiungibili', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const monitor = await openIsolatedApp(page);
+  await startCoach(page, '45');
+  await page.locator('#mycoatch-experience').selectOption('beginner');
+  await page.locator('#mycoatch-priority-muscle').selectOption('Quadricipiti');
+  const details = page.locator('.mycoatch-profile-details');
+  await details.first().locator('summary').click();
+  await expect(page.locator('.mycoatch-avoid-check').first()).toBeVisible();
+  await details.last().locator('summary').click();
+  await expect(page.locator('#mycoatch-load-bench-kg')).toBeVisible();
+  await expect(page.locator('#mycoatch-submit')).toBeVisible();
+  const geometry = await page.evaluate(() => {
+    const sheet = document.querySelector('.mycoatch-config-sheet');
+    const grid = document.querySelector('.mycoatch-reference-grid');
+    return {
+      sheetOverflow: sheet.scrollWidth > sheet.clientWidth + 2,
+      gridOverflow: grid.scrollWidth > grid.clientWidth + 2,
+      dialogWidth: sheet.getBoundingClientRect().width,
+      viewportWidth: innerWidth
+    };
+  });
+  assert.equal(geometry.sheetOverflow, false, JSON.stringify(geometry));
+  assert.equal(geometry.gridOverflow, false, JSON.stringify(geometry));
+  assert.ok(geometry.dialogWidth <= geometry.viewportWidth + 2, JSON.stringify(geometry));
+  assert.deepEqual(monitor.remoteRequests, []);
+  assert.deepEqual(monitor.pageErrors, []);
+});
