@@ -4,7 +4,7 @@ import { analyzeCompletedMesocycle } from './historyAnalysis.js';
 import { canonicalExerciseKey } from './exerciseIdentity.js';
 import { optimizeSession } from './groupOptimizer.js';
 import { rebalanceWeeklyAccessories } from './weeklyVolumeBalancer.js';
-import { normalizeSelectionPreferences, selectExerciseForSlot } from './exerciseSelection.js';
+import { normalizeSelectionPreferences, selectExerciseForSlot, defaultFundamentalName } from './exerciseSelection.js';
 import { auditWeeklyCoverage } from './weeklyCoverage.js';
 import { normalizeAthleteProfile, onboardingPlan, eligibleReferenceLoad, profileSummary } from './athleteProfile.js';
 
@@ -154,7 +154,13 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 }
                 const reference = ex.anchorKey
                     ? athleteProfile?.referenceLoads?.[ex.anchorKey] : null;
-                const referenceKg = !hasConfirmedHistory && !onboarding.calibrationWeek
+                const expectedVariant = ex.anchorKey
+                    ? (selectionPreferences.preferredLifts[ex.anchorKey] ||
+                        defaultFundamentalName(ex.anchorKey, focus)) : null;
+                // Non trasformare un peso riferito alla panca in un carico
+                // prescritto per una variante alternativa scelta automaticamente.
+                const referenceKg = !hasConfirmedHistory && !onboarding.calibrationWeek &&
+                    ex.name === expectedVariant
                     ? eligibleReferenceLoad(athleteProfile, ex.anchorKey, reps) : null;
                 const usingReference = baseKg === null && referenceKg !== null;
                 if (usingReference) baseKg = referenceKg;
