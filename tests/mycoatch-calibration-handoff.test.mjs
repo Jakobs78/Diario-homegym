@@ -155,7 +155,9 @@ test('due esposizioni nella stessa settimana non autorizzano incremento automati
     assert.equal(record.fatigueConcern, false);
     const decision = planAdaptiveDecisions(report).byExercise[canonicalExerciseKey('Panca Piana con Bilanciere')];
     assert.equal(decision.action, 'maintain');
-    assert.equal(decision.plannedKg, 72.5);
+    // Con due sedute dello stesso microciclo a kg diversi il riferimento
+    // prudente resta la serie di lavoro piu' leggera, non il top set da 72,5.
+    assert.equal(decision.plannedKg, 70);
     const twoWeeks = structuredClone(oneWeek);
     twoWeeks.weeks[0].days.pop();
     twoWeeks.weeks.push({ weekNumber: 2, days: [bench(72.5, 1)] });
