@@ -102,18 +102,18 @@ test('senza RPE reale non inventa trend e1RM o progressione di carico', () => {
     assert.equal(planAdaptiveDecisions(report).byExercise[canonicalExerciseKey('panca')].action, 'maintain');
 });
 
-test('double progression: incrementa modestamente con due esposizioni complete entro RPE', () => {
+test('double progression: salti gia effettuati richiedono conferma prima di altro incremento', () => {
     const meso = mesocycle('Progressione', [
         [[75, 7, '@8']], [[77.5, 8, '@8']], [[80, 8, '@7.5']]
     ]);
     const report = analyzeTrainingHistory(historyOf(years(2026, meso)));
     const decision = planAdaptiveDecisions(report).byExercise[canonicalExerciseKey('panca')];
-    assert.equal(decision.action, 'increase_load');
+    assert.equal(decision.action, 'maintain_progression');
     assert.equal(decision.lastKg, 80);
-    assert.equal(decision.plannedKg, 82.5);
+    assert.equal(decision.plannedKg, 80);
     const proposed = MyCoatch.generateNextFromHistory(historyOf(years(2026, meso)), baseConfig);
-    assert.equal(proposed.weeks[0].days[0].exercises[0].kgMin, '82.5');
-    assert.match(proposed.weeks[0].days[0].exercises[0].notes, /piccolo incremento proposto/);
+    assert.equal(proposed.weeks[0].days[0].exercises[0].kgMin, '80');
+    assert.match(proposed.weeks[0].days[0].exercises[0].notes, /conserva il movimento/);
     assert.equal(proposed.coachReport.inspectedMesocycles, 1);
 });
 

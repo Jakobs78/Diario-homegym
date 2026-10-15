@@ -7,9 +7,11 @@ import { rebalanceWeeklyAccessories } from './weeklyVolumeBalancer.js';
 import { normalizeSelectionPreferences, selectExerciseForSlot, defaultFundamentalName } from './exerciseSelection.js';
 import { auditWeeklyCoverage } from './weeklyCoverage.js';
 import { normalizeAthleteProfile, onboardingPlan, eligibleReferenceLoad, profileSummary } from './athleteProfile.js';
+import { deriveMesocyclePolicy } from './periodizationPolicy.js';
 
 /**
- * Punti di riferimento del volume ipertrofico settimanale (Evidence-Based) - Spacchettati per distretto anatomico
+ * Intervalli iniziali orientativi, NON valori MEV/MAV/MRV universali validati.
+ * Volume utile e recuperabile variano per atleta, esercizio e fase.
  */
 export const MUSCLE_VOLUME_LANDMARKS = {
     Petto: { mev: 8, mav: 14, mrv: 20 },
@@ -50,7 +52,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
 
     // 1. Parametri di recupero biologico
     const isMaster = false; // Non imporre riduzioni automatiche basate solo sull'età.
-    const deloadWeekNumber = config.deloadWeek === false ? null : durationWeeks; // Scarico di fine blocco disattivabile.
+    // Scarico e target di impegno: proposte adattate a dati confermati, non obblighi di calendario.
 
     // 2. Vincoli di tempo
     // Il vincolo è il tempo realmente stimato, non un taglio prefissato degli slot.
@@ -60,6 +62,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
     const hasConfirmedHistory = Number(safeHistory.sessionsAnalyzed) > 0 ||
         Object.keys(analysis?.byExercise || {}).length > 0;
     const onboarding = onboardingPlan(athleteProfile, hasConfirmedHistory);
+    const periodization = deriveMesocyclePolicy(config, analysis, onboarding);
     const effectiveFocusMuscle = athleteProfile?.priorityMuscle || focusMuscleGroup;
     const selectionPreferences = normalizeSelectionPreferences({
         ...config, excludedExercises: athleteProfile?.excludedExercises || []
@@ -83,19 +86,11 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
         const volumeAdjustmentsApplied = new Set();
         const weeklySelectionCounts = new Map();
         const excludedOptionalSlots = [];
-        const isDeloadWeek = (deloadWeekNumber !== null && w === deloadWeekNumber);
+        const weekPolicy = periodization.weeks[w - 1];
+        const isDeloadWeek = weekPolicy.isDeload;
 
-        // Progressione dinamica del target RPE di settimana in settimana
-        let rpeString = "8.0";
-        if (isDeloadWeek) {
-            rpeString = "6.5";
-        } else if (onboarding.rpeTargets) {
-            rpeString = onboarding.rpeTargets[Math.min(w - 1, onboarding.rpeTargets.length - 1)];
-        } else if (focus === 'strength') {
-            rpeString = w === 1 ? "8.0" : w === 2 ? "8.5" : "9.0";
-        } else {
-            rpeString = w === 1 ? "7.5" : w === 2 ? "8.0" : "8.5";
-        }
+        // Il target RPE non sale automaticamente fino a 9 ogni terza settimana.
+        const rpeString = String(weekPolicy.targetRpe.toFixed(1));
 
         templateDays.forEach((dayTemplate, dayIndex) => {
             const activeSlots = dayTemplate.slots;
@@ -179,7 +174,12 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 }
                 
                 // Il carico progredisce in base alle prestazioni e all'RPE, non al calendario.
-                const plannedKg = baseKg === null ? null : (isDeloadWeek ? baseKg * 0.85 : baseKg);
+                // Una riduzione deliberata dalla revisione dei dati non deve
+                // essere sommata ciecamente a un altro -15% nella settimana
+                // di recupero: volume e RPE sono gia' ridotti.
+                const plannedKg = baseKg === null ? null :
+                    (isDeloadWeek && loadDecision?.action !== 'reduce_load'
+                        ? baseKg * 0.85 : baseKg);
                 const suggestedIncrement = ex.equipment === 'dumbbell' ? 0.5 :
                     (ex.equipment === 'cable' || ex.equipment === 'lat_machine'
                         ? 1.25 : plannedKg !== null && plannedKg < 12.5 ? 0.5 : 2.5);
@@ -249,18 +249,21 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 const isFirstCompound = index === 0 && ["squat", "hinge", "horizontal_push", "vertical_push", "vertical_pull"].includes(ex.pattern);
                 
                 if (isFirstCompound && plannedKg !== null && !usingReference) {
-                    const w1 = Math.round(baseKg * 0.5);
-                    const w2 = Math.round(baseKg * 0.7);
-                    const w3 = Math.round(baseKg * 0.85);
+                    const warmupReferenceKg = Number(targetKgMin);
+                    const w1 = Math.round(warmupReferenceKg * 0.5);
+                    const w2 = Math.round(warmupReferenceKg * 0.7);
+                    const w3 = Math.round(warmupReferenceKg * 0.85);
                     noteFinal = `🔥 [WARM-UP AUTO]: 8x${w1}kg, 4x${w2}kg, 2x${w3}kg. | ` + noteFinal;
                 }
 
-                if (config.useTopset === true && onboarding.experience !== 'beginner' &&
-                    !onboarding.calibrationWeek && !usingReference && index === 0 &&
-                    plannedKg !== null && !isDeloadWeek && focus !== 'strength') {
-                    const topKg = Number(targetKgMin) + (baseKg < 12.5 ? 1 : 2.5);
-                    topsetStr = `1x${reps.split('-')[0]} @ ${topKg}kg (RPE 9)`;
-                    noteFinal += ` | 🎯 Top Set programmato, poi Back-Off di riferimento del 10%. Segna solo le serie realmente svolte.`;
+                // Mai inventare un top set più pesante dei carichi verificati.
+                // Quando richiesto, la prima serie è solo una serie di riferimento
+                // allo stesso carico e al target RPE della settimana.
+                if (config.useTopset === true && !isDeloadWeek &&
+                    !onboarding.calibrationWeek && !usingReference &&
+                    plannedKg !== null && index === 0) {
+                    topsetStr = `1x${reps.split('-')[0]} @ ${targetKgMin}kg (RPE max ${rpeString})`;
+                    noteFinal += ' | [TOP SET CONTROLLATO] Nessun incremento extra: registra RPE e ripetizioni reali prima di proporre un carico maggiore.';
                 }
 
                 const currentTechnique = (onboarding.calibrationWeek ||
@@ -270,12 +273,6 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 const setsArray = Array.from({ length: setsCount }, (_, setIdx) => {
                     let setKg = plannedKg === null ? null : Number(targetKgMin);
                     
-                    if (setIdx === 0 && topsetStr) {
-                        setKg = Number(targetKgMin) + (baseKg < 12.5 ? 1 : 2.5);
-                    } else if (setIdx > 0 && topsetStr) {
-                        const topKg = Number(targetKgMin) + (baseKg < 12.5 ? 1 : 2.5);
-                        setKg = Math.round((topKg * 0.9) / 2.5) * 2.5;
-                    }
 
                     const isLastSet = (setIdx === setsCount - 1);
 
@@ -297,7 +294,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     reps: reps,
                     kgMin: String(targetKgMin),
                     kgMax: String(targetKgMax),
-                    restTime: index === 0 ? "180s" : (ex.pattern === "isolation" ? "90s" : "150s"),
+                    restTime: ex.pattern === "isolation" ? "90s" :
+                        (index === 0 ? "180s" : "150s"),
                     category: ex.category,
                     pattern: ex.pattern,
                     equipment: ex.equipment,
@@ -353,6 +351,9 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
         }
         weeks.push({
             weekNumber: w,
+            phase: weekPolicy.phase,
+            isDeloadWeek,
+            targetRpe: weekPolicy.targetRpe,
             days: balanced.days,
             volumeBalance: balanced.report,
             weeklyCoverage: auditWeeklyCoverage(balanced.days, templateDays),
@@ -366,6 +367,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
         createdAt: new Date().toISOString(),
         config: config,
         athleteOnboarding: profileSummary(athleteProfile, onboarding),
+        periodization,
         weeks: weeks
     };
 }
@@ -383,8 +385,8 @@ function calculateTargetSets({ category = "", focusMuscleGroup, isDeloadWeek, we
     const targetVolumeLandmark = isSpecialization ? landmarks.mav : landmarks.mev;
     
     let targetSets = Math.round(targetVolumeLandmark / Math.max(1, frequency));
-    if (weekNumber === 3) targetSets += 1;
-
+    // Nessun aumento di serie solo perche e' la terza settimana.
+    // Eventuali +1/-1 derivano da segnali di tolleranza in adaptiveDecisions.
     const maxAllowed = Math.min(3, Math.ceil(landmarks.mrv / Math.max(1, frequency)));
     return Math.max(2, Math.min(targetSets, maxAllowed));
 }
@@ -392,7 +394,7 @@ function calculateTargetSets({ category = "", focusMuscleGroup, isDeloadWeek, we
 function generateContextNote(index, isDeload, focus) {
     let note;
     if (isDeload) {
-        note = "🛡️ Scarico attivo: mantieni il controllo eccentrico, fermati a 2-3 RIR dal cedimento.";
+        note = "🛡️ Scarico attivo: riduci le serie, lascia circa 3-4 ripetizioni in riserva e cura la tecnica.";
     } else if (index === 0) {
         note = focus === 'strength'
             ? "🔥 Focus forza: recuperi completi e spinta esplosiva concentrica."

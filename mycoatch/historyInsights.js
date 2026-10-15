@@ -48,15 +48,20 @@ function inspectExercise(exercise, context) {
 
     const targetRpe = parseRpe(exercise.targetRpe ?? exercise.rpe);
     const repsTarget = parseRepRange(exercise.reps);
-    const prescribed = Number.parseInt(String(exercise.set || ''), 10);
-    const countWithoutWarmups = logged.filter(set =>
+    const prescribed = Number.parseInt(String(exercise.setsCount ?? exercise.set ?? ''), 10);
+    // loggedSets puo' contenere soltanto le serie gia' registrate.
+    const plannedList = Array.isArray(exercise.sets) && exercise.sets.length
+        ? exercise.sets : logged;
+    const countWithoutWarmups = plannedList.filter(set =>
         !set?.isWarmup && !set?.warmup && !set?.is_warmup).length;
     const plannedSets = Math.max(valid.length,
         Number.isFinite(prescribed) && prescribed > 0 ? prescribed : countWithoutWarmups);
     const validRpe = valid.map(set => set.rpe).filter(rpe => rpe !== null);
     const e1rms = valid.map(set => set.e1rm).filter(v => v !== null);
     const avgRpe = mean(validRpe);
-    const isDeload = targetRpe !== null && targetRpe <= 6.5;
+    // RPE basso puo' essere una calibrazione, non uno scarico.
+    const isDeload = typeof context.isDeloadWeek === 'boolean'
+        ? context.isDeloadWeek : (targetRpe !== null && targetRpe <= 6.5);
     const key = canonicalExerciseKey(exercise.name);
     const meta = catalog.get(key);
     const min = repsTarget?.min;
@@ -171,6 +176,8 @@ export function analyzeTrainingHistory(userHistory) {
                             const parsed = inspectExercise(ex, {
                                 year, mesocycleIndex: mi, week: weekNumber,
                                 day: Number(day.dayNumber) || 1,
+                                isDeloadWeek: typeof week.isDeloadWeek === 'boolean'
+                                    ? week.isDeloadWeek : undefined,
                                 weekId, sessionId: session.sessionId
                             });
                             if (!parsed) continue;

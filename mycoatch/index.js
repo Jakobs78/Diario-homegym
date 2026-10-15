@@ -143,13 +143,22 @@ export const MyCoatch = {
                     const blockNum = ex.block || (exIndex + 1);
                     const kgMinStr = ex.kgMin ?? "";
                     const kgMaxStr = ex.kgMax ?? "";
-                    const rpeStr = ex.rpe || "@8";
+                    // Un RPE non specificato resta sconosciuto: mai inventare @8.
+                    const rpeStr = ex.rpe === null || ex.rpe === undefined
+                        ? '' : String(ex.rpe).trim();
                     const topsetVal = (ex.topset || "").replace(/"/g, '""');
 
                     // Conteggio totale dei set (es. 3, 4) da inserire nella colonna 'Set'
-                    const totalSets = ex.setsCount || (Array.isArray(ex.sets) ? ex.sets.length : 3);
-                    const repsForExercise = ex.reps || "8";
-                    const recuperoStr = ex.restTime || "120s";
+                    const totalSets = ex.setsCount ?? (Array.isArray(ex.sets) ? ex.sets.length : null);
+                    const repsForExercise = ex.reps ?? '';
+                    const recuperoStr = ex.restTime ?? '';
+                    if (!Number.isInteger(Number(totalSets)) || Number(totalSets) < 1 ||
+                        !String(repsForExercise).trim() || !String(recuperoStr).trim() ||
+                        !/^\d+(?:[.,]\d+)?$/.test(rpeStr) ||
+                        Number(rpeStr.replace(',', '.')) < 6 ||
+                        Number(rpeStr.replace(',', '.')) > 10) {
+                        throw new Error('Prescrizione MyCoatch incompleta: controlla serie, ripetizioni, recupero e RPE.');
+                    }
 
                     // ESTRAZIONE E CODIFICA DELLE TECNICHE DI INTENSITÀ NEL CSV
                     // Se l'ultimo set dell'esercizio contiene una tecnica di intensità, iniettiamo il tag a inizio nota

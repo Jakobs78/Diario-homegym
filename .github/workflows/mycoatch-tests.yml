@@ -6,10 +6,13 @@ on:
       - feature/mycoatch-adattivo
       - release/mycoatch-adattivo-2026-10-14
       - main
+      - 'improve/**'
   pull_request:
     paths:
       - 'mycoatch/**'
       - 'tests/**'
+      - 'test/**'
+      - 'package.json'
       - '.github/workflows/mycoatch-tests.yml'
 
 permissions:
@@ -38,4 +41,4 @@ jobs:
           node --experimental-default-type=module --check js/main.js
           node --experimental-default-type=module --check js/bottomSheet.js
       - name: Run MyCoatch unit and integration tests
-        run: node --experimental-default-type=module --test tests/*.test.mjs
+        run: npm test
