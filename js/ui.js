@@ -241,6 +241,8 @@ export function renderWorkoutList() {
     quickRow.appendChild(weekRow);
 
     const currentDayIndex = state.activeDay || 1;
+    // Compatibilita' con createSingleExerciseCard e con i tab di esercizio.
+    const activeDayNum = currentDayIndex;
     const currentDay = targetWeek.days?.[currentDayIndex - 1] || targetWeek.days?.[0];
     if (!currentDay) return;
 
