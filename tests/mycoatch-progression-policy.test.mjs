@@ -86,7 +86,7 @@ test('2 settimane distinte e tutte le serie a target: incremento prudente', () =
 
 test('due sedute nella stessa settimana non bastano a decidere l’incremento', () => {
     const { report, decision } = analyse([
-        [exercise([performed(80, 8, 7)]), exercise([performed(80, 8, 7.5)])]
+        [[exercise([performed(80, 8, 7)])], [exercise([performed(80, 8, 7.5)])]]
     ]);
     assert.equal(report.byExercise[key].progressionEvidence.distinctWeeks, 1);
     assert.equal(report.byExercise[key].readyForLoad, false);
