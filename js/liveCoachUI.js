@@ -1,4 +1,4 @@
-import { buildLiveSessionSnapshot } from '../mycoatch/liveCoach.js';
+import { buildLiveSessionSnapshot, assessExerciseLive } from '../mycoatch/liveCoach.js';
 import { calibrationContextForDay } from '../mycoatch/calibrationReview.js';
 import { state } from './state.js';
 
@@ -12,6 +12,105 @@ function element(tag, className, text) {
 function formatDuration(seconds) {
     const safe = Math.max(0, Math.floor(seconds || 0));
     return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`;
+}
+
+
+const LIVE_COACH_TOAST_DURATION_MS = 15_000;
+let toastDismissTimer = null;
+
+export function dismissLiveCoachToast() {
+    if (toastDismissTimer !== null) {
+        clearTimeout(toastDismissTimer);
+        toastDismissTimer = null;
+    }
+    document.getElementById('mycoatch-live-toast')?.remove();
+}
+
+// Recupera il campo all'istante del click, non quello della renderizzazione:
+// ogni check ricrea le card, dunque un riferimento precedente puo' diventare stantio.
+function createAdviceApplyButton(advice) {
+    if (advice?.suggestedWeight === null || advice?.suggestedWeight === undefined ||
+        advice.nextSetIndex < 0) return null;
+    const selector = '.set-kg[data-ex="' + advice.exerciseIndex +
+        '"][data-set="' + advice.nextSetIndex + '"]';
+    const input = document.querySelector(selector);
+    if (!input || input.disabled) return null;
+    const button = element('button', 'btn btn-secondary btn-mini mycoatch-live-apply',
+        'Applica ' + advice.suggestedWeight + ' kg alla prossima serie');
+    button.type = 'button';
+    button.dataset.ex = String(advice.exerciseIndex);
+    button.dataset.set = String(advice.nextSetIndex);
+    button.addEventListener('click', () => {
+        const currentInput = document.querySelector(selector);
+        if (!currentInput || currentInput.disabled) return;
+        currentInput.value = String(advice.suggestedWeight);
+        currentInput.dispatchEvent(new Event('input', { bubbles: true }));
+        dismissLiveCoachToast();
+        currentInput.focus();
+    });
+    return button;
+}
+
+function displayLiveCoachToast({ title, message, severity = 'info', advice = null,
+    extra = null, urgent = false }) {
+    dismissLiveCoachToast();
+    const toast = element('aside', 'mycoatch-live-toast');
+    toast.id = 'mycoatch-live-toast';
+    toast.classList.add('is-' + (severity === 'caution' ? 'caution' :
+        severity === 'ok' ? 'ok' : 'info'));
+    toast.setAttribute('role', urgent ? 'alert' : 'status');
+    toast.setAttribute('aria-live', urgent ? 'assertive' : 'polite');
+    toast.setAttribute('aria-label', 'Feedback MyCoatch');
+    const header = element('div', 'mycoatch-live-toast-header');
+    header.append(element('strong', '', title));
+    const dismiss = element('button', 'mycoatch-live-toast-dismiss', '×');
+    dismiss.type = 'button';
+    dismiss.setAttribute('aria-label', 'Chiudi il feedback MyCoatch');
+    dismiss.addEventListener('click', dismissLiveCoachToast);
+    header.append(dismiss);
+    toast.append(header, element('p', 'mycoatch-live-toast-message', message));
+    if (extra) toast.append(element('small', '', extra));
+    if (advice) {
+        const button = createAdviceApplyButton(advice);
+        if (button) toast.append(button);
+    }
+    document.body.append(toast);
+    toastDismissTimer = setTimeout(dismissLiveCoachToast, LIVE_COACH_TOAST_DURATION_MS);
+    return toast;
+}
+
+/**
+ * Avviso NON modale per ogni check valido: visibile anche scorrendo gli
+ * esercizi, scompare da solo dopo 15 secondi. Il pannello conserva lo
+ * storico dell'ultimo consiglio, accessibile su richiesta.
+ */
+export function showLiveCoachToast(day, { exerciseIndex, setIndex } = {}) {
+    if (!day) return null;
+    const snapshot = buildLiveSessionSnapshot(day, { history: state.workoutData });
+    if (snapshot.finished) {
+        return displayLiveCoachToast({
+            title: '✅ MyCoatch · Seduta completata',
+            message: 'Tutte le serie di lavoro sono state confermate. Le prestazioni registrate alimentano il prossimo piano.',
+            severity: 'ok'
+        });
+    }
+    let advice = snapshot.lastAdvice;
+    // Il consiglio e' riferito alla serie appena spuntata, non a un'altra
+    // ancora precedente nel diario o presente in una card diversa.
+    if (Number.isInteger(exerciseIndex) && Number.isInteger(setIndex) &&
+        (advice?.exerciseIndex !== exerciseIndex || advice?.setIndex !== setIndex)) {
+        advice = assessExerciseLive(day.exercises?.[exerciseIndex], exerciseIndex);
+    }
+    if (!advice) return null;
+    const name = day.exercises?.[advice.exerciseIndex]?.name || 'Esercizio';
+    return displayLiveCoachToast({
+        title: '🤖 MyCoatch · ' + name + ' · serie ' + (advice.setIndex + 1),
+        message: advice.message,
+        severity: advice.severity,
+        advice,
+        extra: advice.e1rm === null ? null :
+            'e1RM stimato: ' + advice.e1rm + ' kg (solo dati registrati)'
+    });
 }
 
 export function createLiveCoachPanel(day, { readOnly = false } = {}) {
@@ -73,8 +172,10 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
 
     const liveMessage = element('div', 'mycoatch-live-guidance');
     liveMessage.id = 'mycoatch-live-guidance';
-    liveMessage.setAttribute('role', 'status');
-    liveMessage.setAttribute('aria-live', 'polite');
+    liveMessage.setAttribute('role', 'region');
+    liveMessage.setAttribute('aria-label', 'Riepilogo dei consigli della sessione');
+    // Il toast annuncia i nuovi consigli: evita letture doppie a ogni digitazione.
+    liveMessage.setAttribute('aria-live', 'off');
 
     if (!snapshot.checkedSets) {
         liveMessage.append(element('p', '', 'Inizia confermando una serie reale con kg e ripetizioni. L’RPE è facoltativo, ma migliora la qualità dei suggerimenti.'));
@@ -95,6 +196,9 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
     const advice = snapshot.lastAdvice;
     if (advice && !snapshot.finished) {
         const exercise = day.exercises[advice.exerciseIndex];
+        const adviceHistory = element('details', 'mycoatch-live-advice-history');
+        adviceHistory.append(element('summary', '',
+            'Ultimo consiglio MyCoatch · tocca per rileggere'));
         const detail = element('div', 'mycoatch-live-advice');
         detail.classList.add(`is-${advice.severity}`);
         detail.append(element('strong', '', `${exercise?.name || 'Esercizio'} · serie ${advice.setIndex + 1}`));
@@ -112,26 +216,12 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
                     `Differenza e1RM rispetto a quella singola seduta: ${change > 0 ? '+' : ''}${change}%. Non equivale da sola a una progressione consolidata.`));
             }
         }
-        if (!locked && advice.suggestedWeight !== null && advice.nextSetIndex >= 0) {
-            const targetInput = document.querySelector(
-                `.set-kg[data-ex="${advice.exerciseIndex}"][data-set="${advice.nextSetIndex}"]`
-            );
-            if (targetInput && !targetInput.disabled) {
-                const button = element('button', 'btn btn-secondary btn-mini mycoatch-live-apply',
-                    `Applica ${advice.suggestedWeight} kg alla prossima serie`);
-                button.type = 'button';
-                button.dataset.ex = String(advice.exerciseIndex);
-                button.dataset.set = String(advice.nextSetIndex);
-                button.addEventListener('click', () => {
-                    if (targetInput.disabled) return;
-                    targetInput.value = String(advice.suggestedWeight);
-                    targetInput.dispatchEvent(new Event('input', { bubbles: true }));
-                    targetInput.focus();
-                });
-                detail.append(button);
-            }
+        if (!locked) {
+            const button = createAdviceApplyButton(advice);
+            if (button) detail.append(button);
         }
-        liveMessage.append(detail);
+        adviceHistory.append(detail);
+        liveMessage.append(adviceHistory);
     }
 
     if (!snapshot.rpeRecordedSets && snapshot.checkedSets &&
@@ -208,4 +298,10 @@ export function showLiveCoachInputError(message) {
     error.id = 'mycoatch-live-input-error';
     error.setAttribute('role', 'alert');
     panel.append(error);
+    displayLiveCoachToast({
+        title: '⚠️ MyCoatch · Serie non confermata',
+        message,
+        severity: 'caution',
+        urgent: true
+    });
 }
