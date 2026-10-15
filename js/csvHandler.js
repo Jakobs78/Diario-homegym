@@ -421,35 +421,50 @@ export function exportToCSV(workoutData) {
         // Intestazione arricchita con i campi reali compilati dall'utente
         let csvContent = "Mesociclo,Settimana,Giorno,Data,Blocco,Esercizio,Serie,Kg_Reali,Reps_Reali,Completato,Rpe,Recupero,Note_Esercizio\n";
 
+        const csvQuote = value => '"' + String(value ?? '').replace(/"/g, '""') + '"';
+        const appendRows = (mesoName, weekNumber, dayNumber, date, exercises, archived = false) => {
+            for (const ex of exercises || []) {
+                const logged = Array.isArray(ex.loggedSets) && ex.loggedSets.length
+                    ? ex.loggedSets : (ex.sets || []);
+                for (const set of logged) {
+                    const completed = set.isLocked === true || set.completed === true;
+                    // An unrecorded RPE is ALWAYS empty, never the planned exercise RPE.
+                    csvContent += [
+                        csvQuote(mesoName),
+                        weekNumber,
+                        dayNumber,
+                        csvQuote(date),
+                        ex.block || 1,
+                        csvQuote(ex.name),
+                        set.setNumber || 1,
+                        csvQuote(set.weight ?? ''),
+                        csvQuote(set.reps ?? ''),
+                        completed ? 'SI' : 'NO',
+                        csvQuote(set.rpe ?? ''),
+                        csvQuote(ex.rest || ex.recupero || ''),
+                        csvQuote((archived ? '[ARCHIVIO RIPETIZIONE] ' : '') +
+                            String(ex.notes || ''))
+                    ].join(',') + '\n';
+                }
+            }
+        };
         mesocycles.forEach(meso => {
             meso.weeks?.forEach(week => {
                 week.days?.forEach(day => {
-                    day.exercises?.forEach(ex => {
-                        // Dà priorità a loggedSets (i dati reali inseriti dall'utente), con fallback su sets
-                        const setsToExport = ex.loggedSets && ex.loggedSets.length > 0 ? ex.loggedSets : (ex.sets || []);
-                        
-                        setsToExport.forEach(set => {
-                            const weightVal = set.weight !== undefined && set.weight !== '' ? set.weight : '';
-                            const repsVal = set.reps !== undefined && set.reps !== '' ? set.reps : '';
-                            const isCompleted = set.isLocked === true || set.completed === true ? 'SI' : 'NO';
-
-                            const row = [
-                                `"${(meso.name || '').replace(/"/g, '""')}"`,
-                                week.weekNumber || 1,
-                                day.dayNumber || 1,
-                                `"${(day.date || '').replace(/"/g, '""')}"`,
-                                ex.block || 1,
-                                `"${(ex.name || '').replace(/"/g, '""')}"`,
-                                set.setNumber || 1,
-                                `"${weightVal}"`,
-                                `"${repsVal}"`,
-                                isCompleted,
-                                `"${(set.rpe ?? '').toString().replace(/"/g, '""')}"`,
-                                `"${(ex.rest || '').replace(/"/g, '""')}"`,
-                                `"${(ex.notes || '').replace(/"/g, '""')}"`
-                            ];
-                            csvContent += row.join(",") + "\n";
-                        });
+                    appendRows(meso.name, week.weekNumber || 1, day.dayNumber || 1,
+                        day.date || '', day.exercises);
+                    // Format legacy stays at 13 columns. Each archived session is
+                    // exported as an additional, DISTINCT historical mesocycle
+                    // so that re-importing it will never overwrite the current sets.
+                    (day.sessionArchives || []).forEach((oldSession, index) => {
+                        const oldName = String(meso.name || 'Mesociclo') +
+                            ' [archivio S' + (week.weekNumber || 1) +
+                            ' G' + (day.dayNumber || 1) +
+                            ' #' + (index + 1) + ']';
+                        appendRows(oldName, week.weekNumber || 1, day.dayNumber || 1,
+                            oldSession.sessionDate ||
+                                String(oldSession.capturedAt || '').slice(0, 10),
+                            oldSession.exercises, true);
                     });
                 });
             });
