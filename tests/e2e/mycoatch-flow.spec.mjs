@@ -760,3 +760,78 @@ test('data dei carichi autodichiarati: senza data non prescrive kg, con data rec
   assert.deepEqual(monitor.remoteRequests, []);
   assert.deepEqual(monitor.pageErrors, []);
 });
+
+
+test('import scheda: CSV corrotto lascia storico e selezione attiva intatti', async ({ page }) => {
+  const monitor = await openIsolatedApp(page);
+  const result = await page.evaluate(async () => {
+    const { importWorkoutPlan } = await import('/js/csvHandler.js');
+    const { state } = await import('/js/state.js');
+    const before = JSON.stringify(state.workoutData);
+    const view = [state.activeMesocycleIndex, state.activeWeek, state.activeDay];
+    const missingHeader = importWorkoutPlan('Settimana;Giorno;Esercizio;Reps\n1;1;Panca;8');
+    const invalidLaterRow = importWorkoutPlan(
+      'Settimana;Giorno;Blocco;Esercizio;Set;Reps\n' +
+      '1;1;1;Panca Piana con Bilanciere;3;6-8\n' +
+      '1;2;1;Squat con Bilanciere;zero;6-8'
+    );
+    return { missingHeader, invalidLaterRow,
+      historyPreserved: JSON.stringify(state.workoutData) === before,
+      viewPreserved: JSON.stringify(
+        [state.activeMesocycleIndex, state.activeWeek, state.activeDay]
+      ) === JSON.stringify(view)
+    };
+  });
+  assert.equal(result.missingHeader.success, false);
+  assert.equal(result.invalidLaterRow.success, false);
+  assert.match(result.invalidLaterRow.error, /Set non valido/);
+  assert.equal(result.historyPreserved, true);
+  assert.equal(result.viewPreserved, true);
+  assert.deepEqual(monitor.remoteRequests, []);
+  assert.deepEqual(monitor.pageErrors, []);
+});
+
+test('import storico: record duplicati rifiutati e collisioni di nome salvate separatamente', async ({ page }) => {
+  const monitor = await openIsolatedApp(page);
+  const outcome = await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    const { importProgressCSV } = await import('/js/csvHandler.js');
+    const year = new Date().getFullYear();
+    const list = state.workoutData.history.years[year].mesocycles;
+    const before = JSON.stringify(list);
+    const name = list[0].name;
+    const csvSafe = text => '"' + String(text).replaceAll('"','""') + '"';
+    const header = 'Mesociclo,Settimana,Giorno,Data,Blocco,Esercizio,Serie,Kg_Reali,Reps_Reali,Completato,Rpe,Recupero,Note_Esercizio';
+    const record = (n, kg, completed, rpe = '') => [
+      csvSafe(name),1,1,'2026-10-10',1,'Panca Piana con Bilanciere',
+      n,kg,8,completed,rpe,'180s','Test sintetico'
+    ].join(',');
+    const wrong = importProgressCSV(
+      header + '\n' + record(1,80,'SI') + '\n' + record(1,80,'SI')
+    );
+    const intactAfterError = JSON.stringify(list) === before;
+    const passed = importProgressCSV(
+      header + '\n' + record(1,80,'NO') + '\n' + record(2,82.5,'SI',8)
+    );
+    const current = state.workoutData.history.years[year].mesocycles;
+    const imported = current.at(-1);
+    return {
+      wrong, intactAfterError, passed,
+      originalsUnchanged: JSON.stringify(current.slice(0,-1)) === before,
+      name: imported.name,
+      sets: imported.weeks[0].days[0].exercises[0].loggedSets
+    };
+  });
+  assert.equal(outcome.wrong.success, false);
+  assert.equal(outcome.intactAfterError, true);
+  assert.equal(outcome.passed.success, true, outcome.passed.error);
+  assert.equal(outcome.originalsUnchanged, true);
+  assert.match(outcome.name, /\(importazione 2\)$/);
+  assert.equal(outcome.sets.length, 2);
+  assert.equal(outcome.sets[0].isLocked, false);
+  assert.equal(outcome.sets[0].rpe, '');
+  assert.equal(outcome.sets[1].isLocked, true);
+  assert.equal(outcome.sets[1].rpe, '8');
+  assert.deepEqual(monitor.remoteRequests, []);
+  assert.deepEqual(monitor.pageErrors, []);
+});
