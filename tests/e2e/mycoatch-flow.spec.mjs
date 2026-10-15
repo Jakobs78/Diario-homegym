@@ -685,6 +685,8 @@ test('check-in calibrazione: segue le serie realmente confermate anche passando 
       currentMesoIndex: state.activeMesocycleIndex };
   });
   assert.equal(setup.success, true, JSON.stringify(setup));
+  // MyCoatch e' ripiegato nel nuovo layout: l'atleta puo' aprirlo al tocco.
+  await page.locator('.mycoatch-live-trigger').click();
   await expect(page.locator('.mycoatch-calibration-review')).toBeVisible();
   await expect(page.locator('.mycoatch-calibration-review'))
     .toContainText('0/4 fondamentali registrati');
