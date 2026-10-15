@@ -1,4 +1,5 @@
 import { buildLiveSessionSnapshot } from '../mycoatch/liveCoach.js';
+import { calibrationContextForDay } from '../mycoatch/calibrationReview.js';
 import { state } from './state.js';
 
 function element(tag, className, text) {
@@ -140,6 +141,41 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
     }
 
     panel.append(liveMessage);
+
+    const calibration = calibrationContextForDay(state.workoutData, day);
+    if (calibration) {
+        const review = element('section', 'mycoatch-calibration-review');
+        review.setAttribute('aria-label', 'Riepilogo calibrazione prima settimana');
+        review.append(element('h4', '', '🧭 Calibrazione iniziale · ' +
+            calibration.anchorsRecorded + '/' + calibration.anchorsTotal + ' fondamentali registrati'));
+        review.append(element('p', '',
+            'Giornate completate: ' + calibration.completeDays + '/' + calibration.days +
+            ' · Serie valide: ' + calibration.validSets + '/' + calibration.totalSets +
+            ' · Con RPE: ' + (calibration.validSets - calibration.withoutRpe) +
+            '/' + calibration.validSets));
+        if (calibration.missingAnchors.length) {
+            review.append(element('p', 'mycoatch-calibration-caution',
+                'Riferimenti ancora mancanti: ' + calibration.missingAnchors.join(', ') + '.'));
+        }
+        if (calibration.invalidSets) {
+            review.append(element('p', 'mycoatch-calibration-caution',
+                'Controlla ' + calibration.invalidSets +
+                ' serie confermate con dati non validi o tecnica speciale.'));
+        }
+        if (calibration.withoutRpe) {
+            review.append(element('p', 'mycoatch-calibration-caution',
+                'RPE assente in ' + calibration.withoutRpe +
+                ' serie: non verrà stimata la fatica percepita da questi dati.'));
+        }
+        review.append(element('p', '', calibration.message));
+        if (calibration.readyForReview) {
+            review.classList.add('is-ready');
+            review.append(element('small', '',
+                'Per una proposta aggiornata, apri Strumenti e gestione → MyCoatch. ' +
+                'Valuta l’anteprima prima di importare un nuovo CSV; nessuna modifica automatica.'));
+        }
+        panel.append(review);
+    }
     return snapshot;
 }
 
