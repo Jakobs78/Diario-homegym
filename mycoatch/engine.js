@@ -209,7 +209,10 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 if (loadDecision && loadDecision.action !== 'maintain') {
                     autoNote += `${loadDecision.reason} | `;
                 }
-                let noteFinal = autoNote + generateContextNote(index, isDeloadWeek, focus) +
+                const coachingContext = onboarding.calibrationWeek && w === 1
+                    ? '🧭 Calibrazione: controlla tecnica, lascia diverse ripetizioni di margine e rispetta il target RPE.'
+                    : generateContextNote(index, isDeloadWeek, focus);
+                let noteFinal = autoNote + coachingContext +
                     (exItem.selectionReason ? ' | [SCELTA MYCOATCH] ' + exItem.selectionReason : '') +
                     (exItem.noteOverride ? ' | ' + exItem.noteOverride : '');
                 if (onboarding.calibrationWeek && w === 1) {
@@ -229,7 +232,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
 
                 const isFirstCompound = index === 0 && ["squat", "hinge", "horizontal_push", "vertical_push", "vertical_pull"].includes(ex.pattern);
                 
-                if (isFirstCompound && plannedKg !== null) {
+                if (isFirstCompound && plannedKg !== null && !usingReference) {
                     const w1 = Math.round(baseKg * 0.5);
                     const w2 = Math.round(baseKg * 0.7);
                     const w3 = Math.round(baseKg * 0.85);
