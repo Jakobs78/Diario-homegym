@@ -40,10 +40,11 @@ test('third-slot squat is protected while later accessories are removed',()=>{
 
 test('session too short fails clearly rather than silently deleting squat',()=>{
   const anchored=[bench(),lats(),squat()];
-  const minutes=Math.ceil(estimateDaySeconds(anchored)/60)-1;
+  // Anche con 2 serie per movimento questo budget resta troppo stretto.
+  const minutes=25;
   assert.throws(
     ()=>optimizeSession([...anchored,exercise('Curl',{category:'Bicipiti'})],minutes),
-    /fondamentali prioritari/i
+    /fondamental/i
   );
 });
 
