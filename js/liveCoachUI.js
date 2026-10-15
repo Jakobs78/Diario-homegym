@@ -266,6 +266,8 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
         }
         panel.append(review);
     }
+    const count = panel.closest('.mycoatch-live-disclosure')?.querySelector('.mycoatch-live-count');
+    if (count) count.textContent = `Serie ${snapshot.checkedSets}/${snapshot.totalSets}`;
     return snapshot;
 }
 
