@@ -58,6 +58,13 @@ export function normalizeSelectionPreferences(config = {}) {
         Object.keys(raw).some(key => !Object.hasOwn(FUNDAMENTAL_CHOICES, key))) {
         throw new Error('Preferenze dei fondamentali non valide.');
     }
+    const excludedExercises = config.excludedExercises ?? [];
+    if (!Array.isArray(excludedExercises) ||
+        excludedExercises.some(name => typeof name !== 'string' ||
+            !EXERCISE_DATABASE.some(exercise => exercise.name === name))) {
+        throw new Error('Lista di esercizi da evitare non valida.');
+    }
+    const excluded = [...new Set(excludedExercises)];
     const preferredLifts = {};
     for (const [key, value] of Object.entries(raw)) {
         if (value === '' || value === null || value === 'auto') continue;
@@ -66,11 +73,17 @@ export function normalizeSelectionPreferences(config = {}) {
         }
         preferredLifts[key] = value;
     }
-    return { availableEquipment, availableAccessories, preferredLifts };
+    for (const name of Object.values(preferredLifts)) {
+        if (excluded.includes(name)) {
+            throw new Error('La variante selezionata è fra gli esercizi da evitare: ' + name);
+        }
+    }
+    return { availableEquipment, availableAccessories, preferredLifts, excludedExercises: excluded };
 }
 
 export function isExerciseAvailable(exercise, preferences) {
     return preferences.availableEquipment.includes(exercise.equipment) &&
+        !(preferences.excludedExercises || []).includes(exercise.name) &&
         (exercise.requires || []).every(x => preferences.availableAccessories.includes(x));
 }
 
