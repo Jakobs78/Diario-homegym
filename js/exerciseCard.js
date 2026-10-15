@@ -108,13 +108,6 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     `;
 
     cardHtml += `
-        <!-- Suggerimenti visibili ma NON salvati come serie completate. -->
-        <div class="text-xs text-muted mb-xs">
-            Carichi e ripetizioni sono suggeriti dal CSV o, se il piano non cambia,
-            dalla serie corrispondente confermata nelle settimane precedenti.
-            Cambia i valori se serve e premi ✓: solo allora diventano allenamento svolto.
-            L'RPE mostrato è un obiettivo, non un RPE misurato: modificalo per registrare quello percepito.
-        </div>
         <table class="set-table mb-md">
             <thead>
                 <tr>
