@@ -165,6 +165,7 @@ export function renderWorkoutList() {
     // Cambiare esercizio, settimana o seduta non deve lasciare consigli obsoleti.
     dismissLiveCoachToast();
     if (!DOM.workoutListContainer) return;
+    const coachWasOpen = Boolean(document.getElementById('mycoatch-live-disclosure')?.open);
     DOM.workoutListContainer.innerHTML = '';
 
     if (!state.activeView) state.activeView = 'workout';
@@ -199,53 +200,88 @@ export function renderWorkoutList() {
         DOM.workoutListContainer.appendChild(archiveBadge);
     }
     
-    // BARRA NAVIGAZIONE GIORNI - BOX UNIFICATO
+    // Un'unica fascia per Meso / Settimana / Timer, con i giorni subito sotto.
     const unifiedHeaderBox = document.createElement('div');
     unifiedHeaderBox.className = 'unified-header-box';
+    unifiedHeaderBox.setAttribute('aria-label', 'Navigazione della scheda di allenamento');
 
-   // 1. Tab di selezione mesociclo
+    const quickRow = document.createElement('div');
+    quickRow.className = 'workout-quick-controls';
+
     const isLocked = Boolean(meso.locked);
     const mesoRow = document.createElement('div');
-    mesoRow.className = 'flex-center gap-sm';
+    mesoRow.className = 'meso-compact-control';
     mesoRow.innerHTML = `
-        <label class="text-sm font-semibold">Mesociclo:</label>
-        <button class="btn btn-secondary btn-mini" id="prev-meso-btn">-</button>
+        <span class="workout-compact-label">Meso</span>
+        <button class="btn btn-secondary btn-mini" id="prev-meso-btn"
+            type="button" aria-label="Mesociclo precedente" title="Mesociclo precedente"
+            ${mesoIndex === 0 ? 'disabled' : ''}>‹</button>
         <span id="meso-display" class="font-bold text-sm">${mesoIndex + 1}</span>
-        <button class="btn btn-secondary btn-mini" id="next-meso-btn">+</button>
-        <button class="btn btn-secondary btn-sm ${isLocked ? 'is-locked' : ''}" id="toggle-lock-meso-btn" title="Blocca/Sblocca Mesociclo">
-            ${isLocked ? '🔒 Sblocca' : '🔓 Blocca'}
-        </button>
+        <button class="btn btn-secondary btn-mini" id="next-meso-btn"
+            type="button" aria-label="Mesociclo successivo" title="Mesociclo successivo"
+            ${mesoIndex >= yearData.mesocycles.length - 1 ? 'disabled' : ''}>›</button>
     `;
-    unifiedHeaderBox.appendChild(mesoRow);
-    
-    
-    // 2. Tab di selezione settimana
+    quickRow.appendChild(mesoRow);
+
     const weekRow = document.createElement('div');
-    weekRow.className = 'week-selector-container flex-center gap-sm';
-    const weeksOptions = (meso.weeks || []).map(w => `<option value="${w.weekNumber}" ${w.weekNumber === targetWeek.weekNumber ? 'selected' : ''}>${w.weekNumber}</option>`).join('');
+    weekRow.className = 'week-selector-container';
+    const weeksOptions = (meso.weeks || []).map(w =>
+        `<option value="${w.weekNumber}" ${w.weekNumber === targetWeek.weekNumber ? 'selected' : ''}>${w.weekNumber}</option>`
+    ).join('');
     weekRow.innerHTML = `
-        <label for="week-selector" class="text-sm font-bold">Settimana:</label>
-        <select id="week-selector" class="week-select-input">
-            ${weeksOptions}
-        </select>
+        <label for="week-selector" class="workout-compact-label">Sett.</label>
+        <select id="week-selector" class="week-select-input" aria-label="Seleziona settimana">${weeksOptions}</select>
     `;
     const weekSelectEl = weekRow.querySelector('#week-selector');
-    weekSelectEl.onchange = (e) => {
-        state.activeWeek = parseInt(e.target.value, 10);
+    weekSelectEl.onchange = (event) => {
+        state.activeWeek = parseInt(event.target.value, 10);
         localStorage.setItem('ui_active_week', state.activeWeek);
         renderWorkoutList();
     };
-    unifiedHeaderBox.appendChild(weekRow);
+    quickRow.appendChild(weekRow);
 
-    // 3. Tab di selezione giorno
-    const dayTabsContainer = document.createElement('div');
-    dayTabsContainer.className = 'day-tabs flex-row gap-md';
-    const activeDayNum = state.activeDay || 1;
+    const currentDayIndex = state.activeDay || 1;
+    const currentDay = targetWeek.days?.[currentDayIndex - 1] || targetWeek.days?.[0];
+    if (!currentDay) return;
+
+    const timerRow = document.createElement('div');
+    timerRow.className = 'session-timer-box';
+    timerRow.innerHTML = `
+        <span class="timer-dot" aria-hidden="true"></span>
+        <span id="live-session-timer" class="session-timer-text">0:00</span>
+    `;
+    quickRow.appendChild(timerRow);
+
+    const moreActions = document.createElement('details');
+    moreActions.className = 'meso-more-actions';
+    const moreSummary = document.createElement('summary');
+    moreSummary.textContent = '⋯';
+    moreSummary.setAttribute('title', 'Opzioni mesociclo');
+    moreSummary.setAttribute('aria-label', 'Opzioni mesociclo');
+    const moreContent = document.createElement('div');
+    moreContent.className = 'meso-more-content';
+    const lockButton = document.createElement('button');
+    lockButton.type = 'button';
+    lockButton.className = `btn btn-secondary btn-sm ${isLocked ? 'is-locked' : ''}`;
+    lockButton.id = 'toggle-lock-meso-btn';
+    lockButton.textContent = isLocked ? '🔒 Sblocca mesociclo' : '🔓 Blocca mesociclo';
+    lockButton.title = isLocked ? 'Rendi modificabile il mesociclo' : 'Blocca il mesociclo';
+    moreContent.append(lockButton);
+    moreActions.append(moreSummary, moreContent);
+    quickRow.appendChild(moreActions);
+    unifiedHeaderBox.appendChild(quickRow);
+
+    // I giorni restano accessibili tramite chip scorrevoli.
+    const dayTabsContainer = document.createElement('nav');
+    dayTabsContainer.className = 'day-tabs';
+    dayTabsContainer.setAttribute('aria-label', 'Giorni di allenamento');
     (targetWeek.days || []).forEach((day, idx) => {
-        const dayBtn = document.createElement('button');
         const dayIndex = idx + 1;
-        dayBtn.className = `btn ${dayIndex === activeDayNum ? 'btn-primary active-day-btn' : 'btn-secondary inactive-day-btn'}`;
+        const dayBtn = document.createElement('button');
+        dayBtn.type = 'button';
+        dayBtn.className = `btn ${dayIndex === currentDayIndex ? 'btn-primary active-day-btn' : 'btn-secondary inactive-day-btn'}`;
         dayBtn.textContent = day.dayName || `Giorno ${dayIndex}`;
+        if (dayIndex === currentDayIndex) dayBtn.setAttribute('aria-current', 'date');
         dayBtn.onclick = () => {
             state.activeDay = dayIndex;
             localStorage.setItem('ui_active_day', state.activeDay);
@@ -254,28 +290,25 @@ export function renderWorkoutList() {
         dayTabsContainer.appendChild(dayBtn);
     });
     unifiedHeaderBox.appendChild(dayTabsContainer);
-
-    const currentDay = targetWeek.days?.[activeDayNum - 1] || targetWeek.days?.[0];
-    if (!currentDay) return;
-
-    // 4. Riassunto
-    const summaryRow = document.createElement('div');
-    summaryRow.className = 'workout-summary-title mt-sm';
-    summaryRow.textContent = `${currentDay.dayName || 'Giorno ' + activeDayNum}, Mesociclo ${mesoIndex + 1} - Settimana ${targetWeek.weekNumber}`;
-    unifiedHeaderBox.appendChild(summaryRow);
-
-    // 5. Timer di sessione
-    const timerRow = document.createElement('div');
-    timerRow.className = 'session-timer-box flex-center gap-sm';
-    timerRow.innerHTML = `
-        <span class="timer-dot"></span>
-        <span class="timer-icon">⏱️</span>
-        <span id="live-session-timer" class="session-timer-text">0:00</span>
-    `;
-    unifiedHeaderBox.appendChild(timerRow);
-
     DOM.workoutListContainer.appendChild(unifiedHeaderBox);
-    DOM.workoutListContainer.appendChild(createLiveCoachPanel(currentDay, { readOnly: isPastMeso }));
+
+    // Il pannello mantiene ogni dato e comando ma e' ripiegato di default.
+    const coachDisclosure = document.createElement('details');
+    coachDisclosure.className = 'mycoatch-live-disclosure';
+    coachDisclosure.id = 'mycoatch-live-disclosure';
+    coachDisclosure.open = coachWasOpen;
+    const coachSummary = document.createElement('summary');
+    coachSummary.className = 'mycoatch-live-trigger';
+    coachSummary.setAttribute('aria-label', 'Apri o chiudi il riepilogo MyCoatch');
+    const coachName = document.createElement('strong');
+    coachName.textContent = '🤖 MyCoatch';
+    const coachCount = document.createElement('span');
+    coachCount.className = 'mycoatch-live-count';
+    coachCount.setAttribute('aria-live', 'off');
+    coachCount.textContent = 'Serie 0/0';
+    coachSummary.append(coachName, coachCount);
+    coachDisclosure.append(coachSummary, createLiveCoachPanel(currentDay, { readOnly: isPastMeso }));
+    DOM.workoutListContainer.appendChild(coachDisclosure);
 
     if (currentDay.sessionStart) {
         const startDate = new Date(currentDay.sessionStart).toDateString();
