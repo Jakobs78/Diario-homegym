@@ -110,3 +110,98 @@ test('a heavy top set cannot be silently copied into a prescribed lighter back-o
     assert.equal(getSetPrefill(ex,2).weight,'70');
     assert.equal(getSetPrefill(ex,2).reps,'9');
 });
+
+test('week 2 suggests last confirmed values from same set position, not old defaults', () => {
+    const previous = exercise({kgMin:'70'});
+    previous.loggedSets[0] = {weight:72.5, reps:'9', rpe:'9', isLocked:true};
+    previous.loggedSets[1] = {weight:70, reps:'10', rpe:'8', completed:true};
+    const current = exercise({kgMin:'70'});
+    const original = structuredClone(current);
+    const top = getSetPrefill(current,0,{previousExercise:previous});
+    const backoff = getSetPrefill(current,1,{previousExercise:previous});
+    assert.deepEqual([top.weight,top.reps,top.source],['72.5','9','confirmed_previous_week']);
+    assert.deepEqual([backoff.weight,backoff.reps],['70','10']);
+    assert.equal(top.rpe,'8', 'new week RPE target is not previous week measured RPE');
+    assert.deepEqual(current,original);
+});
+
+test('deliberate new-week CSV load progression takes priority over prior kg', () => {
+    const previous=exercise({kgMin:'70',kgMax:'70'});
+    previous.loggedSets[0]={weight:72.5,reps:'9',rpe:'8',isLocked:true};
+    const current=exercise({kgMin:'75',kgMax:'75'});
+    const target=getSetPrefill(current,0,{previousExercise:previous});
+    assert.equal(target.weight,'75');
+    assert.equal(target.reps,'8'); // new programmed load: begin at the lower rep target
+    assert.equal(target.source,'csv_target');
+});
+
+test('no previous confirmed checkbox means no cross-week carry-forward', () => {
+    const previous=exercise();
+    previous.loggedSets[0]={weight:90,reps:'12',rpe:'10',isLocked:false,completed:false};
+    assert.equal(getSetPrefill(exercise(),0,{previousExercise:previous}).weight,'70');
+});
+
+test('previous week top set is not copied into a back-off', () => {
+    const previous=exercise({topset:'1x6 @ 90kg (RPE 8)'});
+    previous.loggedSets[0]={weight:90,reps:'6',rpe:'8',isLocked:true};
+    previous.loggedSets[1]={weight:67.5,reps:'10',rpe:'8',isLocked:true};
+    const current=exercise({topset:'1x6 @ 90kg (RPE 8)'});
+    const first=getSetPrefill(current,0,{previousExercise:previous});
+    const next=getSetPrefill(current,1,{previousExercise:previous});
+    assert.equal(first.weight,'90');
+    assert.equal(next.weight,'67.5');
+    assert.equal(next.reps,'10');
+});
+
+test('changed rep range resets rep suggestions to new plan', () => {
+    const previous=exercise({reps:'8-12'});
+    previous.loggedSets[0]={weight:70,reps:'12',rpe:'8',isLocked:true};
+    const current=exercise({reps:'5-7'});
+    const first=getSetPrefill(current,0,{previousExercise:previous});
+    assert.equal(first.weight,'70');
+    assert.equal(first.reps,'5');
+    assert.equal(first.source,'csv_target');
+});
+
+test('edited draft values win over both CSV and confirmed prior week', () => {
+    const previous=exercise();
+    previous.loggedSets[0]={weight:80,reps:'10',rpe:'8',isLocked:true};
+    const current=exercise();
+    current.loggedSets[0]={weight:65,reps:'7',rpe:'9',isLocked:false};
+    assert.deepEqual(
+        [getSetPrefill(current,0,{previousExercise:previous}).weight,
+         getSetPrefill(current,0,{previousExercise:previous}).reps,
+         getSetPrefill(current,0,{previousExercise:previous}).rpe],
+        ['65','7','9']);
+});
+
+test('previous no-RPE result cannot supply an observed RPE to new week', () => {
+    const previous=exercise();
+    previous.loggedSets[0]={weight:72.5,reps:'10',rpe:'',isLocked:true};
+    const current=exercise();
+    const target=getSetPrefill(current,0,{previousExercise:previous});
+    assert.equal(target.rpe,'8');
+    assert.equal(target.isSuggestedRpe,true);
+    assert.equal(current.loggedSets[0].rpe,'');
+});
+
+test('progressive loads specified per series are never overwritten by the previous check', () => {
+    const ex=exercise({sets:[
+        {targetKg:'60',targetReps:'8'},
+        {targetKg:'70',targetReps:'8'},
+        {targetKg:'72.5',targetReps:'8'}
+    ]});
+    ex.loggedSets[0] = {weight:62.5,reps:'9',rpe:'8',isLocked:true};
+    assert.equal(getSetPrefill(ex,1).weight,'70');
+    assert.equal(getSetPrefill(ex,1).reps,'8');
+    ex.loggedSets[1] = {weight:70,reps:'9',rpe:'8',isLocked:true};
+    assert.equal(getSetPrefill(ex,2).weight,'72.5');
+    assert.equal(getSetPrefill(ex,2).reps,'8');
+});
+
+test('confirmed warmups must not contaminate later working-set suggestions', () => {
+    const ex=exercise();
+    ex.loggedSets[0] = {weight:20,reps:'15',rpe:'',isWarmup:true,isLocked:true};
+    assert.equal(getSetPrefill(ex,1).weight,'70');
+    assert.equal(getSetPrefill(ex,1).reps,'8');
+});

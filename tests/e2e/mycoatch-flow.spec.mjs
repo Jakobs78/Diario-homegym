@@ -1043,3 +1043,87 @@ test('calibrazione CSV senza kg: il check richiede ancora un carico reale', asyn
   await page.locator('.set-lock-check[data-ex="0"][data-set="0"]').click();
   await expect(page.locator('.set-lock-check[data-ex="0"][data-set="0"]')).not.toBeChecked();
 });
+
+
+test('settimane successive: riusa soltanto le serie confermate dello stesso mesociclo', async ({ page }) => {
+  const monitor = await openIsolatedApp(page);
+  page.on('dialog', dialog => dialog.accept());
+  const csv = [HEADER,
+    '1;1;1;Panca Piana con Bilanciere;3;8-12;70;70;8;180s;Settimana 1;',
+    '2;1;1;Panca Piana con Bilanciere;3;8-12;70;70;8;180s;Settimana 2;',
+    '3;1;1;Panca Piana con Bilanciere;3;8-12;75;75;8;180s;Progressione CSV;'
+  ].join('\n');
+  const added = await page.evaluate(async csvContent => {
+    const { importWorkoutPlan } = await import('/js/csvHandler.js');
+    const { renderWorkoutList } = await import('/js/ui.js');
+    const result = importWorkoutPlan(csvContent);
+    if (result.success) renderWorkoutList();
+    return result;
+  }, csv);
+  assert.equal(added.success,true,JSON.stringify(added));
+
+  const kg = i => page.locator('.set-kg[data-ex="0"][data-set="' + i + '"]');
+  const reps = i => page.locator('.set-reps[data-ex="0"][data-set="' + i + '"]');
+  const rpe = i => page.locator('.set-rpe[data-ex="0"][data-set="' + i + '"]');
+  const check = i => page.locator('.set-lock-check[data-ex="0"][data-set="' + i + '"]');
+  await kg(0).fill('72.5');
+  await reps(0).fill('9');
+  await check(0).check();
+  await kg(1).fill('65');
+  await reps(1).fill('10');
+  await check(1).check();
+
+  // La settimana 2 parte dai set davvero confermati nelle stesse posizioni.
+  await page.locator('#week-selector').selectOption('2');
+  await expect(kg(0)).toHaveValue('72.5');
+  await expect(reps(0)).toHaveValue('9');
+  await expect(kg(1)).toHaveValue('65');
+  await expect(reps(1)).toHaveValue('10');
+  await expect(kg(2)).toHaveValue('70'); // non eseguito: CSV
+  await expect(rpe(0)).toHaveValue('8'); // solo RPE di programmazione
+  await expect(check(0)).not.toBeChecked();
+
+  const before = await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    return state.workoutData.history.years[String(new Date().getFullYear())]
+      .mesocycles.at(-1).weeks[1].days[0].exercises[0].loggedSets;
+  });
+  assert.ok(before.every(set => !set.isLocked && set.weight === '' &&
+    set.reps === '' && set.rpe === ''));
+
+  await check(0).check();
+  const actual = await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    return state.workoutData.history.years[String(new Date().getFullYear())]
+      .mesocycles.at(-1).weeks[1].days[0].exercises[0].loggedSets;
+  });
+  assert.equal(actual[0].weight,72.5);
+  assert.equal(actual[0].reps,'9');
+  assert.equal(actual[0].rpe,'');
+  assert.equal(actual[0].isLocked,true);
+  assert.equal(actual[1].isLocked,false);
+
+  // La settimana 3 prevede 75 kg; la progressione CSV prevale.
+  await page.locator('#week-selector').selectOption('3');
+  await expect(kg(0)).toHaveValue('75');
+  await expect(reps(0)).toHaveValue('8'); // nuovo carico = nuova partenza dal range CSV
+  await expect(check(0)).not.toBeChecked();
+
+  // Un nuovo mesociclo non eredita i dati del precedente.
+  const other = [HEADER,
+    '1;1;1;Panca Piana con Bilanciere;2;6-8;60;60;7.5;180s;Nuovo mesociclo;'
+  ].join('\n');
+  const next = await page.evaluate(async csvContent => {
+    const { importWorkoutPlan } = await import('/js/csvHandler.js');
+    const { renderWorkoutList } = await import('/js/ui.js');
+    const result=importWorkoutPlan(csvContent);
+    if(result.success) renderWorkoutList();
+    return result;
+  },other);
+  assert.equal(next.success,true,JSON.stringify(next));
+  await expect(kg(0)).toHaveValue('60');
+  await expect(reps(0)).toHaveValue('6');
+  await expect(check(0)).not.toBeChecked();
+  assert.deepEqual(monitor.remoteRequests,[]);
+  assert.deepEqual(monitor.pageErrors,[]);
+});
