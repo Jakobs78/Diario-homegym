@@ -281,7 +281,7 @@ export function renderWorkoutList() {
         dayBtn.type = 'button';
         dayBtn.className = `btn ${dayIndex === currentDayIndex ? 'btn-primary active-day-btn' : 'btn-secondary inactive-day-btn'}`;
         dayBtn.textContent = day.dayName || `Giorno ${dayIndex}`;
-        if (dayIndex === currentDayIndex) dayBtn.setAttribute('aria-current', 'date');
+        if (dayIndex === currentDayIndex) dayBtn.setAttribute('aria-current', 'true');
         dayBtn.onclick = () => {
             state.activeDay = dayIndex;
             localStorage.setItem('ui_active_day', state.activeDay);
