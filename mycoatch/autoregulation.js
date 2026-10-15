@@ -1,293 +1,288 @@
 /**
- * Module: mycoatch/autoregulation.js
- * Summary: Gestisce l'autoregolazione intelligente dell'allenamento.
- * Analizza ogni singola serie e l'e1RM reale ponderato su RPE, suggerendo incrementi
- * proporzionali al carico base (microcarichi) o rilevando overshooting e stalli reali.
+ * Compatibilità dell'API MyCoatch di autoregolazione.
+ *
+ * Tutte le decisioni si basano su serie effettivamente confermate.
+ * Un RPE mancante resta sconosciuto. Due sedute nella stessa settimana
+ * NON autorizzano un incremento del carico.
+ *
+ * L'analisi longitudinale di tutti i mesocicli resta in historyInsights.js.
+ * Qui accettiamo anche un array isolato di esercizi per i vecchi chiamanti.
  */
+import { estimateE1rm } from './historyAnalysis.js';
+import { evaluateExerciseProgression } from './progressionPolicy.js';
 
-/**
- * Calcola l'e1RM (1RM stimato) basandosi su peso, reps ed RPE.
- */
-export function calculateE1RM(weight, reps, rpe = 8) {
-    const w = parseFloat(weight) || 0;
-    const r = parseInt(reps, 10) || 0;
-    const rpeVal = parseFloat(rpe) || 8;
-
-    if (w <= 0 || r <= 0) return 0;
-
-    const rir = Math.max(0, 10 - rpeVal);
-    const estimatedMaxReps = r + rir;
-
-    const e1rm = w * (1 + estimatedMaxReps / 30);
-    return Math.round(e1rm * 10) / 10;
-}
-
-/**
- * Sanifica qualsiasi valore RPE (es. "@6,5", "7.0", " 8 ") restituendo un numero valido.
- */
-export function cleanRpeValue(rawRpe, fallback = 8) {
-    if (rawRpe === null || rawRpe === undefined) return fallback;
-    const str = String(rawRpe).replace('@', '').replace(',', '.').trim();
-    const parsed = parseFloat(str);
-    return isNaN(parsed) || parsed <= 0 ? fallback : parsed;
-}
-
-/**
- * Calcola l'incremento di peso ideale basato sulla fisiologia e sul peso attuale.
- */
-export function calculateSmartIncrement(currentKg, isIsolation = false) {
-    if (currentKg <= 0) return 1.0;
-
-    if (currentKg <= 12.0 || isIsolation) {
-        if (currentKg < 6.0) return 0.5;
-        if (currentKg <= 12.0) return 1.0;
-        return 1.25;
+const numeric = value => {
+    if (value === undefined || value === null || value === '' ||
+        typeof value === 'boolean') return null;
+    const str = String(value).trim().replace(',', '.');
+    return /^(?:\d+)(?:\.\d+)?$/.test(str) ? Number(str) : null;
+};
+const measuredRpe = value => {
+    if (value === null || value === undefined || value === '') return null;
+    const normalized = String(value).trim().replace(/^@/, '').replace(',', '.');
+    const n = /^(?:\d+)(?:\.\d+)?$/.test(normalized)
+        ? Number(normalized) : NaN;
+    return Number.isFinite(n) && n >= 6 && n <= 10 ? n : null;
+};
+const positiveReps = value => {
+    const n = numeric(value);
+    return Number.isInteger(n) && n >= 1 && n <= 100 ? n : null;
+};
+const parseReps = value => {
+    const v = String(value ?? '').trim();
+    const matched = /^(\d+)\s*[-–]\s*(\d+)$/.exec(v);
+    if (matched) {
+        const min = Number(matched[1]), max = Number(matched[2]);
+        return min > 0 && min <= max && max <= 100 ? { min, max } : null;
     }
-
-    if (currentKg <= 50.0) return 2.5;
-    return currentKg >= 100.0 ? 5.0 : 2.5;
-}
-
-/**
- * Analizza lo storico dell'esercizio e decide il feedback / progressione per l'utente.
- */
-export function analyzeUserHistory(exerciseHistory) {
-    if (!exerciseHistory || exerciseHistory.length === 0) {
+    const single = positiveReps(v);
+    return single === null ? null : { min: single, max: single };
+};
+const validDate = value => {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value))
         return null;
+    const parsed = new Date(value + 'T00:00:00Z');
+    return Number.isFinite(parsed.getTime()) &&
+        parsed.toISOString().slice(0, 10) === value ? parsed : null;
+};
+function weekOf(value) {
+    const date = validDate(value);
+    if (!date) return null;
+    // UTC start-of-Monday prevents two sessions on Monday and Sunday
+    // from masquerading as two distinct adaptation weeks.
+    const dow = (date.getUTCDay() + 6) % 7;
+    date.setUTCDate(date.getUTCDate() - dow);
+    return 'calendar/' + date.toISOString().slice(0, 10);
+}
+const confirmed = set => set?.isLocked === true || set?.completed === true;
+const special = (ex, set) => Boolean(
+    ex?.isDropset || ex?.groupType === 'dropset' ||
+    set?.isDropset || set?.intensityTechnique ||
+    /\+/.test(String(set?.reps ?? ''))
+);
+
+function extractWeekId(exercise) {
+    if (typeof exercise?.weekId === 'string' && exercise.weekId.trim())
+        return exercise.weekId.trim();
+    const week = Number(exercise?.weekNumber ?? exercise?.week);
+    const year = Number(exercise?.year);
+    const meso = exercise?.mesocycleIndex ?? exercise?.mesocycleId;
+    if (Number.isInteger(week) && week >= 1 && Number.isInteger(year) &&
+        year > 2000 && meso !== null && meso !== undefined &&
+        String(meso).trim()) {
+        return String(year) + '/' + String(meso) + '/' + week;
     }
+    // Use the actual performed date if present; NEVER invent calendar weeks
+    // based on array indices.
+    return weekOf(exercise?.performedOn ?? exercise?.date ?? exercise?.sessionDate);
+}
 
-    const lastSession = exerciseHistory[exerciseHistory.length - 1];
-    const sets = lastSession.loggedSets || lastSession.sets || [];
-    
-    const confirmedSets = sets.filter(s => (s.isLocked || s.completed) && s.reps && parseInt(s.reps, 10) > 0);
-    if (confirmedSets.length === 0) return null;
+function inspectLegacyExercise(exercise) {
+    if (!exercise || exercise.isExcluded) return null;
+    const records = Array.isArray(exercise.loggedSets)
+        ? exercise.loggedSets : (Array.isArray(exercise.sets) ? exercise.sets : []);
+    if (!records.length) return null;
+    const valid = records.flatMap(set => {
+        if (!confirmed(set) || set?.isWarmup || set?.warmup ||
+            set?.is_warmup) return [];
+        const weight = numeric(set?.weight ?? set?.actualKg);
+        const reps = positiveReps(set?.reps ?? set?.actualReps);
+        if (weight === null || weight <= 0 || weight > 700 ||
+            reps === null) return [];
+        const rpe = measuredRpe(set?.rpe);
+        return [{ weight, reps, rpe, special: special(exercise, set) }];
+    });
+    if (!valid.length) return null;
 
-    const repsCompleted = confirmedSets.map(s => parseInt(s.reps, 10) || 0);
-    const weightsUsed = confirmedSets.map(s => parseFloat(String(s.weight || '0').replace(',', '.')) || 0);
-    const rpeValues = confirmedSets.map(s => cleanRpeValue(s.rpe, 8));
-
-    const currentKg = Math.max(...weightsUsed);
-    if (currentKg === 0) return null;
-
-    const targetRepsStr = String(lastSession.targetReps || lastSession.reps || "8").trim();
-    let minTargetReps = 8, maxTargetReps = 10;
-
-    if (targetRepsStr.includes('-')) {
-        const parts = targetRepsStr.split('-');
-        minTargetReps = parseInt(parts[0], 10) || 8;
-        maxTargetReps = parseInt(parts[1], 10) || 10;
-    } else {
-        minTargetReps = parseInt(targetRepsStr, 10) || 8;
-        maxTargetReps = minTargetReps;
-    }
-
-    const targetRpe = cleanRpeValue(lastSession.targetRpe || lastSession.rpe || "8", 8);
-
-    const avgReps = repsCompleted.reduce((a, b) => a + b, 0) / repsCompleted.length;
-    const avgRpe = rpeValues.reduce((a, b) => a + b, 0) / rpeValues.length;
-    const currentE1RM = calculateE1RM(currentKg, avgReps, avgRpe);
-    const isIsolation = Boolean(lastSession.isIsolation || currentKg <= 12);
-
-    const baseMetaData = {
+    const workingSets = records.filter(set =>
+        !set?.isWarmup && !set?.warmup && !set?.is_warmup);
+    const explicitCount = Number.parseInt(
+        String(exercise.setsCount ?? exercise.set ?? ''), 10);
+    const plannedSets = Math.max(valid.length, workingSets.length,
+        Number.isInteger(explicitCount) && explicitCount > 0 ? explicitCount : 0);
+    const range = parseReps(exercise.targetReps ?? exercise.reps);
+    const targetRpe = measuredRpe(
+        exercise.targetRpe ?? exercise.rpeTarget ?? exercise.rpe);
+    const allRpeMeasured = valid.every(s => s.rpe !== null);
+    const validEstimates = valid.map(s =>
+        s.rpe === null || s.special ? null :
+            estimateE1rm(s.weight, s.reps, s.rpe)).filter(v => v !== null);
+    const currentKg = Math.min(...valid.map(s => s.weight));
+    const topKg = Math.max(...valid.map(s => s.weight));
+    const avgReps = valid.reduce((sum, set) => sum + set.reps, 0) / valid.length;
+    const avgRpe = allRpeMeasured
+        ? valid.reduce((sum, set) => sum + set.rpe, 0) / valid.length : null;
+    const hasSpecial = valid.some(s => s.special);
+    return {
         currentKg,
-        minTargetReps,
-        maxTargetReps,
+        topKg,
+        minTargetReps: range?.min ?? null,
+        maxTargetReps: range?.max ?? null,
         avgReps,
         avgRpe,
         targetRpe,
-        isIsolation,
-        currentE1RM
-    };
-
-    if (avgRpe >= targetRpe + 1.5) {
-        const kgReduction = currentKg >= 100 ? 5.0 : (currentKg <= 12 ? 1.0 : 2.5);
-        return {
-            ...baseMetaData,
-            action: "REDUCE_LOAD",
-            suggestedKgIncrement: -kgReduction,
-            message: `⚠️ **Overshooting:** RPE medio elevato (@${avgRpe.toFixed(1)} vs Target @${targetRpe}). Per evitare accumulo di fatica, considera di ridurre a **${currentKg - kgReduction}kg**.`
-        };
-    }
-
-    const allSetsMaxed = repsCompleted.every(r => r >= maxTargetReps);
-    if (allSetsMaxed && avgRpe <= targetRpe) {
-        const step = calculateSmartIncrement(currentKg, isIsolation);
-        const nextTargetKg = currentKg + step;
-
-        return {
-            ...baseMetaData,
-            action: "INCREMENT_LOAD",
-            suggestedKgIncrement: step,
-            nextTargetKg,
-            message: `🔥 **MyCoach Progression:** Target chiuso con ottima riserva! (e1RM: ${currentE1RM}kg). Per la prossima sessione ti consiglio di salire a **${nextTargetKg}kg** (+${step}kg).`
-        };
-    }
-
-    if (exerciseHistory.length >= 2) {
-        const prevSession = exerciseHistory[exerciseHistory.length - 2];
-        const prevSets = (prevSession.loggedSets || prevSession.sets || []).filter(s => (s.isLocked || s.completed) && s.reps);
-        
-        if (prevSets.length > 0) {
-            const prevKg = Math.max(...prevSets.map(s => parseFloat(String(s.weight || '0').replace(',', '.')) || 0));
-            const prevRepsArr = prevSets.map(s => parseInt(s.reps, 10) || 0);
-            const prevRpeArr = prevSets.map(s => cleanRpeValue(s.rpe, 8));
-
-            const prevAvgReps = prevRepsArr.reduce((a, b) => a + b, 0) / prevRepsArr.length;
-            const prevAvgRpe = prevRpeArr.reduce((a, b) => a + b, 0) / prevRpeArr.length;
-            const prevE1RM = calculateE1RM(prevKg, prevAvgReps, prevAvgRpe);
-
-            if (currentE1RM > prevE1RM) {
-                return {
-                    ...baseMetaData,
-                    action: "PROGRESSING",
-                    message: `💪 **Miglioramento Rilevato:** Prestazione e1RM salita a ${currentE1RM}kg (vs ${prevE1RM}kg precedente).`
-                };
-            }
-
-            if (currentE1RM < prevE1RM * 0.98 && repsCompleted.every(r => r < minTargetReps)) {
-                return {
-                    ...baseMetaData,
-                    action: "TRIGGER_DELOAD_OR_VARIATION",
-                    suggestedKgIncrement: 0,
-                    message: `🛡 **MyCoach Stallo:** Calo di prestazione confermato su 2 microcicli. Si consiglia un taglio del 10% del carico nella prossima sessione.`
-                };
-            }
+        currentE1RM: validEstimates.length === valid.length
+            ? Math.max(...validEstimates) : null,
+        completedSets: valid.length,
+        plannedSets,
+        hasSpecial,
+        progressExposure: {
+            weekId: extractWeekId(exercise),
+            isDeload: targetRpe !== null && targetRpe <= 6.5,
+            repRange: range,
+            completedSets: valid.length, plannedSets,
+            allStraightSets: !hasSpecial,
+            uniformWeight: valid.every(s => s.weight === valid[0].weight),
+            workingKg: currentKg,
+            topKg,
+            minWorkingReps: Math.min(...valid.map(s => s.reps)),
+            allRepsAtTop: Boolean(range) && valid.length === plannedSets &&
+                valid.every(s => s.reps >= range.max && s.reps <= range.max + 2),
+            allRepsInRange: Boolean(range) && valid.length === plannedSets &&
+                valid.every(s => s.reps >= range.min && s.reps <= range.max),
+            allRepsBelowMin: Boolean(range) &&
+                valid.every(s => s.reps < range.min),
+            allRpeWithinTarget: targetRpe !== null &&
+                allRpeMeasured && valid.length === plannedSets &&
+                valid.every(s => s.rpe <= targetRpe),
+            rpeOvershoot: targetRpe !== null && allRpeMeasured &&
+                valid.length === plannedSets && avgRpe >= targetRpe + 1
         }
-    }
-
-    return {
-        ...baseMetaData,
-        action: "MAINTAIN",
-        message: null
     };
 }
 
+/** Strict e1RM: missing/invalid RPE does not produce a number. */
+export function calculateE1RM(weight, reps, rpe = null) {
+    const kg = numeric(weight), count = positiveReps(reps), effort = measuredRpe(rpe);
+    return kg === null || count === null || effort === null ||
+        kg <= 0 ? null : estimateE1rm(kg, count, effort);
+}
+
+/** RPE defaults to unknown rather than fabricated @8. */
+export function cleanRpeValue(rawRpe, fallback = null) {
+    const actual = measuredRpe(rawRpe);
+    return actual === null ? measuredRpe(fallback) : actual;
+}
+
+export function calculateSmartIncrement(currentKg, isIsolation = false) {
+    const kg = numeric(currentKg);
+    if (kg === null || kg <= 0) return null;
+    if (kg <= 12 || isIsolation) return kg < 6 ? 0.5 : kg <= 12 ? 1 : 1.25;
+    return kg >= 100 ? 5 : 2.5;
+}
+
 /**
- * Genera il promemoria specifico per la sessione successiva in base al focus.
+ * An unstructured exercise array can support observational feedback, but
+ * cannot justify training loads unless 2 DISTINCT dated / identified weeks
+ * have complete, comparable performances with measured RPE.
  */
-export function generateNextSessionReminder(lastAnalysis) {
-    if (!lastAnalysis) return null;
+export function analyzeUserHistory(exerciseHistory) {
+    if (!Array.isArray(exerciseHistory) || !exerciseHistory.length) return null;
+    const analyzed = exerciseHistory.map(inspectLegacyExercise).filter(Boolean);
+    if (!analyzed.length) return null;
 
-    const { currentKg, maxTargetReps, minTargetReps, avgReps, avgRpe, targetRpe, isIsolation } = lastAnalysis;
-    const isStrengthFocus = maxTargetReps <= 6;
+    const last = analyzed.at(-1);
+    const progression = evaluateExerciseProgression(
+        analyzed.map(x => x.progressExposure));
+    const notes = [...progression.caveats];
+    const result = {
+        ...last,
+        action: 'MAINTAIN',
+        suggestedKgIncrement: 0,
+        nextTargetKg: null,
+        suggestedReps: null,
+        progression,
+        evidenceWeeks: progression.evidenceWeeks,
+        message: 'Mantieni il carico e registra prestazioni confrontabili in settimane diverse.'
+    };
 
-    if (lastAnalysis.action === "INCREMENT_LOAD") {
-        const step = calculateSmartIncrement(currentKg, isIsolation);
-        const nextKg = currentKg + step;
-
-        if (isStrengthFocus) {
-            return {
-                type: "STRENGTH_INCREASE",
-                badge: `🏋️ Forza: Sali a ${nextKg}kg`,
-                prompt: `🎯 **Target Forza Sbloccato:** Nella scorsa sessione hai gestito ${currentKg}kg x ${avgReps.toFixed(1)} @${avgRpe.toFixed(1)}. Oggi carica **${nextKg}kg** (+${step}kg) mantenendo ${minTargetReps}-${maxTargetReps} reps.`
-            };
+    if (progression.readyForLoad && !progression.fatigueConcern) {
+        const step = calculateSmartIncrement(
+            progression.lastWeekWorkingKg, last.currentKg <= 12);
+        if (step && step / progression.lastWeekWorkingKg <= 0.10) {
+            result.action = 'INCREMENT_LOAD';
+            result.suggestedKgIncrement = step;
+            result.nextTargetKg = Math.round((progression.lastWeekWorkingKg + step) * 4) / 4;
+            result.message = 'Due settimane diverse complete a fine range, RPE reale entro il target: valuta un piccolo incremento se l’attrezzatura lo permette.';
         } else {
-            return {
-                type: "HYPERTROPHY_LOAD_STEP",
-                badge: `🔥 Ipertrofia: ${nextKg}kg (Reps reset)`,
-                prompt: `🔥 **Progressione Doppia:** Hai saturato il range di reps col peso precedente. Oggi sali a **${nextKg}kg** e punta a chiudere il limite minimo (${minTargetReps} reps).`
-            };
+            notes.push('incremento_standard_eccessivo');
         }
+    } else if (progression.readyForReps) {
+        result.action = 'BUILD_REPS';
+        result.suggestedReps = progression.nextRepTarget;
+        result.message = 'Mantieni i kg e prova una ripetizione aggiuntiva senza superare il target RPE.';
+    } else if (progression.fatigueConcern) {
+        result.action = 'REVIEW_FATIGUE';
+        result.message = 'RPE misurato alto in settimane distinte: verifica recupero e tecnica prima di correggere i kg.';
+    } else if (progression.repeatedBelowMin) {
+        result.action = 'REVIEW_MISSED_REPS';
+        result.message = 'Ripetizioni sotto target in due settimane: rivaluta il range senza attribuire automaticamente il calo alla fatica.';
     }
+    result.caveats = [...new Set(notes)];
+    return result;
+}
 
-    if (!isStrengthFocus && avgReps < maxTargetReps && avgRpe <= targetRpe) {
+export function generateNextSessionReminder(lastAnalysis) {
+    if (!lastAnalysis || !lastAnalysis.progression?.recentWeeksQualified)
+        return null;
+    const last = lastAnalysis;
+    if (last.action === 'INCREMENT_LOAD' &&
+        Number.isFinite(last.nextTargetKg)) {
         return {
-            type: "HYPERTROPHY_REP_STEP",
-            badge: `📈 Ipertrofia: Mantieni ${currentKg}kg, cerca +1/+2 reps`,
-            prompt: `📈 **Target Reps:** Carico confermato a **${currentKg}kg**. L'obiettivo di oggi è spingere ogni serie verso **${maxTargetReps} reps** mantenendo RPE @${targetRpe}.`
+            type: 'LOAD_STEP',
+            badge: 'Incremento suggerito: ' + last.nextTargetKg + ' kg',
+            prompt: last.message + ' Non viene applicato automaticamente.'
         };
     }
-
-    if (lastAnalysis.action === "REDUCE_LOAD") {
-        const kgReduction = currentKg >= 100 ? 5.0 : (currentKg <= 12 ? 1.0 : 2.5);
-        const suggestedKg = currentKg - kgReduction;
+    if (last.action === 'BUILD_REPS' &&
+        Number.isInteger(last.suggestedReps)) {
         return {
-            type: "DELOAD_ADJUSTMENT",
-            badge: `⚠ Gestione Fatica: Consiglio ${suggestedKg}kg`,
-            prompt: `🛡 **Gestione Fatica:** Nella sessione precedente l'RPE è stato troppo elevato. Oggi si consiglia di usare **${suggestedKg}kg** per garantire qualità tecnica ed evitare sovraccarico.`
+            type: 'REP_STEP',
+            badge: 'Prossimo obiettivo: ' + last.suggestedReps + ' ripetizioni',
+            prompt: last.message + ' Non viene applicato automaticamente.'
         };
     }
-
     return null;
 }
 
 /**
- * Valuta le prestazioni in TEMPO REALE per la singola serie compilata, 
- * confrontandola direttamente con i target prescritti nella scheda
- * e calcolando il carico suggerito per la serie successiva.
+ * Legacy live helper: suggestions are advisory only.
+ * The regular user-facing live coach uses liveCoach.js instead.
  */
-export function evaluateRealTimePerformance(setObj, targetReps = "8-10", targetRpe = 8) {
-    if (!setObj || (!setObj.weight && !setObj.reps)) return null;
+export function evaluateRealTimePerformance(setObj, targetReps = '8-10', targetRpe = null) {
+    if (!confirmed(setObj)) return null;
+    const kg = numeric(setObj.weight), reps = positiveReps(setObj.reps);
+    if (kg === null || kg <= 0 || reps === null) return null;
+    const measured = measuredRpe(setObj.rpe);
+    const target = measuredRpe(targetRpe);
+    const range = parseReps(targetReps);
 
-    const weight = parseFloat(String(setObj.weight || '0').replace(',', '.')) || 0;
-    const reps = parseInt(setObj.reps, 10) || 0;
-    const rpe = cleanRpeValue(setObj.rpe, 8);
-
-    if (weight <= 0 || reps <= 0) return null;
-
-    // Parsing dinamico del range di ripetizioni target (es. "8-10" o "6")
-    const repsTargetStr = String(targetReps || "8").trim();
-    let minReps, maxReps;
-
-    if (repsTargetStr.includes('-')) {
-        const parts = repsTargetStr.split('-');
-        minReps = parseInt(parts[0], 10) || 8;
-        maxReps = parseInt(parts[1], 10) || 10;
-    } else {
-        const parsedSingle = parseInt(repsTargetStr, 10) || 8;
-        minReps = parsedSingle;
-        maxReps = parsedSingle;
+    if (measured === null || target === null || !range) {
+        return {
+            weight: kg, reps, rpe: measured,
+            e1rm: null, status: 'INSUFFICIENT_EFFORT_DATA',
+            suggestedNextWeight: null, isTargetMet: null,
+            feedbackNote: 'Kg e ripetizioni confermati, ma RPE o target non validi: nessun carico suggerito.'
+        };
     }
 
-    const expectedRpe = cleanRpeValue(targetRpe, 8);
-    
-    // Calcolo e1RM della serie appena eseguita
-    const e1rm = calculateE1RM(weight, reps, rpe);
-
-    // Calcolo del carico ideale per la prossima serie (Reverse Epley)
-    // Usiamo maxReps come target ideale di ripetizioni da raggiungere
-    const targetRir = Math.max(0, 10 - expectedRpe);
-    const expectedMaxReps = maxReps + targetRir;
-    let idealNextWeight = e1rm / (1 + expectedMaxReps / 30);
-    
-    // Arrotondamento ai 2.5kg più vicini (o 1.25kg per carichi bassi)
-    if (idealNextWeight < 15) {
-        idealNextWeight = Math.round(idealNextWeight / 1.25) * 1.25;
-    } else {
-        idealNextWeight = Math.round(idealNextWeight / 2.5) * 2.5;
-    }
-
-    // Analisi prestazione serie per serie da Coach
-    let status = "PERFECT"; 
-    let feedbackNote = "Serie perfettamente in target!";
-    let suggestedWeight = weight; // Di base mantiene il peso
-
-    if (rpe > expectedRpe + 1.0) {
-        status = "OVERSHOOT_RPE";
-        suggestedWeight = idealNextWeight < weight ? idealNextWeight : weight - 2.5;
-        feedbackNote = `⚠️ **Overshooting:** RPE @${rpe} troppo alto (Target @${expectedRpe}). Per la prossima serie scala a **${suggestedWeight}kg**.`;
-    } else if (reps < minReps) {
-        status = "UNDER_REPS";
-        suggestedWeight = idealNextWeight < weight ? idealNextWeight : weight - 2.5;
-        feedbackNote = `🔻 **Sotto Target:** Fatte ${reps} reps (minimo ${minReps}). Calo consigliato: usa **${suggestedWeight}kg** alla prossima.`;
-    } else if (reps > maxReps && rpe <= expectedRpe) {
-        status = "OVER_REPS";
-        suggestedWeight = idealNextWeight > weight ? idealNextWeight : weight + 2.5;
-        feedbackNote = `🔥 **Superato Target:** Chiuse ${reps} reps con RPE @${rpe}. Ottimo margine, sali a **${suggestedWeight}kg**.`;
-    } else if (reps >= minReps && rpe <= expectedRpe - 1.5) {
-        status = "UNDERSHOOT_RPE";
-        suggestedWeight = idealNextWeight > weight ? idealNextWeight : weight + 2.5;
-        feedbackNote = `💪 **Carico Leggero:** RPE @${rpe} basso (Target @${expectedRpe}). C'è margine, prova con **${suggestedWeight}kg**.`;
-    }
-
+    const e1rm = calculateE1RM(kg, reps, measured);
+    const under = reps < range.min;
+    const highRpe = measured > target + 1;
+    const over = reps > range.max;
+    const status = highRpe ? 'OVERSHOOT_RPE' :
+        under ? 'UNDER_REPS' : over ? 'OVER_REPS' : 'IN_RANGE';
+    // Do not suggest jumps from a single set. Only gradual assessments
+    // from 2 different completed weeks can recommend a new working weight.
     return {
-        weight,
-        reps,
-        rpe,
-        e1rm,
+        weight: kg, reps, rpe: measured, e1rm,
         status,
-        feedbackNote,
-        suggestedNextWeight: suggestedWeight,
-        isTargetMet: reps >= minReps && reps <= maxReps && Math.abs(rpe - expectedRpe) <= 1.0
+        suggestedNextWeight: null,
+        isTargetMet: !under && !over && Math.abs(measured - target) <= 1,
+        feedbackNote: highRpe
+            ? 'RPE superiore al target: verifica tecnica e recupero. Nessun aumento automatico.'
+            : under ? 'Ripetizioni sotto il minimo: non cambiare i kg senza altre informazioni.'
+                : over ? 'Ripetizioni oltre il range: registra e rivaluta dopo più sedute.'
+                    : 'Serie confermata entro il range: prosegui con tecnica controllata.'
     };
 }
