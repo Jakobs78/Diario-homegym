@@ -66,12 +66,21 @@ export function getSetPrefill(exercise, index) {
         top.reps || firstReps(exercise?.reps ?? exercise?.targetReps);
     const plannedRpe = targetRpe(plan.targetRpe) ||
         targetRpe(exercise?.targetRpe ?? exercise?.rpeTarget ?? exercise?.rpe);
-    const source = previous ? 'confirmed_previous_set' : 'csv_target';
+    // Se il primo set e' un top set piu' pesante delle serie di lavoro,
+    // NON trasferire il suo carico ai back-off. Aspetta che un back-off
+    // sia confermato e usalo come nuovo riferimento per i successivi.
+    const firstTop = topSetTarget(exercise);
+    const baseWeight = cleanDecimal(exercise?.kgMin) || cleanDecimal(exercise?.kgMax);
+    const backoffAfterTop = index > 0 && previous === logs[0] &&
+        firstTop.weight && baseWeight &&
+        Number(firstTop.weight) > Number(baseWeight);
+    const carry = previous && !backoffAfterTop;
+    const source = carry ? 'confirmed_previous_set' : 'csv_target';
     return {
         weight: filled(current.weight) ? String(current.weight)
-            : previous ? weightFor(previous) : plannedWeight,
+            : carry ? weightFor(previous) : plannedWeight,
         reps: filled(current.reps) ? String(current.reps)
-            : previous ? repsFor(previous) : plannedReps,
+            : carry ? repsFor(previous) : plannedReps,
         // RPE precedentemente confermato resta un suggerimento, non una misura
         // da registrare automaticamente nella nuova serie.
         rpe: filled(current.rpe) ? String(current.rpe)
