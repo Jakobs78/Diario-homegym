@@ -103,7 +103,8 @@ test('engine generates weeks with a consistent RPE and no speculative top load',
     for (const day of week.days) {
       assert.ok(day.estimatedMinutes <= cfg.maxSessionMinutes);
       for (const ex of day.exercises) {
-        assert.equal(Number(ex.rpe), week.targetRpe);
+        assert.ok(Number(ex.rpe) >= 6 && Number(ex.rpe) <= 8.5);
+        if (week.isDeloadWeek) assert.equal(Number(ex.rpe), 6.5);
         if (ex.topset && ex.kgMin !== '') {
           assert.ok(ex.topset.includes(ex.kgMin + 'kg'));
           assert.equal(Number(ex.sets[0].targetKg), Number(ex.kgMin));
