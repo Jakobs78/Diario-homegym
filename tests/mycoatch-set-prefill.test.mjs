@@ -131,7 +131,7 @@ test('deliberate new-week CSV load progression takes priority over prior kg', ()
     const current=exercise({kgMin:'75',kgMax:'75'});
     const target=getSetPrefill(current,0,{previousExercise:previous});
     assert.equal(target.weight,'75');
-    assert.equal(target.reps,'9'); // still a comparable rep range
+    assert.equal(target.reps,'8'); // new programmed load: begin at the lower rep target
     assert.equal(target.source,'csv_target');
 });
 
