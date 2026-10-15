@@ -30,7 +30,7 @@ export const MyCoatch = {
             });
         }
         const config = coachState.getConfig();
-        const macrocycle = planMacrocycle(report, config);
+        const macrocycle = planMacrocycle(report, config, userHistory);
 
         // I dati storici non vengono modificati: proponiamo un mesociclo separato.
         const newMesocycle = generateSmartMesocycle(config, analysis, report.lastMesocycle);
@@ -84,7 +84,7 @@ export const MyCoatch = {
      */
     previewMacrocycle(userHistory, goalSettings = {}) {
         const report = analyzeTrainingHistory(userHistory);
-        return planMacrocycle(report, { ...coachState.getConfig(), ...goalSettings });
+        return planMacrocycle(report, { ...coachState.getConfig(), ...goalSettings }, userHistory);
     },
 
     /**
