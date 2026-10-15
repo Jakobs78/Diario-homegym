@@ -38,15 +38,63 @@ function topSetTarget(exercise) {
         reps: reps ? firstReps(reps[1]) : '' };
 }
 
+
+// Valori PREVISTI per ciascuna posizione. Mantiene distinti i top set dai
+// back-off e non trasforma intervalli come "8-12" in ripetizioni effettuate.
+function plannedFor(exercise, index) {
+    const plan = exercise?.sets?.[index] || {};
+    const top = index === 0 ? topSetTarget(exercise) : { weight: '', reps: '' };
+    const weight = cleanDecimal(
+        plan.targetKg ?? plan.kg ?? (index === 0
+            ? (exercise?.topsetKgMin ?? exercise?.topsetKg ?? top.weight)
+            : '')
+    ) || top.weight ||
+        cleanDecimal(exercise?.kgMin) || cleanDecimal(exercise?.kgMax);
+    return {
+        weight,
+        reps: firstReps(plan.targetReps) || top.reps ||
+            firstReps(exercise?.reps ?? exercise?.targetReps),
+        rpe: targetRpe(plan.targetRpe) ||
+            targetRpe(exercise?.targetRpe ?? exercise?.rpeTarget ?? exercise?.rpe)
+    };
+}
+
+function repsCompatible(reps, exercise) {
+    const value = String(reps);
+    // Tecniche speciali non vanno trasferite ad un esercizio ordinario.
+    if (value.includes('+')) {
+        return Boolean(exercise?.isDropset ||
+            exercise?.groupType === 'dropset');
+    }
+    const n = Number(value);
+    if (!Number.isInteger(n) || n < 1 || n > 100) return false;
+    const range = String(exercise?.reps ?? exercise?.targetReps ?? '').trim();
+    const m = range.match(/^(\d+)\s*(?:-|–|a)\s*(\d+)$/i);
+    if (m) return n >= Number(m[1]) && n <= Number(m[2]);
+    // L'esercizio puo' avere una singola prescrizione numerica ma eseguire
+    // una ripetizione diversa: non ci serve inventare una validazione clinica.
+    return true;
+}
+
 /**
- * Le prime celle vengono valorizzate da target CSV numerici.
- * Dopo ogni check, le prossime righe ancora libere mostrano la serie
- * confermata piu' vicina. Non scrive nulla nel diario fino al check.
+ * Prefill da CSV e, nelle settimane successive, da serie davvero confermate
+ * nello STESSO mesociclo. Per sicurezza e confrontabilita' si confronta la
+ * stessa posizione (top set con top set, back-off con back-off).
+ *
+ * La priorita' e':
+ * 1. modifiche gia' scritte dall'atleta;
+ * 2. serie confermata nella seduta corrente (se non e' un top-set da cui
+ *    non si deve ereditare il carico nei back-off);
+ * 3. stessa serie nella settimana precedente quando il piano kg non cambia;
+ * 4. prescrizione valida del CSV; mai carichi inventati.
+ *
+ * Le proposte restano solo sullo schermo. Le statistiche MyCoatch leggono
+ * esclusivamente set con checked/confirmed e dati reali.
  */
-export function getSetPrefill(exercise, index) {
+export function getSetPrefill(exercise, index, { previousExercise = null } = {}) {
     const logs = Array.isArray(exercise?.loggedSets) ? exercise.loggedSets : [];
     const current = logs[index] || {};
-    const plan = exercise?.sets?.[index] || {};
+    const plan = plannedFor(exercise, index);
     let previous = null;
     for (let i = index - 1; i >= 0; i--) {
         if (confirmed(logs[i]) && weightFor(logs[i]) && repsFor(logs[i])) {
@@ -54,38 +102,37 @@ export function getSetPrefill(exercise, index) {
             break;
         }
     }
-    const top = index === 0 ? topSetTarget(exercise) : { weight: '', reps: '' };
-    const originalWeight = cleanDecimal(
-        plan.targetKg ?? plan.kg ?? (index === 0 ? (exercise?.topsetKgMin ??
-            exercise?.topsetKg ?? top.weight) : '') ??
-            ''
-    );
-    const plannedWeight = originalWeight || top.weight ||
-        cleanDecimal(exercise?.kgMin) || cleanDecimal(exercise?.kgMax);
-    const plannedReps = firstReps(plan.targetReps) ||
-        top.reps || firstReps(exercise?.reps ?? exercise?.targetReps);
-    const plannedRpe = targetRpe(plan.targetRpe) ||
-        targetRpe(exercise?.targetRpe ?? exercise?.rpeTarget ?? exercise?.rpe);
-    // Se il primo set e' un top set piu' pesante delle serie di lavoro,
-    // NON trasferire il suo carico ai back-off. Aspetta che un back-off
-    // sia confermato e usalo come nuovo riferimento per i successivi.
+
     const firstTop = topSetTarget(exercise);
     const baseWeight = cleanDecimal(exercise?.kgMin) || cleanDecimal(exercise?.kgMax);
     const backoffAfterTop = index > 0 && previous === logs[0] &&
         firstTop.weight && baseWeight &&
         Number(firstTop.weight) > Number(baseWeight);
-    const carry = previous && !backoffAfterTop;
-    const source = carry ? 'confirmed_previous_set' : 'csv_target';
+    const sameSession = Boolean(previous && !backoffAfterTop);
+
+    const priorSet = previousExercise?.loggedSets?.[index];
+    const priorPlan = previousExercise ? plannedFor(previousExercise, index) : null;
+    const comparablePlan = !plan.weight ||
+        (priorPlan?.weight && Number(plan.weight) === Number(priorPlan.weight));
+    const fromLastWeek = !sameSession && priorSet &&
+        confirmed(priorSet) && !priorSet.isWarmup && !priorSet.warmup &&
+        !priorSet.is_warmup && comparablePlan &&
+        weightFor(priorSet) && repsFor(priorSet) &&
+        repsCompatible(repsFor(priorSet), exercise);
+    const source = sameSession ? 'confirmed_previous_set' :
+        fromLastWeek ? 'confirmed_previous_week' : 'csv_target';
     return {
         weight: filled(current.weight) ? String(current.weight)
-            : carry ? weightFor(previous) : plannedWeight,
+            : sameSession ? weightFor(previous)
+                : fromLastWeek ? weightFor(priorSet) : plan.weight,
         reps: filled(current.reps) ? String(current.reps)
-            : carry ? repsFor(previous) : plannedReps,
-        // RPE precedentemente confermato resta un suggerimento, non una misura
-        // da registrare automaticamente nella nuova serie.
+            : sameSession ? repsFor(previous)
+                : fromLastWeek ? repsFor(priorSet) : plan.reps,
+        // Il valore visibile e' sempre una proposta, NON un RPE misurato.
+        // Il check registra RPE solo se editato esplicitamente dall'atleta.
         rpe: filled(current.rpe) ? String(current.rpe)
             : previous && targetRpe(previous.rpe)
-                ? targetRpe(previous.rpe) : plannedRpe,
+                ? targetRpe(previous.rpe) : plan.rpe,
         source,
         isSuggestedWeight: !filled(current.weight),
         isSuggestedReps: !filled(current.reps),
