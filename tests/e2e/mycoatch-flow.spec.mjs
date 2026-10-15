@@ -1184,7 +1184,8 @@ test('errore validazione della serie appare anche vicino all atleta in basso', a
   await openIsolatedApp(page);
   await prepareLiveWorkout(page);
   await page.locator('.set-kg[data-set="0"]').fill('');
-  await page.locator('.set-lock-check[data-set="0"]').check();
+  // La validazione deseleziona correttamente il check: usare click, non check.
+  await page.locator('.set-lock-check[data-set="0"]').click();
   await expect(page.locator('.set-lock-check[data-set="0"]')).not.toBeChecked();
   await expect(page.locator('#mycoatch-live-toast')).toContainText('Inserisci il peso');
   await expect(page.locator('#mycoatch-live-toast')).toHaveAttribute('role','alert');
