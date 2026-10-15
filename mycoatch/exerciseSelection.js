@@ -78,7 +78,8 @@ export function normalizeSelectionPreferences(config = {}) {
             throw new Error('La variante selezionata è fra gli esercizi da evitare: ' + name);
         }
     }
-    return { availableEquipment, availableAccessories, preferredLifts, excludedExercises: excluded };
+    return { availableEquipment, availableAccessories, preferredLifts,
+        ...(config.excludedExercises === undefined ? {} : { excludedExercises: excluded }) };
 }
 
 export function isExerciseAvailable(exercise, preferences) {
