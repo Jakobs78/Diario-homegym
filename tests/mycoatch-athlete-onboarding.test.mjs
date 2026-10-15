@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeAthleteProfile, onboardingPlan, eligibleReferenceLoad } from '../mycoatch/athleteProfile.js';
+import { normalizeAthleteProfile, onboardingPlan, eligibleReferenceLoad, MAX_REFERENCE_AGE_DAYS } from '../mycoatch/athleteProfile.js';
+const TODAY = new Date().toISOString().slice(0, 10);
 import { parseCoachPreferences } from '../mycoatch/userPreferences.js';
 import { generateSmartMesocycle } from '../mycoatch/engine.js';
 import { MyCoatch } from '../mycoatch/index.js';
@@ -45,10 +46,10 @@ test('profilo obbliga un livello valido ma resta opzionale nella API legacy', ()
 test('carichi reali auto-dichiarati devono contenere kg/reps coerenti e RPE facoltativo', () => {
     assert.deepEqual(normalizeAthleteProfile(profile('intermediate', {
         referenceLoads: { bench: { kg: '70,5', reps: '8', rpe: '7.5' } }
-    })).referenceLoads.bench, { kg: 70.5, reps: 8, rpe: 7.5 });
+    })).referenceLoads.bench, { kg: 70.5, reps: 8, rpe: 7.5, performedOn: null });
     assert.deepEqual(normalizeAthleteProfile(profile('intermediate', {
         referenceLoads: { squat: { kg: 90, reps: 6, rpe: '' } }
-    })).referenceLoads.squat, { kg: 90, reps: 6, rpe: null });
+    })).referenceLoads.squat, { kg: 90, reps: 6, rpe: null, performedOn: null });
     for (const raw of [
         { kg: '', reps: '8', rpe: '7' },
         { kg: '-50', reps: '8', rpe: '7' },
@@ -117,7 +118,7 @@ test('intermedio e avanzato: volume iniziale diverso dal principiante', () => {
 test('senza fase guidata: ripetizioni/RPE standard e carico auto-dichiarato solo se valido', () => {
     const athlete = profile('intermediate', {
         calibration: 'regular',
-        referenceLoads: { bench: { kg: 80, reps: 8, rpe: 7 } }
+        referenceLoads: { bench: { kg: 80, reps: 8, rpe: 7, performedOn: TODAY } }
     });
     const meso = generate(athlete, { maxSessionMinutes: 75 });
     const exercise = meso.weeks[0].days[0].exercises[0];
@@ -265,4 +266,39 @@ test('form valida età/tempo ed esperienza; la vecchia API senza profilo continu
         selectedTime: '60', userAge: '49', daysPerWeek: '4', focus: 'hybrid',
         athleteProfile: profile('')
     }), /Seleziona il livello/);
+});
+
+test('un peso autodichiarato senza data non diventa una prescrizione, anche con RPE buono', () => {
+    const athlete = profile('intermediate', {
+        calibration: 'regular',
+        referenceLoads: { bench: { kg: 80, reps: 8, rpe: 7 } }
+    });
+    assert.equal(eligibleReferenceLoad(normalizeAthleteProfile(athlete), 'bench', '6-10'), null);
+    const meso = generate(athlete, { maxSessionMinutes: 75 });
+    assert.equal(meso.weeks[0].days[0].exercises[0].kgMin, '');
+    assert.match(meso.weeks[0].days[0].exercises[0].notes, /Peso non prescritto automaticamente/);
+});
+
+test('data reale del riferimento: massimo 90 giorni, no future e no date inventate', () => {
+    assert.equal(MAX_REFERENCE_AGE_DAYS, 90);
+    const today = new Date('2026-10-15T12:00:00Z');
+    const daysBefore = days => new Date(today.getTime() - days * 86400000)
+        .toISOString().slice(0, 10);
+    const athlete = days => normalizeAthleteProfile(profile('advanced', {
+        calibration: 'regular',
+        referenceLoads: {
+            bench: { kg: 85, reps: 8, rpe: 7, performedOn: daysBefore(days) }
+        }
+    }));
+    assert.equal(eligibleReferenceLoad(athlete(0), 'bench', '6-10', { today }), 85);
+    assert.equal(eligibleReferenceLoad(athlete(90), 'bench', '6-10', { today }), 85);
+    assert.equal(eligibleReferenceLoad(athlete(91), 'bench', '6-10', { today }), null);
+    assert.throws(() => normalizeAthleteProfile(profile('advanced', {
+        referenceLoads: { bench: { kg: 85, reps: 8, rpe: 7,
+            performedOn: '2099-01-01' } }
+    })), /non può essere futura/);
+    assert.throws(() => normalizeAthleteProfile(profile('advanced', {
+        referenceLoads: { bench: { kg: 85, reps: 8, rpe: 7,
+            performedOn: '2026-02-30' } }
+    })), /non può essere futura/);
 });
