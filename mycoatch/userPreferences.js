@@ -1,5 +1,6 @@
 import { normalizeSelectionPreferences, isExerciseAvailable, FUNDAMENTAL_CHOICES } from './exerciseSelection.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
+import { normalizeAthleteProfile } from './athleteProfile.js';
 
 /**
  * Convalida la durata scelta dall'utente, senza convertire input vuoti in valori
@@ -35,10 +36,12 @@ export function parseCoachPreferences(fields = {}) {
         throw new Error("Seleziona un obiettivo di allenamento.");
     }
 
+    const athleteProfile = normalizeAthleteProfile(fields.athleteProfile);
     const selection = normalizeSelectionPreferences({
         preferredLifts: fields.preferredLifts,
         availableAccessories: fields.availableAccessories,
-        availableEquipment: fields.availableEquipment
+        availableEquipment: fields.availableEquipment,
+        excludedExercises: athleteProfile?.excludedExercises
     });
 
     for (const [key, name] of Object.entries(selection.preferredLifts)) {
@@ -60,6 +63,7 @@ export function parseCoachPreferences(fields = {}) {
         daysPerWeek,
         focus,
         ...selection,
+        ...(athleteProfile ? { athleteProfile } : {}),
         primaryGoal: focus === 'strength' ? 'powerlifting' :
             focus === 'hypertrophy' ? 'bodybuilding' : 'powerbuilding'
     };

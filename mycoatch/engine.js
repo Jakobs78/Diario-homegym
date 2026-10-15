@@ -4,8 +4,9 @@ import { analyzeCompletedMesocycle } from './historyAnalysis.js';
 import { canonicalExerciseKey } from './exerciseIdentity.js';
 import { optimizeSession } from './groupOptimizer.js';
 import { rebalanceWeeklyAccessories } from './weeklyVolumeBalancer.js';
-import { normalizeSelectionPreferences, selectExerciseForSlot } from './exerciseSelection.js';
+import { normalizeSelectionPreferences, selectExerciseForSlot, defaultFundamentalName } from './exerciseSelection.js';
 import { auditWeeklyCoverage } from './weeklyCoverage.js';
+import { normalizeAthleteProfile, onboardingPlan, eligibleReferenceLoad, profileSummary } from './athleteProfile.js';
 
 /**
  * Punti di riferimento del volume ipertrofico settimanale (Evidence-Based) - Spacchettati per distretto anatomico
@@ -55,7 +56,14 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
     // Il vincolo è il tempo realmente stimato, non un taglio prefissato degli slot.
 
     const templateDays = getTemplateForDays(daysPerWeek);
-    const selectionPreferences = normalizeSelectionPreferences(config);
+    const athleteProfile = normalizeAthleteProfile(config.athleteProfile);
+    const hasConfirmedHistory = Number(safeHistory.sessionsAnalyzed) > 0 ||
+        Object.keys(analysis?.byExercise || {}).length > 0;
+    const onboarding = onboardingPlan(athleteProfile, hasConfirmedHistory);
+    const effectiveFocusMuscle = athleteProfile?.priorityMuscle || focusMuscleGroup;
+    const selectionPreferences = normalizeSelectionPreferences({
+        ...config, excludedExercises: athleteProfile?.excludedExercises || []
+    });
     
     // Calcolo della frequenza settimanale reale per ogni gruppo muscolare nel template
     const muscleFrequencyMap = {};
@@ -81,6 +89,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
         let rpeString = "8.0";
         if (isDeloadWeek) {
             rpeString = "6.5";
+        } else if (onboarding.rpeTargets) {
+            rpeString = onboarding.rpeTargets[Math.min(w - 1, onboarding.rpeTargets.length - 1)];
         } else if (focus === 'strength') {
             rpeString = w === 1 ? "8.0" : w === 2 ? "8.5" : "9.0";
         } else {
@@ -119,7 +129,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 exercisesSelectedToday.push(exercise.name);
                 weeklySelectionCounts.set(exercise.id,
                     (weeklySelectionCounts.get(exercise.id) || 0) + 1);
-                return [{ ...exercise, selectionReason: selected.reason }];
+                return [{ ...exercise, anchorKey: slot.anchor || null, selectionReason: selected.reason }];
             });
 
             // Integrazione della funzione di specializzazione originale
@@ -133,6 +143,27 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 const loadDecision = analysis.decisions?.byExercise?.[canonicalKey];
                 let baseKg = Number.isFinite(loadDecision?.plannedKg) && loadDecision.plannedKg > 0
                     ? loadDecision.plannedKg : (Number.isFinite(prior?.lastKg) && prior.lastKg > 0 ? prior.lastKg : null);
+                let reps = ex.defaultReps || '8-12';
+                if (focus === 'strength' && index === 0) reps = '3-5';
+                else if (focus === 'hypertrophy') reps = index === 0 ? '6-8' : '10-15';
+                if (onboarding.calibrationWeek && w === 1 && ex.pattern !== 'isolation') {
+                    reps = '6-10';
+                }
+                if (onboarding.experience === 'beginner') {
+                    reps = ex.pattern === 'isolation' ? '10-15' : '8-12';
+                }
+                const reference = ex.anchorKey
+                    ? athleteProfile?.referenceLoads?.[ex.anchorKey] : null;
+                const expectedVariant = ex.anchorKey
+                    ? (selectionPreferences.preferredLifts[ex.anchorKey] ||
+                        defaultFundamentalName(ex.anchorKey, focus)) : null;
+                // Non trasformare un peso riferito alla panca in un carico
+                // prescritto per una variante alternativa scelta automaticamente.
+                const referenceKg = !hasConfirmedHistory && !onboarding.calibrationWeek &&
+                    ex.name === expectedVariant
+                    ? eligibleReferenceLoad(athleteProfile, ex.anchorKey, reps) : null;
+                const usingReference = baseKg === null && referenceKg !== null;
+                if (usingReference) baseKg = referenceKg;
 
                 // Auto-Deload Preventivo per Inattività
                 let autoNote = "";
@@ -153,56 +184,72 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
 
                 let baseSets = calculateTargetSets({
                     category: ex.category,
-                    focusMuscleGroup,
+                    focusMuscleGroup: effectiveFocusMuscle,
                     isDeloadWeek,
                     weekNumber: w,
                     isMaster,
                     frequency: realFrequency
                 });
                 
-                let setsCount = Math.max(2, baseSets);
+                let setsCount = Math.max(2, onboarding.volumeCap === null
+                    ? baseSets : Math.min(baseSets, onboarding.volumeCap));
                 const volumeDecision = analysis.decisions?.byMuscle?.[ex.category];
                 if (!isDeloadWeek && ex.pattern === 'isolation' &&
                     !volumeAdjustmentsApplied.has(ex.category) && volumeDecision?.volumeDelta) {
                     const suggested = Math.max(2, Math.min(4, setsCount + volumeDecision.volumeDelta));
                     if (suggested !== setsCount) {
-                        setsCount = suggested;
+                        setsCount = onboarding.volumeCap === null
+                            ? suggested : Math.min(suggested, onboarding.volumeCap);
                         volumeAdjustmentsApplied.add(ex.category);
                         autoNote += `${volumeDecision.reason} | `;
                     }
-                }
-
-                let reps = ex.defaultReps || "8-12";
-                if (focus === 'strength' && index === 0) {
-                    reps = "3-5";
-                } else if (focus === 'hypertrophy') {
-                    reps = index === 0 ? "6-8" : "10-15";
                 }
 
                 let topsetStr = "";
                 if (loadDecision && loadDecision.action !== 'maintain') {
                     autoNote += `${loadDecision.reason} | `;
                 }
-                let noteFinal = autoNote + generateContextNote(index, isDeloadWeek, focus) +
+                const coachingContext = onboarding.calibrationWeek && w === 1
+                    ? '🧭 Calibrazione: controlla tecnica, lascia diverse ripetizioni di margine e rispetta il target RPE.'
+                    : generateContextNote(index, isDeloadWeek, focus);
+                let noteFinal = autoNote + coachingContext +
                     (exItem.selectionReason ? ' | [SCELTA MYCOATCH] ' + exItem.selectionReason : '') +
                     (exItem.noteOverride ? ' | ' + exItem.noteOverride : '');
+                if (onboarding.calibrationWeek && w === 1) {
+                    noteFinal += ' | [CALIBRAZIONE MYCOATCH] Prima settimana: tecnica pulita, carico leggero/moderato e RPE prescritto, non tentare massimali. Compila kg e reps reali per adattare la prossima proposta.';
+                }
+                if (reference && !hasConfirmedHistory) {
+                    noteFinal += ' | [RIFERIMENTO ATLETA] ' + reference.kg + ' kg × ' +
+                        reference.reps + ' reps' +
+                        (reference.rpe !== null ? ' @RPE ' + reference.rpe : '') +
+                        '. Dato dichiarato, NON risultato confermato dal diario.' +
+                        (usingReference ? ' Peso provvisorio: riconferma durante la seduta.' :
+                            ' Peso non prescritto automaticamente.');
+                }
+                if (onboarding.experience === 'beginner') {
+                    noteFinal += ' | [VOLUME INIZIALE] Massimo 2 serie per esercizio nella proposta iniziale.';
+                }
 
                 const isFirstCompound = index === 0 && ["squat", "hinge", "horizontal_push", "vertical_push", "vertical_pull"].includes(ex.pattern);
                 
-                if (isFirstCompound && plannedKg !== null) {
+                if (isFirstCompound && plannedKg !== null && !usingReference) {
                     const w1 = Math.round(baseKg * 0.5);
                     const w2 = Math.round(baseKg * 0.7);
                     const w3 = Math.round(baseKg * 0.85);
                     noteFinal = `🔥 [WARM-UP AUTO]: 8x${w1}kg, 4x${w2}kg, 2x${w3}kg. | ` + noteFinal;
                 }
 
-                if (config.useTopset === true && index === 0 && plannedKg !== null && !isDeloadWeek && focus !== 'strength') {
+                if (config.useTopset === true && onboarding.experience !== 'beginner' &&
+                    !onboarding.calibrationWeek && !usingReference && index === 0 &&
+                    plannedKg !== null && !isDeloadWeek && focus !== 'strength') {
                     const topKg = Number(targetKgMin) + (baseKg < 12.5 ? 1 : 2.5);
                     topsetStr = `1x${reps.split('-')[0]} @ ${topKg}kg (RPE 9)`;
                     noteFinal += ` | 🎯 Top Set eseguito, poi Back-Off automatico del 10%.`;
                 }
 
-                const currentTechnique = exItem.intensityTechnique || null;
+                const currentTechnique = (onboarding.calibrationWeek ||
+                    onboarding.experience === 'beginner') ? null :
+                    (exItem.intensityTechnique || null);
 
                 const setsArray = Array.from({ length: setsCount }, (_, setIdx) => {
                     let setKg = plannedKg === null ? null : Number(targetKgMin);
@@ -258,7 +305,10 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
         // costruito la settimana si possono recuperare accessori nei giorni
         // compatibili con margine sufficiente. Non modificare il deload.
         const balanced = rebalanceWeeklyAccessories(
-            weekDays, intendedDays, maxSessionMinutes, { isDeloadWeek }
+            weekDays, intendedDays, maxSessionMinutes, {
+                isDeloadWeek,
+                maxAccessorySets: onboarding.volumeCap ?? 4
+            }
         );
         for (const day of balanced.days) {
             // Il CSV originale non contiene la colonna "nome giornata":
@@ -299,6 +349,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
         name: name,
         createdAt: new Date().toISOString(),
         config: config,
+        athleteOnboarding: profileSummary(athleteProfile, onboarding),
         weeks: weeks
     };
 }

@@ -111,6 +111,7 @@ async function startCoach(page, minutes = '45') {
   await page.locator('#select-days').selectOption('4');
   await page.locator('#input-age').fill('49');
   await page.locator('#select-focus').selectOption('hybrid');
+  await page.locator('#mycoatch-experience').selectOption('intermediate');
 }
 
 test('percorso reale: tempo scelto, storico multianno, anteprima, download, import e timer superset', async ({ page }) => {
@@ -506,4 +507,121 @@ test('scelta atleta: fondamentali alternativi, controllo attrezzi, CSV e antepri
   }
   assert.deepEqual(monitoring.remoteRequests, []);
   assert.deepEqual(monitoring.pageErrors, []);
+});
+
+
+test('prima scheda atleta principiante: questionario, calibrazione guidata, anteprima e CSV senza kg inventati', async ({ page }) => {
+  const monitor = await openIsolatedApp(page);
+  // Niente allenamenti: simulazione esplicita del primo utilizzo, senza chiamate remote.
+  await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    state.workoutData.history.years = {};
+    // Resta isolato dalla rete: nessun cambio account, nessun refresh che
+    // reinserisca il fixture mediante l'initScript dei test.
+    localStorage.setItem('workoutApp_data', JSON.stringify(state.workoutData));
+  });
+  await startCoach(page, '60');
+  await page.locator('#mycoatch-experience').selectOption('beginner');
+  await page.locator('#mycoatch-priority-muscle').selectOption('Petto');
+  await expect(page.locator('#mycoatch-calibration')).toHaveValue('guided');
+
+  const dialogs = [];
+  page.on('dialog', async dialog => {
+    if (dialog.type() === 'confirm') dialogs.push(dialog.message());
+    await dialog.accept();
+  });
+  const download = page.waitForEvent('download', { timeout: 20000 });
+  await page.locator('#mycoatch-submit').click();
+  const csv = await readFile(await (await download).path(), 'utf8');
+  assert.match(csv, /\[CALIBRAZIONE MYCOATCH\]/);
+  assert.match(csv, /\[VOLUME INIZIALE\]/);
+  const rows = csv.trim().split(/\r?\n/).slice(1).map(line => line.split(';'));
+  assert.ok(rows.length > 10);
+  assert.ok(rows.every(row => row.length === 12));
+  assert.ok(rows.every(row => Number(row[4]) <= 2));
+  assert.ok(rows.every(row => row[6] === '' && row[7] === ''));
+  assert.ok(rows.filter(row => Number(row[0]) === 1).every(row => row[8] === '6.5'));
+  assert.ok(dialogs.some(text => text.includes('PROFILO INIZIALE: Principiante') &&
+    text.includes('PRIMA SETTIMANA DI CALIBRAZIONE') &&
+    text.includes('priorità Petto')));
+  const stored = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('workoutApp_data')));
+  assert.deepEqual(stored.history.years, {});
+  assert.deepEqual(monitor.remoteRequests, []);
+  assert.deepEqual(monitor.pageErrors, []);
+});
+
+test('prima scheda intermedio senza storico: rispetta esclusioni e convalida carichi di riferimento', async ({ page }) => {
+  const monitor = await openIsolatedApp(page);
+  await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    state.workoutData.history.years = {};
+    // Resta isolato dalla rete: nessun cambio account, nessun refresh che
+    // reinserisca il fixture mediante l'initScript dei test.
+    localStorage.setItem('workoutApp_data', JSON.stringify(state.workoutData));
+  });
+  await startCoach(page, '75');
+  await page.locator('#mycoatch-calibration').selectOption('regular');
+  await page.locator('.mycoatch-profile-details summary').last().click();
+  await page.locator('#mycoatch-load-bench-kg').fill('80');
+  // kg da soli non sono una serie reale: errore prima del download.
+  await page.locator('#mycoatch-submit').click();
+  await expect(page.locator('#mycoatch-form-feedback'))
+    .toContainText('kg e ripetizioni reali');
+  await page.locator('#mycoatch-load-bench-reps').fill('8');
+  await page.locator('#mycoatch-load-bench-rpe').fill('7');
+  await page.locator('.mycoatch-profile-details summary').first().click();
+  await page.locator('.mycoatch-avoid-check[value="Squat con Bilanciere"]').check();
+
+  const previews = [];
+  page.on('dialog', async dialog => {
+    if (dialog.type() === 'confirm') previews.push(dialog.message());
+    await dialog.accept();
+  });
+  const downloading = page.waitForEvent('download', { timeout: 20000 });
+  await page.locator('#mycoatch-submit').click();
+  const csv = await readFile(await (await downloading).path(), 'utf8');
+  assert.match(csv, /Panca Piana con Bilanciere/);
+  assert.match(csv, /Front Squat|Goblet Squat|Bulgarian Split Squat/);
+  assert.doesNotMatch(csv, /;Squat con Bilanciere;/);
+  assert.match(csv, /\[RIFERIMENTO ATLETA\] 80 kg/);
+  const firstBench = csv.split(/\r?\n/)
+    .map(line => line.split(';')).find(row =>
+      row[0] === '1' && row[1] === '1' && row[3] === 'Panca Piana con Bilanciere');
+  assert.equal(firstBench[6], '80');
+  assert.ok(previews.some(s => s.includes('Intermedio') &&
+    s.includes('Esercizi esclusi dall’atleta') &&
+    s.includes('Carichi dichiarati, NON verificati')));
+  assert.deepEqual(monitor.remoteRequests, []);
+  assert.deepEqual(monitor.pageErrors, []);
+});
+
+
+test('questionario MyCoatch 3.0 su smartphone: campo esperienza, dettagli e submit raggiungibili', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const monitor = await openIsolatedApp(page);
+  await startCoach(page, '45');
+  await page.locator('#mycoatch-experience').selectOption('beginner');
+  await page.locator('#mycoatch-priority-muscle').selectOption('Quadricipiti');
+  const details = page.locator('.mycoatch-profile-details');
+  await details.first().locator('summary').click();
+  await expect(page.locator('.mycoatch-avoid-check').first()).toBeVisible();
+  await details.last().locator('summary').click();
+  await expect(page.locator('#mycoatch-load-bench-kg')).toBeVisible();
+  await expect(page.locator('#mycoatch-submit')).toBeVisible();
+  const geometry = await page.evaluate(() => {
+    const sheet = document.querySelector('.mycoatch-config-sheet');
+    const grid = document.querySelector('.mycoatch-reference-grid');
+    return {
+      sheetOverflow: sheet.scrollWidth > sheet.clientWidth + 2,
+      gridOverflow: grid.scrollWidth > grid.clientWidth + 2,
+      dialogWidth: sheet.getBoundingClientRect().width,
+      viewportWidth: innerWidth
+    };
+  });
+  assert.equal(geometry.sheetOverflow, false, JSON.stringify(geometry));
+  assert.equal(geometry.gridOverflow, false, JSON.stringify(geometry));
+  assert.ok(geometry.dialogWidth <= geometry.viewportWidth + 2, JSON.stringify(geometry));
+  assert.deepEqual(monitor.remoteRequests, []);
+  assert.deepEqual(monitor.pageErrors, []);
 });

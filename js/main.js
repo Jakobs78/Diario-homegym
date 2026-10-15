@@ -216,7 +216,22 @@ function setupEventListeners() {
                     .map(lift => [lift, document.getElementById('mycoatch-lift-' + lift)?.value || 'auto'])),
                 availableAccessories: [...DEFAULT_HOME_GYM_ACCESSORIES,
                     ...Array.from(document.querySelectorAll('.mycoatch-accessory-check:checked'),
-                        input => input.value)]
+                        input => input.value)],
+                athleteProfile: {
+                    experience: document.getElementById('mycoatch-experience')?.value,
+                    calibration: document.getElementById('mycoatch-calibration')?.value,
+                    priorityMuscle: document.getElementById('mycoatch-priority-muscle')?.value || null,
+                    excludedExercises: Array.from(
+                        document.querySelectorAll('.mycoatch-avoid-check:checked'),
+                        input => input.value
+                    ),
+                    referenceLoads: Object.fromEntries(['bench', 'squat', 'military', 'hinge']
+                        .map(lift => [lift, {
+                            kg: document.getElementById('mycoatch-load-' + lift + '-kg')?.value || '',
+                            reps: document.getElementById('mycoatch-load-' + lift + '-reps')?.value || '',
+                            rpe: document.getElementById('mycoatch-load-' + lift + '-rpe')?.value || ''
+                        }]))
+                }
             });
         } catch (error) {
             if (coachFeedback) coachFeedback.textContent = error.message;

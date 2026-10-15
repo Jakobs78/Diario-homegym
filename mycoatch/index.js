@@ -20,7 +20,11 @@ export const MyCoatch = {
         const analysis = { ...report, decisions };
 
         if (Object.keys(goalSettings).length > 0) {
-            coachState.updateConfig(goalSettings);
+            // Ogni nuova proposta riceve un profilo esplicito o null: non
+            // riutilizzare quello di un'altra persona/sessione dalla memoria JS.
+            coachState.updateConfig({
+                ...goalSettings, athleteProfile: goalSettings.athleteProfile ?? null
+            });
         }
         const config = coachState.getConfig();
 
@@ -39,6 +43,7 @@ export const MyCoatch = {
             })),
             muscleSignals: report.byMuscle,
             decisions,
+            athleteOnboarding: newMesocycle.athleteOnboarding,
             // Metriche della proposta settimanale, non dati di prestazione misurati.
             weeklyVolumeBalance: newMesocycle.weeks.map(week => ({
                 weekNumber: week.weekNumber,
