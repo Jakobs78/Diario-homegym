@@ -544,7 +544,8 @@ test('prima scheda atleta principiante: questionario, calibrazione guidata, ante
   assert.ok(dialogs.some(text => text.includes('PROFILO INIZIALE: Principiante') &&
     text.includes('PRIMA SETTIMANA DI CALIBRAZIONE') &&
     text.includes('priorità Petto')));
-  const stored = JSON.parse(localStorage.getItem('workoutApp_data'));
+  const stored = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('workoutApp_data')));
   assert.deepEqual(stored.history.years, {});
   assert.deepEqual(monitor.remoteRequests, []);
   assert.deepEqual(monitor.pageErrors, []);
