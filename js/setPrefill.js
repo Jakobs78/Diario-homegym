@@ -6,19 +6,19 @@
 const filled = value => value !== null && value !== undefined && String(value).trim() !== '';
 const cleanDecimal = value => {
     const s = String(value ?? '').trim().replace(',', '.');
-    if (!/^\\d+(?:\\.\\d+)?$/.test(s)) return '';
+    if (!/^\d+(?:\.\d+)?$/.test(s)) return '';
     const n = Number(s);
     return n > 0 && n <= 700 ? String(n) : '';
 };
 const firstReps = value => {
     const s = String(value ?? '').trim();
-    const match = s.match(/^(\\d{1,2})\\s*(?:-|–|a)\\s*(\\d{1,2})$/i);
+    const match = s.match(/^(\d{1,2})\s*(?:-|–|a)\s*(\d{1,2})$/i);
     if (match && Number(match[1]) <= Number(match[2])) return match[1];
-    return /^\\d{1,2}$/.test(s) && Number(s) >= 1 ? s : '';
+    return /^\d{1,2}$/.test(s) && Number(s) >= 1 ? s : '';
 };
 const targetRpe = value => {
     const s = String(value ?? '').trim().replace(/^@/, '').replace(',', '.');
-    if (!/^\\d+(?:\\.\\d+)?$/.test(s)) return '';
+    if (!/^\d+(?:\.\d+)?$/.test(s)) return '';
     const n = Number(s);
     return n >= 6 && n <= 10 ? String(n) : '';
 };
@@ -27,13 +27,13 @@ const weightFor = set => cleanDecimal(set?.weight ?? set?.actualKg);
 const repsFor = set => {
     const s = String(set?.reps ?? set?.actualReps ?? '').trim();
     // Mantieni le tecniche speciali soltanto se confermate in precedenza.
-    return /^\\d{1,3}(?:\\+\\d{1,3})*$/.test(s) ? s : '';
+    return /^\d{1,3}(?:\+\d{1,3})*$/.test(s) ? s : '';
 };
 
 function topSetTarget(exercise) {
     const text = String(exercise?.topset ?? '');
-    const kg = text.match(/@\\s*(\\d+(?:[.,]\\d+)?)\\s*kg\\b/i);
-    const reps = text.match(/\\b1\\s*[x×]\\s*(\\d{1,2})\\s*@/i);
+    const kg = text.match(/@\s*(\d+(?:[.,]\d+)?)\s*kg\b/i);
+    const reps = text.match(/\b1\s*[x×]\s*(\d{1,2})\s*@/i);
     return { weight: kg ? cleanDecimal(kg[1]) : '',
         reps: reps ? firstReps(reps[1]) : '' };
 }
