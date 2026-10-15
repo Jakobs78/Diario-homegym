@@ -9,18 +9,20 @@ import { MyCoatch } from '../mycoatch/index.js';
 
 const lateral = {
   name: 'Alzate Laterali con Manubri', pattern: 'isolation',
-  defaultReps: '12-15', estimatedFatigue: 3, setsCount: 3
+  defaultReps: '12-15', estimatedFatigue: 3, setsCount: 3,
+  reps: '15-25', kgMin: '7'
 };
 const bench = {
   name: 'Panca Piana con Bilanciere', pattern: 'horizontal_push',
   defaultReps: '6-8', estimatedFatigue: 8, setsCount: 3
 };
 const effort = weekId => ({
-  weekId, repRange:{min:12,max:15}, plannedSets:3,completedSets:3,
+  weekId, repRange:{min:15,max:25}, plannedSets:3,completedSets:3,
   isDeload:false, allRpeMeasured:true, allRpeWithinTarget:true,
   allStraightSets:true, avgRpe:7.5
 });
-const verified = { fatigueConcern:false, exposures:[effort('2026/0/1'), effort('2026/0/2')] };
+const verified = { fatigueConcern:false, lastWorkingKg:7, lastReps:{min:15,max:25},
+  exposures:[effort('2026/0/1'), effort('2026/0/2')] };
 
 test('high-rep deltoids keep 15-25 rather than generic 10-15', () => {
   assert.equal(prescribeExerciseReps(lateral, {focus:'hypertrophy',index:4,experience:'advanced'}),'15-25');
@@ -75,6 +77,27 @@ test('dropset requires two distinct actual RPE-complete weeks and permits no sta
   assert.equal(suggestDropset(bench,options),null);
 });
 
+test('switching from 12-15 to 15-25 requires new kg calibration, no dropset', () => {
+  const lateralKey=canonicalExerciseKey(lateral.name);
+  const history={byExercise:{
+    [lateralKey]:{...verified,lastReps:{min:12,max:15},lastWorkingKg:10}
+  },byMuscle:{},decisions:{byExercise:{},byMuscle:{}},sessionsAnalyzed:2};
+  const meso=generateSmartMesocycle({
+    durationWeeks:4,daysPerWeek:3,focus:'hypertrophy',maxSessionMinutes:90,
+    athleteProfile:{experience:'advanced',calibration:'regular',
+      excludedExercises:[],referenceLoads:{}}
+  },history);
+  for(const week of meso.weeks){
+    for(const ex of week.days.flatMap(day=>day.exercises).filter(ex=>ex.name===lateral.name)){
+      assert.equal(ex.reps,'15-25');
+      assert.equal(ex.kgMin,'');
+      assert.match(ex.notes,/CALIBRAZIONE NUOVO RANGE/);
+      assert.ok(ex.sets.every(set=>set.intensityTechnique===null),
+        'tecniche avanzate vietate prima della calibrazione del nuovo range');
+    }
+  }
+});
+
 test('real engine exports advanced targets and selective dropset in CSV, never actual logs', () => {
   const benchKey=canonicalExerciseKey(bench.name);
   const lateralKey=canonicalExerciseKey(lateral.name);
@@ -111,7 +134,7 @@ test('real engine exports advanced targets and selective dropset in CSV, never a
   const drops=meso.weeks.flatMap(w=>w.days.flatMap(d=>
     d.exercises.filter(e=>e.sets.some(s=>s.intensityTechnique==='DROP_SET'))
       .map(e=>({week:w.weekNumber,day:d,exercise:e}))));
-  assert.ok(drops.length<=1,'solo un dropset facoltativo nel mesociclo');
+  assert.equal(drops.length,1,'uno e un solo dropset dopo evidenze comparabili');
   for(const d of drops){
     assert.equal(d.week,2);
     assert.ok(d.day.estimatedMinutes<=90);
