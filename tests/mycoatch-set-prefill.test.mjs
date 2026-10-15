@@ -184,3 +184,24 @@ test('previous no-RPE result cannot supply an observed RPE to new week', () => {
     assert.equal(target.isSuggestedRpe,true);
     assert.equal(current.loggedSets[0].rpe,'');
 });
+
+test('progressive loads specified per series are never overwritten by the previous check', () => {
+    const ex=exercise({sets:[
+        {targetKg:'60',targetReps:'8'},
+        {targetKg:'70',targetReps:'8'},
+        {targetKg:'72.5',targetReps:'8'}
+    ]});
+    ex.loggedSets[0] = {weight:62.5,reps:'9',rpe:'8',isLocked:true};
+    assert.equal(getSetPrefill(ex,1).weight,'70');
+    assert.equal(getSetPrefill(ex,1).reps,'8');
+    ex.loggedSets[1] = {weight:70,reps:'9',rpe:'8',isLocked:true};
+    assert.equal(getSetPrefill(ex,2).weight,'72.5');
+    assert.equal(getSetPrefill(ex,2).reps,'8');
+});
+
+test('confirmed warmups must not contaminate later working-set suggestions', () => {
+    const ex=exercise();
+    ex.loggedSets[0] = {weight:20,reps:'15',rpe:'',isWarmup:true,isLocked:true};
+    assert.equal(getSetPrefill(ex,1).weight,'70');
+    assert.equal(getSetPrefill(ex,1).reps,'8');
+});
