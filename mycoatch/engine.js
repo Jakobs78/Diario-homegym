@@ -240,7 +240,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 }
 
                 if (config.useTopset === true && onboarding.experience !== 'beginner' &&
-                    !onboarding.calibrationWeek && index === 0 &&
+                    !onboarding.calibrationWeek && !usingReference && index === 0 &&
                     plannedKg !== null && !isDeloadWeek && focus !== 'strength') {
                     const topKg = Number(targetKgMin) + (baseKg < 12.5 ? 1 : 2.5);
                     topsetStr = `1x${reps.split('-')[0]} @ ${topKg}kg (RPE 9)`;
