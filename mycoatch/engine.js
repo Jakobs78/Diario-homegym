@@ -142,7 +142,12 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 const prior = analysis.byExercise?.[canonicalKey];
                 const loadDecision = analysis.decisions?.byExercise?.[canonicalKey];
                 let baseKg = Number.isFinite(loadDecision?.plannedKg) && loadDecision.plannedKg > 0
-                    ? loadDecision.plannedKg : (Number.isFinite(prior?.lastKg) && prior.lastKg > 0 ? prior.lastKg : null);
+                    ? loadDecision.plannedKg : (
+                        Number.isFinite(prior?.lastWorkingKg) && prior.lastWorkingKg > 0
+                            ? prior.lastWorkingKg
+                            : (Number.isFinite(prior?.lastKg) && prior.lastKg > 0
+                                ? prior.lastKg : null)
+                    );
                 let reps = ex.defaultReps || '8-12';
                 if (focus === 'strength' && index === 0) reps = '3-5';
                 else if (focus === 'hypertrophy') reps = index === 0 ? '6-8' : '10-15';
@@ -175,8 +180,12 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 
                 // Il carico progredisce in base alle prestazioni e all'RPE, non al calendario.
                 const plannedKg = baseKg === null ? null : (isDeloadWeek ? baseKg * 0.85 : baseKg);
+                const suggestedIncrement = ex.equipment === 'dumbbell' ? 0.5 :
+                    (ex.equipment === 'cable' || ex.equipment === 'lat_machine'
+                        ? 1.25 : plannedKg !== null && plannedKg < 12.5 ? 0.5 : 2.5);
                 const targetKgMin = plannedKg === null ? '' :
-                    String(plannedKg < 12.5 ? Math.round(plannedKg * 2) / 2 : Math.round(plannedKg / 2.5) * 2.5);
+                    String(Math.round(Math.round(plannedKg / suggestedIncrement) *
+                        suggestedIncrement * 4) / 4);
                 const targetKgMax = plannedKg === null ? '' : targetKgMin;
 
                 const mainMuscle = ex.category;
@@ -207,7 +216,14 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
 
                 let topsetStr = "";
                 if (loadDecision && loadDecision.action !== 'maintain') {
-                    autoNote += `${loadDecision.reason} | `;
+                    autoNote += `[PROGRESSIONE MYCOATCH] ${loadDecision.reason} | `;
+                }
+                if (loadDecision?.caveats?.includes('rpe_mancante_o_sopra_target') &&
+                    loadDecision.action === 'maintain') {
+                    autoNote += '[QUALITÀ DATI] RPE assente o oltre il target nelle settimane di confronto: carico non aumentato. | ';
+                }
+                if (plannedKg !== null && ex.equipment !== 'bodyweight') {
+                    autoNote += '[ATTREZZATURA] Arrotondamento indicativo: verifica gli incrementi di peso realmente disponibili. | ';
                 }
                 const coachingContext = onboarding.calibrationWeek && w === 1
                     ? '🧭 Calibrazione: controlla tecnica, lascia diverse ripetizioni di margine e rispetta il target RPE.'
