@@ -221,7 +221,7 @@ test('archivio di sedute ripetute: analisi e live recuperano i dati senza contar
 
 test('ritmo storico: usa le tre ripetizioni archiviate di una stessa seduta', () => {
     const archived = [1,2,3].map(i => ({
-        dayName: 'Upper A', totalDurationMinutes: 44 + i,
+        dayName: 'Upper A', totalDurationMinutes: 12 + i,
         exercises: [exercise([
             performed(80, 8, 7), performed(80, 8, 7),
             performed(80, 8, 7), performed(80, 8, 7)
