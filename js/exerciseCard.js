@@ -8,6 +8,7 @@ import { state } from './state.js';
 import { enableCardSwipeGesture } from './gestures.js';
 import { saveAndSync } from './storage.js';
 import { renderWorkoutList } from './ui.js';
+import { getSetPrefill } from './setPrefill.js';
 
 export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, activeDayNum, isPastMeso) {
     const isExExcluded = ex.isExcluded || false;
@@ -106,7 +107,11 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     `;
 
     cardHtml += `
-        <!-- 3. Tabella Serie Riorganizzata -->
+        <!-- Suggerimenti visibili ma NON salvati come serie completate. -->
+        <div class="text-xs text-muted mb-xs">
+            Valori precompilati: correggi kg e ripetizioni se necessario, poi conferma con ✓.
+            L'RPE suggerito è solo un target: per registrare quello percepito, modificalo nel campo.
+        </div>
         <table class="set-table mb-md">
             <thead>
                 <tr>
@@ -154,28 +159,12 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             }
         }
         
-        const isRangeTarget = (ex.minReps && ex.maxReps) || (typeof ex.reps === 'string' && ex.reps.includes('-'));
-        const rawTargetReps = ex.reps || ex.targetReps || '';
-        const defaultTargetReps = isRangeTarget 
-            ? rawTargetReps 
-            : rawTargetReps.toString().trim();
-
-        const targetWeightDefault = (ex.kgMin && ex.kgMax && ex.kgMin !== ex.kgMax) 
-            ? `${ex.kgMin}-${ex.kgMax}` 
-            : (ex.kgMin || ex.kgMax || ex.topset || ex.weight || '');
-
-        const displayWeight = setObj.weight !== undefined && setObj.weight !== '' 
-            ? setObj.weight 
-            : (isFirstWeek ? targetWeightDefault : (prevSet?.weight || ''));
-
-        const displayReps = setObj.reps !== undefined && setObj.reps !== '' 
-            ? setObj.reps 
-            : (isFirstWeek ? defaultTargetReps : (prevSet?.reps || defaultTargetReps));
-
-        const defaultTargetRpe = ex.targetRpe || ex.rpe || '';
-        const displayRpe = setObj.rpe !== undefined && setObj.rpe !== '' 
-            ? setObj.rpe 
-            : (isFirstWeek ? defaultTargetRpe : (prevSet?.rpe || defaultTargetRpe));
+        const suggested = getSetPrefill(ex, setIdx);
+        const displayWeight = isLocked ? (setObj.weight ?? '') : suggested.weight;
+        const displayReps = isLocked ? (setObj.reps ?? '') : suggested.reps;
+        const displayRpe = isLocked ? (setObj.rpe ?? '') : suggested.rpe;
+        const targetWeightDefault = ex.kgMin || ex.kgMax || 'Kg';
+        const defaultTargetReps = ex.reps || ex.targetReps || 'reps';
 
         let currentKgMin = ex.kgMin;
         let currentKgMax = ex.kgMax;
@@ -211,9 +200,9 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         const repsClass = isRepsOutOfRange ? 'input-out-of-range' : (isRepsExceeding ? 'input-target-exceeded' : '');
         const rpeClass = isRpeOutOfRange ? 'input-out-of-range' : (isRpeExceeding ? 'input-target-exceeded' : '');
 
-        const isUnsavedKg = (!setObj.weight && displayWeight && !isLocked);
-        const isUnsavedReps = (!setObj.reps && displayReps && !isLocked);
-        const isUnsavedRpe = (!setObj.rpe && displayRpe && !isLocked);
+        const isUnsavedKg = suggested.isSuggestedWeight && !!displayWeight && !isLocked;
+        const isUnsavedReps = suggested.isSuggestedReps && !!displayReps && !isLocked;
+        const isUnsavedRpe = suggested.isSuggestedRpe && !!displayRpe && !isLocked;
 
         let intensityBadgeHtml = '';
         if (setObj.intensityTechnique) {
@@ -229,15 +218,15 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                 </td>
                 <td class="td-input td-kg-container">
                     <div class="kg-input-wrapper flex-column flex-center">
-                        <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-kg ios-no-zoom ${kgClass} ${isUnsavedKg ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.weight ?? ''}" placeholder="${displayWeight || targetWeightDefault || 'Kg'}" ${isDisabled ? 'disabled' : ''}>
+                        <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-kg ios-no-zoom ${kgClass} ${isUnsavedKg ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${displayWeight}" placeholder="${targetWeightDefault}" ${isDisabled ? 'disabled' : ''}>
                         ${trendHtml ? `<div class="set-trend-badge">${trendHtml}</div>` : ''}
                     </div>
                 </td>
                 <td class="td-input">
-                    <input type="text" inputmode="numeric" autocomplete="off" class="set-input set-reps ios-no-zoom ${repsClass} ${isUnsavedReps ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.reps ?? ''}" placeholder="${displayReps || defaultTargetReps || 'reps'}" ${isDisabled ? 'disabled' : ''}>
+                    <input type="text" inputmode="numeric" autocomplete="off" class="set-input set-reps ios-no-zoom ${repsClass} ${isUnsavedReps ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${displayReps}" placeholder="${defaultTargetReps}" ${isDisabled ? 'disabled' : ''}>
                 </td>
                 <td class="td-input">
-                    <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe ios-no-zoom ${rpeClass} ${isUnsavedRpe ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${setObj.rpe ?? ''}" placeholder="${displayRpe || 'RPE'}" ${isDisabled ? 'disabled' : ''}>
+                    <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe ios-no-zoom ${rpeClass} ${isUnsavedRpe ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${displayRpe}" placeholder="${ex.rpe || 'RPE'}" ${isDisabled ? 'disabled' : ''}>
                 </td>
                 <td class="td-check text-center">
                     <input type="checkbox" class="set-lock-check custom-big-check" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''}>

@@ -337,15 +337,13 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   await prepareLiveWorkout(page);
   await expect(page.locator('#mycoatch-live-panel')).toBeVisible();
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/3');
-  await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('');
-  await expect(page.locator('.set-reps[data-set="0"]')).toHaveValue('');
-  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('');
+  await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('80');
+  await expect(page.locator('.set-reps[data-set="0"]')).toHaveValue('6');
+  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('8');
   assert.equal(await page.locator('.set-kg[data-set="0"]').getAttribute('placeholder'), '80');
 
-  // Nessuna conferma da valori prescritti: le serie devono avere dati realmente inseriti.
-  await page.locator('.set-lock-check[data-set="0"]').click();
+  // Il CSV precompila, ma non crea serie confermate prima della spunta.
   await expect(page.locator('.set-lock-check[data-set="0"]')).not.toBeChecked();
-  await expect(page.locator('#mycoatch-live-input-error')).toContainText('peso realmente usato');
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/3');
 
   await page.locator('.set-kg[data-set="0"]').fill('80');
@@ -357,9 +355,9 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   await expect(page.locator('#mycoatch-live-guidance')).toContainText('Ultima prestazione comparabile');
   await expect(page.locator('#mycoatch-live-guidance')).toContainText('Differenza e1RM');
   await expect(page.locator('.mycoatch-live-apply')).toBeVisible();
-  await expect(page.locator('.set-kg[data-set="1"]')).toHaveValue('');
-  await expect(page.locator('.set-reps[data-set="1"]')).toHaveValue('');
-  await expect(page.locator('.set-rpe[data-set="1"]')).toHaveValue('');
+  await expect(page.locator('.set-kg[data-set="1"]')).toHaveValue('80');
+  await expect(page.locator('.set-reps[data-set="1"]')).toHaveValue('8');
+  await expect(page.locator('.set-rpe[data-set="1"]')).toHaveValue('9.5');
   await expect(page.locator('#live-session-timer')).not.toHaveText('0:00');
 
   await page.locator('.mycoatch-live-apply').click();
@@ -439,9 +437,9 @@ test('ripetere una seduta archivia la sessione reale prima del nuovo allenamento
   await expect(archives).toContainText('80 kg × 8 · RPE 8');
   for (let set = 0; set < 3; set++) {
     await expect(page.locator(`.set-lock-check[data-set="${set}"]`)).not.toBeChecked();
-    await expect(page.locator(`.set-kg[data-set="${set}"]`)).toHaveValue('');
-    await expect(page.locator(`.set-reps[data-set="${set}"]`)).toHaveValue('');
-    await expect(page.locator(`.set-rpe[data-set="${set}"]`)).toHaveValue('');
+    await expect(page.locator(`.set-kg[data-set="${set}"]`)).toHaveValue('80');
+    await expect(page.locator(`.set-reps[data-set="${set}"]`)).toHaveValue('6');
+    await expect(page.locator(`.set-rpe[data-set="${set}"]`)).toHaveValue('8');
   }
   const result = await page.evaluate(async () => {
     const { state } = await import('/js/state.js');
@@ -934,4 +932,114 @@ test('anteprima successiva: avvisa se prima settimana calibrata solo in parte e 
     allBefore);
   assert.deepEqual(monitoring.remoteRequests, []);
   assert.deepEqual(monitoring.pageErrors, []);
+});
+
+test('CSV precompila davvero gli input, il check copia alle serie dopo senza inventare RPE', async ({ page }) => {
+  const monitoring = await openIsolatedApp(page);
+  page.on('dialog', d => d.accept());
+
+  const csv = [
+    HEADER,
+    '1;1;1;Panca Piana con Bilanciere;3;8-12;70;70;8;180s;Programma di prova;',
+    '1;1;2;Lat Machine con Triangolo;2;8-10;50;50;8;120s;Richiamo;',
+  ].join('\n');
+
+  const imported = await page.evaluate(async content => {
+    const { importWorkoutPlan } = await import('/js/csvHandler.js');
+    const { renderWorkoutList } = await import('/js/ui.js');
+    const result = importWorkoutPlan(content);
+    if (result.success) renderWorkoutList();
+    return result;
+  }, csv);
+  assert.equal(imported.success, true, JSON.stringify(imported));
+
+  const kg = idx => page.locator(`.set-kg[data-ex="0"][data-set="${idx}"]`);
+  const reps = idx => page.locator(`.set-reps[data-ex="0"][data-set="${idx}"]`);
+  const rpe = idx => page.locator(`.set-rpe[data-ex="0"][data-set="${idx}"]`);
+  const check = idx => page.locator(`.set-lock-check[data-ex="0"][data-set="${idx}"]`);
+
+  await expect(kg(0)).toHaveValue('70');
+  await expect(reps(0)).toHaveValue('8');
+  await expect(rpe(0)).toHaveValue('8');
+  await expect(kg(1)).toHaveValue('70');
+  await expect(reps(1)).toHaveValue('8');
+
+  // Nessuna serie viene falsamente completata dall'importazione.
+  const before = await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    const current = state.workoutData.history.years[String(new Date().getFullYear())].mesocycles.at(-1);
+    return current.weeks[0].days[0].exercises[0].loggedSets.map(set =>
+      ({weight:set.weight,reps:set.reps,rpe:set.rpe,isLocked:set.isLocked}));
+  });
+  assert.ok(before.every(s => !s.isLocked && s.weight === '' && s.reps === '' && s.rpe === ''));
+
+  // L'atleta puo' confermare kg e reps proposti con un SOLO tap:
+  // l'RPE mostrato e' una prescrizione, non un dato misurato.
+  await check(0).check();
+  const first = await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    const current = state.workoutData.history.years[String(new Date().getFullYear())].mesocycles.at(-1);
+    return current.weeks[0].days[0].exercises[0].loggedSets;
+  });
+  assert.equal(first[0].weight,70);
+  assert.equal(first[0].reps,'8');
+  assert.equal(first[0].rpe,'');
+  assert.equal(first[0].isLocked,true);
+  assert.equal(first[1].isLocked,false);
+  assert.equal(first[1].weight,'');
+  await expect(kg(1)).toHaveValue('70');
+  await expect(reps(1)).toHaveValue('8');
+
+  // L'atleta corregge il tiro solo dove serve: cambia carico, reps e RPE.
+  await kg(1).fill('72.5');
+  await reps(1).fill('9');
+  await rpe(1).fill('9');
+  await check(1).check();
+
+  await expect(kg(2)).toHaveValue('72.5');
+  await expect(reps(2)).toHaveValue('9');
+  await expect(rpe(2)).toHaveValue('9');
+  const second = await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    const current = state.workoutData.history.years[String(new Date().getFullYear())].mesocycles.at(-1);
+    return current.weeks[0].days[0].exercises[0].loggedSets;
+  });
+  assert.equal(second[1].weight,72.5);
+  assert.equal(second[1].reps,'9');
+  assert.equal(second[1].rpe,9);
+  assert.equal(second[2].weight,'');
+  assert.equal(second[2].rpe,'');
+
+  // Persiste la prestazione reale, non le suggestioni delle altre righe.
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('workoutApp_data')));
+  const logged = saved.history.years[String(new Date().getFullYear())].mesocycles.at(-1)
+    .weeks[0].days[0].exercises[0].loggedSets;
+  assert.equal(logged[0].isLocked,true);
+  assert.equal(logged[0].rpe,'');
+  assert.equal(logged[2].weight,'');
+  assert.deepEqual(monitoring.remoteRequests,[]);
+  assert.deepEqual(monitoring.pageErrors,[]);
+});
+
+test('calibrazione CSV senza kg: il check richiede ancora un carico reale', async ({ page }) => {
+  await openIsolatedApp(page);
+  page.on('dialog', d => d.accept());
+  const csv = [
+    HEADER,
+    '1;1;1;Panca Piana con Bilanciere;2;6-10;;;7.5;180s;Calibrazione;'
+  ].join('\n');
+  const result = await page.evaluate(async content => {
+    const { importWorkoutPlan } = await import('/js/csvHandler.js');
+    const { renderWorkoutList } = await import('/js/ui.js');
+    const r=importWorkoutPlan(content);
+    if (r.success) renderWorkoutList();
+    return r;
+  },csv);
+  assert.equal(result.success,true);
+  await expect(page.locator('.set-kg[data-ex="0"][data-set="0"]')).toHaveValue('');
+  await expect(page.locator('.set-reps[data-ex="0"][data-set="0"]')).toHaveValue('6');
+  await expect(page.locator('.set-rpe[data-ex="0"][data-set="0"]')).toHaveValue('7.5');
+  // Il check viene annullato dalla validazione per assenza di kg.
+  await page.locator('.set-lock-check[data-ex="0"][data-set="0"]').click();
+  await expect(page.locator('.set-lock-check[data-ex="0"][data-set="0"]')).not.toBeChecked();
 });

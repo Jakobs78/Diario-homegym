@@ -144,12 +144,16 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             const rpeInput = rowCard?.querySelector(`.set-rpe[data-set="${setIdx}"]`);
 
             if (isChecked) {
-                // Non memorizzare placeholder, target prescritti o valori di RPE
-                // simulati. Il check richiede i valori realmente compilati.
+                // Kg e reps proposti nella UI vengono confermati SOLO qui
+                // quando l'atleta mette il check. L'RPE suggerito e' il target,
+                // NON un RPE percepito: viene registrato soltanto se l'atleta
+                // ha interagito con il campo (input event -> setObj.rpe).
+                const hasMeasuredRpe = setObj.rpe !== undefined &&
+                    setObj.rpe !== null && String(setObj.rpe).trim() !== '';
                 const entered = {
                     weight: kgInput?.value ?? setObj.weight,
                     reps: repsInput?.value ?? setObj.reps,
-                    rpe: rpeInput?.value ?? setObj.rpe
+                    rpe: hasMeasuredRpe ? (rpeInput?.value ?? setObj.rpe) : ''
                 };
                 const validation = validateCompletedSet(entered, ex, setObj);
                 if (!validation.ok) {
