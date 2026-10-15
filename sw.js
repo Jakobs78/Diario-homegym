@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v9-integrated-history-progression';
+const CACHE_NAME = 'workout-app-v10-verified-set-prefill';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -9,6 +9,7 @@ const ASSETS_TO_CACHE = [
   '/js/ui.js',
   '/js/workoutEvents.js',
   '/js/exerciseCard.js',
+  '/js/setPrefill.js',
   '/js/liveCoachUI.js',
   '/js/sessionTimer.js',
   '/js/historySafety.js',
@@ -24,8 +25,11 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/athleteProfile.js',
   '/mycoatch/calibrationReview.js',
   '/mycoatch/weeklyCoverage.js',
+  '/mycoatch/volumeAccounting.js',
   '/mycoatch/exerciseIdentity.js',
   '/mycoatch/mesocycleComparison.js',
+  '/mycoatch/macrocyclePlanner.js',
+  '/mycoatch/periodizationPolicy.js',
   '/mycoatch/mycoatch-adapter.js',
   '/mycoatch/liveCoach.js',
   '/mycoatch/liveHistory.js',
