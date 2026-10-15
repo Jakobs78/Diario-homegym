@@ -128,6 +128,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 weeklySelectionCounts.set(exercise.id,
                     (weeklySelectionCounts.get(exercise.id) || 0) + 1);
                 return [{ ...exercise, anchorKey: slot.anchor || null,
+                    priorityProtected: Boolean(slot.priorityProtected),
                     isOptional: Boolean(slot.optional), selectionReason: selected.reason }];
             });
 
@@ -312,6 +313,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     // Priorita' mantenuta fino all'ottimizzatore del tempo: lo
                     // squat puo' essere il terzo esercizio ma resta un anchor.
                     anchorKey: ex.anchorKey || null,
+                    priorityProtected: Boolean(ex.priorityProtected),
                     isOptional: Boolean(ex.isOptional),
                     setsCount: setsCount,
                     reps: reps,
@@ -464,7 +466,9 @@ export function getTemplateForDays(daysPerWeek = 3) {
                 slots: [
                     { muscle: 'Petto', pattern: 'horizontal_push', anchor: 'bench' },
                     { muscle: 'Back_Lats', pattern: 'vertical_pull' },
-                    { muscle: 'Quadricipiti', pattern: 'squat' },
+                    // Fondamentale della seduta anche se terzo nella lista:
+                    // non duplicare l'anchor squat riservato a Full Body C.
+                    { muscle: 'Quadricipiti', pattern: 'squat', priorityProtected: true },
                     { muscle: 'Spalle', pattern: 'isolation' },
                     { muscle: 'Bicipiti', pattern: 'isolation' },
                     { muscle: 'Polpacci', pattern: 'isolation', optional: true }
