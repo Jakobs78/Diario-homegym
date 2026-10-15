@@ -137,7 +137,7 @@ export function importWorkoutPlan(csvText) {
 
             const strictPositiveInteger = (raw, fallback, label, maximum) => {
                 if (!raw) return fallback;
-                if (!/^\\d+$/.test(raw) || Number(raw) < 1 || Number(raw) > maximum) {
+                if (!/^\d+$/.test(raw) || Number(raw) < 1 || Number(raw) > maximum) {
                     throw new Error('Riga ' + (rowIndex + 2) + ': ' + label + ' non valido.');
                 }
                 return Number(raw);
@@ -309,7 +309,7 @@ export function importProgressCSV(csvText) {
         const strictIndex = (raw, label, rowNumber, fallback, max) => {
             const input = String(raw ?? '').trim();
             if (!input) return fallback;
-            if (!/^\\d+$/.test(input) || Number(input) < 1 || Number(input) > max)
+            if (!/^\d+$/.test(input) || Number(input) < 1 || Number(input) > max)
                 throw new Error('Riga ' + rowNumber + ': ' + label + ' non valido.');
             return Number(input);
         };
@@ -331,7 +331,7 @@ export function importProgressCSV(csvText) {
             // Preserve missing values and don't transform a negative/invalid
             // value to a positive load by stripping its sign or units.
             const rawWeight = read(idxWeight).replace(',', '.');
-            if (rawWeight && (!/^(?:\\d+)(?:\\.\\d+)?$/.test(rawWeight) ||
+            if (rawWeight && (!/^(?:\d+)(?:\.\d+)?$/.test(rawWeight) ||
                 Number(rawWeight) > 700 || Number(rawWeight) < 0)) {
                 throw new Error('Riga ' + line + ': peso registrato non valido.');
             }
