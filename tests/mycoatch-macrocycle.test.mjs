@@ -154,3 +154,36 @@ test('generation links roadmap to proposed mesocycle and review without modifyin
     assert.equal(csv.split('\n')[0].split(';').length,12);
     MyCoatch.clearProposal();
 });
+
+test('an explicitly planned empty week cannot be silently omitted', () => {
+    const latest = plannedBlock({weeks:1});
+    latest.weeks.push({weekNumber:2, days:[]});
+    const audit = auditLatestBlock(latest);
+    assert.equal(audit.weeksPlanned,2);
+    assert.equal(audit.weeksCompleted,1);
+    assert.equal(audit.completed,false);
+});
+
+test('verified historical mesocycles move the stage without inventing results', () => {
+    const first = plannedBlock();
+    const second = plannedBlock();
+    const input = {history:{years:{'2026':{mesocycles:[first,second]}}}};
+    const next = planMacrocycle(report(second),cfg,input);
+    assert.equal(next.completedHistoricalBlocks,2);
+    assert.equal(next.cyclePosition,3);
+    assert.equal(next.blocks[0].role,'maintenance');
+    assert.equal(next.blocks[1].role,'development');
+    assert.equal(next.blocks[2].role,'reassessment');
+});
+
+test('an incomplete later block prevents skipping another stage', () => {
+    const done = plannedBlock();
+    const partial = plannedBlock({confirmedWeeks:1});
+    const input = {history:{years:{'2026':{mesocycles:[done,partial]}}}};
+    const p = planMacrocycle(report(partial),cfg,input);
+    assert.equal(p.completedHistoricalBlocks,1);
+    assert.equal(p.readiness,'incomplete_previous_block');
+    assert.equal(p.blocks[0].role,'continuity_review');
+    assert.equal(p.blocks[1].role,'reassessment');
+    assert.ok(p.blocks.every(x=>x.noPredictedLoads));
+});
