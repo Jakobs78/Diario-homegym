@@ -127,7 +127,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 exercisesSelectedToday.push(exercise.name);
                 weeklySelectionCounts.set(exercise.id,
                     (weeklySelectionCounts.get(exercise.id) || 0) + 1);
-                return [{ ...exercise, anchorKey: slot.anchor || null, selectionReason: selected.reason }];
+                return [{ ...exercise, anchorKey: slot.anchor || null,
+                    isOptional: Boolean(slot.optional), selectionReason: selected.reason }];
             });
 
             // Integrazione della funzione di specializzazione originale
@@ -308,6 +309,10 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
 
                 return {
                     name: ex.name,
+                    // Priorita' mantenuta fino all'ottimizzatore del tempo: lo
+                    // squat puo' essere il terzo esercizio ma resta un anchor.
+                    anchorKey: ex.anchorKey || null,
+                    isOptional: Boolean(ex.isOptional),
                     setsCount: setsCount,
                     reps: reps,
                     kgMin: String(targetKgMin),
