@@ -46,6 +46,12 @@ export function planAdaptiveDecisions(report) {
         } else if (exercise.status === 'regressing') {
             action = 'review_regression';
             reason = 'e1RM in calo, ma dati non sufficienti per attribuirlo alla fatica: mantieni e osserva la seduta seguente.';
+        } else if (exercise.progressionEvidence?.repeatedBelowMin && kg !== null) {
+            action = 'review_missed_reps';
+            reason = 'Due settimane con ripetizioni sotto il minimo previsto: ' +
+                'verifica tecnica, recupero e adeguatezza del target. ' +
+                'Senza RPE alto confermato non attribuiamo il calo alla fatica ' +
+                'e non riduciamo automaticamente i kg.';
         } else if (exercise.readyForReps && kg !== null) {
             action = 'build_reps';
             plannedRepGoal = exercise.nextRepTarget;
