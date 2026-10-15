@@ -335,7 +335,9 @@ async function prepareLiveWorkout(page) {
 test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue tempo e riapertura', async ({ page }) => {
   const monitoring = await openIsolatedApp(page);
   await prepareLiveWorkout(page);
-  await expect(page.locator('#mycoatch-live-panel')).toBeVisible();
+  await expect(page.locator('#mycoatch-live-disclosure')).toBeVisible();
+  await expect(page.locator('#mycoatch-live-panel')).not.toBeVisible();
+  await expect(page.locator('.mycoatch-live-count')).toContainText('0/3');
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/3');
   await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('80');
   await expect(page.locator('.set-reps[data-set="0"]')).toHaveValue('6');
@@ -1159,6 +1161,7 @@ test('feedback MyCoatch flottante: 15 secondi, chiusura manuale e consiglio recu
   await expect(toast).toBeVisible();
   await page.clock.fastForward(1);
   await expect(toast).toHaveCount(0);
+  await page.locator('.mycoatch-live-trigger').click();
   await page.locator('.mycoatch-live-advice-history > summary').click();
   await expect(page.locator('.mycoatch-live-advice-history .mycoatch-live-advice')).toBeVisible();
   await expect(page.locator('.mycoatch-live-advice-history')).toContainText('RPE molto alto');
@@ -1189,4 +1192,85 @@ test('errore validazione della serie appare anche vicino all atleta in basso', a
   await expect(page.locator('.set-lock-check[data-set="0"]')).not.toBeChecked();
   await expect(page.locator('#mycoatch-live-toast')).toContainText('Inserisci il peso');
   await expect(page.locator('#mycoatch-live-toast')).toHaveAttribute('role','alert');
+});
+
+
+test('shell compatto mobile: navigazione rapida, menu utility e MyCoatch apribile', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  const monitoring = await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+
+  const sizes = await page.evaluate(() => {
+    const rect = selector => document.querySelector(selector)?.getBoundingClientRect();
+    return {
+      header: rect('.app-header-container')?.height,
+      nav: rect('.unified-header-box')?.height,
+      coach: rect('#mycoatch-live-disclosure')?.height,
+      firstExerciseTop: rect('.ex-card')?.top,
+      width: document.documentElement.scrollWidth,
+      viewport: document.documentElement.clientWidth
+    };
+  });
+  assert.ok(sizes.header <= 95, 'Header too tall: ' + JSON.stringify(sizes));
+  assert.ok(sizes.nav <= 180, 'Navigator too tall: ' + JSON.stringify(sizes));
+  assert.ok(sizes.coach <= 65, 'Coach collapsed row too tall: ' + JSON.stringify(sizes));
+  assert.ok(sizes.firstExerciseTop < 435, 'First exercise below the fold: ' + JSON.stringify(sizes));
+  assert.ok(sizes.width <= sizes.viewport, 'Unexpected horizontal body scrolling: ' + JSON.stringify(sizes));
+
+  await expect(page.locator('#mycoatch-live-disclosure')).not.toHaveAttribute('open', '');
+  await expect(page.locator('.mycoatch-live-count')).toContainText('0/3');
+
+  // Manuale, tema e account sono in Altro, mantenendo le scorciatoie principali.
+  await page.locator('#app-utility-menu > summary').click();
+  await expect(page.locator('#btn-user-manual')).toBeVisible();
+  await expect(page.locator('#theme-toggle-btn')).toBeVisible();
+  await expect(page.locator('#user-info-bar')).toBeVisible();
+  await page.locator('#theme-toggle-btn').click();
+  await expect(page.locator('#app-utility-menu')).not.toHaveAttribute('open', '');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+
+  await page.locator('#app-utility-menu > summary').click();
+  await page.locator('#btn-user-manual').click();
+  await expect(page.locator('#manual')).toBeVisible();
+  await expect(page.locator('#app-utility-menu')).not.toHaveAttribute('open', '');
+  await page.locator('#app-utility-menu > summary').click();
+  await page.locator('#btn-user-manual').click();
+  await expect(page.locator('#workout-list-container')).toBeVisible();
+
+  await page.locator('.mycoatch-live-trigger').click();
+  await expect(page.locator('#mycoatch-live-panel')).toBeVisible();
+  await page.locator('.set-kg[data-set="0"]').fill('80');
+  await page.locator('.set-reps[data-set="0"]').fill('8');
+  await page.locator('.set-rpe[data-set="0"]').fill('8');
+  await page.locator('.set-lock-check[data-set="0"]').check();
+  await expect(page.locator('.mycoatch-live-count')).toContainText('1/3');
+  await expect(page.locator('#mycoatch-live-disclosure')).toHaveAttribute('open', '');
+  await expect(page.locator('#mycoatch-live-toast')).toBeVisible();
+  assert.deepEqual(monitoring.remoteRequests, []);
+  assert.deepEqual(monitoring.pageErrors, []);
+});
+
+test('shell compatto su smartphone stretto e navigazione mesocicli/settimane', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  const monitoring = await openIsolatedApp(page);
+  const snapshot = await page.evaluate(() => ({
+    fullWidth: document.documentElement.scrollWidth,
+    viewportWidth: document.documentElement.clientWidth,
+    brand: document.querySelector('.app-brand')?.textContent?.trim(),
+    currentMeso: document.getElementById('meso-display')?.textContent
+  }));
+  assert.ok(snapshot.fullWidth <= snapshot.viewportWidth,
+    '320px page must not overflow horizontally: ' + JSON.stringify(snapshot));
+  assert.match(snapshot.brand, /HomeGym/);
+  await expect(page.locator('#week-selector')).toBeVisible();
+  await page.locator('#week-selector').selectOption('2');
+  await expect(page.locator('#week-selector')).toHaveValue('2');
+  await expect(page.locator('#next-meso-btn')).toBeDisabled();
+  await expect(page.locator('.day-tabs button.active-day-btn')).toHaveCount(1);
+  await expect(page.locator('#open-analytics-btn')).toBeVisible();
+  await page.locator('#open-analytics-btn').click();
+  await expect(page.locator('#analytics-modal')).not.toHaveClass(/hidden/);
+  await page.locator('#close-analytics-btn').click();
+  assert.deepEqual(monitoring.remoteRequests, []);
+  assert.deepEqual(monitoring.pageErrors, []);
 });
