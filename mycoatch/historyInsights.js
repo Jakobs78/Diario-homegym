@@ -93,7 +93,10 @@ function inspectExercise(exercise, context) {
         allRepsBelowMin: min !== undefined && valid.every(set => set.reps < min),
         allRpeWithinTarget: targetRpe !== null && validRpe.length === valid.length &&
             valid.every(set => set.rpe <= targetRpe),
+        allRpeMeasured: valid.length === plannedSets &&
+            validRpe.length === valid.length,
         rpeOvershoot: targetRpe !== null && avgRpe !== null &&
+            valid.length === plannedSets && validRpe.length === valid.length &&
             avgRpe >= targetRpe + 1
     };
 }
