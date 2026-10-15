@@ -106,7 +106,25 @@ export function formatCoachReview(comparison, report) {
     const lines = ['MYCOATCH — ANTEPRIMA DELLA PROPOSTA'];
     lines.push(`Storico analizzato: ${report.inspectedMesocycles} mesocicli, ${report.sessionsAnalyzed} sedute con serie confermate.`);
     if (!comparison.basedOnPrevious) {
-        lines.push('Nessun mesociclo precedente disponibile: non sono possibili adattamenti personali.');
+        lines.push('Nessun mesociclo precedente disponibile: non sono possibili adattamenti personali dallo storico.');
+    }
+    if (report.athleteOnboarding) {
+        const profile = report.athleteOnboarding;
+        lines.push('PROFILO INIZIALE: ' + profile.level +
+            (profile.priorityMuscle ? ' · priorità ' + profile.priorityMuscle : ' · sviluppo equilibrato') + '.');
+        if (profile.calibrationWeek) {
+            lines.push('PRIMA SETTIMANA DI CALIBRAZIONE: RPE iniziale moderato, serie controllate, nessun massimale o carico inventato. Registra le serie reali per il successivo adattamento.');
+        } else if (report.sessionsAnalyzed > 0) {
+            lines.push('Storico disponibile: la calibrazione iniziale non sostituisce le prestazioni già registrate.');
+        }
+        if (profile.excludedExercises.length) {
+            lines.push('Esercizi esclusi dall’atleta: ' + profile.excludedExercises.join(', ') + '.');
+        }
+        if (profile.referencesProvided.length) {
+            lines.push('Carichi dichiarati, NON verificati nel diario: ' +
+                profile.referencesProvided.join(', ') +
+                '. Se incompatibili con il target/RPE, i kg restano da definire.');
+        }
     }
     if (comparison.weeklyCoverage) {
         const coverage = comparison.weeklyCoverage;
