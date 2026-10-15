@@ -33,7 +33,8 @@ function inspectExercise(exercise, context) {
         // Per dropset/triset registrati come "10+8+6" conta solo la prima
         // porzione ai fini del volume; l'e1RM rimane deliberatamente ignoto.
         const reps = numericValue(repsText.includes('+') ? repsText.split('+')[0] : repsText);
-        if (kg === null || kg <= 0 || reps === null || reps <= 0) return [];
+        if (kg === null || kg <= 0 || reps === null ||
+            !Number.isInteger(reps) || reps <= 0 || reps > 100) return [];
         const rpe = parseRpe(set.rpe);
         const special = Boolean(set.intensityTechnique || set.isDropset ||
             exercise.isDropset || exercise.groupType === 'dropset' ||
@@ -85,8 +86,10 @@ function inspectExercise(exercise, context) {
             valid.every(set => set.reps >= min && set.reps <= max),
         totalReps: valid.reduce((sum, set) => sum + set.reps, 0),
         tonnage: valid.reduce((sum, set) => sum + set.kg * set.reps, 0),
-        allRepsAtTop: max !== undefined && valid.length >= plannedSets &&
-            valid.every(set => set.reps >= max),
+        // Overshooting a narrow prescription by 10+ reps does not by
+        // itself validate a safe load jump; at most +2 reps over top.
+        allRepsAtTop: max !== undefined && valid.length === plannedSets &&
+            valid.every(set => set.reps >= max && set.reps <= max + 2),
         allRepsBelowMin: min !== undefined && valid.every(set => set.reps < min),
         allRpeWithinTarget: targetRpe !== null && validRpe.length === valid.length &&
             valid.every(set => set.rpe <= targetRpe),
