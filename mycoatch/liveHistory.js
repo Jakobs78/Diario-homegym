@@ -39,6 +39,19 @@ function* previousDays(history, currentDay) {
                 const days = [...(week.days || [])]
                     .sort((a, b) => Number(a.dayNumber) - Number(b.dayNumber));
                 for (const day of days) {
+                    // A completed day repeated by the athlete retains an
+                    // append-only archive (PR #14). The archived attempts
+                    // happened BEFORE the newly empty/current attempt.
+                    const archives = Array.isArray(day.sessionArchives) ?
+                        day.sessionArchives : [];
+                    for (const archived of archives) {
+                        yield {
+                            dayName: archived.dayName || day.dayName,
+                            completed: true,
+                            totalDurationMinutes: archived.totalDurationMinutes,
+                            exercises: archived.exercises || []
+                        };
+                    }
                     if (day === currentDay) return;
                     yield day;
                 }
