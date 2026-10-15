@@ -108,6 +108,37 @@ export function formatCoachReview(comparison, report) {
     if (!comparison.basedOnPrevious) {
         lines.push('Nessun mesociclo precedente disponibile: non sono possibili adattamenti personali dallo storico.');
     }
+    if (report.calibrationHandoff) {
+        const calibration = report.calibrationHandoff;
+        lines.push('PASSAGGIO DALLA CALIBRAZIONE: ' +
+            calibration.completeDays + '/' + calibration.days +
+            ' giornate complete · ' +
+            calibration.anchorsRecorded + '/' + calibration.anchorsTotal +
+            ' movimenti cardine registrati · ' +
+            calibration.validSets + '/' + calibration.totalSets +
+            ' serie reali valide.');
+        if (!calibration.readyForReview) {
+            lines.push('ATTENZIONE: settimana di calibrazione NON completata. ' +
+                'La proposta è preliminare, utilizza solo i risultati finora confermati ' +
+                'e non sostituisce automaticamente il programma attivo.');
+            if (calibration.missingAnchors.length) {
+                lines.push('Riferimenti mancanti: ' +
+                    calibration.missingAnchors.join(', ') + '.');
+            }
+        } else {
+            lines.push('Calibrazione della prima settimana registrata: ' +
+                'puoi confrontare la nuova proposta con i risultati reali. ' +
+                'La prima settimana completa NON significa che le settimane restanti ' +
+                'del mesociclo siano state completate.');
+        }
+        if (calibration.withoutRpe > 0) {
+            lines.push('RPE non registrato in ' + calibration.withoutRpe +
+                ' serie: non sono consentite stime di fatica o e1RM ' +
+                'basate su quei valori mancanti.');
+        }
+        lines.push('Decidi tu se scaricare e importare un nuovo CSV: ' +
+            'nessun allenamento esistente viene aggiornato da MyCoatch.');
+    }
     if (report.athleteOnboarding) {
         const profile = report.athleteOnboarding;
         lines.push('PROFILO INIZIALE: ' + profile.level +
