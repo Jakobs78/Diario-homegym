@@ -2,6 +2,7 @@ import { canonicalExerciseKey, canonicalExerciseName } from './exerciseIdentity.
 import { numericValue, estimateE1rm } from './historyAnalysis.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { evaluateExerciseProgression } from './progressionPolicy.js';
+import { contributionsForExercise, TRACKED_MUSCLES, VOLUME_ACCOUNTING_METHOD } from './volumeAccounting.js';
 
 const catalog = new Map(EXERCISE_DATABASE.map(ex => [canonicalExerciseKey(ex.name), ex]));
 const orderedKeys = object => Object.keys(object || {}).sort((a, b) => Number(a) - Number(b));
@@ -77,6 +78,7 @@ function inspectExercise(exercise, context) {
         repRange: repsTarget,
         isDeload,
         completedSets: valid.length,
+        measuredRpeSets: validRpe.length,
         plannedSets,
         avgRpe,
         e1rm: e1rms.length ? Math.max(...e1rms) : null,
@@ -137,6 +139,8 @@ export function analyzeTrainingHistory(userHistory) {
     const years = history.years || {};
     const byExercise = {};
     const weeks = new Map();
+    // Separiamo i crediti frazionari dai set diretti legacy.
+    const fractionalWeeks = new Map();
     let sessionsAnalyzed = 0;
     let inspectedMesocycles = 0;
     let lastMesocycle = null;
@@ -190,6 +194,34 @@ export function analyzeTrainingHistory(userHistory) {
                             }
                             byExercise[parsed.key].exposures.push(parsed);
                             if (parsed.isDeload) continue;
+                            const volumeCredits = contributionsForExercise(
+                                parsed.name, parsed.completedSets);
+                            if (volumeCredits) {
+                                if (!fractionalWeeks.has(weekId)) {
+                                    fractionalWeeks.set(weekId, new Map());
+                                }
+                                const fractionalByMuscle = fractionalWeeks.get(weekId);
+                                const record = (muscle) => {
+                                    if (!fractionalByMuscle.has(muscle)) {
+                                        fractionalByMuscle.set(muscle, {
+                                            direct: 0, indirect: 0, withRpe: 0
+                                        });
+                                    }
+                                    return fractionalByMuscle.get(muscle);
+                                };
+                                const measuredRatio = parsed.measuredRpeSets /
+                                    parsed.completedSets;
+                                for (const [muscle, count] of Object.entries(volumeCredits.direct)) {
+                                    const totals = record(muscle);
+                                    totals.direct += count;
+                                    totals.withRpe += count * measuredRatio;
+                                }
+                                for (const [muscle, count] of Object.entries(volumeCredits.indirect)) {
+                                    const totals = record(muscle);
+                                    totals.indirect += count;
+                                    totals.withRpe += count * measuredRatio;
+                                }
+                            }
                             if (!weeks.has(weekId)) weeks.set(weekId, new Map());
                             const weekMuscles = weeks.get(weekId);
                             if (!weekMuscles.has(parsed.category)) {
@@ -274,6 +306,37 @@ export function analyzeTrainingHistory(userHistory) {
             exerciseKeys: [...new Set(recent.flatMap(e => [...e.distinctExercises]))],
             status: 'workload_observed_not_hypertrophy_measurement'
         };
+    }
+
+    // I crediti indiretti non entrano nei contatori storici di serie dirette.
+    // Per la media si usa la stessa finestra di settimane recenti, incluso
+    // lo zero se il muscolo non e' stato allenato in una settimana.
+    const recentWeekIds = sortedWeekIds.slice(-3);
+    for (const muscle of TRACKED_MUSCLES) {
+        const records = recentWeekIds.map(id =>
+            fractionalWeeks.get(id)?.get(muscle) || { direct: 0, indirect: 0, withRpe: 0 });
+        const direct = records.reduce((sum, item) => sum + item.direct, 0);
+        const indirect = records.reduce((sum, item) => sum + item.indirect, 0);
+        const fractional = direct + indirect;
+        if (!fractional) continue;
+        if (!byMuscle[muscle]) {
+            byMuscle[muscle] = {
+                weeksObserved: 0, avgWeeklySets: 0, recentAdherence: null,
+                avgRpe: null, setsPerWeek: [], exerciseKeys: [],
+                status: 'secondary_exposure_only_no_direct_performance_signal'
+            };
+        }
+        const weeksCount = Math.max(1, recentWeekIds.length);
+        const rpeMeasured = records.reduce((sum, item) => sum + item.withRpe, 0);
+        Object.assign(byMuscle[muscle], {
+            avgWeeklyDirectSets: round(direct / weeksCount),
+            avgWeeklyIndirectCredits: round(indirect / weeksCount),
+            avgWeeklyFractionalSets: round(fractional / weeksCount),
+            fractionalRpeCoverage: round(rpeMeasured / fractional, 2),
+            recentFractionalByWeek: records.map(item =>
+                round(item.direct + item.indirect)),
+            fractionalAccountingMethod: VOLUME_ACCOUNTING_METHOD
+        });
     }
 
     return {
