@@ -87,13 +87,13 @@ function donorDeficits(days, requestedDays) {
     return missing;
 }
 
-function proposedAddition(day, source, count) {
+function proposedAddition(day, source, count, maxAccessorySets) {
     const original = day.exercises.map(cloneExercise);
     const existingIndex = original.findIndex(ex =>
         ex.pattern === 'isolation' && ex.category === source.category);
     if (existingIndex >= 0) {
         const current = original[existingIndex];
-        if (current.setsCount + count > MAX_ACCESSORY_SETS_PER_EXERCISE) return null;
+        if (current.setsCount + count > maxAccessorySets) return null;
         original[existingIndex] = additionalSets(current, count);
         return { exercises: original, targetName: current.name, newExercise: false };
     }
@@ -124,7 +124,7 @@ function fitsWithoutSacrifice(oldExercises, plannedExercises, optimized) {
     });
 }
 
-function findReceiver(days, deficit, maxSessionMinutes, crossFocusCount) {
+function findReceiver(days, deficit, maxSessionMinutes, crossFocusCount, maxAccessorySets) {
     const from = days[deficit.fromIndex];
     const options = [];
 
@@ -132,8 +132,8 @@ function findReceiver(days, deficit, maxSessionMinutes, crossFocusCount) {
         const target = days[i];
         const crossFocus = movementClass(from.dayName) !== movementClass(target.dayName);
         if (!canReceive(from, target, deficit.source.category, crossFocusCount[i])) continue;
-        for (let count = 1; count <= Math.min(3, deficit.missingSets); count++) {
-            const proposed = proposedAddition(target, deficit.source, count);
+        for (let count = 1; count <= Math.min(3, deficit.missingSets, maxAccessorySets); count++) {
+            const proposed = proposedAddition(target, deficit.source, count, maxAccessorySets);
             if (!proposed) continue;
             let optimized;
             try {
@@ -224,6 +224,9 @@ export function rebalanceWeeklyAccessories(days, requestedDays, maxSessionMinute
         throw new Error('Riequilibrio settimanale: giorni originali non coerenti.');
     }
     const isDeloadWeek = Boolean(options.isDeloadWeek);
+    const maxAccessorySets = Number.isInteger(options.maxAccessorySets) &&
+        options.maxAccessorySets >= 1 && options.maxAccessorySets <= MAX_ACCESSORY_SETS_PER_EXERCISE
+        ? options.maxAccessorySets : MAX_ACCESSORY_SETS_PER_EXERCISE;
     const updatedDays = days.map(day => ({
         ...day,
         exercises: day.exercises.map(cloneExercise),
@@ -243,7 +246,7 @@ export function rebalanceWeeklyAccessories(days, requestedDays, maxSessionMinute
             for (const deficit of deficits) {
                 if (deficit.missingSets <= 0) continue;
                 const choice = findReceiver(
-                    updatedDays, deficit, maxSessionMinutes, crossFocusCount
+                    updatedDays, deficit, maxSessionMinutes, crossFocusCount, maxAccessorySets
                 );
                 if (!choice) continue;
 
