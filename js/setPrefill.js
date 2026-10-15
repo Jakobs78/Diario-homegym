@@ -96,10 +96,12 @@ export function getSetPrefill(exercise, index, { previousExercise = null } = {})
     const current = logs[index] || {};
     const plan = plannedFor(exercise, index);
     let previous = null;
+    let previousIndex = -1;
     for (let i = index - 1; i >= 0; i--) {
         if (confirmed(logs[i]) && !logs[i].isWarmup && !logs[i].warmup &&
             !logs[i].is_warmup && weightFor(logs[i]) && repsFor(logs[i])) {
             previous = logs[i];
+            previousIndex = i;
             break;
         }
     }
@@ -109,7 +111,12 @@ export function getSetPrefill(exercise, index, { previousExercise = null } = {})
     const backoffAfterTop = index > 0 && previous === logs[0] &&
         firstTop.weight && baseWeight &&
         Number(firstTop.weight) > Number(baseWeight);
-    const sameSession = Boolean(previous && !backoffAfterTop);
+    const earlierPlan = previousIndex >= 0 ? plannedFor(exercise, previousIndex) : null;
+    // Protegge anche le progressioni impostate serie per serie: il carico
+    // target del set corrente prevale sull'ultima serie confermata.
+    const programmedStep = plan.weight && earlierPlan?.weight &&
+        Number(plan.weight) !== Number(earlierPlan.weight);
+    const sameSession = Boolean(previous && !backoffAfterTop && !programmedStep);
 
     const priorSet = previousExercise?.loggedSets?.[index];
     const priorPlan = previousExercise ? plannedFor(previousExercise, index) : null;
