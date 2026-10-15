@@ -5,6 +5,7 @@
 import { saveAndSync } from './storage.js';
 import { state } from './state.js';
 import { refreshLiveCoachClock } from './liveCoachUI.js';
+import { repeatCompletedSessionPreservingHistory, safeArchiveCount } from './historySafety.js';
 
 /**
  * Aggiorna lo stato di completamento e i tempi della sessione corrente in base ai set bloccati.
@@ -127,39 +128,26 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
 
     if (actionBtn) {
         if (isAllChecked) {
-            actionBtn.innerHTML = '🔄 Reset time';
+            actionBtn.textContent = '🔄 Ripeti (salva storico)';
             actionBtn.className = 'btn-reset-time btn-timer-action font-bold';
-            actionBtn.title = 'Resetta il timer per ripetere la sessione';
+            actionBtn.title = 'Archivia la sessione completata prima di ripeterla';
             actionBtn.classList.remove('is-hidden');
-            
-            actionBtn.onclick = () => {
-                if (confirm("Vuoi azzerare il timer per ripetere la sessione?")) {
-                    currentDay.sessionStart = null; // Parte dal prossimo set realmente confermato.
-                    currentDay.accumulatedSeconds = 0;
-                    currentDay.isPaused = false;
-                    currentDay.completed = false;
-                    currentDay.totalDurationMinutes = undefined;
-                    delete currentDay.sessionCompletedAt;
 
-                    exercises.forEach(ex => (ex.loggedSets || []).forEach((set, index) => {
-                        set.isLocked = false;
-                        set.completed = false;
-                        set.weight = '';
-                        set.reps = '';
-                        set.rpe = '';
-                        delete set.completedAt;
-                        if (Array.isArray(ex.sets) && ex.sets[index]) {
-                            ex.sets[index].isLocked = false;
-                            ex.sets[index].completed = false;
-                            ex.sets[index].weight = '';
-                            ex.sets[index].reps = '';
-                            ex.sets[index].rpe = '';
-                            delete ex.sets[index].completedAt;
-                        }
-                    }));
-                    
+            actionBtn.onclick = () => {
+                const agreed = confirm(
+                    'Vuoi ripetere questa seduta?\\n\\n' +
+                    'I kg, le ripetizioni, gli RPE e la data della seduta completata ' +
+                    'verranno PRIMA conservati nello storico delle ripetizioni. ' +
+                    'Le nuove serie partiranno vuote.\\n\\n' +
+                    'La seduta originale resterà consultabile qui sotto.'
+                );
+                if (!agreed) return;
+                try {
+                    repeatCompletedSessionPreservingHistory(currentDay);
                     saveAndSync(state.workoutData);
                     if (typeof renderCallback === 'function') renderCallback();
+                } catch (error) {
+                    alert(error.message || 'Impossibile archiviare la seduta: nessun dato modificato.');
                 }
             };
         } else {
@@ -186,6 +174,43 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
                 }
             };
         }
+    }
+
+    // Cronologia persistita nel giorno, visibile anche dopo il reset.
+    // Rendiamo solo testo, senza interpolare note/esercizi in HTML.
+    timerWrapper?.querySelector('.session-archive-details')?.remove();
+    const archives = Array.isArray(currentDay.sessionArchives) ?
+        currentDay.sessionArchives : [];
+    if (archives.length && timerWrapper) {
+        const historyDetails = document.createElement('details');
+        historyDetails.className = 'session-archive-details';
+        const summary = document.createElement('summary');
+        summary.textContent = '📚 Sedute precedenti salvate (' + safeArchiveCount(currentDay) + ')';
+        historyDetails.appendChild(summary);
+        const list = document.createElement('ol');
+        for (const item of archives.slice().reverse()) {
+            const entry = document.createElement('li');
+            const title = document.createElement('strong');
+            title.textContent = item.sessionDate ||
+                (item.capturedAt ? String(item.capturedAt).slice(0, 10) : 'Data non disponibile');
+            entry.append(title);
+            const exercises = document.createElement('ul');
+            for (const ex of item.exercises || []) {
+                const performed = (ex.loggedSets || []).filter(set =>
+                    set.isLocked === true || set.completed === true);
+                if (!performed.length) continue;
+                const line = document.createElement('li');
+                line.textContent = ex.name + ': ' + performed.map(set =>
+                    String(set.weight) + ' kg × ' + String(set.reps) +
+                    (set.rpe === '' || set.rpe === null || set.rpe === undefined
+                        ? '' : ' · RPE ' + String(set.rpe))).join(' / ');
+                exercises.appendChild(line);
+            }
+            entry.appendChild(exercises);
+            list.appendChild(entry);
+        }
+        historyDetails.appendChild(list);
+        timerWrapper.appendChild(historyDetails);
     }
 
     if (currentDay.completed && currentDay.totalDurationMinutes !== undefined) {

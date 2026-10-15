@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v8-coach-progression';
+const CACHE_NAME = 'workout-app-v9-integrated-history-progression';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -11,6 +11,8 @@ const ASSETS_TO_CACHE = [
   '/js/exerciseCard.js',
   '/js/liveCoachUI.js',
   '/js/sessionTimer.js',
+  '/js/historySafety.js',
+  '/js/csvHandler.js',
   '/js/timer.js',
   '/js/helpers.js',
   '/js/restPolicy.js',
