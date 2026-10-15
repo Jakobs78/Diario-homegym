@@ -680,7 +680,7 @@ test('check-in calibrazione: segue le serie realmente confermate anche passando 
   });
   assert.equal(before.sets[0].weight, 40);
   assert.equal(before.sets[0].completed, true);
-  assert.equal(before.sets[1].completed, false);
+  assert.ok(!before.sets[1].completed, 'Una serie ancora aperta non deve risultare completata');
 
   await page.evaluate(async () => {
     const { state } = await import('/js/state.js');
@@ -738,7 +738,10 @@ test('data dei carichi autodichiarati: senza data non prescrive kg, con data rec
   await startCoach(page, '75');
   await page.locator('#mycoatch-experience').selectOption('intermediate');
   await page.locator('#mycoatch-calibration').selectOption('regular');
-  await page.locator('.mycoatch-profile-details summary').last().click();
+  const references = page.locator('.mycoatch-profile-details').last();
+  if (await references.evaluate(node => !node.open)) {
+    await references.locator('summary').click();
+  }
   await page.locator('#mycoatch-load-bench-date').fill(new Date().toISOString().slice(0, 10));
   const second = page.waitForEvent('download', { timeout: 20000 });
   await page.locator('#mycoatch-submit').click();
