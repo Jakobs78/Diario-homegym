@@ -337,15 +337,13 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   await prepareLiveWorkout(page);
   await expect(page.locator('#mycoatch-live-panel')).toBeVisible();
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/3');
-  await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('');
-  await expect(page.locator('.set-reps[data-set="0"]')).toHaveValue('');
-  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('');
+  await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('80');
+  await expect(page.locator('.set-reps[data-set="0"]')).toHaveValue('6');
+  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('8');
   assert.equal(await page.locator('.set-kg[data-set="0"]').getAttribute('placeholder'), '80');
 
-  // Nessuna conferma da valori prescritti: le serie devono avere dati realmente inseriti.
-  await page.locator('.set-lock-check[data-set="0"]').click();
+  // Il CSV precompila, ma non crea serie confermate prima della spunta.
   await expect(page.locator('.set-lock-check[data-set="0"]')).not.toBeChecked();
-  await expect(page.locator('#mycoatch-live-input-error')).toContainText('peso realmente usato');
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/3');
 
   await page.locator('.set-kg[data-set="0"]').fill('80');
@@ -357,9 +355,9 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   await expect(page.locator('#mycoatch-live-guidance')).toContainText('Ultima prestazione comparabile');
   await expect(page.locator('#mycoatch-live-guidance')).toContainText('Differenza e1RM');
   await expect(page.locator('.mycoatch-live-apply')).toBeVisible();
-  await expect(page.locator('.set-kg[data-set="1"]')).toHaveValue('');
-  await expect(page.locator('.set-reps[data-set="1"]')).toHaveValue('');
-  await expect(page.locator('.set-rpe[data-set="1"]')).toHaveValue('');
+  await expect(page.locator('.set-kg[data-set="1"]')).toHaveValue('80');
+  await expect(page.locator('.set-reps[data-set="1"]')).toHaveValue('8');
+  await expect(page.locator('.set-rpe[data-set="1"]')).toHaveValue('9.5');
   await expect(page.locator('#live-session-timer')).not.toHaveText('0:00');
 
   await page.locator('.mycoatch-live-apply').click();
@@ -439,9 +437,9 @@ test('ripetere una seduta archivia la sessione reale prima del nuovo allenamento
   await expect(archives).toContainText('80 kg × 8 · RPE 8');
   for (let set = 0; set < 3; set++) {
     await expect(page.locator(`.set-lock-check[data-set="${set}"]`)).not.toBeChecked();
-    await expect(page.locator(`.set-kg[data-set="${set}"]`)).toHaveValue('');
-    await expect(page.locator(`.set-reps[data-set="${set}"]`)).toHaveValue('');
-    await expect(page.locator(`.set-rpe[data-set="${set}"]`)).toHaveValue('');
+    await expect(page.locator(`.set-kg[data-set="${set}"]`)).toHaveValue('80');
+    await expect(page.locator(`.set-reps[data-set="${set}"]`)).toHaveValue('6');
+    await expect(page.locator(`.set-rpe[data-set="${set}"]`)).toHaveValue('8');
   }
   const result = await page.evaluate(async () => {
     const { state } = await import('/js/state.js');
@@ -1041,6 +1039,7 @@ test('calibrazione CSV senza kg: il check richiede ancora un carico reale', asyn
   await expect(page.locator('.set-kg[data-ex="0"][data-set="0"]')).toHaveValue('');
   await expect(page.locator('.set-reps[data-ex="0"][data-set="0"]')).toHaveValue('6');
   await expect(page.locator('.set-rpe[data-ex="0"][data-set="0"]')).toHaveValue('7.5');
-  await page.locator('.set-lock-check[data-ex="0"][data-set="0"]').check();
+  // Il check viene annullato dalla validazione per assenza di kg.
+  await page.locator('.set-lock-check[data-ex="0"][data-set="0"]').click();
   await expect(page.locator('.set-lock-check[data-ex="0"][data-set="0"]')).not.toBeChecked();
 });
