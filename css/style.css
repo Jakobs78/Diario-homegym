@@ -2023,3 +2023,19 @@ body.dark-mode .group-title-badge {
 @media (max-width: 420px) {
     .mycoatch-reference-dates { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* MyCoatch: check-in di calibrazione letto da serie reali, senza persistenza aggiunta. */
+.mycoatch-calibration-review {
+    margin-top: 12px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 12px;
+    font-size: .83rem;
+    line-height: 1.5;
+}
+.mycoatch-calibration-review h4 { font-size: .96rem; margin: 0 0 7px; }
+.mycoatch-calibration-review p { margin: 6px 0; }
+.mycoatch-calibration-review small { color: var(--text-muted); }
+.mycoatch-calibration-caution { color: var(--text-muted); }
+.mycoatch-calibration-review.is-ready {
+    border-top: 2px solid var(--success-color);
+}
