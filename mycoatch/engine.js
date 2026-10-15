@@ -127,7 +127,9 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 exercisesSelectedToday.push(exercise.name);
                 weeklySelectionCounts.set(exercise.id,
                     (weeklySelectionCounts.get(exercise.id) || 0) + 1);
-                return [{ ...exercise, anchorKey: slot.anchor || null, selectionReason: selected.reason }];
+                return [{ ...exercise, anchorKey: slot.anchor || null,
+                    priorityProtected: Boolean(slot.priorityProtected),
+                    isOptional: Boolean(slot.optional), selectionReason: selected.reason }];
             });
 
             // Integrazione della funzione di specializzazione originale
@@ -308,6 +310,11 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
 
                 return {
                     name: ex.name,
+                    // Priorita' mantenuta fino all'ottimizzatore del tempo: lo
+                    // squat puo' essere il terzo esercizio ma resta un anchor.
+                    anchorKey: ex.anchorKey || null,
+                    priorityProtected: Boolean(ex.priorityProtected),
+                    isOptional: Boolean(ex.isOptional),
                     setsCount: setsCount,
                     reps: reps,
                     kgMin: String(targetKgMin),
@@ -373,6 +380,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             const splitNote = dayLabel ? `[SPLIT MYCOATCH] ${dayLabel}` : '';
             const durationNote = `[DURATA STIMATA] ${day.estimatedMinutes} minuti su ${maxSessionMinutes} disponibili.`;
             const adjustments = [];
+            if (day.reducedPrioritySets) adjustments.push(`${day.reducedPrioritySets} serie dei movimenti prioritari ridotte per rispettare il tempo; valuta più minuti per recuperare il volume`);
             if (day.reducedAccessorySets) adjustments.push(`${day.reducedAccessorySets} serie accessorie ridotte`);
             if (day.removedAccessoryExercises) adjustments.push(`${day.removedAccessoryExercises} esercizi rimossi`);
             if (day.transferredAccessorySetsIn) {
@@ -459,7 +467,9 @@ export function getTemplateForDays(daysPerWeek = 3) {
                 slots: [
                     { muscle: 'Petto', pattern: 'horizontal_push', anchor: 'bench' },
                     { muscle: 'Back_Lats', pattern: 'vertical_pull' },
-                    { muscle: 'Quadricipiti', pattern: 'squat' },
+                    // Fondamentale della seduta anche se terzo nella lista:
+                    // non duplicare l'anchor squat riservato a Full Body C.
+                    { muscle: 'Quadricipiti', pattern: 'squat', priorityProtected: true },
                     { muscle: 'Spalle', pattern: 'isolation' },
                     { muscle: 'Bicipiti', pattern: 'isolation' },
                     { muscle: 'Polpacci', pattern: 'isolation', optional: true }

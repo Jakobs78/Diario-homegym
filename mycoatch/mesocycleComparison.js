@@ -90,6 +90,11 @@ export function compareMesocyclePlans(previous, generated, analysis) {
         unavailableOptionalSlots: generated?.weeks?.[0]?.optionalSlotsNotAvailable || [],
         warnings: after.flatMap(day => {
             const warnings = [];
+            if (day.reducedPrioritySets > 0) {
+                warnings.push('Giorno ' + day.dayNumber + ': per rispettare il tempo sono state ridotte ' +
+                    day.reducedPrioritySets + ' serie dei movimenti prioritari, senza eliminare i fondamentali. ' +
+                    'Valuta più minuti se vuoi recuperare il volume previsto.');
+            }
             if (day.reducedAccessorySets || day.removedAccessoryExercises) {
                 warnings.push(`Giorno ${day.dayNumber}: per il limite di tempo sono state inizialmente ridotte ${day.reducedAccessorySets} serie accessorie e rimossi ${day.removedAccessoryExercises} esercizi. Le serie eventualmente recuperate negli altri giorni sono indicate nel bilancio settimanale.`);
             }

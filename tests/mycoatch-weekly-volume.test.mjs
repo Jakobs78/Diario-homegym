@@ -136,16 +136,20 @@ test('30 minuti: non promette falsamente il recupero di volume', () => {
     assert.match(review, /Confermi la proposta/);
 });
 
-test('3 giorni da 30 minuti: avvisa quando il vincolo elimina un multiarticolare', () => {
+test('3 giorni da 30 minuti: conserva squat fondamentale e segnala la riduzione delle serie', () => {
     const mesocycle = build(3, 30);
-    const missing = mesocycle.weeks[0].volumeBalance.missingCompoundExercises;
-    assert.ok(missing.length > 0);
-    assert.ok(missing.some(ex => ex.muscle === 'Quadricipiti'));
+    const firstWeek = mesocycle.weeks[0];
+    const missing = firstWeek.volumeBalance.missingCompoundExercises;
+    assert.ok(!missing.some(ex => ex.muscle === 'Quadricipiti'));
+    assert.ok(firstWeek.days[0].exercises.some(ex => ex.pattern === 'squat'),
+        'lo squat nel terzo slot Full Body A non deve essere cancellato');
+    assert.ok(firstWeek.days.some(day => day.reducedPrioritySets > 0),
+        'se serve, tagliare serie dei movimenti protetti invece del fondamentale');
     const review = formatCoachReview(
         compareMesocyclePlans(null, mesocycle, {}),
         { inspectedMesocycles: 0, sessionsAnalyzed: 0 }
     );
-    assert.match(review, /ATTENZIONE FONDAMENTALI/);
+    assert.match(review, /serie dei movimenti prioritari/);
     assert.match(review, /Valuta più minuti/);
 });
 

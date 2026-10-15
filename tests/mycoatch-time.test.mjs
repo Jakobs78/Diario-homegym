@@ -132,8 +132,19 @@ test('un gruppo che coinvolge gli stessi muscoli non viene creato', () => {
     assert.ok(grouped.every(ex => !ex.groupType));
 });
 
-test('se il limite impossibile la generazione fallisce esplicitamente', () => {
-    assert.throws(() => makeMeso(25), /Non è possibile rispettare 25 minuti/);
+test('25 minuti: mantiene i fondamentali con volume minimo, senza inventare tempo', () => {
+    const meso = makeMeso(25);
+    for (const week of meso.weeks) {
+        for (const day of week.days) {
+            assert.ok(day.estimatedMinutes <= 25);
+            assert.equal(day.estimatedMinutes, estimateDayMinutes(day.exercises));
+            assert.ok(day.exercises.some(ex => ex.anchorKey), 'fondamentale previsto presente');
+            // Un accessorio trasferito può avere 1 serie; il minimo di 2
+            // riguarda solo i fondamentali, mai il riempimento facoltativo.
+            assert.ok(day.exercises.every(ex =>
+                (!ex.anchorKey && !ex.priorityProtected) || ex.setsCount >= 2));
+        }
+    }
 });
 
 test('il CSV mantiene 12 colonne e timer formattati per tutte le durate', () => {

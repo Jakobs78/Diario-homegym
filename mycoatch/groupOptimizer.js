@@ -106,12 +106,47 @@ function choosePlan(exercises, maxSeconds, maxSessionMinutes) {
 }
 
 /**
- * Ottimizza la durata preservando gli esercizi principali (posizioni 1 e 2).
- * Prima prova gruppi non interferenti, poi riduce serie di accessori e infine
- * elimina accessori non essenziali. Non accorcia mai i recuperi dei fondamentali.
+ * L'ordine di scheda NON rappresenta da solo la priorita': un fondamentale
+ * (anchorKey o priorityProtected) puo' essere il terzo slot della Full Body. I primi due esercizi
+ * continuano a essere protetti per compatibilita' con piani non marcati.
+ */
+function protectedExercise(exercise, index) {
+    return index < 2 || Boolean(exercise.anchorKey) || Boolean(exercise.priorityProtected);
+}
+
+/**
+ * Prima accessori facoltativi, poi isolamenti necessari al volume; i
+ * multiarticolari non-anchor vengono sacrificati soltanto come ultima risorsa.
+ * L'ordine della scheda viene usato solo per sciogliere i pari merito.
+ */
+function sacrificePriority(exercise) {
+    // Gli slot dichiarati facoltativi sono sempre sacrificabili prima dei
+    // complementari obbligatori, anche se sono multiarticolari secondari.
+    if (exercise.isOptional && exercise.pattern === 'isolation') return 0;
+    if (exercise.isOptional) return 1;
+    if (exercise.pattern === 'isolation') return 2;
+    return 3;
+}
+
+function selectLeastEssential(exercises) {
+    const removable = exercises.map((exercise, index) =>
+        protectedExercise(exercise, index) ? null : ({
+            index, priority: sacrificePriority(exercise)
+        })).filter(Boolean);
+    removable.sort((a, b) => a.priority - b.priority || b.index - a.index);
+    return removable[0]?.index ?? -1;
+}
+
+/**
+ * Ottimizza la durata proteggendo i fondamentali con anchorKey o con
+ * priorita' esplicita (es. squat nel terzo slot della Full Body A), oltre ai
+ * primi due movimenti. Se il tempo e' insufficiente anche senza complementari
+ * non nasconde lo squat/panca/stacco: restituisce un errore esplicito.
  *
- * Se anche la seduta minima eccede il budget, non restituisce un piano non
- * realistico: solleva un errore esplicito.
+ * Per gli accessori taglia prima le serie oltre il minimo, poi elimina
+ * l'esercizio. Come ULTIMA risorsa riduce le serie dei movimenti protetti
+ * fino a due, senza eliminarli né accorciarne le pause. Se non basta, errore.
+ * Le tecniche temporali rimangono riservate agli accessori compatibili.
  */
 export function optimizeSession(exercises, maxSessionMinutes) {
     const minutes = Number(maxSessionMinutes);
@@ -126,36 +161,53 @@ export function optimizeSession(exercises, maxSessionMinutes) {
     const base = resetGroups(exercises);
     let candidate = choosePlan(base, secondsBudget, minutes);
     let reducedSets = 0;
+    let reducedPrioritySets = 0;
     let removedExercises = 0;
     let iterations = 0;
 
     while (candidate.seconds > secondsBudget && iterations++ < 32) {
-        // Non ridurre le serie dei primi due esercizi prioritari.
-        let targetIndex = -1;
-        for (let i = base.length - 1; i >= 2; i--) {
-            if (base[i].setsCount > MIN_ACCESSORY_SETS) {
-                targetIndex = i;
-                break;
+        const targetIndex = selectLeastEssential(base);
+        if (targetIndex >= 0) {
+            const exercise = base[targetIndex];
+            if (exercise.setsCount > MIN_ACCESSORY_SETS) {
+                exercise.setsCount--;
+                exercise.sets = exercise.sets.slice(0, exercise.setsCount);
+                reducedSets++;
+            } else {
+                base.splice(targetIndex, 1);
+                removedExercises++;
             }
-        }
-        if (targetIndex !== -1) {
-            const ex = base[targetIndex];
-            ex.setsCount--;
-            ex.sets = ex.sets.slice(0, ex.setsCount);
-            reducedSets++;
-        } else if (base.length > 2) {
-            base.pop();
-            removedExercises++;
         } else {
-            throw new Error(
-                `Non è possibile rispettare ${minutes} minuti senza sacrificare i due esercizi prioritari. ` +
-                `La seduta minima stimata dura ${Math.ceil(candidate.seconds / 60)} minuti. ` +
-                'Aumenta la durata o modifica la distribuzione settimanale.'
-            );
+            // Il tempo breve puo' richiedere un minimo di volume sui
+            // fondamentali, MA mai eliminarli: prima riduciamo quello piu'
+            // avanti nella scheda, senza alterare la durata del recupero.
+            let priorityIndex = -1;
+            for (let i = base.length - 1; i >= 0; i--) {
+                if (protectedExercise(base[i], i) &&
+                    base[i].setsCount > MIN_ACCESSORY_SETS) {
+                    priorityIndex = i;
+                    break;
+                }
+            }
+            if (priorityIndex === -1) {
+                throw new Error(
+                    'Non è possibile rispettare ' + minutes +
+                    ' minuti mantenendo almeno due serie per ogni fondamentale. ' +
+                    'La seduta minima stimata dura ' +
+                    Math.ceil(candidate.seconds / 60) + ' minuti. ' +
+                    'Aumenta la durata o modifica lo schema di allenamento.'
+                );
+            }
+            const priority = base[priorityIndex];
+            priority.setsCount--;
+            priority.sets = priority.sets.slice(0, priority.setsCount);
+            reducedPrioritySets++;
         }
         candidate = choosePlan(base, secondsBudget, minutes);
     }
-    if (candidate.seconds > secondsBudget) throw new Error('Impossibile rispettare il limite di tempo richiesto.');
+    if (candidate.seconds > secondsBudget) {
+        throw new Error('Impossibile rispettare il limite di tempo richiesto.');
+    }
 
     return {
         exercises: candidate.exercises,
@@ -164,6 +216,7 @@ export function optimizeSession(exercises, maxSessionMinutes) {
         timeBudgetMinutes: minutes,
         groupCount: candidate.groups,
         reducedAccessorySets: reducedSets,
+        reducedPrioritySets,
         removedAccessoryExercises: removedExercises
     };
 }
