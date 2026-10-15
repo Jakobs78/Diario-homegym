@@ -277,6 +277,70 @@
                         <option value="strength">Forza</option>
                         <option value="hypertrophy">Ipertrofia</option>
                     </select>
+                    <fieldset class="mycoatch-preferences-group" id="mycoatch-athlete-profile">
+                        <legend>1. Valutazione iniziale dell’atleta</legend>
+                        <p class="mycoatch-form-hint">Queste risposte guidano la proposta, non sono una diagnosi. Non vengono salvate automaticamente come un nuovo profilo sul database.</p>
+                        <label for="mycoatch-experience">Esperienza con l’allenamento con sovraccarichi</label>
+                        <select id="mycoatch-experience" required>
+                            <option value="" selected disabled>Scegli il tuo livello…</option>
+                            <option value="beginner">Principiante — devo imparare o consolidare i movimenti</option>
+                            <option value="intermediate">Intermedio — eseguo e registro serie regolarmente</option>
+                            <option value="advanced">Avanzato — gestisco già volume, RPE e progressioni</option>
+                        </select>
+                        <label for="mycoatch-calibration">Come iniziare, se manca uno storico attendibile?</label>
+                        <select id="mycoatch-calibration">
+                            <option value="guided" selected>Prima settimana guidata di calibrazione (consigliata)</option>
+                            <option value="regular">Programma normale, senza settimana di calibrazione</option>
+                        </select>
+                        <label for="mycoatch-priority-muscle">Gruppo muscolare da privilegiare</label>
+                        <select id="mycoatch-priority-muscle">
+                            <option value="" selected>Nessuna specializzazione: sviluppo equilibrato</option>
+                            <option value="Petto">Petto</option>
+                            <option value="Back_Lats">Dorsali</option>
+                            <option value="Back_Thickness">Spessore schiena</option>
+                            <option value="Spalle">Spalle</option>
+                            <option value="Quadricipiti">Quadricipiti</option>
+                            <option value="Femorali">Femorali</option>
+                            <option value="Glutei">Glutei</option>
+                            <option value="Bicipiti">Bicipiti</option>
+                            <option value="Tricipiti">Tricipiti</option>
+                            <option value="Polpacci">Polpacci</option>
+                            <option value="Core">Addome/Core</option>
+                        </select>
+                        <details class="mycoatch-profile-details">
+                            <summary>Esercizi che preferisci evitare (facoltativo)</summary>
+                            <p class="mycoatch-form-hint">MyCoatch cercherà varianti equivalenti senza riproporre gli esercizi esclusi. Se un movimento provoca dolore, interrompilo e valuta un professionista qualificato.</p>
+                            <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-avoid-check" value="Panca Piana con Bilanciere"> Panca piana bilanciere</label>
+                            <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-avoid-check" value="Squat con Bilanciere"> Squat bilanciere</label>
+                            <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-avoid-check" value="Military Press con Bilanciere"> Military press bilanciere</label>
+                            <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-avoid-check" value="Stacco da Terra Convenzionale"> Stacco convenzionale</label>
+                            <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-avoid-check" value="Stacco Rumeno (RDL)"> Stacco rumeno</label>
+                        </details>
+                        <details class="mycoatch-profile-details">
+                            <summary>Carichi di riferimento già conosciuti (facoltativi)</summary>
+                            <p class="mycoatch-form-hint">Inserisci solo una serie recente realmente eseguita con kg, ripetizioni e RPE percepito (6–10). Nessun massimale richiesto. Un carico non confrontabile NON verrà imposto automaticamente.</p>
+                            <div class="mycoatch-reference-grid">
+                                <span class="mycoatch-reference-head">Alzata</span><span class="mycoatch-reference-head">kg</span><span class="mycoatch-reference-head">reps</span><span class="mycoatch-reference-head">RPE</span>
+                                <label for="mycoatch-load-bench-kg">Panca*</label>
+                                <input id="mycoatch-load-bench-kg" type="number" min="0.5" max="500" step="0.5" inputmode="decimal" placeholder="kg">
+                                <input id="mycoatch-load-bench-reps" type="number" min="1" max="30" step="1" inputmode="numeric" aria-label="Panca ripetizioni" placeholder="reps">
+                                <input id="mycoatch-load-bench-rpe" type="number" min="6" max="10" step="0.5" inputmode="decimal" aria-label="Panca RPE" placeholder="RPE">
+                                <label for="mycoatch-load-squat-kg">Squat*</label>
+                                <input id="mycoatch-load-squat-kg" type="number" min="0.5" max="500" step="0.5" inputmode="decimal" placeholder="kg">
+                                <input id="mycoatch-load-squat-reps" type="number" min="1" max="30" step="1" inputmode="numeric" aria-label="Squat ripetizioni" placeholder="reps">
+                                <input id="mycoatch-load-squat-rpe" type="number" min="6" max="10" step="0.5" inputmode="decimal" aria-label="Squat RPE" placeholder="RPE">
+                                <label for="mycoatch-load-military-kg">Military*</label>
+                                <input id="mycoatch-load-military-kg" type="number" min="0.5" max="500" step="0.5" inputmode="decimal" placeholder="kg">
+                                <input id="mycoatch-load-military-reps" type="number" min="1" max="30" step="1" inputmode="numeric" aria-label="Military ripetizioni" placeholder="reps">
+                                <input id="mycoatch-load-military-rpe" type="number" min="6" max="10" step="0.5" inputmode="decimal" aria-label="Military RPE" placeholder="RPE">
+                                <label for="mycoatch-load-hinge-kg">Stacco*</label>
+                                <input id="mycoatch-load-hinge-kg" type="number" min="0.5" max="500" step="0.5" inputmode="decimal" placeholder="kg">
+                                <input id="mycoatch-load-hinge-reps" type="number" min="1" max="30" step="1" inputmode="numeric" aria-label="Stacco ripetizioni" placeholder="reps">
+                                <input id="mycoatch-load-hinge-rpe" type="number" min="6" max="10" step="0.5" inputmode="decimal" aria-label="Stacco RPE" placeholder="RPE">
+                            </div>
+                            <p class="mycoatch-form-hint">*I riferimenti valgono soltanto per la variante del fondamentale selezionata in questa proposta. Sono autodichiarati e vanno verificati in allenamento.</p>
+                        </details>
+                    </fieldset>
                     <fieldset class="mycoatch-preferences-group">
                         <legend>Fondamentali prioritari (varianti facoltative)</legend>
                         <p class="mycoatch-form-hint">4 giorni: Upper A → Lower A → Upper B → Lower B. MyCoatch mantiene le alzate cardine, ma puoi scegliere una variante equivalente se più adatta a te.</p>
