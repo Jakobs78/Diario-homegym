@@ -20,9 +20,9 @@ function exercise(name, {
 
 const bench=()=>exercise('Panca', {sets:3,rest:180,pattern:'horizontal_push',category:'Petto',anchorKey:'bench',equipment:'barbell'});
 const lats=()=>exercise('Lat', {sets:3,rest:150,pattern:'vertical_pull',category:'Back_Lats',equipment:'lat_machine'});
-const squat=()=>exercise('Squat', {sets:3,rest:180,pattern:'squat',category:'Quadricipiti',anchorKey:'squat',equipment:'barbell'});
+const squat=()=>({...exercise('Squat', {sets:3,rest:180,pattern:'squat',category:'Quadricipiti',equipment:'barbell'}),priorityProtected:true});
 
-test('third-slot squat anchor is protected while later accessories are removed',()=>{
+test('third-slot squat is protected while later accessories are removed',()=>{
   const anchored=[bench(),lats(),squat()];
   const minutes=Math.ceil(estimateDaySeconds(anchored)/60);
   assert.ok(minutes>=25 && minutes<=180);
@@ -35,7 +35,7 @@ test('third-slot squat anchor is protected while later accessories are removed',
   assert.deepEqual(optimized.exercises.map(ex=>ex.name),anchored.map(ex=>ex.name));
   assert.ok(optimized.estimatedMinutes<=minutes);
   assert.ok(optimized.removedAccessoryExercises>=2);
-  assert.equal(optimized.exercises[2].anchorKey,'squat');
+  assert.equal(optimized.exercises[2].priorityProtected,true);
 });
 
 test('session too short fails clearly rather than silently deleting squat',()=>{
@@ -59,7 +59,7 @@ test('optional isolation is cut before later mandatory muscle work',()=>{
   assert.ok(optimized.estimatedMinutes<=minutes);
 });
 
-test('real 3-day template protects third-slot anchor across four weeks',()=>{
+test('real 3-day template protects third-slot squat across four weeks',()=>{
   const meso=generateSmartMesocycle({
     durationWeeks:4,daysPerWeek:3,maxSessionMinutes:75,
     focus:'hypertrophy'
@@ -67,10 +67,15 @@ test('real 3-day template protects third-slot anchor across four weeks',()=>{
   for(const week of meso.weeks){
     for(const day of week.days){
       assert.ok(day.estimatedMinutes<=75);
-      const originals=day.dayNumber===1 ? ['bench','squat'] :
+      const originals=day.dayNumber===1 ? ['bench'] :
         day.dayNumber===2 ? ['hinge','military'] : ['squat'];
       const anchors=day.exercises.filter(ex=>ex.anchorKey).map(ex=>ex.anchorKey);
       assert.deepEqual(anchors,originals);
+      if (day.dayNumber===1) {
+        const protectedSquat=day.exercises.find(ex=>ex.pattern==='squat');
+        assert.ok(protectedSquat,'Squat nel terzo slot della Full Body A');
+        assert.equal(protectedSquat.priorityProtected,true);
+      }
     }
   }
 });
