@@ -260,7 +260,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     plannedKg !== null && !isDeloadWeek && focus !== 'strength') {
                     const topKg = Number(targetKgMin) + (baseKg < 12.5 ? 1 : 2.5);
                     topsetStr = `1x${reps.split('-')[0]} @ ${topKg}kg (RPE 9)`;
-                    noteFinal += ` | 🎯 Top Set eseguito, poi Back-Off automatico del 10%.`;
+                    noteFinal += ` | 🎯 Top Set programmato, poi Back-Off di riferimento del 10%. Segna solo le serie realmente svolte.`;
                 }
 
                 const currentTechnique = (onboarding.calibrationWeek ||
