@@ -162,9 +162,11 @@ test('due esposizioni nella stessa settimana non autorizzano incremento automati
     twoWeeks.weeks[0].days.pop();
     twoWeeks.weeks.push({ weekNumber: 2, days: [bench(72.5, 1)] });
     const confirmed = analyzeTrainingHistory(historyFrom(twoWeeks));
-    assert.equal(confirmed.byExercise[canonicalExerciseKey('Panca Piana con Bilanciere')].readyForLoad, true);
+    // Passare gia' da 70 a 72.5 kg richiede una nuova conferma al medesimo
+    // carico: non sommare un altro salto automatico sulla sola settimana 2.
+    assert.equal(confirmed.byExercise[canonicalExerciseKey('Panca Piana con Bilanciere')].readyForLoad, false);
     assert.equal(planAdaptiveDecisions(confirmed).byExercise[
-        canonicalExerciseKey('Panca Piana con Bilanciere')].action, 'increase_load');
+        canonicalExerciseKey('Panca Piana con Bilanciere')].action, 'maintain');
 });
 
 test('RPE alto ripetuto nello stesso microciclo non prova fatica ricorrente', () => {
