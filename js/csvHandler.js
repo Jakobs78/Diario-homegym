@@ -263,128 +263,147 @@ export function importWorkoutPlan(csvText) {
 export function importProgressCSV(csvText) {
     try {
         const rows = parseCSV(csvText);
-        if (!rows || rows.length < 2) {
-            throw new Error("Il file CSV dei progressi è vuoto o non valido.");
-        }
+        if (rows.length < 2)
+            throw new Error('Il file CSV dei progressi è vuoto o non valido.');
 
         const headers = rows[0].map(h => h.trim().toLowerCase());
-        const dataRows = rows.slice(1);
+        const col = aliases => findColumnIndex(headers, aliases);
+        const idxMeso = col(['mesociclo', 'meso']);
+        const idxWeek = col(['settimana', 'week']);
+        const idxDay = col(['giorno', 'day']);
+        const idxDate = col(['data', 'date']);
+        const idxBlock = col(['blocco', 'block']);
+        const idxEx = col(['esercizio', 'exercise', 'name']);
+        const idxSet = col(['serie', 'set']);
+        const idxWeight = col(['kg_reali', 'kg', 'peso', 'weight']);
+        const idxReps = col(['reps_reali', 'rep', 'ripetizioni']);
+        const idxCompleted = col(['completato', 'completed']);
+        const idxRpe = col(['rpe', 'sforzo']);
+        const idxNotes = col(['note_esercizio', 'note']);
 
-        // Mappatura flessibile delle colonne per supportare sia il vecchio formato che il nuovo backup completo
-        const idxMeso = findColumnIndex(headers, ['mesociclo', 'meso']);
-        const idxWeek = findColumnIndex(headers, ['settimana', 'week']);
-        const idxDay = findColumnIndex(headers, ['giorno', 'day']);
-        const idxDate = findColumnIndex(headers, ['data', 'date']);
-        const idxBlock = findColumnIndex(headers, ['blocco', 'block']);
-        const idxEx = findColumnIndex(headers, ['esercizio', 'exercise', 'name']);
-        const idxSet = findColumnIndex(headers, ['set', 'serie']);
-        const idxWeight = findColumnIndex(headers, ['kg_reali', 'kg', 'peso', 'weight']);
-        const idxReps = findColumnIndex(headers, ['reps_reali', 'rep', 'ripetizioni']);
-        const idxCompleted = findColumnIndex(headers, ['completato', 'completed']);
-        const idxRpe = findColumnIndex(headers, ['rpe', 'sforzo']);
-        const idxNotes = findColumnIndex(headers, ['note_esercizio', 'note']);
-
-        if (!state.workoutData.history) state.workoutData.history = {};
-        if (!state.workoutData.history.years) state.workoutData.history.years = {};
+        if (idxEx < 0 || idxSet < 0 || idxWeight < 0 || idxReps < 0)
+            throw new Error('CSV storico non valido: mancano esercizio, serie, kg o ripetizioni.');
 
         const currentYear = state.currentYear || new Date().getFullYear();
-        if (!state.workoutData.history.years[currentYear]) {
-            state.workoutData.history.years[currentYear] = { mesocycles: [] };
-        }
+        const previousMesos =
+            state.workoutData?.history?.years?.[currentYear]?.mesocycles || [];
+        const takenNames = new Set(previousMesos.map(m => m.name));
+        const drafts = new Map(); // appositi oggetti nuovi; NON riaprire mesocicli esistenti.
+        const importedSets = new Set();
+        let totalRows = 0;
 
-        const mesocyclesList = state.workoutData.history.years[currentYear].mesocycles;
-        const importedMesosMap = {};
-
-        dataRows.forEach(row => {
-            if (row.length < 2) return;
-
-            const mesoName = idxMeso !== -1 && row[idxMeso] ? row[idxMeso].trim() : "Storico Importato";
-            const weekNum = idxWeek !== -1 && row[idxWeek] ? parseInt(row[idxWeek]) || 1 : 1;
-            const dayNum = idxDay !== -1 && row[idxDay] ? parseInt(row[idxDay]) || 1 : 1;
-            const dateVal = idxDate !== -1 && row[idxDate] ? row[idxDate].trim() : new Date().toISOString().split('T')[0];
-            const blockNum = idxBlock !== -1 && row[idxBlock] ? row[idxBlock].trim() : "1";
-            const rawExNameVal = idxEx !== -1 && row[idxEx] ? row[idxEx].trim() : 'Esercizio';
-            const exNameVal = normalizeExerciseName(rawExNameVal); // 👈 Title Case per import dello storico
-            const setNum = idxSet !== -1 && row[idxSet] ? parseInt(row[idxSet]) || 1 : 1;
-            
-            const rawWeight = idxWeight !== -1 ? row[idxWeight] : '';
-            const normalizedWeight = String(rawWeight || '').replace(',', '.').replace(/[^0-9.]/g, '');
-            const weightVal = normalizedWeight !== '' ? parseFloat(normalizedWeight) : '';
-
-            const rawReps = idxReps !== -1 ? row[idxReps] : '';
-            const repsVal = rawReps !== '' ? rawReps.trim() : '';
-
-            const completedVal = idxCompleted !== -1 && row[idxCompleted] ? row[idxCompleted].trim().toUpperCase() : 'SI';
-            const isLocked = completedVal === 'SI' || completedVal === 'TRUE' || completedVal === '1';
-
-            const rpeVal = idxRpe !== -1 && row[idxRpe] ? sanitizeRpe(row[idxRpe]) : '';
-            const notesVal = idxNotes !== -1 && row[idxNotes] ? row[idxNotes].trim() : '';
-
-            // Organizzazione gerarchica: Mesociclo -> Settimana -> Giorno -> Esercizio -> Serie
-            if (!importedMesosMap[mesoName]) {
-                let existingMeso = mesocyclesList.find(m => m.name === mesoName);
-                if (!existingMeso) {
-                    existingMeso = {
-                        id: `meso_imp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-                        name: mesoName,
-                        importedAt: new Date().toISOString(),
-                        weeks: []
-                    };
-                    mesocyclesList.push(existingMeso);
-                }
-                importedMesosMap[mesoName] = existingMeso;
+        const nameFor = original => {
+            if (!takenNames.has(original)) {
+                takenNames.add(original);
+                return original;
             }
-
-            const currentMesoObj = importedMesosMap[mesoName];
-
-            let weekObj = currentMesoObj.weeks.find(w => w.weekNumber === weekNum);
-            if (!weekObj) {
-                weekObj = { weekNumber: weekNum, coachNotes: '', days: [] };
-                currentMesoObj.weeks.push(weekObj);
+            let number = 2;
+            let candidate = original + ' (importazione ' + number + ')';
+            while (takenNames.has(candidate)) {
+                number++;
+                candidate = original + ' (importazione ' + number + ')';
             }
+            takenNames.add(candidate);
+            return candidate;
+        };
+        const strictIndex = (raw, label, rowNumber, fallback, max) => {
+            const input = String(raw ?? '').trim();
+            if (!input) return fallback;
+            if (!/^\\d+$/.test(input) || Number(input) < 1 || Number(input) > max)
+                throw new Error('Riga ' + rowNumber + ': ' + label + ' non valido.');
+            return Number(input);
+        };
 
-            let dayObj = weekObj.days.find(d => d.dayNumber === dayNum || d.date === dateVal);
-            if (!dayObj) {
-                dayObj = {
-                    dayNumber: dayNum,
-                    dayName: `Giorno ${dayNum}`,
-                    date: dateVal,
-                    exercises: []
-                };
-                weekObj.days.push(dayObj);
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            if (row.every(cell => !String(cell).trim())) continue;
+            const read = index => index < 0 ? '' : String(row[index] ?? '').trim();
+            const line = i + 1;
+            const originalName = read(idxMeso) || 'Storico Importato';
+            const weekNumber = strictIndex(read(idxWeek), 'Settimana', line, 1, 52);
+            const dayNumber = strictIndex(read(idxDay), 'Giorno', line, 1, 7);
+            const setNumber = strictIndex(read(idxSet), 'Serie', line, 1, 99);
+            const block = strictIndex(read(idxBlock), 'Blocco', line, 1, 99);
+            const name = read(idxEx);
+            if (!name) throw new Error('Riga ' + line + ': nome esercizio mancante.');
+            const exerciseName = normalizeExerciseName(name);
+
+            // Preserve missing values and don't transform a negative/invalid
+            // value to a positive load by stripping its sign or units.
+            const rawWeight = read(idxWeight).replace(',', '.');
+            if (rawWeight && (!/^(?:\\d+)(?:\\.\\d+)?$/.test(rawWeight) ||
+                Number(rawWeight) > 700 || Number(rawWeight) < 0)) {
+                throw new Error('Riga ' + line + ': peso registrato non valido.');
             }
-
-            let exObj = dayObj.exercises.find(e => e.name === exNameVal);
-            if (!exObj) {
-                exObj = {
-                    block: blockNum,
-                    name: exNameVal,
-                    notes: notesVal,
-                    loggedSets: [],
-                    sets: []
-                };
-                dayObj.exercises.push(exObj);
+            const weight = rawWeight ? Number(rawWeight) : '';
+            const reps = read(idxReps);
+            const status = read(idxCompleted).toUpperCase();
+            const isLocked = ['SI', 'SÌ', 'TRUE', '1'].includes(status);
+            if (status && !['SI', 'SÌ', 'TRUE', '1', 'NO', 'FALSE', '0'].includes(status))
+                throw new Error('Riga ' + line + ': stato di completamento non valido.');
+            // When no Completed column exists, never fabricate a completed set.
+            const rpe = read(idxRpe) ? sanitizeRpe(read(idxRpe)) : '';
+            const notes = read(idxNotes);
+            const date = read(idxDate);
+            const key = JSON.stringify([originalName, weekNumber, dayNumber, date,
+                block, exerciseName, setNumber]);
+            if (importedSets.has(key)) {
+                throw new Error('Riga ' + line + ': serie duplicata nel CSV. ' +
+                    'Importazione annullata senza modificare lo storico.');
             }
+            importedSets.add(key);
 
-            // Inserisce o aggiorna la serie effettiva
-            exObj.loggedSets.push({
-                setNumber: setNum,
-                weight: weightVal,
-                reps: repsVal,
-                rpe: rpeVal,
-                isLocked: isLocked
+            if (!drafts.has(originalName)) {
+                drafts.set(originalName, {
+                    id: 'meso_imp_' + crypto.randomUUID(),
+                    name: nameFor(originalName),
+                    originalImportedName: originalName,
+                    importedAt: new Date().toISOString(),
+                    weeks: []
+                });
+            }
+            const meso = drafts.get(originalName);
+            let week = meso.weeks.find(w => w.weekNumber === weekNumber);
+            if (!week) {
+                week = { weekNumber, coachNotes: '', days: [] };
+                meso.weeks.push(week);
+            }
+            // A distinct performance date must never silently be mixed with
+            // another session having the same day number.
+            let day = week.days.find(d => d.dayNumber === dayNumber && d.date === date);
+            if (!day) {
+                day = { dayNumber, dayName: 'Giorno ' + dayNumber, date, exercises: [] };
+                week.days.push(day);
+            }
+            let exercise = day.exercises.find(ex => ex.name === exerciseName &&
+                Number(ex.block) === block);
+            if (!exercise) {
+                exercise = { block, name: exerciseName, notes, loggedSets: [], sets: [] };
+                day.exercises.push(exercise);
+            }
+            exercise.loggedSets.push({
+                setNumber, weight, reps, rpe, isLocked, completed: isLocked
             });
-        });
+            totalRows++;
+        }
+        if (!totalRows || !drafts.size)
+            throw new Error('Nessuna serie valida nello storico CSV.');
 
-        // Sincronizza lo stato aggiornato su localStorage e di conseguenza su Supabase
+        // Commit in memoria UNICO, solo dopo ogni riga validata.
+        if (!state.workoutData.history) state.workoutData.history = { years: {} };
+        if (!state.workoutData.history.years) state.workoutData.history.years = {};
+        if (!state.workoutData.history.years[currentYear])
+            state.workoutData.history.years[currentYear] = { mesocycles: [] };
+        state.workoutData.history.years[currentYear].mesocycles.push(...drafts.values());
         saveAndSync(state.workoutData);
 
         return {
             success: true,
-            message: "Storico completo importato e sincronizzato con successo su Supabase!"
+            message: 'Importati ' + totalRows + ' record in ' + drafts.size +
+                ' nuovi mesocicli. Lo storico precedente è rimasto invariato.'
         };
     } catch (err) {
-        console.error("Errore nell'importazione del CSV di progresso:", err);
+        console.error('Errore nell’importazione dello storico CSV:', err);
         return { success: false, error: err.message };
     }
 }
@@ -412,7 +431,7 @@ export function exportToCSV(workoutData) {
                         setsToExport.forEach(set => {
                             const weightVal = set.weight !== undefined && set.weight !== '' ? set.weight : '';
                             const repsVal = set.reps !== undefined && set.reps !== '' ? set.reps : '';
-                            const isCompleted = set.isLocked ? 'SI' : 'NO';
+                            const isCompleted = set.isLocked === true || set.completed === true ? 'SI' : 'NO';
 
                             const row = [
                                 `"${(meso.name || '').replace(/"/g, '""')}"`,
@@ -425,7 +444,7 @@ export function exportToCSV(workoutData) {
                                 `"${weightVal}"`,
                                 `"${repsVal}"`,
                                 isCompleted,
-                                `"${(set.rpe || ex.rpe || '').toString().replace(/"/g, '""')}"`,
+                                `"${(set.rpe ?? '').toString().replace(/"/g, '""')}"`,
                                 `"${(ex.rest || '').replace(/"/g, '""')}"`,
                                 `"${(ex.notes || '').replace(/"/g, '""')}"`
                             ];
