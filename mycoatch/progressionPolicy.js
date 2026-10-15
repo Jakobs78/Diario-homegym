@@ -29,7 +29,8 @@ function qualityGate(week) {
     const allFullyLogged = exercises.every(e =>
         e.completedSets > 0 && e.completedSets === e.plannedSets);
     const allStraight = exercises.every(e =>
-        e.allStraightSets === true && e.uniformWeight === true);
+        e.allStraightSets === true && e.uniformWeight === true) &&
+        exercises.every(e => e.workingKg === exercises[0]?.workingKg);
     const allRpe = exercises.every(e => e.allRpeWithinTarget === true);
     const maxAtTop = exercises.every(e => e.allRepsAtTop === true);
     const aboveMinimum = exercises.every(e => e.allRepsInRange === true);
@@ -83,21 +84,25 @@ export function evaluateExerciseProgression(exposures = []) {
 
     // Persistent difficulty is a signal for review, NOT a diagnosis
     // of overtraining or a mandate to change the programme.
-    const fatigueConcern = enoughWeeks &&
-        (lastTwo.every(w => w.overshoot) ||
-            lastTwo.every(w => w.belowMin));
+    const repeatedBelowMin = enoughWeeks &&
+        lastTwo.every(w => w.complete && w.belowMin);
+    // Missed reps alone cannot diagnose fatigue. Only two weeks of
+    // *measured* RPE substantially over the prescription suggest it.
+    const fatigueConcern = enoughWeeks && lastTwo.every(w => w.overshoot);
 
     return {
         readyForLoad,
         readyForReps,
         nextRepTarget,
         fatigueConcern,
+        repeatedBelowMin,
         distinctWeeks: weekly.length,
         evidenceWeeks: lastTwo.map(w => w.id),
         recentWeeksQualified: qualified,
         nextActionHint: readyForLoad ? 'small_load_increase' :
             readyForReps ? 'add_one_rep' :
-            fatigueConcern ? 'review_fatigue' : 'hold_and_record',
+            fatigueConcern ? 'review_fatigue' :
+            repeatedBelowMin ? 'review_missed_reps' : 'hold_and_record',
         caveats: [
             !enoughWeeks ? 'servono_due_settimane_distinte' : null,
             enoughWeeks && !similarTargets ? 'target_ripetizioni_differente' : null,
