@@ -8,6 +8,8 @@ import { normalizeSelectionPreferences, selectExerciseForSlot, defaultFundamenta
 import { auditWeeklyCoverage } from './weeklyCoverage.js';
 import { normalizeAthleteProfile, onboardingPlan, eligibleReferenceLoad, profileSummary } from './athleteProfile.js';
 import { deriveMesocyclePolicy } from './periodizationPolicy.js';
+import { prescribeExerciseReps, prescribeExerciseRpe } from './prescriptionPolicy.js';
+import { suggestDropset } from './intensityTechniquePolicy.js';
 
 /**
  * Intervalli iniziali orientativi, NON valori MEV/MAV/MRV universali validati.
@@ -90,7 +92,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
         const isDeloadWeek = weekPolicy.isDeload;
 
         // Il target RPE non sale automaticamente fino a 9 ogni terza settimana.
-        const rpeString = String(weekPolicy.targetRpe.toFixed(1));
+        // Ogni esercizio riceve un RPE personalizzato, con il target
+        // settimanale soltanto come baseline conservativa.
 
         templateDays.forEach((dayTemplate, dayIndex) => {
             const activeSlots = dayTemplate.slots;
@@ -143,15 +146,17 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                             : (Number.isFinite(prior?.lastKg) && prior.lastKg > 0
                                 ? prior.lastKg : null)
                     );
-                let reps = ex.defaultReps || '8-12';
-                if (focus === 'strength' && index === 0) reps = '3-5';
-                else if (focus === 'hypertrophy') reps = index === 0 ? '6-8' : '10-15';
-                if (onboarding.calibrationWeek && w === 1 && ex.pattern !== 'isolation') {
-                    reps = '6-10';
-                }
-                if (onboarding.experience === 'beginner') {
-                    reps = ex.pattern === 'isolation' ? '10-15' : '8-12';
-                }
+                const reps = prescribeExerciseReps(ex, {
+                    focus, index, experience: onboarding.experience,
+                    calibrationWeek: onboarding.calibrationWeek && w === 1,
+                    weekNumber: w, isDeload: isDeloadWeek, loadDecision
+                });
+                const exerciseRpeString = prescribeExerciseRpe(ex, {
+                    weekTargetRpe: weekPolicy.targetRpe, isDeload: isDeloadWeek,
+                    experience: onboarding.experience,
+                    calibrationWeek: onboarding.calibrationWeek && w === 1,
+                    fatigueConcern: prior?.fatigueConcern === true
+                }).toFixed(1);
                 const reference = ex.anchorKey
                     ? athleteProfile?.referenceLoads?.[ex.anchorKey] : null;
                 const expectedVariant = ex.anchorKey
@@ -262,7 +267,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 if (config.useTopset === true && !isDeloadWeek &&
                     !onboarding.calibrationWeek && !usingReference &&
                     plannedKg !== null && index === 0) {
-                    topsetStr = `1x${reps.split('-')[0]} @ ${targetKgMin}kg (RPE max ${rpeString})`;
+                    topsetStr = `1x${reps.split('-')[0]} @ ${targetKgMin}kg (RPE max ${exerciseRpeString})`;
                     noteFinal += ' | [TOP SET CONTROLLATO] Nessun incremento extra: registra RPE e ripetizioni reali prima di proporre un carico maggiore.';
                 }
 
@@ -300,7 +305,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     pattern: ex.pattern,
                     equipment: ex.equipment,
                     topset: topsetStr,
-                    rpe: rpeString,
+                    rpe: exerciseRpeString,
                     notes: noteFinal, // <-- Visibile direttamente nel tab delle note della WebApp per spiegare le decisioni
                     sets: setsArray
                 };
@@ -325,6 +330,29 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             }
         );
         for (const day of balanced.days) {
+            // Un solo dropset facoltativo nella seconda settimana, soltanto
+            // su isolamenti con due settimane di RPE misurato e recupero
+            // credibile. Mai concatenarlo con superset/triset o deload.
+            if (!isDeloadWeek && w === 2) {
+                for (const exercise of day.exercises.slice(2)) {
+                    const proposal = suggestDropset(exercise, {
+                        weekNumber: w, isDeload: isDeloadWeek,
+                        experience: onboarding.experience,
+                        calibrationWeek: onboarding.calibrationWeek,
+                        focus, timeBudgetMinutes: maxSessionMinutes,
+                        availableSeconds: maxSessionMinutes * 60 - day.estimatedSeconds,
+                        history: analysis.byExercise?.[canonicalExerciseKey(exercise.name)]
+                    });
+                    if (!proposal) continue;
+                    const lastSet = exercise.sets?.at(-1);
+                    if (!lastSet) continue;
+                    lastSet.intensityTechnique = proposal.technique;
+                    exercise.notes = [exercise.notes, proposal.note].filter(Boolean).join(' | ');
+                    day.estimatedSeconds += proposal.extraSeconds;
+                    day.estimatedMinutes = Math.ceil(day.estimatedSeconds / 60);
+                    break;
+                }
+            }
             // Il CSV originale non contiene la colonna "nome giornata":
             // conserviamo lo split nella nota del primo esercizio, così
             // l'importatore può mostrare Upper A / Lower A / Upper B / Lower B.
