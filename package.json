@@ -6,6 +6,6 @@
   },
   "type": "module",
   "scripts": {
-    "test": "node --test test/mycoatch-policy.test.mjs"
+    "test": "node --test tests/*.test.mjs test/mycoatch-policy.test.mjs"
   }
 }
