@@ -9,6 +9,7 @@ import { assessExerciseLive } from './liveCoach.js';
 import { estimateE1rm } from './historyAnalysis.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { calibrationHandoffForMesocycle } from './calibrationReview.js';
+import { planMacrocycle } from './macrocyclePlanner.js';
 
 export const MyCoatch = {
     /**
@@ -29,9 +30,11 @@ export const MyCoatch = {
             });
         }
         const config = coachState.getConfig();
+        const macrocycle = planMacrocycle(report, config);
 
         // I dati storici non vengono modificati: proponiamo un mesociclo separato.
         const newMesocycle = generateSmartMesocycle(config, analysis, report.lastMesocycle);
+        newMesocycle.macrocycle = macrocycle;
         const comparison = compareMesocyclePlans(report.lastMesocycle, newMesocycle, analysis);
         const progressionValues = Object.values(decisions.byExercise);
         const progressionQuality = {
@@ -58,6 +61,7 @@ export const MyCoatch = {
             progressionQuality,
             athleteOnboarding: newMesocycle.athleteOnboarding,
             calibrationHandoff,
+            macrocycle,
             // Metriche della proposta settimanale, non dati di prestazione misurati.
             weeklyVolumeBalance: newMesocycle.weeks.map(week => ({
                 weekNumber: week.weekNumber,
@@ -73,6 +77,14 @@ export const MyCoatch = {
         coachState.setActiveMesocycle(newMesocycle);
 
         return newMesocycle;
+    },
+
+    /**
+     * Anteprima indipendente del macrociclo, senza creare o salvare workout.
+     */
+    previewMacrocycle(userHistory, goalSettings = {}) {
+        const report = analyzeTrainingHistory(userHistory);
+        return planMacrocycle(report, { ...coachState.getConfig(), ...goalSettings });
     },
 
     /**
