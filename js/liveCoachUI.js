@@ -172,8 +172,10 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
 
     const liveMessage = element('div', 'mycoatch-live-guidance');
     liveMessage.id = 'mycoatch-live-guidance';
-    liveMessage.setAttribute('role', 'status');
-    liveMessage.setAttribute('aria-live', 'polite');
+    liveMessage.setAttribute('role', 'region');
+    liveMessage.setAttribute('aria-label', 'Riepilogo dei consigli della sessione');
+    // Il toast annuncia i nuovi consigli: evita letture doppie a ogni digitazione.
+    liveMessage.setAttribute('aria-live', 'off');
 
     if (!snapshot.checkedSets) {
         liveMessage.append(element('p', '', 'Inizia confermando una serie reale con kg e ripetizioni. L’RPE è facoltativo, ma migliora la qualità dei suggerimenti.'));
