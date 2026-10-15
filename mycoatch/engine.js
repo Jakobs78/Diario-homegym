@@ -380,6 +380,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             const splitNote = dayLabel ? `[SPLIT MYCOATCH] ${dayLabel}` : '';
             const durationNote = `[DURATA STIMATA] ${day.estimatedMinutes} minuti su ${maxSessionMinutes} disponibili.`;
             const adjustments = [];
+            if (day.reducedPrioritySets) adjustments.push(`${day.reducedPrioritySets} serie dei movimenti prioritari ridotte per rispettare il tempo; valuta più minuti per recuperare il volume`);
             if (day.reducedAccessorySets) adjustments.push(`${day.reducedAccessorySets} serie accessorie ridotte`);
             if (day.removedAccessoryExercises) adjustments.push(`${day.removedAccessoryExercises} esercizi rimossi`);
             if (day.transferredAccessorySetsIn) {
