@@ -200,6 +200,13 @@ function setupEventListeners() {
         if (coachFeedback) coachFeedback.textContent = '';
     });
 
+    // La data non viene mai preimpostata: la deve dichiarare l'atleta.
+    // Il vincolo max serve soltanto come aiuto nel browser: il dominio
+    // rifiuta comunque date future e invalide.
+    for (const input of document.querySelectorAll('[id^="mycoatch-load-"][id$="-date"]')) {
+        input.max = new Date().toISOString().slice(0, 10);
+    }
+
     coachForm?.addEventListener('submit', async event => {
         event.preventDefault();
         if (coachSubmit?.disabled) return;
@@ -229,7 +236,8 @@ function setupEventListeners() {
                         .map(lift => [lift, {
                             kg: document.getElementById('mycoatch-load-' + lift + '-kg')?.value || '',
                             reps: document.getElementById('mycoatch-load-' + lift + '-reps')?.value || '',
-                            rpe: document.getElementById('mycoatch-load-' + lift + '-rpe')?.value || ''
+                            rpe: document.getElementById('mycoatch-load-' + lift + '-rpe')?.value || '',
+                            performedOn: document.getElementById('mycoatch-load-' + lift + '-date')?.value || ''
                         }]))
                 }
             });

@@ -1999,3 +1999,43 @@ body.dark-mode .group-title-badge {
     .mycoatch-config-form .mycoatch-reference-grid input { font-size: .77rem; }
     .mycoatch-reference-grid { gap: 4px; grid-template-columns: minmax(75px, 1.25fr) repeat(3, minmax(0, 1fr)); }
 }
+
+/* Dati auto-dichiarati: date facoltative per i quattro riferimenti.
+   L'informazione temporale deve restare leggibile anche da smartphone. */
+.mycoatch-reference-dates {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px 12px;
+    margin: 9px 0 12px;
+}
+.mycoatch-reference-dates label {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 5px;
+    font-size: .78rem;
+}
+.mycoatch-config-form .mycoatch-reference-dates input[type="date"] {
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+@media (max-width: 420px) {
+    .mycoatch-reference-dates { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* MyCoatch: check-in di calibrazione letto da serie reali, senza persistenza aggiunta. */
+.mycoatch-calibration-review {
+    margin-top: 12px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 12px;
+    font-size: .83rem;
+    line-height: 1.5;
+}
+.mycoatch-calibration-review h4 { font-size: .96rem; margin: 0 0 7px; }
+.mycoatch-calibration-review p { margin: 6px 0; }
+.mycoatch-calibration-review small { color: var(--text-muted); }
+.mycoatch-calibration-caution { color: var(--text-muted); }
+.mycoatch-calibration-review.is-ready {
+    border-top: 2px solid var(--success-color);
+}

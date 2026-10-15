@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v5-athlete-onboarding';
+const CACHE_NAME = 'workout-app-v6-calibration-checkin';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -20,6 +20,7 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/exercisesDB.js',
   '/mycoatch/exerciseSelection.js',
   '/mycoatch/athleteProfile.js',
+  '/mycoatch/calibrationReview.js',
   '/mycoatch/weeklyCoverage.js',
   '/mycoatch/exerciseIdentity.js',
   '/mycoatch/mesocycleComparison.js',

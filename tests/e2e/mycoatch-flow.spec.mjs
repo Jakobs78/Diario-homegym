@@ -570,6 +570,7 @@ test('prima scheda intermedio senza storico: rispetta esclusioni e convalida car
     .toContainText('kg e ripetizioni reali');
   await page.locator('#mycoatch-load-bench-reps').fill('8');
   await page.locator('#mycoatch-load-bench-rpe').fill('7');
+  await page.locator('#mycoatch-load-bench-date').fill(new Date().toISOString().slice(0, 10));
   await page.locator('.mycoatch-profile-details summary').first().click();
   await page.locator('.mycoatch-avoid-check[value="Squat con Bilanciere"]').check();
 
@@ -608,6 +609,7 @@ test('questionario MyCoatch 3.0 su smartphone: campo esperienza, dettagli e subm
   await expect(page.locator('.mycoatch-avoid-check').first()).toBeVisible();
   await details.last().locator('summary').click();
   await expect(page.locator('#mycoatch-load-bench-kg')).toBeVisible();
+  await expect(page.locator('#mycoatch-load-bench-date')).toBeVisible();
   await expect(page.locator('#mycoatch-submit')).toBeVisible();
   const geometry = await page.evaluate(() => {
     const sheet = document.querySelector('.mycoatch-config-sheet');
@@ -622,6 +624,129 @@ test('questionario MyCoatch 3.0 su smartphone: campo esperienza, dettagli e subm
   assert.equal(geometry.sheetOverflow, false, JSON.stringify(geometry));
   assert.equal(geometry.gridOverflow, false, JSON.stringify(geometry));
   assert.ok(geometry.dialogWidth <= geometry.viewportWidth + 2, JSON.stringify(geometry));
+  assert.deepEqual(monitor.remoteRequests, []);
+  assert.deepEqual(monitor.pageErrors, []);
+});
+
+
+test('check-in calibrazione: segue le serie realmente confermate anche passando alla settimana 2', async ({ page }) => {
+  const monitor = await openIsolatedApp(page);
+  page.on('dialog', async dialog => await dialog.accept());
+  const setup = await page.evaluate(async () => {
+    const { MyCoatch } = await import('/mycoatch/index.js');
+    const { importWorkoutPlan } = await import('/js/csvHandler.js');
+    const { renderWorkoutList } = await import('/js/ui.js');
+    const { state } = await import('/js/state.js');
+    MyCoatch.generateNextFromHistory({ history: { years: {} } }, {
+      daysPerWeek: 4, durationWeeks: 4, userAge: 36,
+      focus: 'hybrid', maxSessionMinutes: 60,
+      athleteProfile: {
+        experience: 'beginner', calibration: 'guided',
+        priorityMuscle: null, excludedExercises: [], referenceLoads: {}
+      }
+    });
+    const csv = MyCoatch.exportAsCSV();
+    const result = importWorkoutPlan(csv);
+    if (result.success) renderWorkoutList();
+    return { success: result.success, error: result.error,
+      currentMesoIndex: state.activeMesocycleIndex };
+  });
+  assert.equal(setup.success, true, JSON.stringify(setup));
+  await expect(page.locator('.mycoatch-calibration-review')).toBeVisible();
+  await expect(page.locator('.mycoatch-calibration-review'))
+    .toContainText('0/4 fondamentali registrati');
+  await expect(page.locator('.mycoatch-calibration-review'))
+    .toContainText('Giornate completate: 0/4');
+
+  await page.locator('.set-kg[data-ex="0"][data-set="0"]').fill('40');
+  await page.locator('.set-reps[data-ex="0"][data-set="0"]').fill('10');
+  await page.locator('.set-rpe[data-ex="0"][data-set="0"]').fill('7');
+  await page.locator('.set-lock-check[data-ex="0"][data-set="0"]').check();
+  await expect(page.locator('.mycoatch-calibration-review'))
+    .toContainText('1/4 fondamentali registrati');
+  await expect(page.locator('.mycoatch-calibration-review'))
+    .toContainText('Con RPE: 1/1');
+
+  const before = await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    const year = state.workoutData.history.years[new Date().getFullYear()];
+    return {
+      count: year.mesocycles.length,
+      sets: year.mesocycles[state.activeMesocycleIndex]
+        .weeks[0].days[0].exercises[0].loggedSets.map(set => ({
+          weight: set.weight, completed: set.completed
+        }))
+    };
+  });
+  assert.equal(before.sets[0].weight, 40);
+  assert.equal(before.sets[0].completed, true);
+  assert.ok(!before.sets[1].completed, 'Una serie ancora aperta non deve risultare completata');
+
+  await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    const { renderWorkoutList } = await import('/js/ui.js');
+    state.activeWeek = 2;
+    state.activeDay = 1;
+    renderWorkoutList();
+  });
+  await expect(page.locator('.mycoatch-calibration-review'))
+    .toContainText('1/4 fondamentali registrati');
+  const after = await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    const year = state.workoutData.history.years[new Date().getFullYear()];
+    return {
+      count: year.mesocycles.length,
+      saved: year.mesocycles[state.activeMesocycleIndex]
+        .weeks[0].days[0].exercises[0].loggedSets[0].weight
+    };
+  });
+  assert.equal(after.count, before.count);
+  assert.equal(after.saved, 40);
+  assert.deepEqual(monitor.remoteRequests, []);
+  assert.deepEqual(monitor.pageErrors, []);
+});
+
+test('data dei carichi autodichiarati: senza data non prescrive kg, con data recente sì', async ({ page }) => {
+  const monitor = await openIsolatedApp(page);
+  await page.evaluate(async () => {
+    const { state } = await import('/js/state.js');
+    state.workoutData.history.years = {};
+    localStorage.setItem('workoutApp_data', JSON.stringify(state.workoutData));
+  });
+  await startCoach(page, '75');
+  await page.locator('#mycoatch-experience').selectOption('intermediate');
+  await page.locator('#mycoatch-calibration').selectOption('regular');
+  await page.locator('.mycoatch-profile-details summary').last().click();
+  await page.locator('#mycoatch-load-bench-kg').fill('80');
+  await page.locator('#mycoatch-load-bench-reps').fill('8');
+  await page.locator('#mycoatch-load-bench-rpe').fill('7');
+  const previews = [];
+  page.on('dialog', async dialog => {
+    if (dialog.type() === 'confirm') previews.push(dialog.message());
+    await dialog.accept();
+  });
+  const first = page.waitForEvent('download', { timeout: 20000 });
+  await page.locator('#mycoatch-submit').click();
+  const firstCsv = await readFile(await (await first).path(), 'utf8');
+  const getBench = csv => csv.split(/\r?\n/)
+    .map(row => row.split(';')).find(row =>
+      row[0] === '1' && row[1] === '1' &&
+      row[3] === 'Panca Piana con Bilanciere');
+  assert.equal(getBench(firstCsv)[6], '',
+    'Un carico senza data non deve apparire come peso prescritto');
+  assert.ok(previews.some(s => s.includes('Carichi dichiarati, NON verificati')));
+  await startCoach(page, '75');
+  await page.locator('#mycoatch-experience').selectOption('intermediate');
+  await page.locator('#mycoatch-calibration').selectOption('regular');
+  const references = page.locator('.mycoatch-profile-details').last();
+  if (await references.evaluate(node => !node.open)) {
+    await references.locator('summary').click();
+  }
+  await page.locator('#mycoatch-load-bench-date').fill(new Date().toISOString().slice(0, 10));
+  const second = page.waitForEvent('download', { timeout: 20000 });
+  await page.locator('#mycoatch-submit').click();
+  const secondCsv = await readFile(await (await second).path(), 'utf8');
+  assert.equal(getBench(secondCsv)[6], '80');
   assert.deepEqual(monitor.remoteRequests, []);
   assert.deepEqual(monitor.pageErrors, []);
 });
