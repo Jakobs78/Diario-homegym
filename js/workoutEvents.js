@@ -10,7 +10,7 @@ import { shouldStartRecoveryTimer } from './restPolicy.js';
 import { updatePlatesBadgeUI } from './exerciseCard.js';
 import { updateSessionAndCompletionState, updateSessionHeaderUI } from './sessionTimer.js';
 import { validateCompletedSet } from '../mycoatch/liveCoach.js';
-import { updateLiveCoachPanel, showLiveCoachInputError } from './liveCoachUI.js';
+import { updateLiveCoachPanel, showLiveCoachInputError, showLiveCoachToast } from './liveCoachUI.js';
 
 
 function updateInputStatusClasses(element, isOut, isImprovedOrExceeding) {
@@ -255,6 +255,11 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             updateLiveCoachPanel(currentDay, { readOnly: isPastMeso });
             saveAndSync(state.workoutData);
             if (typeof renderCallback === 'function') renderCallback();
+            // Il popup nasce DOPO il render e soltanto per un check valido.
+            // Input e modifiche bozze NON devono far comparire consigli.
+            if (isChecked && !isPastMeso) {
+                showLiveCoachToast(currentDay, { exerciseIndex: exIdx, setIndex: setIdx });
+            }
         });
     });
 }
