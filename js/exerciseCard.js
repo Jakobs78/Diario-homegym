@@ -39,7 +39,8 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     let lastSessionSetsHtml = '';
 
     if (prevExercise && prevExercise.loggedSets && prevExercise.loggedSets.length > 0) {
-        const validSets = prevExercise.loggedSets.filter(s => s.weight || s.reps);
+        const validSets = prevExercise.loggedSets.filter(s =>
+            (s.isLocked === true || s.completed === true) && s.weight && s.reps);
         
         if (validSets.length > 0) {
             const rangeStr = (prevExercise.minReps && prevExercise.maxReps) 
@@ -109,8 +110,10 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     cardHtml += `
         <!-- Suggerimenti visibili ma NON salvati come serie completate. -->
         <div class="text-xs text-muted mb-xs">
-            Valori precompilati: correggi kg e ripetizioni se necessario, poi conferma con ✓.
-            L'RPE suggerito è solo un target: per registrare quello percepito, modificalo nel campo.
+            Carichi e ripetizioni sono suggeriti dal CSV o, se il piano non cambia,
+            dalla serie corrispondente confermata nelle settimane precedenti.
+            Cambia i valori se serve e premi ✓: solo allora diventano allenamento svolto.
+            L'RPE mostrato è un obiettivo, non un RPE misurato: modificalo per registrare quello percepito.
         </div>
         <table class="set-table mb-md">
             <thead>
@@ -159,7 +162,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             }
         }
         
-        const suggested = getSetPrefill(ex, setIdx);
+        const suggested = getSetPrefill(ex, setIdx, { previousExercise: prevExercise });
         const displayWeight = isLocked ? (setObj.weight ?? '') : suggested.weight;
         const displayReps = isLocked ? (setObj.reps ?? '') : suggested.reps;
         const displayRpe = isLocked ? (setObj.rpe ?? '') : suggested.rpe;
