@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v32-safe-deletions';
+const CACHE_NAME = 'workout-app-v33-coach-volume-preview';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [

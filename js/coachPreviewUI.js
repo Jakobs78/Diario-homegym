@@ -63,6 +63,21 @@ export function initCoachPreview(readCoachOptions,configModal) {
                     }
                     panel.append(ul);container.append(panel);
                 }
+                const volumes=week.weeklyCoverage?.fractionalVolumeByMuscle;
+                if(volumes && Object.keys(volumes).length){
+                    const breakdown=create('details',undefined,'mycoatch-preview-day');
+                    breakdown.append(create('summary','Volume previsto per distretto · stima, non crescita misurata'));
+                    const list=create('ul');
+                    for(const [muscle,stats] of Object.entries(volumes)){
+                        if(!(stats?.directSets>0 || stats?.indirectSetCredits>0))continue;
+                        list.append(create('li',muscle+': '+stats.directSets+
+                            ' serie dirette + '+stats.indirectSetCredits+
+                            ' contributi indiretti = '+stats.fractionalSets+
+                            ' equivalenti stimati'));
+                    }
+                    breakdown.append(list);
+                    container.append(breakdown);
+                }
                 weeks.append(container);
             }
             explanation.textContent=proposal.review;
