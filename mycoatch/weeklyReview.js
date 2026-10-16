@@ -19,6 +19,7 @@ const TARGET_FIELDS = ['targetRpe','rpe','minRpe','maxRpe','coachWeeklyLoadRevie
 const owned = (object,key) => Object.prototype.hasOwnProperty.call(object,key);
 const confirmed = set => set?.isLocked === true || set?.completed === true;
 const warmup = set => Boolean(set?.isWarmup || set?.is_warmup || set?.warmup);
+const warmupExercise = ex => Boolean(ex?.isWarmup || ex?.isExcluded || ex?.is_excluded);
 const numericRpe = value => {
     const raw=String(value??'').trim().replace(/^@/,'').replace(',','.');
     if(!/^\d+(?:\.\d+)?$/.test(raw)) return null;
@@ -46,7 +47,7 @@ function restoreValue(object,key,entry) {
 }
 function matchesSourceDay(day) {
     if(day?.completed!==true || !Array.isArray(day.exercises))return false;
-    return day.exercises.some(ex=>!ex.isExcluded);
+    return day.exercises.some(ex=>!warmupExercise(ex));
 }
 function attributedCheckin(day) {
     const check=day?.coachCheckin;
@@ -66,7 +67,7 @@ function evaluateCompletedDay(day) {
     let measured=0,hard=0,working=0;
     const byMuscle=new Map();
     for(const ex of day.exercises){
-        if(ex.isExcluded)continue;
+        if(warmupExercise(ex))continue;
         const sets=ex.loggedSets;
         if(!Array.isArray(sets)||!sets.length)return null;
         let valid=0;
@@ -121,7 +122,7 @@ function candidateTargets(week, affectedMuscles) {
     const result=[];
     for(const [dayIndex,day] of (week?.days||[]).entries()){
         for(const [exerciseIndex,ex] of (day.exercises||[]).entries()){
-            if(ex.isExcluded || !affectedMuscles.has(muscleKey(ex)))continue;
+            if(warmupExercise(ex) || !affectedMuscles.has(muscleKey(ex)))continue;
             const original=ex.targetRpe??ex.rpeTarget??ex.rpe;
             const n=numericRpe(original);
             if(n===null || n<=6.5)continue; // Scarico già conservativo

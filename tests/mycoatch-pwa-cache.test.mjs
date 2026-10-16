@@ -5,12 +5,13 @@ import { posix } from 'node:path';
 
 test('PWA caches every necessary JS module for new MyCoatch and prefilled workout cards', async () => {
     const script=await readFile(new URL('../sw.js',import.meta.url),'utf8');
-    assert.match(script,/CACHE_NAME\s*=\s*'workout-app-v38-/);
+    assert.match(script,/CACHE_NAME\s*=\s*'workout-app-v39-/);
     const routes=[...script.matchAll(/'\/(?:js|mycoatch)\/[^']+\.js'/g)]
         .map(match=>match[0].slice(1,-1));
     for (const module of [
         '/js/setPrefill.js',
         '/js/workoutSemantics.js',
+        '/mycoatch/loadProposal.js',
         '/js/exerciseCard.js',
         '/js/fullBackup.js',
         '/js/coachPreviewUI.js',

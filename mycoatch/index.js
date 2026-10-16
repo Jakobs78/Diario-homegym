@@ -19,14 +19,17 @@ export const MyCoatch = {
         // Analisi longitudinale: tutti gli anni e i mesocicli, soltanto serie confermate.
         const report = analyzeTrainingHistory(userHistory);
         const calibrationHandoff = calibrationHandoffForMesocycle(report.lastMesocycle);
-        const decisions = planAdaptiveDecisions(report);
+        const loadingSteps=goalSettings.loadingSteps ??
+            userHistory?.athlete?.loadingSteps ?? {};
+        const decisions = planAdaptiveDecisions(report,{loadingSteps});
         const analysis = { ...report, decisions };
 
         if (Object.keys(goalSettings).length > 0) {
             // Ogni nuova proposta riceve un profilo esplicito o null: non
             // riutilizzare quello di un'altra persona/sessione dalla memoria JS.
             coachState.updateConfig({
-                ...goalSettings, athleteProfile: goalSettings.athleteProfile ?? null
+                ...goalSettings, loadingSteps,
+                athleteProfile: goalSettings.athleteProfile ?? null
             });
         }
         const config = coachState.getConfig();

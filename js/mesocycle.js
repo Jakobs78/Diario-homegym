@@ -14,13 +14,13 @@ import { renderWorkoutList, showNotification } from './ui.js';
 // ==========================================
 export function getActiveMesocycleObject() {
     const yearsObj = state.workoutData?.history?.years || {};
-    const currentYear = new Date().getFullYear().toString();
+    const currentYear = String(state.currentYear || new Date().getFullYear());
     
     let yearData = yearsObj[currentYear];
     if (!yearData || !yearData.mesocycles || yearData.mesocycles.length === 0) {
         const yearKeys = Object.keys(yearsObj);
         if (yearKeys.length > 0) {
-            yearData = yearsObj[yearKeys[0]];
+            yearData = yearsObj[yearKeys.sort((a,b)=>Number(b)-Number(a))[0]];
         }
     }
     
@@ -35,7 +35,7 @@ export function getActiveMesocycleObject() {
  * Gestisce lo scorrimento dei mesocicli (-1 o +1) con controlli sui limiti
  */
 export function changeMesocycle(delta) {
-    const currentYear = new Date().getFullYear().toString();
+    const currentYear = String(state.currentYear || new Date().getFullYear());
     const mesocycles = state.workoutData?.history?.years?.[currentYear]?.mesocycles || [];
     const currentIndex = state.activeMesocycleIndex || 0;
     const targetIndex = currentIndex + delta;
@@ -59,7 +59,7 @@ export function changeMesocycle(delta) {
  * Elimina la scheda e i dati del mesociclo attivo riallineando la numerazione
  */
 export function deleteCurrentMesocycle() {
-    const currentYear = new Date().getFullYear().toString();
+    const currentYear = String(state.currentYear || new Date().getFullYear());
     const mesocycles = state.workoutData?.history?.years?.[currentYear]?.mesocycles || [];
 
     if (mesocycles.length === 0) {
@@ -128,7 +128,7 @@ export function updateMesocycleLockUI() {
 // 5. AGGIORNAMENTO UI CONTATORI & NAVIGAZIONE
 // ==========================================
 export function updateMesocycleUI() {
-    const currentYear = new Date().getFullYear().toString();
+    const currentYear = String(state.currentYear || new Date().getFullYear());
     const mesos = state.workoutData?.history?.years?.[currentYear]?.mesocycles || [];
     const currentIndex = state.activeMesocycleIndex || 0;
     

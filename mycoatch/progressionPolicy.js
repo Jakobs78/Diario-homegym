@@ -33,12 +33,14 @@ function qualityGate(week) {
         exercises.every(e => e.workingKg === exercises[0]?.workingKg);
     const allRpe = exercises.every(e => e.allRpeWithinTarget === true);
     const maxAtTop = exercises.every(e => e.allRepsAtTop === true);
+    const allEasy = exercises.every(e => e.allLowRpeWithValidReps === true);
     const aboveMinimum = exercises.every(e => e.allRepsInRange === true);
     return {
         id: week.id,
         complete: allFullyLogged,
         safe: consistentRange && allFullyLogged && allStraight && allRpe,
         allAtTop: maxAtTop,
+        allEasy,
         inRange: aboveMinimum,
         minReps: exercises.length ? Math.min(...exercises
             .map(e => e.minWorkingReps ?? 0)) : null,
@@ -79,7 +81,11 @@ export function evaluateExerciseProgression(exposures = []) {
         Math.abs(lastTwo[1].workingKg / lastTwo[0].workingKg - 1) <= 0.02;
     const qualified = Boolean(enoughWeeks && similarTargets &&
         lastTwo.every(w => w.safe) && comparableLoads);
-    const readyForLoad = qualified && lastTwo.every(w => w.allAtTop);
+    // Two distinct comparable weeks are still required before a new
+    // mesocycle's load is increased. Either top reps, OR at least one
+    // confirmed RPE point in reserve across every valid working set.
+    const readyForLoad = qualified &&
+        lastTwo.every(w => w.allAtTop || w.allEasy);
     const readyForReps = qualified && !readyForLoad &&
         last !== null && last.inRange && !last.allAtTop &&
         last.minReps < last.maxReps;
@@ -104,6 +110,9 @@ export function evaluateExerciseProgression(exposures = []) {
         distinctWeeks: weekly.length,
         evidenceWeeks: lastTwo.map(w => w.id),
         recentWeeksQualified: qualified,
+        progressionTrigger: readyForLoad ? (
+            lastTwo.every(w=>w.allAtTop) ? 'top_reps' : 'low_rpe'
+        ) : null,
         nextActionHint: readyForLoad ? 'small_load_increase' :
             readyForReps ? 'add_one_rep' :
             fatigueConcern ? 'review_fatigue' :

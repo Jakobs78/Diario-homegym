@@ -204,9 +204,15 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         }
 
         cardHtml += `
-            <tr class="workout-set-row" data-set-index="${setIdx}" data-prefill-source="${suggested.source}">
+            <tr class="workout-set-row ${setObj.isWarmup || setObj.warmup || setObj.is_warmup ? 'is-warmup-set' : ''}" data-set-index="${setIdx}" data-prefill-source="${suggested.source}">
                 <td class="td-set flex-column flex-center">
                     <span class="font-bold text-sm">${setIdx + 1}</span>
+                    <button type="button" class="set-warmup-toggle"
+                        data-ex="${exIdx}" data-set="${setIdx}"
+                        aria-pressed="${Boolean(setObj.isWarmup || setObj.warmup || setObj.is_warmup)}"
+                        title="Alterna riscaldamento / serie allenante"
+                        aria-label="Serie ${setIdx+1}: ${setObj.isWarmup || setObj.warmup || setObj.is_warmup ? 'riscaldamento, passa ad allenante' : 'segna come riscaldamento'}"
+                        ${isPastMeso ? 'disabled' : ''}>${setObj.isWarmup || setObj.warmup || setObj.is_warmup ? 'W ✓' : 'W'}</button>
                     ${intensityBadgeHtml}
                 </td>
                 <td class="td-input td-kg-container">
@@ -363,10 +369,11 @@ export function updatePlatesBadgeUI(exIdx, cardNode=null) {
         badge.textContent='Solo bilanciere: 0 kg di dischi per lato.';
         return;
     }
-    const breakdown=getPlateBreakdown(total,barWeight);
+    const breakdown=getPlateBreakdown(total,barWeight,
+        state.workoutData?.athlete?.platePairs || null);
     if(!breakdown?.plates?.length){
         badge.className='plates-badge plates-badge-empty';
-        badge.textContent='Nessuna combinazione disponibile per questo carico.';
+        badge.textContent='Nessuna combinazione disponibile per questo carico con i dischi configurati.';
         return;
     }
     const counts={};
@@ -388,6 +395,12 @@ export function updatePlatesBadgeUI(exIdx, cardNode=null) {
         note.className='plate-breakdown-warning';
         note.textContent='Combinazione incompleta: mancano '+leftover+' kg/lato.';
         badge.append(note);
+    }
+    if(state.workoutData?.athlete?.platePairs){
+        const hint=document.createElement('small');
+        hint.className='plate-breakdown-hint';
+        hint.textContent='Calcolo sui dischi registrati nelle impostazioni.';
+        badge.append(hint);
     }
     if(kgField.classList.contains('text-placeholder-active')){
         const hint=document.createElement('small');

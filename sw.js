@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v38-warmup-safe-sync';
+const CACHE_NAME = 'workout-app-v39-smart-progression-equipment';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -66,6 +66,7 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/periodizationPolicy.js',
   '/mycoatch/mycoatch-adapter.js',
   '/mycoatch/liveCoach.js',
+  '/mycoatch/loadProposal.js',
   '/mycoatch/sessionReadiness.js',
   '/mycoatch/weeklyReview.js',
   '/mycoatch/liveHistory.js',

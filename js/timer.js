@@ -8,6 +8,7 @@ let timerInterval = null;
 let endTime = null;
 let boundVisibilityHandler = null;
 let lastBeepSecond = null;
+const REST_TIMER_KEY='homegym_rest_timer_deadline_v1';
 /**
  * Format un valore in secondi in formato MM:SS
  */
@@ -90,6 +91,7 @@ export function startTimer(durationInput, onTick, onComplete) {
     if (!seconds || seconds <= 0) return;
 
     endTime = Date.now() + seconds * 1000;
+    try{sessionStorage.setItem(REST_TIMER_KEY,String(endTime));}catch{}
 
     const tickCallback = onTick || handleTick;
     const completeCallback = onComplete || handleComplete;
@@ -124,6 +126,7 @@ export function adjustTimer(secondsToAdd, onTick, onComplete) {
     const completeCallback = onComplete || handleComplete;
 
     endTime += secondsToAdd * 1000;
+    try{sessionStorage.setItem(REST_TIMER_KEY,String(endTime));}catch{}
 
     if (endTime <= Date.now()) {
         stopTimer();
@@ -177,12 +180,32 @@ export function initTimerEvents() {
     }
 }
 
+/**
+ * Restore an unexpired rest after PWA refresh/background reload in the same
+ * browser tab, without inventing or extending the original rest duration.
+ */
+export function restoreActiveRestTimer(){
+    if(endTime)return false;
+    let saved=null;
+    try{saved=Number(sessionStorage.getItem(REST_TIMER_KEY));}catch{}
+    if(!Number.isFinite(saved)||!saved || saved<=Date.now() ||
+        saved-Date.now()>60*60*1000){
+        try{sessionStorage.removeItem(REST_TIMER_KEY);}catch{}
+        return false;
+    }
+    const remaining=Math.ceil((saved-Date.now())/1000);
+    startTimer(String(remaining)+'s');
+    endTime=saved; // keep exact original deadline, not rounded new start
+    return true;
+}
+
 export function stopTimer() {
     if (timerInterval) {
         clearInterval(timerInterval);
         timerInterval = null;
     }
     endTime = null;
+    try{sessionStorage.removeItem(REST_TIMER_KEY);}catch{}
     lastBeepSecond = null; // Reset dello stato del beep
 
     if (boundVisibilityHandler) {

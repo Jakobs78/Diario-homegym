@@ -2,6 +2,7 @@
  * Decisioni conservative e spiegabili. Nessuna diagnosi di crescita muscolare:
  * kg, reps, volume e RPE descrivono prestazione, stimolo e tolleranza al lavoro.
  */
+import { getAvailableLoadStep } from './loadProposal.js';
 function incrementFor(weight, equipment) {
     if (equipment === 'dumbbell') return weight < 12.5 ? 0.5 : 1;
     if (equipment === 'cable' || equipment === 'lat_machine') return weight < 12.5 ? 0.5 : 1.25;
@@ -9,7 +10,7 @@ function incrementFor(weight, equipment) {
 }
 const roundLoad = kg => Math.max(0, Math.round(kg * 4) / 4);
 
-export function planAdaptiveDecisions(report) {
+export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
     const byExercise = {};
     const byMuscle = {};
     const summary = [];
@@ -32,11 +33,13 @@ export function planAdaptiveDecisions(report) {
             reason = 'RPE ripetutamente superiore al target o ripetizioni sotto target con calo e1RM: alleggerimento prudente e verifica del recupero.';
         } else if (exercise.readyForLoad && kg !== null &&
                    exercise.status !== 'regressing') {
-            const increment = incrementFor(kg, exercise.equipment);
+            const increment = getAvailableLoadStep(exercise,loadingSteps,kg).step;
             if (increment / kg <= 0.10) {
                 action = 'increase_load';
                 plannedKg = roundLoad(kg + increment);
-                reason = 'Due settimane diverse, tutte le serie a ripetizioni alte con RPE misurato entro il target e carichi di lavoro confrontabili: piccolo incremento proposto (verifica i dischi/manubri disponibili).';
+                reason = exercise.progressionEvidence?.progressionTrigger === 'low_rpe'
+                    ? 'Due settimane diverse: tutte le serie confermate entro il range di ripetizioni con RPE almeno 1 punto sotto il target. Incremento minimo proporzionato al carico e alla tua attrezzatura.'
+                    : 'Due settimane diverse, tutte le serie al limite alto delle ripetizioni con RPE entro target. Piccolo incremento proposto (verifica i pesi disponibili).';
             } else {
                 reason = 'Le due settimane giustificano una progressione, ma il passo minimo standard sarebbe superiore al 10% del carico: mantieni i kg oppure usa microcarichi realmente disponibili.';
             }

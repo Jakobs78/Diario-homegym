@@ -1,5 +1,7 @@
 // mycoatch/engine.js
 import { EXERCISE_DATABASE } from './exercisesDB.js';
+import { getAvailableLoadStep } from './loadProposal.js';
+import { isWarmupExercise } from '../js/workoutSemantics.js';
 import { analyzeCompletedMesocycle } from './historyAnalysis.js';
 import { canonicalExerciseKey } from './exerciseIdentity.js';
 import { rebalanceWeeklyAccessories } from './weeklyVolumeBalancer.js';
@@ -51,7 +53,7 @@ export function previousComparableTrainingDay(lastMesocycle, dayNumber) {
         .filter(item=>Array.isArray(item.day?.exercises) &&
             item.day.exercises.length>0);
     const actuallyTrained=item=>item.day.exercises.some(ex=>
-        (ex.loggedSets || []).some(set=>
+        !isWarmupExercise(ex) && (ex.loggedSets || []).some(set=>
             !set.isWarmup && !set.warmup && !set.is_warmup &&
             (set.isLocked===true || set.completed===true) &&
             Number(String(set.weight??set.actualKg??'').replace(',','.'))>0));
@@ -253,9 +255,10 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 const plannedKg = baseKg === null ? null :
                     (isDeloadWeek && loadDecision?.action !== 'reduce_load'
                         ? baseKg * 0.85 : baseKg);
-                const suggestedIncrement = ex.equipment === 'dumbbell' ? 0.5 :
-                    (ex.equipment === 'cable' || ex.equipment === 'lat_machine'
-                        ? 1.25 : plannedKg !== null && plannedKg < 12.5 ? 0.5 : 2.5);
+                // Real load steps are set by the athlete and synced in their
+                // equipment profile. Defaults are illustrative.
+                const suggestedIncrement = getAvailableLoadStep(
+                    ex,config.loadingSteps || {},plannedKg).step;
                 const targetKgMin = plannedKg === null ? '' :
                     String(Math.round(Math.round(plannedKg / suggestedIncrement) *
                         suggestedIncrement * 4) / 4);
