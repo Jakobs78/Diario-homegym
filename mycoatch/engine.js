@@ -462,6 +462,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
         createdAt: new Date().toISOString(),
         config: config,
         athleteOnboarding: profileSummary(athleteProfile, onboarding),
+        coachGuardrails: guardrails,
         periodization,
         weeks: weeks
     };
