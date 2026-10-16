@@ -79,7 +79,10 @@ export function createWeeklyReviewPanel(mesocycle, weekNumber, {
         undo.type='button';
         undo.disabled=(mesocycle.weeks||[])
             .find(w=>Number(w.weekNumber)===Number(weekNumber))?.days?.some(day=>
-                day.completed||day.sessionStart||(day.loggedSets||[]).some(s=>s.isLocked)) || false;
+                day.completed || day.sessionStart || (day.accumulatedSeconds||0)>0 ||
+                (day.sessionArchives||[]).length>0 ||
+                (day.exercises||[]).some(ex=>
+                    (ex.loggedSets||[]).some(set=>set.isLocked||set.completed))) || false;
         undo.addEventListener('click',()=>{
             try {
                 undoUpcomingWeekReview(mesocycle,weekNumber);
