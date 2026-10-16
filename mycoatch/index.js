@@ -58,6 +58,7 @@ export const MyCoatch = {
             })),
             muscleSignals: report.byMuscle,
             decisions,
+            coachingGuardrails:newMesocycle.coachGuardrails,
             progressionQuality,
             athleteOnboarding: newMesocycle.athleteOnboarding,
             calibrationHandoff,

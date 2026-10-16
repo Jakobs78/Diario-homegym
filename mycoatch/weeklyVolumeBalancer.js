@@ -224,6 +224,7 @@ export function rebalanceWeeklyAccessories(days, requestedDays, maxSessionMinute
         throw new Error('Riequilibrio settimanale: giorni originali non coerenti.');
     }
     const isDeloadWeek = Boolean(options.isDeloadWeek);
+    const preventTransfers = isDeloadWeek || options.preventTransfers === true;
     const maxAccessorySets = Number.isInteger(options.maxAccessorySets) &&
         options.maxAccessorySets >= 1 && options.maxAccessorySets <= MAX_ACCESSORY_SETS_PER_EXERCISE
         ? options.maxAccessorySets : MAX_ACCESSORY_SETS_PER_EXERCISE;
@@ -236,7 +237,7 @@ export function rebalanceWeeklyAccessories(days, requestedDays, maxSessionMinute
     const moves = [];
     const crossFocusCount = updatedDays.map(() => 0);
 
-    if (!isDeloadWeek) {
+    if (!preventTransfers) {
         // Round-robin per evitare di usare tutti i giorni liberi per un solo
         // muscolo (es. bicipiti), lasciando esclusi gli altri (es. tricipiti).
         const deficits = donorDeficits(updatedDays, requestedDays);

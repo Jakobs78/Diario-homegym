@@ -74,13 +74,13 @@ export function groupAccessories(exercises, size = 2) {
     return result;
 }
 
-function optionsFor(exercises, availableMinutes) {
+function optionsFor(exercises, availableMinutes, allowGrouping = true) {
     const solo = resetGroups(exercises);
     const variants = [{ label: 'singole', exercises: solo }];
-    if (availableMinutes <= 60) {
+    if (allowGrouping && availableMinutes <= 60) {
         variants.push({ label: 'superset', exercises: groupAccessories(solo, 2) });
     }
-    if (availableMinutes <= 50) {
+    if (allowGrouping && availableMinutes <= 50) {
         variants.push({ label: 'triset', exercises: groupAccessories(solo, 3) });
     }
     return variants.map(option => ({
@@ -90,8 +90,8 @@ function optionsFor(exercises, availableMinutes) {
     }));
 }
 
-function choosePlan(exercises, maxSeconds, maxSessionMinutes) {
-    const candidates = optionsFor(exercises, maxSessionMinutes);
+function choosePlan(exercises, maxSeconds, maxSessionMinutes, allowGrouping = true) {
+    const candidates = optionsFor(exercises, maxSessionMinutes, allowGrouping);
     const fitting = candidates.filter(plan => plan.seconds <= maxSeconds);
     if (fitting.length) {
         // Se la seduta sta nel tempo, evitare raggruppamenti non necessari.
@@ -148,7 +148,8 @@ function selectLeastEssential(exercises) {
  * fino a due, senza eliminarli né accorciarne le pause. Se non basta, errore.
  * Le tecniche temporali rimangono riservate agli accessori compatibili.
  */
-export function optimizeSession(exercises, maxSessionMinutes) {
+export function optimizeSession(exercises, maxSessionMinutes, options = {}) {
+    const allowGrouping = options.allowGrouping !== false;
     const minutes = Number(maxSessionMinutes);
     if (!Number.isInteger(minutes) || minutes < 25 || minutes > 180) {
         throw new Error('Seleziona un tempo disponibile valido da 25 a 180 minuti.');
@@ -159,7 +160,7 @@ export function optimizeSession(exercises, maxSessionMinutes) {
 
     const secondsBudget = minutes * 60;
     const base = resetGroups(exercises);
-    let candidate = choosePlan(base, secondsBudget, minutes);
+    let candidate = choosePlan(base, secondsBudget, minutes, allowGrouping);
     let reducedSets = 0;
     let reducedPrioritySets = 0;
     let removedExercises = 0;
@@ -203,7 +204,7 @@ export function optimizeSession(exercises, maxSessionMinutes) {
             priority.sets = priority.sets.slice(0, priority.setsCount);
             reducedPrioritySets++;
         }
-        candidate = choosePlan(base, secondsBudget, minutes);
+        candidate = choosePlan(base, secondsBudget, minutes, allowGrouping);
     }
     if (candidate.seconds > secondsBudget) {
         throw new Error('Impossibile rispettare il limite di tempo richiesto.');
