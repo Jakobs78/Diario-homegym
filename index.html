@@ -407,9 +407,32 @@
                     </fieldset>
                     <p class="mycoatch-form-hint">MyCoatch usa la durata scelta per progettare la seduta. Il riscaldamento generale non è obbligatorio; le serie di avvicinamento ai fondamentali restano consigliate.</p>
                     <p id="mycoatch-form-feedback" class="mycoatch-form-feedback" role="alert" aria-live="polite"></p>
+                    <button id="mycoatch-preview-btn" type="button" class="btn btn-secondary">👁️ Anteprima visiva e applica nel diario</button>
                     <button id="mycoatch-submit" type="submit" class="btn btn-primary">Genera e scarica CSV</button>
                 </form>
             </div>
+        </div>
+
+        <!-- Preview separated from the existing workout card layout. -->
+        <div id="mycoatch-preview-overlay" class="bottom-sheet-overlay hidden">
+          <div class="mycoatch-preview-content" role="dialog" aria-modal="true"
+            aria-labelledby="mycoatch-preview-title">
+            <div class="mycoatch-preview-header">
+              <h2 id="mycoatch-preview-title">Anteprima mesociclo MyCoatch</h2>
+              <button id="mycoatch-preview-close" type="button" class="btn btn-secondary" aria-label="Chiudi anteprima">✕</button>
+            </div>
+            <p id="mycoatch-preview-summary"></p>
+            <div id="mycoatch-preview-weeks"></div>
+            <details><summary>Motivazioni e analisi dello storico</summary>
+              <pre id="mycoatch-preview-explanation" class="mycoatch-preview-explanation"></pre>
+            </details>
+            <p id="mycoatch-preview-error" role="alert" aria-live="polite"></p>
+            <div class="mycoatch-preview-actions">
+              <button id="mycoatch-preview-apply" type="button" class="btn btn-primary">Applica come nuovo mesociclo</button>
+              <button id="mycoatch-preview-download" type="button" class="btn btn-secondary">Scarica CSV</button>
+              <button id="mycoatch-preview-cancel" type="button" class="btn btn-secondary">Annulla</button>
+            </div>
+          </div>
         </div>
 
         <!-- Modale Importazione Scheda Allenamento -->

@@ -2572,3 +2572,23 @@ body.dark-mode .group-title-badge {
     font-weight: 650;
 }
 .mycoatch-weekly-error:empty { display:none; }
+
+/* Preview MyCoatch: outside the live workout layout (no card changes). */
+#mycoatch-preview-overlay { z-index: 1100; justify-content:center; align-items:center; }
+.mycoatch-preview-content {
+    width:min(95vw,850px);max-height:88dvh;overflow:auto;overscroll-behavior:contain;
+    background:var(--card-bg);color:var(--text-color);border-radius:16px;
+    padding:16px;box-shadow:0 14px 45px rgba(0,0,0,.2);
+}
+.mycoatch-preview-header {display:flex;justify-content:space-between;align-items:center;gap:12px;}
+.mycoatch-preview-header h2 {font-size:1.12rem;margin:0;}
+.mycoatch-preview-content summary {cursor:pointer;font-weight:700;padding:10px;}
+.mycoatch-preview-week {border:1px solid var(--border-color);border-radius:10px;margin:8px 0;}
+.mycoatch-preview-day {padding:7px 12px;border-top:1px solid var(--border-color);}
+.mycoatch-preview-day h4 {margin:4px 0 8px;}
+.mycoatch-preview-day ul {margin:0 0 7px;padding-left:20px;}
+.mycoatch-preview-day li {margin:4px 0;line-height:1.45;overflow-wrap:anywhere;}
+.mycoatch-preview-explanation {white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:.82rem;}
+.mycoatch-preview-actions {display:flex;flex-wrap:wrap;gap:9px;margin-top:13px;}
+.mycoatch-preview-actions button {min-height:44px;flex:1 1 160px;}
+#mycoatch-preview-error {color:#b91c1c;}

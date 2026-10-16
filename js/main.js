@@ -23,7 +23,10 @@ import { setupBottomSheet } from './bottomSheet.js';
 import { initDevBanner } from './bannerSviluppo.js';
 import { applyUserToUI, checkSubscriptionStatus, deleteUserAccount } from './accountManager.js';
 // Corretto il percorso dell'import relativo
-import { startCoachChatAndGenerate, generateAndDownloadMesocycleCSV } from '../mycoatch/mycoatch-adapter.js';
+import { startCoachChatAndGenerate, generateAndDownloadMesocycleCSV,
+    createVisualCoachProposal, clearVisualCoachProposal, downloadVisualCoachProposal
+} from '../mycoatch/mycoatch-adapter.js';
+import { initCoachPreview } from './coachPreviewUI.js';
 import { parseCoachPreferences } from '../mycoatch/userPreferences.js';
 import { DEFAULT_HOME_GYM_ACCESSORIES } from '../mycoatch/exercisesDB.js';
 import { downloadFullBackup, restoreFullBackupFile } from './fullBackup.js';
@@ -229,13 +232,8 @@ function setupEventListeners() {
         input.max = new Date().toISOString().slice(0, 10);
     }
 
-    coachForm?.addEventListener('submit', async event => {
-        event.preventDefault();
-        if (coachSubmit?.disabled) return;
-
-        let options;
-        try {
-            options = parseCoachPreferences({
+    function readCoachOptions() {
+        return parseCoachPreferences({
                 selectedTime: timeSelect?.value,
                 customTime: customTime?.value,
                 daysPerWeek: document.getElementById('select-days')?.value,
@@ -262,9 +260,19 @@ function setupEventListeners() {
                             performedOn: document.getElementById('mycoatch-load-' + lift + '-date')?.value || ''
                         }]))
                 }
-            });
-        } catch (error) {
-            if (coachFeedback) coachFeedback.textContent = error.message;
+            })
+    }
+
+    initCoachPreview(readCoachOptions,coachModal);
+
+    coachForm?.addEventListener('submit', async event => {
+        event.preventDefault();
+        if (coachSubmit?.disabled) return;
+
+        let options;
+        try { options=readCoachOptions(); }
+        catch(error) {
+            if(coachFeedback)coachFeedback.textContent=error.message;
             return;
         }
 

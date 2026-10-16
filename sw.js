@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v22-data-integrity';
+const CACHE_NAME = 'workout-app-v23-coach-preview';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -10,6 +10,7 @@ const ASSETS_TO_CACHE = [
   '/js/storage.js',
   '/js/sync.js',
   '/js/fullBackup.js',
+  '/js/coachPreviewUI.js',
   '/js/ui.js',
   '/js/workoutEvents.js',
   '/js/exerciseCard.js',
