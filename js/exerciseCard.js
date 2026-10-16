@@ -154,8 +154,8 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         const suggested = getSetPrefill(ex, setIdx, { previousExercise: prevExercise });
         const displayWeight = isLocked ? (setObj.weight ?? '') : suggested.weight;
         const displayReps = isLocked ? (setObj.reps ?? '') : suggested.reps;
-        // A suggested RPE is a training target, not a measurement. Show it only as a placeholder.
-        const displayRpe = setObj.rpe ?? '';
+        // Precompila come kg/reps. Il valore diventa prestazione SOLO con il check ✓.
+        const displayRpe = isLocked ? (setObj.rpe ?? '') : suggested.rpe;
         const targetWeightDefault = ex.kgMin || ex.kgMax || 'Kg';
         const defaultTargetReps = ex.reps || ex.targetReps || 'reps';
 
@@ -219,7 +219,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                     <input type="text" inputmode="numeric" autocomplete="off" class="set-input set-reps ios-no-zoom ${repsClass} ${isUnsavedReps ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayReps)}" placeholder="${escapeHtml(defaultTargetReps)}" ${isDisabled ? 'disabled' : ''}>
                 </td>
                 <td class="td-input">
-                    <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe ios-no-zoom ${rpeClass} ${isUnsavedRpe ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayRpe)}" placeholder="${escapeHtml(suggested.rpe ? 'Sug. ' + suggested.rpe : 'RPE')}" title="RPE percepito: inseriscilo se misurato. Il suggerimento non viene considerato un RPE reale." ${isDisabled ? 'disabled' : ''}>
+                    <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe ios-no-zoom ${rpeClass} ${isUnsavedRpe ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayRpe)}" placeholder="RPE" title="RPE proposto: verifica che corrisponda alla fatica percepita. La spunta ✓ conferma tutti i valori della serie." ${isDisabled ? 'disabled' : ''}>
                 </td>
                 <td class="td-check text-center">
                     <input type="checkbox" class="set-lock-check custom-big-check" aria-label="Conferma o riapri serie ${setIdx+1}" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''}>
@@ -234,7 +234,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     `;
 
     cardHtml += `
-        <p class="workout-rpe-hint">✓ Spunta la serie per confermare i kg e le ripetizioni mostrati. L'RPE grigio è soltanto un suggerimento: inserisci il valore percepito, se lo conosci.</p>
+        <p class="workout-rpe-hint">Verifica kg, ripetizioni e RPE proposti. Con ✓ confermi tutti i valori visualizzati come realmente eseguiti; senza spunta non sono conteggiati da MyCoatch.</p>
     `;
     cardHtml += `
         <!-- Carico e dischi per la serie selezionata, non solo per il primo set -->

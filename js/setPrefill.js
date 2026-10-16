@@ -1,7 +1,8 @@
 /**
  * Suggerimenti visuali per le serie: mai dati di prestazione confermati.
  * I campi compilati manualmente hanno precedenza sulle proposte.
- * L'RPE suggerito e' un TARGET, non una misura percepita dall'atleta.
+ * L'RPE suggerito resta una proposta fino al check: la spunta
+ * attesta che anche l'RPE visibile corrisponde alla percezione reale.
  */
 const filled = value => value !== null && value !== undefined && String(value).trim() !== '';
 const cleanDecimal = value => {
@@ -138,8 +139,8 @@ export function getSetPrefill(exercise, index, { previousExercise = null } = {})
         reps: filled(current.reps) ? String(current.reps)
             : sameSession ? repsFor(previous)
                 : fromLastWeek ? repsFor(priorSet) : plan.reps,
-        // Il valore visibile e' sempre una proposta, NON un RPE misurato.
-        // Il check registra RPE solo se editato esplicitamente dall'atleta.
+        // Il valore e' visualizzato come prefill, senza alterare lo storico.
+        // Diventa RPE confermato solo quando l'atleta spunta il set.
         rpe: filled(current.rpe) ? String(current.rpe)
             : previous && targetRpe(previous.rpe)
                 ? targetRpe(previous.rpe) : plan.rpe,

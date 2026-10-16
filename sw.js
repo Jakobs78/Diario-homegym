@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v35-workout-controls';
+const CACHE_NAME = 'workout-app-v36-rpe-check-confirmation';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [

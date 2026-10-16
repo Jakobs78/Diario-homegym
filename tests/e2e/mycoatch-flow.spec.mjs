@@ -341,8 +341,7 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/3');
   await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('80');
   await expect(page.locator('.set-reps[data-set="0"]')).toHaveValue('6');
-  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('');
-  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveAttribute('placeholder','Sug. 8');
+  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('8');
   assert.equal(await page.locator('.set-kg[data-set="0"]').getAttribute('placeholder'), '80');
 
   // Il CSV precompila, ma non crea serie confermate prima della spunta.
@@ -362,8 +361,7 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   await expect(page.locator('.mycoatch-live-advice-history')).not.toHaveAttribute('open', '');
   await expect(page.locator('.set-kg[data-set="1"]')).toHaveValue('80');
   await expect(page.locator('.set-reps[data-set="1"]')).toHaveValue('8');
-  await expect(page.locator('.set-rpe[data-set="1"]')).toHaveValue('');
-  await expect(page.locator('.set-rpe[data-set="1"]')).toHaveAttribute('placeholder','Sug. 9.5');
+  await expect(page.locator('.set-rpe[data-set="1"]')).toHaveValue('9.5');
   await expect(page.locator('#live-session-timer')).not.toHaveText('0:00');
 
   await page.locator('.mycoatch-live-toast .mycoatch-live-apply').click();
@@ -544,8 +542,7 @@ test('MyCoatch suggerisce la revisione della settimana seguente e applica solo d
   await panel.locator('.mycoatch-weekly-apply').click();
   await expect(page.locator('#mycoatch-weekly-review')).toContainText('Settimana 2 rivista');
   await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('');
-  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('');
-  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveAttribute('placeholder','Sug. 7.5');
+  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('7.5');
   let saved=await page.evaluate(async()=>{
     const {state}=await import('/js/state.js');
     const m=state.workoutData.history.years[new Date().getFullYear()].mesocycles[0];
@@ -562,8 +559,7 @@ test('MyCoatch suggerisce la revisione della settimana seguente e applica solo d
   await page.locator('.mycoatch-weekly-undo').click();
   await expect(page.locator('#mycoatch-weekly-review')).toContainText('Revisione settimana 2 da valutare');
   await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('82.5');
-  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('');
-  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveAttribute('placeholder','Sug. 8');
+  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('8');
   assert.deepEqual(monitoring.remoteRequests,[]);
   assert.deepEqual(monitoring.pageErrors,[]);
 });
@@ -587,6 +583,8 @@ test('MyCoatch LIVE con RPE mancante non inventa massimale o suggerimenti', asyn
   await prepareLiveWorkout(page);
   await page.locator('.set-kg[data-set="0"]').fill('80');
   await page.locator('.set-reps[data-set="0"]').fill('8');
+  // Un RPE lasciato volontariamente vuoto è consentito, ma MyCoatch non stima la fatica.
+  await page.locator('.set-rpe[data-set="0"]').fill('');
   await page.locator('.set-lock-check[data-set="0"]').check();
   await expect(page.locator('#mycoatch-live-guidance')).toContainText('senza RPE');
   await expect(page.locator('#mycoatch-live-panel')).toContainText('RPE misurato: 0/1');
@@ -618,7 +616,7 @@ test('ripetere una seduta archivia la sessione reale prima del nuovo allenamento
     await expect(page.locator(`.set-lock-check[data-set="${set}"]`)).not.toBeChecked();
     await expect(page.locator(`.set-kg[data-set="${set}"]`)).toHaveValue('80');
     await expect(page.locator(`.set-reps[data-set="${set}"]`)).toHaveValue('6');
-    await expect(page.locator(`.set-rpe[data-set="${set}"]`)).toHaveValue('');
+    await expect(page.locator(`.set-rpe[data-set="${set}"]`)).toHaveValue('8');
   }
   const result = await page.evaluate(async () => {
     const { state } = await import('/js/state.js');
@@ -1144,7 +1142,7 @@ test('CSV precompila davvero gli input, il check copia alle serie dopo senza inv
 
   await expect(kg(0)).toHaveValue('70');
   await expect(reps(0)).toHaveValue('8');
-  await expect(rpe(0)).toHaveValue('');
+  await expect(rpe(0)).toHaveValue('8');
   await expect(kg(1)).toHaveValue('70');
   await expect(reps(1)).toHaveValue('8');
 
@@ -1157,8 +1155,7 @@ test('CSV precompila davvero gli input, il check copia alle serie dopo senza inv
   });
   assert.ok(before.every(s => !s.isLocked && s.weight === '' && s.reps === '' && s.rpe === ''));
 
-  // L'atleta puo' confermare kg e reps proposti con un SOLO tap:
-  // l'RPE mostrato e' una prescrizione, non un dato misurato.
+  // Un singolo check attesta kg, reps e RPE visibili; le altre righe restano suggerite.
   await check(0).check();
   const first = await page.evaluate(async () => {
     const { state } = await import('/js/state.js');
@@ -1167,7 +1164,7 @@ test('CSV precompila davvero gli input, il check copia alle serie dopo senza inv
   });
   assert.equal(first[0].weight,70);
   assert.equal(first[0].reps,'8');
-  assert.equal(first[0].rpe,'');
+  assert.equal(first[0].rpe,8);
   assert.equal(first[0].isLocked,true);
   assert.equal(first[1].isLocked,false);
   assert.equal(first[1].weight,'');
@@ -1182,8 +1179,7 @@ test('CSV precompila davvero gli input, il check copia alle serie dopo senza inv
 
   await expect(kg(2)).toHaveValue('72.5');
   await expect(reps(2)).toHaveValue('9');
-  await expect(rpe(2)).toHaveValue('');
-  await expect(rpe(2)).toHaveAttribute('placeholder','Sug. 9');
+  await expect(rpe(2)).toHaveValue('9');
   const second = await page.evaluate(async () => {
     const { state } = await import('/js/state.js');
     const current = state.workoutData.history.years[String(new Date().getFullYear())].mesocycles.at(-1);
@@ -1200,7 +1196,7 @@ test('CSV precompila davvero gli input, il check copia alle serie dopo senza inv
   const logged = saved.history.years[String(new Date().getFullYear())].mesocycles.at(-1)
     .weeks[0].days[0].exercises[0].loggedSets;
   assert.equal(logged[0].isLocked,true);
-  assert.equal(logged[0].rpe,'');
+  assert.equal(logged[0].rpe,8);
   assert.equal(logged[2].weight,'');
   assert.deepEqual(monitoring.remoteRequests,[]);
   assert.deepEqual(monitoring.pageErrors,[]);
@@ -1223,8 +1219,7 @@ test('calibrazione CSV senza kg: il check richiede ancora un carico reale', asyn
   assert.equal(result.success,true);
   await expect(page.locator('.set-kg[data-ex="0"][data-set="0"]')).toHaveValue('');
   await expect(page.locator('.set-reps[data-ex="0"][data-set="0"]')).toHaveValue('6');
-  await expect(page.locator('.set-rpe[data-ex="0"][data-set="0"]')).toHaveValue('');
-  await expect(page.locator('.set-rpe[data-ex="0"][data-set="0"]')).toHaveAttribute('placeholder','Sug. 7.5');
+  await expect(page.locator('.set-rpe[data-ex="0"][data-set="0"]')).toHaveValue('7.5');
   // Il check viene annullato dalla validazione per assenza di kg.
   await page.locator('.set-lock-check[data-ex="0"][data-set="0"]').click();
   await expect(page.locator('.set-lock-check[data-ex="0"][data-set="0"]')).not.toBeChecked();
@@ -1266,7 +1261,7 @@ test('settimane successive: riusa soltanto le serie confermate dello stesso meso
   await expect(kg(1)).toHaveValue('65');
   await expect(reps(1)).toHaveValue('10');
   await expect(kg(2)).toHaveValue('70'); // non eseguito: CSV
-  await expect(rpe(0)).toHaveValue(''); // solo RPE di programmazione
+  await expect(rpe(0)).toHaveValue('8'); // precompilato ma non ancora confermato
   await expect(check(0)).not.toBeChecked();
 
   const before = await page.evaluate(async () => {
@@ -1625,7 +1620,7 @@ test('gesture: 299px ignores, 310px toggles, reverse toggles back, inputs cannot
   await expect(page.locator('.ex-card[data-ex="0"]')).not.toHaveClass(/is-excluded/);
 });
 
-test('checkbox accepts unchanged prefill and recheck edits, without inventing an RPE for MyCoatch',async({page})=>{
+test('checkbox explicitly accepts kg, reps and prefilled RPE and recheck edits for MyCoatch',async({page})=>{
   const monitoring=await openIsolatedApp(page);
   await prepareLiveWorkout(page);
   const kg=page.locator('.set-kg[data-set="0"]');
@@ -1634,9 +1629,17 @@ test('checkbox accepts unchanged prefill and recheck edits, without inventing an
   const check=page.locator('.set-lock-check[data-set="0"]');
   await expect(kg).toHaveValue('80');
   await expect(reps).toHaveValue('6');
-  await expect(rpe).toHaveValue('');
-  await expect(rpe).toHaveAttribute('placeholder','Sug. 8');
+  await expect(rpe).toHaveValue('8');
   await expect(page.locator('.workout-confirm-set')).toHaveCount(0);
+  // Prima del check, l'RPE visualizzato è solo una proposta e MyCoatch lo ignora.
+  const initial=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {assessExerciseLive}=await import('/mycoatch/liveCoach.js');
+    const ex=state.workoutData.history.years[new Date().getFullYear()].mesocycles[0].weeks[0].days[0].exercises[0];
+    return {observed:ex.loggedSets[0].rpe,coaching:assessExerciseLive(ex,0)};
+  });
+  assert.equal(initial.observed,'');
+  assert.equal(initial.coaching,null);
   await check.check();  // no text-input event sent
   await expect(check).toBeChecked();
   let result=await page.evaluate(async()=>{
@@ -1644,9 +1647,17 @@ test('checkbox accepts unchanged prefill and recheck edits, without inventing an
     const s=state.workoutData.history.years[new Date().getFullYear()].mesocycles[0].weeks[0].days[0].exercises[0].loggedSets[0];
     return {weight:s.weight,reps:s.reps,rpe:s.rpe,isLocked:s.isLocked};
   });
-  assert.deepEqual(result,{weight:80,reps:'6',rpe:'',isLocked:true});
+  assert.deepEqual(result,{weight:80,reps:'6',rpe:8,isLocked:true});
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 1/3');
   await check.uncheck();
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/3');
+  const afterUncheck=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {assessExerciseLive}=await import('/mycoatch/liveCoach.js');
+    const ex=state.workoutData.history.years[new Date().getFullYear()].mesocycles[0].weeks[0].days[0].exercises[0];
+    return assessExerciseLive(ex,0);
+  });
+  assert.equal(afterUncheck,null);
   await expect(kg).toBeEnabled();
   await expect(reps).toBeEnabled();
   await expect(rpe).toBeEnabled();
