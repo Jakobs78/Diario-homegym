@@ -56,7 +56,12 @@ function clearQueue() {
 }
 
 export function hasPendingSync() {
-    return getQueue().length > 0;
+    const currentId=state.currentUser?.id ? String(state.currentUser.id) : null;
+    const owner=getStoredLocalOwner();
+    return getQueue().some(action=>
+        !currentId || (action.ownerId
+            ? String(action.ownerId)===currentId
+            : !owner || owner===currentId));
 }
 
 // ==========================================
