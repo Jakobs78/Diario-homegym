@@ -7,6 +7,7 @@ import { normalizeSelectionPreferences, selectExerciseForSlot, defaultFundamenta
 import { auditWeeklyCoverage } from './weeklyCoverage.js';
 import { normalizeAthleteProfile, onboardingPlan, eligibleReferenceLoad, profileSummary } from './athleteProfile.js';
 import { deriveMesocyclePolicy } from './periodizationPolicy.js';
+import { isRegionAffected } from './recoveryScope.js';
 import { prescribeExerciseReps, prescribeExerciseRpe, HIGH_REP_EXERCISES } from './prescriptionPolicy.js';
 import { suggestDropset } from './intensityTechniquePolicy.js';
 import { evaluateCoachingGuardrails, authorizeTopset } from './coachGuardrails.js';
@@ -94,6 +95,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
     }, analysis, onboarding);
     const periodization = deriveMesocyclePolicy(config, analysis, onboarding);
     const effectiveFocusMuscle = guardrails.effectiveFocusMuscle;
+    const excludedGroupingMuscles=[...new Set(EXERCISE_DATABASE
+        .filter(ex=>isRegionAffected(guardrails,ex.category)).map(ex=>ex.category))];
     const selectionPreferences = normalizeSelectionPreferences({
         ...config, excludedExercises: athleteProfile?.excludedExercises || []
     });
@@ -186,6 +189,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
 
             const processedExercises = rawExercises.map((exItem, index) => {
                 const ex = exItem;
+                const fatiguedRegion=isRegionAffected(guardrails,ex.category);
                 
                 const canonicalKey = canonicalExerciseKey(ex.name);
                 const prior = analysis.byExercise?.[canonicalKey];
@@ -217,7 +221,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     weekTargetRpe: weekPolicy.targetRpe, isDeload: isDeloadWeek,
                     experience: onboarding.experience,
                     calibrationWeek: onboarding.calibrationWeek && w === 1,
-                    fatigueConcern: prior?.fatigueConcern === true || guardrails.recoveryRequired
+                    fatigueConcern: prior?.fatigueConcern === true || fatiguedRegion || guardrails.recoveryRequired
                 }).toFixed(1);
                 const reference = ex.anchorKey
                     ? athleteProfile?.referenceLoads?.[ex.anchorKey] : null;
@@ -274,7 +278,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 const volumeDecision = analysis.decisions?.byMuscle?.[ex.category];
                 if (!isDeloadWeek && ex.pattern === 'isolation' &&
                     !volumeAdjustmentsApplied.has(ex.category) && volumeDecision?.volumeDelta &&
-                    (!guardrails.recoveryRequired || volumeDecision.volumeDelta < 0)) {
+                    (!guardrails.recoveryRequired || volumeDecision.volumeDelta < 0) &&
+                     (!fatiguedRegion || volumeDecision.volumeDelta < 0)) {
                     const suggested = Math.max(2, Math.min(4, setsCount + volumeDecision.volumeDelta));
                     if (suggested !== setsCount) {
                         setsCount = onboarding.volumeCap === null
@@ -282,6 +287,16 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                         volumeAdjustmentsApplied.add(ex.category);
                         autoNote += `${volumeDecision.reason} | `;
                     }
+                }
+
+                // Riduzione prudente mirata: mai sommare un altro -1
+                // a una riduzione accessoria già proposta per lo stesso distretto.
+                if(!isDeloadWeek && !guardrails.recoveryRequired && fatiguedRegion &&
+                    ex.pattern==='isolation' && setsCount>2 &&
+                    !volumeAdjustmentsApplied.has(ex.category)){
+                    setsCount--;
+                    volumeAdjustmentsApplied.add(ex.category);
+                    autoNote += '[RECUPERO LOCALE] Una serie accessoria in meno; gli altri distretti invariati. | ';
                 }
 
                 let topsetStr = "";
@@ -331,7 +346,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 // allo stesso carico e al target RPE della settimana.
                 if (config.useTopset === true && !isDeloadWeek &&
                     !onboarding.calibrationWeek && !usingReference &&
-                    plannedKg !== null && index === 0 &&
+                    plannedKg !== null && index === 0 && !fatiguedRegion &&
                     authorizeTopset(prior,{
                         recoveryRequired:guardrails.recoveryRequired,
                         isDeload:isDeloadWeek,
@@ -344,7 +359,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
 
                 const currentTechnique = (onboarding.calibrationWeek ||
                     onboarding.experience === 'beginner' ||
-                    !guardrails.allowNewAdvancedTechniques) ? null :
+                    !guardrails.allowNewAdvancedTechniques || fatiguedRegion) ? null :
                     (exItem.intensityTechnique || null);
 
                 const setsArray = Array.from({ length: setsCount }, (_, setIdx) => {
@@ -395,7 +410,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     scheduledWeeklySets,history:analysis,
                     // Le superserie alzano mediamente l'RPE percepito:
                     // non accelerare sedute con fatica ripetuta documentata.
-                    allowGrouping:!guardrails.recoveryRequired
+                    allowGrouping:!guardrails.recoveryRequired,
+                     excludedGroupingMuscles
                 });
             registerSelectedWeeklySets(scheduledWeeklySets,timedPlan.exercises);
             // Le varianti scartate per il tempo NON vanno considerate come
@@ -420,6 +436,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             weekDays, intendedDays, maxSessionMinutes, {
                 isDeloadWeek,
                 preventTransfers:guardrails.recoveryRequired,
+                 blockedTransferMuscles:excludedGroupingMuscles,
+                 excludedGroupingMuscles,
                 maxAccessorySets: onboarding.volumeCap ?? 4
             }
         );
@@ -429,6 +447,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             // credibile. Mai concatenarlo con superset/triset o deload.
             if (!isDeloadWeek && w === 2 && guardrails.allowNewAdvancedTechniques) {
                 for (const exercise of day.exercises.slice(2)) {
+                    if(isRegionAffected(guardrails,exercise.category))continue;
                     const proposal = suggestDropset(exercise, {
                         weekNumber: w, isDeload: isDeloadWeek,
                         experience: onboarding.experience,

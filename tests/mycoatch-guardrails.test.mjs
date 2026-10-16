@@ -4,6 +4,8 @@ import { deriveMesocyclePolicy } from '../mycoatch/periodizationPolicy.js';
 import { evaluateCoachingGuardrails, authorizeTopset,
   SCIENCE_SNAPSHOT } from '../mycoatch/coachGuardrails.js';
 import { generateSmartMesocycle } from '../mycoatch/engine.js';
+import { assessRecoveryScope } from '../mycoatch/recoveryScope.js';
+import { groupAccessories } from '../mycoatch/groupOptimizer.js';
 import { compareMesocyclePlans, formatCoachReview } from '../mycoatch/mesocycleComparison.js';
 
 const exerciseHistory=(weekCount=2,overrides={})=>({
@@ -19,7 +21,8 @@ const exerciseHistory=(weekCount=2,overrides={})=>({
 });
 const riskHistory={
   sessionsAnalyzed:4,inspectedMesocycles:1,
-  byExercise:{deltoidi:exerciseHistory()},
+  byExercise:{deltoidi:exerciseHistory(),
+    pettorali:exerciseHistory(2,{name:'Panca Piana con Bilanciere',category:'Petto',lastWorkingKg:60})},
   byMuscle:{},decisions:{byExercise:{},byMuscle:{}}
 };
 const buildConfig=(changes={})=>({
@@ -139,4 +142,78 @@ test('scientific evidence is reviewed with date and not misrepresented as live a
   assert.ok(dois.includes('10.1007/s40279-025-02176-8'));
   assert.ok(dois.includes('10.1186/s40798-023-00620-5'));
   assert.ok(dois.includes('10.1007/s40279-022-01784-y'));
+});
+
+test('one affected region gets local recovery without an imposed global deload',()=>{
+  const history={sessionsAnalyzed:4,inspectedMesocycles:1,
+    byExercise:{deltoidi:exerciseHistory()},byMuscle:{},
+    decisions:{byExercise:{},byMuscle:{}}};
+  const config=buildConfig({useTopset:false,deloadWeek:false,
+    athleteProfile:{...buildConfig().athleteProfile,priorityMuscle:'Petto'}});
+  const snapshot=JSON.stringify(history);
+  assert.equal(assessRecoveryScope(history).scope,'local');
+  const guard=evaluateCoachingGuardrails(config,history,{experience:'advanced'});
+  assert.equal(guard.recoveryRequired,false);
+  assert.equal(guard.effectiveFocusMuscle,'Petto');
+  assert.ok(guard.reasons.some(x=>x.code==='LOCAL_RECOVERY'));
+  assert.ok(!guard.reasons.some(x=>x.code==='DELOAD_VETO'));
+  assert.equal(deriveMesocyclePolicy(config,history,{}).deloadWeek,null);
+  const plan=generateSmartMesocycle(config,history);
+  assert.ok(plan.weeks.every(w=>!w.isDeloadWeek));
+  const all=plan.weeks.flatMap(w=>w.days.flatMap(day=>day.exercises));
+  assert.ok(all.some(ex=>ex.category==='Petto' && Number(ex.rpe)>7),
+    'healthy chest is not globally capped');
+  assert.ok(all.some(ex=>ex.category==='Spalle'));
+  assert.ok(all.filter(ex=>ex.category==='Spalle').every(ex=>Number(ex.rpe)<=7));
+  assert.ok(plan.weeks.every(w=>w.volumeBalance.moves.every(m=>m.muscle!=='Spalle')));
+  assert.ok(all.filter(ex=>ex.category==='Spalle').every(ex=>!ex.groupType));
+  assert.equal(JSON.stringify(history),snapshot);
+});
+
+test('back subcategories share one region; separate regions warrant a global precaution',()=>{
+  const back={byExercise:{
+    a:exerciseHistory(2,{name:'Lat Machine con Triangolo',category:'Back_Lats'}),
+    b:exerciseHistory(2,{name:'Rematore con Bilanciere',category:'Back_Thickness'})
+  }};
+  assert.equal(assessRecoveryScope(back).scope,'local');
+  assert.equal(deriveMesocyclePolicy(buildConfig({deloadWeek:false}),back,{}).deloadWeek,null);
+  const widespread={byExercise:{
+    ...back.byExercise,
+    c:exerciseHistory(2,{name:'Squat con Bilanciere',category:'Quadricipiti'})
+  }};
+  assert.equal(assessRecoveryScope(widespread).scope,'diffuse');
+  assert.equal(deriveMesocyclePolicy(buildConfig({deloadWeek:false}),widespread,{}).deloadWeek,1);
+});
+
+test('unknown fatigue category conservatively retains global recovery',()=>{
+  const unknown={byExercise:{one:exerciseHistory(2,{category:null})}};
+  assert.equal(assessRecoveryScope(unknown).scope,'uncertain');
+  assert.equal(evaluateCoachingGuardrails(buildConfig(),unknown,{}).recoveryRequired,true);
+  assert.equal(deriveMesocyclePolicy(buildConfig(),unknown,{}).deloadWeek,1);
+  assert.equal(assessRecoveryScope({byExercise:{one:exerciseHistory(1)}}).scope,'none');
+});
+
+test('grouping excludes affected region but still permits unrelated accessories',()=>{
+  const exercise=(name,category)=>({
+    name,category,pattern:'isolation',setsCount:2,notes:'',restTime:'90s',
+    sets:[{},{}]
+  });
+  const mixed=[exercise('Panca','Petto'),exercise('Lat','Back_Lats'),
+    exercise('Alzate','Spalle'),exercise('Curl','Bicipiti'),exercise('Calf','Polpacci')];
+  const allowed=groupAccessories(mixed,2,{excludedMuscles:['Spalle']});
+  assert.ok(allowed.some(ex=>ex.groupType==='superset' && ex.category==='Bicipiti'));
+  assert.ok(allowed.every(ex=>ex.category!=='Spalle' || !ex.groupType));
+  const blocked=groupAccessories(mixed.slice(0,4),2,{excludedMuscles:['Spalle']});
+  assert.ok(blocked.every(ex=>!ex.groupType));
+});
+
+test('local fatigue blocks specialization only for involved region',()=>{
+  const history={byExercise:{one:exerciseHistory()}};
+  const affected=evaluateCoachingGuardrails(buildConfig(),history,{experience:'advanced'});
+  assert.equal(affected.effectiveFocusMuscle,null);
+  assert.ok(affected.reasons.some(x=>x.code==='FOCUS_VETO'));
+  const unrelated=evaluateCoachingGuardrails(buildConfig({
+    athleteProfile:{...buildConfig().athleteProfile,priorityMuscle:'Quadricipiti'}
+  }),history,{experience:'advanced'});
+  assert.equal(unrelated.effectiveFocusMuscle,'Quadricipiti');
 });

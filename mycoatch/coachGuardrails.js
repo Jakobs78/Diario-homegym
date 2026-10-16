@@ -4,6 +4,8 @@
  * Le soglie sono euristiche conservative: nessuna diagnosi medica o misura
  * automatica della tecnica, della crescita o del recupero.
  */
+import { assessRecoveryScope, isRegionAffected } from './recoveryScope.js';
+
 export const SCIENCE_SNAPSHOT = Object.freeze({
     reviewedOn:'2026-10-16',
     automaticLiteratureUpdates:false,
@@ -29,20 +31,27 @@ export const SCIENCE_SNAPSHOT = Object.freeze({
 
 export function evaluateCoachingGuardrails(config={}, history={}, onboarding={}) {
     const exercises=Object.values(history?.byExercise || {});
-    const repeatedFatigue=exercises.filter(ex =>
-        ex?.fatigueConcern === true &&
-        Number(ex?.progressionEvidence?.distinctWeeks || 0) >= 2);
-    const recoveryRequired=repeatedFatigue.length>0;
+    const assessment=assessRecoveryScope(history);
+    const recoveryRequired=assessment.recoveryRequired;
     const athletePriority=config?.athleteProfile?.priorityMuscle ||
         config?.focusMuscleGroup || null;
-    const vetoedMuscles=new Set(repeatedFatigue.map(ex=>ex.category).filter(Boolean));
+    const focusAtRisk=isRegionAffected(assessment,athletePriority);
     const reasons=[];
+    if(assessment.scope==='local'){
+        reasons.push({
+            code:'LOCAL_RECOVERY',decision:'RECUPERO MIRATO',
+            reason:'Fatica ripetuta in una regione: RPE prudente e stop a tecniche avanzate, superserie e riallocazione degli accessori coinvolti. Nessuna conclusione di fatica generale.',
+            exercises:assessment.recoverySignals
+        });
+    }
     if(recoveryRequired){
         reasons.push({
             code:'RECOVERY_FIRST',
             decision:'RIPRISTINO PRIORITARIO',
-            reason:'Fatica ripetuta in almeno due settimane distinte: scarico nella prima settimana, niente nuove specializzazioni né tecniche avanzate finché il recupero non è stato verificato.',
-            exercises:repeatedFatigue.map(ex=>ex.name).filter(Boolean)
+            reason:assessment.scope==='uncertain'
+                ? 'Fatica ripetuta senza regione riconoscibile: mantenere il veto globale e chiarire i dati prima di intensificare.'
+                : 'Fatica ripetuta in più regioni: scarico iniziale prudenziale e stop all’intensificazione globale. Non è una diagnosi di fatica sistemica.',
+            exercises:assessment.recoverySignals
         });
         if(config.deloadWeek===false ||
             (Number.isInteger(config.deloadWeek) && config.deloadWeek>1)){
@@ -53,7 +62,7 @@ export function evaluateCoachingGuardrails(config={}, history={}, onboarding={})
             });
         }
     }
-    if(athletePriority && (recoveryRequired || vetoedMuscles.has(athletePriority))){
+    if(athletePriority && (recoveryRequired || focusAtRisk)){
         reasons.push({
             code:'FOCUS_VETO',
             decision:'SPECIALIZZAZIONE RINVIATA',
@@ -62,7 +71,8 @@ export function evaluateCoachingGuardrails(config={}, history={}, onboarding={})
         });
     }
     if(config.useTopset===true){
-        const anyEligible=exercises.some(ex=>authorizeTopset(ex,{
+        const anyEligible=exercises.some(ex=>!isRegionAffected(assessment,ex.category) &&
+            authorizeTopset(ex,{
             recoveryRequired,calibrationWeek:onboarding.calibrationWeek,
             experience:onboarding.experience
         }));
@@ -83,9 +93,12 @@ export function evaluateCoachingGuardrails(config={}, history={}, onboarding={})
     return {
         version:1,
         recoveryRequired,
+        recoveryScope:assessment.scope,
+        fatiguedMuscles:assessment.fatiguedMuscles,
+        fatiguedRegions:assessment.fatiguedRegions,
         evidenceSnapshot:SCIENCE_SNAPSHOT.reviewedOn,
         requestedFocus:athletePriority,
-        effectiveFocusMuscle:recoveryRequired ? null : athletePriority,
+        effectiveFocusMuscle:recoveryRequired || focusAtRisk ? null : athletePriority,
         allowNewAdvancedTechniques:!recoveryRequired,
         reasons
     };

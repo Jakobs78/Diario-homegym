@@ -4,7 +4,7 @@ import { access, readFile } from 'node:fs/promises';
 
 test('PWA caches every necessary JS module for new MyCoatch and prefilled workout cards', async () => {
     const script=await readFile(new URL('../sw.js',import.meta.url),'utf8');
-    assert.match(script,/CACHE_NAME\s*=\s*'workout-app-v20-/);
+    assert.match(script,/CACHE_NAME\s*=\s*'workout-app-v21-/);
     const routes=[...script.matchAll(/'\/(?:js|mycoatch)\/[^']+\.js'/g)]
         .map(match=>match[0].slice(1,-1));
     for (const module of [
@@ -16,6 +16,7 @@ test('PWA caches every necessary JS module for new MyCoatch and prefilled workou
         '/mycoatch/periodizationPolicy.js',
         '/mycoatch/sessionSelection.js',
         '/mycoatch/coachGuardrails.js',
+        '/mycoatch/recoveryScope.js',
         '/mycoatch/prescriptionPolicy.js',
         '/mycoatch/intensityTechniquePolicy.js',
         '/mycoatch/sessionReadiness.js',

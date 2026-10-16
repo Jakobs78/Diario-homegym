@@ -1,12 +1,13 @@
 // Decisioni prudenziali di programmazione: RPE prescritto non misurato.
-// Una settimana difficile non prova fatica sistemica.
+// Fatica in una sola regione non prova necessità di scarico globale.
+import { assessRecoveryScope } from './recoveryScope.js';
+
 export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}) {
   const count = Number(config.durationWeeks ?? 4);
   if (!Number.isInteger(count) || count < 1 || count > 12) throw Error('Durata non valida');
-  const signals = Object.values(history.byExercise || {}).filter(ex =>
-    ex.fatigueConcern && ex.progressionEvidence?.distinctWeeks >= 2
-  ).map(ex => ex.name);
-  const recoveryFirst = signals.length > 0;
+  const assessment=assessRecoveryScope(history);
+  const signals=assessment.recoverySignals;
+  const recoveryFirst=assessment.recoveryRequired;
   // La preferenza dell'atleta puo' spostare o rimuovere lo scarico
   // soltanto in assenza di fatica ripetuta e attendibile. Se il recupero
   // e' prioritario, nessuna opzione puo' posticiparlo.
@@ -32,5 +33,7 @@ export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}
       progressionRule: 'progress_only_after_confirmed_reps_and_rpe'};
   });
   return {version: 1, blockNumber: Math.max(1, (history.inspectedMesocycles || 0) + 1),
-    recoveryFirst, recoverySignals: signals, deloadWeek, weeks};
+    recoveryFirst, recoveryScope:assessment.scope,
+    fatiguedMuscles:assessment.fatiguedMuscles,
+    recoverySignals: signals, deloadWeek, weeks};
 }
