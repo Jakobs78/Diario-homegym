@@ -1,5 +1,6 @@
 import { estimateE1rm } from './historyAnalysis.js';
 import { previousExercisePerformance, historicalSessionPace } from './liveHistory.js';
+import { assessSessionReadiness } from './sessionReadiness.js';
 
 function decimal(value) {
     if (value === null || value === undefined || value === '') return null;
@@ -148,7 +149,7 @@ function lastCompletedIndex(exercise) {
  * Unica fonte per il coaching della singola serie, usata sia dalla card
  * che dalla panoramica della seduta. Legge ESCLUSIVAMENTE serie confermate.
  */
-export function assessExerciseLive(exercise, exerciseIndex = 0) {
+export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = null } = {}) {
     const sets = Array.isArray(exercise?.loggedSets) ? exercise.loggedSets : [];
     const lastIndex = lastCompletedIndex(exercise);
     if (lastIndex < 0) return null;
@@ -234,6 +235,28 @@ export function assessExerciseLive(exercise, exerciseIndex = 0) {
         }
     }
 
+    // Il check-in è una limitazione ulteriore rispetto alla singola serie:
+    // mai premiare due set facili con kg aggiuntivi se oggi l'atleta ha
+    // riferito fatica, scarso sonno o dolore. Senza check-in il comportamento
+    // preesistente rimane immutato e l'incertezza è dichiarata nella UI.
+    if (readiness?.level === 'stop') {
+        suggestedWeight = null;
+        code = 'pain_caution';
+        severity = 'caution';
+        message = readiness.message;
+    } else if (readiness?.allowIncrease === false && code === 'optional_increment') {
+        suggestedWeight = null;
+        code = 'readiness_hold';
+        severity = 'caution';
+        message = 'Serie ben riuscite, ma ' + readiness.reasons.join(' e ') +
+            ': oggi mantieni il carico, senza aumentarlo.';
+    } else if (readiness?.level === 'caution' && remainingIndex >= 0 &&
+        (code === 'on_track' || code === 'strong_set')) {
+        severity = 'caution';
+        message += ' Check-in prudente: evita di rincorrere l’intensità, ' +
+            'mantieni i recuperi e rivaluta il prossimo set.';
+    }
+
     if (remainingIndex < 0) {
         message += ' Esercizio completato; registra il risultato e valuta il prossimo.';
         suggestedWeight = null;
@@ -302,6 +325,7 @@ function timeRemainingSeconds(day) {
  */
 export function buildLiveSessionSnapshot(day, { now = Date.now(), history = null } = {}) {
     const exercises = Array.isArray(day?.exercises) ? day.exercises : [];
+    const readiness = assessSessionReadiness(day?.coachCheckin, { now });
     let total = 0, checked = 0, valid = 0, tonnage = 0, rpeCount = 0;
     let lastAdvice = null;
     let latestTimestamp = -1;
@@ -325,7 +349,7 @@ export function buildLiveSessionSnapshot(day, { now = Date.now(), history = null
             if (!result.technique) tonnage += result.weight * result.reps;
             if (result.rpe !== null) rpeCount++;
         });
-        const advice = assessExerciseLive(exercise, exerciseIndex);
+        const advice = assessExerciseLive(exercise, exerciseIndex, { readiness });
         if (advice) {
             const timestamp = Date.parse(exercise.loggedSets[advice.setIndex]?.completedAt ?? '') || 0;
             // Usa il timestamp disponibile; nei dati legacy preferisce l'ordine
@@ -372,6 +396,7 @@ export function buildLiveSessionSnapshot(day, { now = Date.now(), history = null
         remainingSeconds: remaining,
         possibleOverrun,
         lastAdvice,
+        readiness,
         previousExercise: previous,
         e1rmChangePercent,
         paceCalibration: pace,
