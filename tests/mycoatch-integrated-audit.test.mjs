@@ -6,6 +6,7 @@ import { planAdaptiveDecisions } from '../mycoatch/adaptiveDecisions.js';
 import { MyCoatch } from '../mycoatch/index.js';
 import { coachState } from '../mycoatch/state.js';
 import { estimateDayMinutes } from '../mycoatch/timeEstimator.js';
+import { DEFAULT_HOME_GYM_ACCESSORIES } from '../mycoatch/exercisesDB.js';
 
 const profile=(experience='advanced',priorityMuscle=null)=>({
     experience,calibration:'regular',priorityMuscle,
@@ -110,12 +111,18 @@ test('AUDIT CONTINUITY: use latest confirmed operational variant, not week one o
     const before=JSON.stringify(previous);
     assert.equal(previousComparableTrainingDay(previous,1)?.exercises[0]?.name,
         'Panca Inclinata con Manubri');
-    const generated=generateSmartMesocycle(cfg(3,60),{
-        byExercise:{},byMuscle:{}
-    },previous);
-    console.error('AUDIT_VARIANT_DEBUG',JSON.stringify(generated.weeks[0].days[0].exercises.slice(0,3).map(ex=>({name:ex.name,reason:ex.selectionReason,anchor:ex.anchorKey}))));
-    assert.ok(generated.weeks[0].days[0].exercises.some(ex=>
-        ex.name==='Panca Inclinata con Manubri'),'bench variant continuity from last operational week');
+    const selectedWithBench=generateSmartMesocycle({
+        ...cfg(3,60),
+        availableAccessories:[...DEFAULT_HOME_GYM_ACCESSORIES,'incline_bench']
+    },{byExercise:{},byMuscle:{}},previous);
+    assert.ok(selectedWithBench.weeks[0].days[0].exercises.some(ex=>
+        ex.name==='Panca Inclinata con Manubri'),
+        'last confirmed operational variant retained when incline bench exists');
+    const unavailable=generateSmartMesocycle(cfg(3,60),
+        {byExercise:{},byMuscle:{}},previous);
+    assert.ok(!unavailable.weeks[0].days[0].exercises.some(ex=>
+        ex.name==='Panca Inclinata con Manubri'),
+        'an athlete without incline bench must not receive the exercise');
     assert.equal(JSON.stringify(previous),before,'prior mesocycle is read-only');
 });
 
