@@ -51,7 +51,9 @@ function plannedFor(exercise, index) {
     ) || top.weight ||
         cleanDecimal(exercise?.kgMin) || cleanDecimal(exercise?.kgMax);
     return {
-        weight,
+        // Revisione settimanale esplicitamente approvata: il vecchio peso
+        // previsto non viene più precompilato per un target RPE ridotto.
+        weight: exercise?.coachWeeklyLoadReview ? '' : weight,
         reps: firstReps(plan.targetReps) || top.reps ||
             firstReps(exercise?.reps ?? exercise?.targetReps),
         rpe: targetRpe(plan.targetRpe) ||
@@ -122,7 +124,7 @@ export function getSetPrefill(exercise, index, { previousExercise = null } = {})
     const priorPlan = previousExercise ? plannedFor(previousExercise, index) : null;
     const comparablePlan = !plan.weight ||
         (priorPlan?.weight && Number(plan.weight) === Number(priorPlan.weight));
-    const fromLastWeek = !sameSession && priorSet &&
+    const fromLastWeek = !exercise?.coachWeeklyLoadReview && !sameSession && priorSet &&
         confirmed(priorSet) && !priorSet.isWarmup && !priorSet.warmup &&
         !priorSet.is_warmup && comparablePlan &&
         weightFor(priorSet) && repsFor(priorSet) &&
