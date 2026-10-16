@@ -4,6 +4,7 @@
 
 import { saveAndSync } from './storage.js';
 import { state } from './state.js';
+import { isWarmupExercise, isWarmupSet } from './workoutSemantics.js';
 import { refreshLiveCoachClock } from './liveCoachUI.js';
 import { repeatCompletedSessionPreservingHistory, safeArchiveCount } from './historySafety.js';
 
@@ -21,10 +22,11 @@ export function updateSessionAndCompletionState(currentDay) {
     let completedSets = 0;
 
     exercises.forEach(ex => {
-        if (ex.isExcluded) return;
+        if (isWarmupExercise(ex)) return;
         (ex.loggedSets || []).forEach(set => {
+            if(isWarmupSet(set))return;
             totalSets++;
-            if (set.isLocked) completedSets++;
+            if (set.isLocked || set.completed) completedSets++;
         });
     });
 
@@ -117,10 +119,11 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
     let totalSets = 0;
     let completedSets = 0;
     exercises.forEach(ex => {
-        if (ex.isExcluded) return;
+        if (isWarmupExercise(ex)) return;
         (ex.loggedSets || []).forEach(set => {
+            if(isWarmupSet(set))return;
             totalSets++;
-            if (set.isLocked) completedSets++;
+            if (set.isLocked || set.completed) completedSets++;
         });
     });
 

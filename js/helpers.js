@@ -168,58 +168,81 @@ export function getExerciseSignature(ex) {
  * Cerca l'esercizio nelle sessioni precedenti basandosi sulla firma univoca.
  * IMPORTANTE: Considera valido solo lo storico di serie CONFERMATE con Check ✓ (isLocked / completed).
  */
-export function findPreviousExercise(workoutData, currentMesoIdx, currentWeekNum, currentDayIdx, currentExercise, sameMesoOnly = true) {
-    if (!workoutData?.history?.years || !currentExercise) return null;
-    
-    const currentYear = new Date().getFullYear().toString();
-    const yearData = workoutData.history.years[currentYear];
-    if (!yearData || !yearData.mesocycles) return null;
+export function findPreviousExercise(workoutData, currentMesoIdx, currentWeekNum, currentDayIdx, currentExercise, sameMesoOnly = true, activeYear = null) {
+    const years = workoutData?.history?.years;
+    if(!years || !currentExercise) return null;
+    const year = String(activeYear || (years[String(new Date().getFullYear())]
+        ? new Date().getFullYear()
+        : Math.max(...Object.keys(years).map(Number).filter(Number.isFinite))));
+    if(!years[year])return null;
+    const signature = getExerciseSignature(currentExercise);
 
-    const meso = yearData.mesocycles[currentMesoIdx];
-    if (!meso || !meso.weeks) return null;
+    // Only real, checked working sets; skipped warm-ups must not become the
+    // next session's historical reference or weight suggestion.
+    const suitable = ex => ex && !(ex.isWarmup || ex.isExcluded || ex.is_excluded) &&
+        getExerciseSignature(ex)===signature &&
+        (ex.loggedSets || []).some(set=>
+            (set.isLocked===true || set.completed===true) &&
+            !(set.isWarmup || set.warmup || set.is_warmup) &&
+            Number(String(set.weight).replace(',','.'))>0 &&
+            parseInt(set.reps,10)>0);
+    const findInDay=day=>{
+        const exercise=(day?.exercises || day?.esercizi || []).find(suitable);
+        return exercise || null;
+    };
+    const dayOf=(week)=>{
+        const days=week?.days || [];
+        return days.find(d=>Number(d.dayNumber)===currentDayIdx+1) ||
+            days[currentDayIdx] || null;
+    };
+    const archiveOf=day=>{
+        const archives=Array.isArray(day?.sessionArchives) ? day.sessionArchives : [];
+        for(let a=archives.length-1;a>=0;a--){
+            const found=findInDay(archives[a]);
+            if(found)return found;
+        }
+        return null;
+    };
+    const scan=(meso,weekLimit=Infinity)=>{
+        const weeks=(meso?.weeks || []).filter(w=>Number(w.weekNumber)<=weekLimit)
+            .sort((a,b)=>Number(b.weekNumber)-Number(a.weekNumber));
+        for(const week of weeks){
+            const day=dayOf(week);
+            const archived=archiveOf(day);
+            const found=findInDay(day);
+            // The live plan has priority if that week itself was performed.
+            if(found)return found;
+            if(archived)return archived;
+        }
+        return null;
+    };
 
-    const currentSig = getExerciseSignature(currentExercise);
+    const mesos=years[year]?.mesocycles || [];
+    const current=mesos[currentMesoIdx];
+    if(!current)return null;
+    // Repeated sessions: use the archived preceding performance of the same
+    // day before looking into earlier weeks (do not use live current entries).
+    const activeWeek=(current.weeks || []).find(w=>Number(w.weekNumber)===Number(currentWeekNum));
+    const archived=archiveOf(dayOf(activeWeek));
+    if(archived)return archived;
+    const same=scan(current,Number(currentWeekNum)-1);
+    if(same || sameMesoOnly)return same;
 
-    // 1. Cerca prima nelle settimane precedenti dello STESSO mesociclo
-    for (let w = currentWeekNum - 1; w >= 1; w--) {
-        const prevWeek = meso.weeks.find(item => item.weekNumber === w);
-        if (!prevWeek || !prevWeek.days) continue;
-
-        const day = prevWeek.days[currentDayIdx] || prevWeek.days.find(d => d.dayNumber === (currentDayIdx + 1));
-        if (!day) continue;
-
-        const exs = day.exercises || day.esercizi || [];
-        const foundEx = exs.find(ex => getExerciseSignature(ex) === currentSig);
-        
-        // 🔒 Filtra SOLO le serie che hanno il Check spuntato (isLocked || completed) e valori > 0
-        if (foundEx && foundEx.loggedSets && foundEx.loggedSets.some(s => (s.isLocked || s.completed) && parseFloat(s.weight) > 0 && parseInt(s.reps, 10) > 0)) {
-            return foundEx;
+    for(let m=currentMesoIdx-1;m>=0;m--){
+        const result=scan(mesos[m]);
+        if(result)return result;
+    }
+    for(const priorYear of Object.keys(years)
+        .filter(y=>/^\d{4}$/.test(y)&&Number(y)<Number(year))
+        .sort((a,b)=>Number(b)-Number(a))){
+        const older=years[priorYear]?.mesocycles || [];
+        for(let m=older.length-1;m>=0;m--){
+            const result=scan(older[m]);
+            if(result)return result;
         }
     }
-
-    // 2. Se non lo trova e sameMesoOnly è false, cerca nel mesociclo precedente
-    if (!sameMesoOnly && currentMesoIdx > 0) {
-        const prevMeso = yearData.mesocycles[currentMesoIdx - 1];
-        if (prevMeso && prevMeso.weeks) {
-            for (let w = prevMeso.weeks.length; w >= 1; w--) {
-                const prevWeek = prevMeso.weeks[w - 1];
-                if (!prevWeek || !prevWeek.days) continue;
-
-                const day = prevWeek.days[currentDayIdx] || prevWeek.days.find(d => d.dayNumber === (currentDayIdx + 1));
-                if (!day) continue;
-
-                const exs = day.exercises || day.esercizi || [];
-                const foundEx = exs.find(ex => getExerciseSignature(ex) === currentSig);
-                if (foundEx && foundEx.loggedSets && foundEx.loggedSets.some(s => (s.isLocked || s.completed) && parseFloat(s.weight) > 0 && parseInt(s.reps, 10) > 0)) {
-                    return foundEx;
-                }
-            }
-        }
-    }
-
     return null;
 }
-
 /**
  * Calcola la combinazione di dischi da caricare per lato sul bilanciere
  */
@@ -432,6 +455,11 @@ export function normalizeExerciseName(name) {
 export function checkFatigueAlert(ex, exIdx) {
     const alertEl = document.getElementById(`mycoach-advice-${exIdx}`);
     if (!alertEl) return;
+    if(ex?.isWarmup || ex?.isExcluded || ex?.is_excluded){
+        alertEl.classList.remove('is-visible');
+        alertEl.classList.add('is-hidden');
+        return;
+    }
 
     const targetMinReps = ex.minReps || (typeof ex.reps === 'string' && ex.reps.includes('-') ? parseInt(ex.reps.split('-')[0], 10) : parseInt(ex.reps, 10)) || 0;
     let coachAdviceHtml = '';

@@ -132,6 +132,7 @@ async function initApp() {
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
+window.addEventListener('homegym-sync-conflict-resolved',()=>renderWorkoutList());
 
 // ==========================================
 // 4. LISTENER EVENTI GLOBALI & INTERFACCIA

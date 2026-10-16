@@ -6,6 +6,7 @@
 import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange, calculateSetVolumeTrend, isValueExceedingTarget, parseRPE, escapeHtml, slugify } from './helpers.js';
 import { state } from './state.js';
 import { enableCardSwipeGesture } from './gestures.js';
+import { isWarmupExercise } from './workoutSemantics.js';
 import { saveAndSync } from './storage.js';
 import { renderWorkoutList } from './ui.js';
 import { getSetPrefill } from './setPrefill.js';
@@ -18,7 +19,7 @@ const selectedKey=exIdx=>[
 ].join(':');
 
 export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, activeDayNum, isPastMeso) {
-    const isExExcluded = ex.isExcluded || false;
+    const isExExcluded = isWarmupExercise(ex);
     const isDropsetPlan = ex.isDropset || false;
     const isFirstWeek = targetWeek.weekNumber === 1;
 
@@ -46,8 +47,8 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
 
             </div>
             ${isExExcluded
-                ? '<span class="badge-danger">ESCLUSO DAI MASSIMALI</span>'
-                : '<span class="exercise-exclude-hint text-xs text-muted flex-italic">(Doppio click o swipe per escludere)</span>'}
+                ? '<span class="badge-danger">RISCALDAMENTO · ESCLUSO DAI MASSIMALI E DAL VOLUME ALLENANTE</span>'
+                : '<span class="exercise-exclude-hint text-xs text-muted flex-italic">(Doppio click o swipe per escludere: riscaldamento)</span>'}
         </div>
         
         <!-- Nome Esercizio in primo piano -->
@@ -55,7 +56,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         
     `;
 
-    const prevExercise = findPreviousExercise(state.workoutData, mesoIndex, targetWeek.weekNumber, activeDayNum - 1, ex, true);
+    const prevExercise = findPreviousExercise(state.workoutData, mesoIndex, targetWeek.weekNumber, activeDayNum - 1, ex, false, state.currentYear);
     let lastSessionSetsHtml = '';
 
     if (prevExercise && prevExercise.loggedSets && prevExercise.loggedSets.length > 0) {
@@ -276,7 +277,11 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     // Nessun consiglio si basa su placeholder o su RPE inventati.
     const toggleExclusion = () => {
         if (isPastMeso) return;
-        currentDay.exercises[exIdx].isExcluded = !currentDay.exercises[exIdx].isExcluded;
+        const exercise=currentDay.exercises[exIdx];
+        const warmup=!isWarmupExercise(exercise);
+        // Preserve compatibility with legacy isExcluded flags and analytics.
+        exercise.isWarmup=warmup;
+        exercise.isExcluded=warmup;
         saveAndSync(state.workoutData);
         renderWorkoutList();
     };

@@ -615,7 +615,7 @@ test('ripetere una seduta archivia la sessione reale prima del nuovo allenamento
   for (let set = 0; set < 3; set++) {
     await expect(page.locator(`.set-lock-check[data-set="${set}"]`)).not.toBeChecked();
     await expect(page.locator(`.set-kg[data-set="${set}"]`)).toHaveValue('80');
-    await expect(page.locator(`.set-reps[data-set="${set}"]`)).toHaveValue('6');
+    await expect(page.locator(`.set-reps[data-set="${set}"]`)).toHaveValue('8'); // last archived confirmed set is compatible
     await expect(page.locator(`.set-rpe[data-set="${set}"]`)).toHaveValue('8');
   }
   const result = await page.evaluate(async () => {
@@ -1753,4 +1753,154 @@ test('all six exercise cards prefill by current prescription or comparable confi
   assert.ok(before.every((ex,i)=>i===3 || ex.sets.every(s=>!s.checked && s.kg==='' && s.reps==='' && s.rpe==='')));
   assert.deepEqual(monitoring.remoteRequests,[]);
   assert.deepEqual(monitoring.pageErrors,[]);
+});
+
+
+test('multi-device: a changed cloud row blocks stale offline updates until a chosen version wins',async({page})=>{
+  const monitoring=await openIsolatedApp(page);
+  const initial=await page.evaluate(async()=>{
+    const {supabase}=await import('/js/config.js');
+    const {state}=await import('/js/state.js');
+    const {pullDataFromSupabase}=await import('/js/sync.js');
+    const {saveToLocalStorage,getCloudRevision}=await import('/js/storage.js');
+    const user={id:'fake-two-devices',email:'sync-e2e@invalid.example'};
+    state.currentUser=user;
+    const payload=structuredClone(state.workoutData);
+    payload.athlete.email='base@invalid.example';
+    payload.updatedAt='2026-10-16T18:00:00.000Z';
+    saveToLocalStorage(payload,{preserveUpdatedAt:true});
+    window.__testCloudRow={
+      email:user.email,payload:structuredClone(payload),
+      updated_at:'2026-10-16T18:00:00.000Z'
+    };
+    supabase.from=table=>{
+      if(table!=='workouts')throw Error('Unexpected remote table '+table);
+      let mode='read',proposed=null;
+      const filters={};
+      const query={
+        select(){return query;},
+        eq(k,v){filters[k]=v;return query;},
+        update(p){mode='update';proposed=p;return query;},
+        insert(p){mode='insert';proposed=p;return query;},
+        async maybeSingle(){
+          const row=window.__testCloudRow;
+          if(mode==='read')return {data:row?structuredClone(row):null,error:null};
+          if(mode==='update'){
+            if(!row || filters.email!==row.email || filters.updated_at!==row.updated_at)
+              return {data:null,error:null};
+            window.__testCloudRow={...structuredClone(proposed)};
+            return {data:{updated_at:window.__testCloudRow.updated_at},error:null};
+          }
+          if(row)return {data:null,error:{code:'23505',message:'duplicate email'}};
+          window.__testCloudRow={...structuredClone(proposed)};
+          return {data:{updated_at:window.__testCloudRow.updated_at},error:null};
+        }
+      };
+      return query;
+    };
+    await pullDataFromSupabase(user); // establish CAS revision from the cloud
+    return {revision:getCloudRevision(user),user};
+  });
+  assert.equal(initial.revision,'2026-10-16T18:00:00.000Z');
+
+  const observed=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {saveAndSync,processSyncQueue,getSyncConflict,hasPendingSync}=await import('/js/storage.js');
+    // MacBook changed the server AFTER the smartphone read it.
+    window.__testCloudRow.updated_at='2026-10-16T18:03:00.000Z';
+    window.__testCloudRow.payload.athlete.email='edited-on-mac@invalid.example';
+    const local=structuredClone(state.workoutData);
+    local.athlete.email='edited-on-phone@invalid.example';
+    await saveAndSync(local);
+    await processSyncQueue();
+    return {
+      remote:window.__testCloudRow.payload.athlete.email,
+      local:state.workoutData.athlete.email,
+      conflict:getSyncConflict(state.currentUser),
+      queued:hasPendingSync()
+    };
+  });
+  assert.equal(observed.remote,'edited-on-mac@invalid.example');
+  assert.equal(observed.local,'edited-on-phone@invalid.example');
+  assert.equal(observed.conflict.remoteRevision,'2026-10-16T18:03:00.000Z');
+  assert.equal(observed.queued,true);
+  const warning=page.locator('#sync-conflict-panel');
+  await expect(warning).toBeVisible();
+  await expect(page.locator('#sync-status')).toContainText('Conflitto');
+  await expect(warning.getByRole('button',{name:/Backup di questo dispositivo/})).toBeVisible();
+  await expect(warning.getByRole('button',{name:/Backup della versione cloud/})).toBeVisible();
+
+  const backupLocal=page.waitForEvent('download');
+  await warning.getByRole('button',{name:/Backup di questo dispositivo/}).click();
+  await expect((await backupLocal).suggestedFilename()).toContain('locale');
+  const backupCloud=page.waitForEvent('download');
+  await warning.getByRole('button',{name:/Backup della versione cloud/}).click();
+  await expect((await backupCloud).suggestedFilename()).toContain('cloud');
+  page.on('dialog',dialog=>dialog.accept());
+  await warning.getByRole('button',{name:/Usa i dati di questo dispositivo/}).click();
+  await expect(warning).toHaveCount(0);
+  const resolved=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {getSyncConflict,hasPendingSync,getCloudRevision}=await import('/js/storage.js');
+    return {
+      remote:window.__testCloudRow.payload.athlete.email,
+      local:state.workoutData.athlete.email,
+      version:getCloudRevision(state.currentUser),
+      conflict:getSyncConflict(state.currentUser),
+      queued:hasPendingSync()
+    };
+  });
+  assert.equal(resolved.remote,'edited-on-phone@invalid.example');
+  assert.equal(resolved.local,'edited-on-phone@invalid.example');
+  assert.equal(resolved.conflict,null);
+  assert.equal(resolved.queued,false);
+  assert.ok(resolved.version);
+  assert.deepEqual(monitoring.remoteRequests,[]);
+  assert.deepEqual(monitoring.pageErrors,[]);
+});
+
+test('warm-up marked by deliberate gesture stays in history but never blocks session completion',async({page})=>{
+  const monitor=await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    const ex=state.workoutData.history.years[new Date().getFullYear()].mesocycles[0]
+      .weeks[0].days[0].exercises[0];
+    const day=state.workoutData.history.years[new Date().getFullYear()].mesocycles[0]
+      .weeks[0].days[0];
+    day.exercises.push({
+      ...ex,name:'Warmup con bilanciere',block:2,
+      isWarmup:true,isExcluded:true,
+      loggedSets:[{weight:'20',reps:'10',rpe:'6',isLocked:false,completed:false}],
+      sets:[{targetKg:'20',targetReps:'10',targetRpe:'6'}]
+    });
+    renderWorkoutList();
+  });
+  await expect(page.locator('.ex-card[data-ex="1"]')).toContainText('RISCALDAMENTO');
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/3');
+  const originalPlan=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    return JSON.stringify(state.workoutData.history.years[new Date().getFullYear()]
+      .mesocycles[0].weeks[0].days[0].exercises[0].sets);
+  });
+  for(let idx=0;idx<3;idx++){
+    await page.locator('.ex-card[data-ex="0"] .set-lock-check[data-set="'+idx+'"]').check();
+  }
+  const state=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const day=state.workoutData.history.years[new Date().getFullYear()]
+      .mesocycles[0].weeks[0].days[0];
+    return {
+      completed:day.completed,
+      warmup:day.exercises[1].loggedSets[0],
+      plan:JSON.stringify(day.exercises[0].sets)
+    };
+  });
+  assert.equal(state.completed,true);
+  assert.equal(state.warmup.isLocked,false);
+  assert.equal(state.warmup.weight,'20');
+  assert.equal(state.plan,originalPlan);
+  assert.deepEqual(monitor.remoteRequests,[]);
+  assert.deepEqual(monitor.pageErrors,[]);
 });

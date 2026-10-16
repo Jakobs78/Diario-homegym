@@ -5,6 +5,7 @@
  */
 import { state } from './state.js';
 import { parseRPE } from './helpers.js';
+import { isWarmupExercise } from './workoutSemantics.js';
 
 let activeCharts = {};
 let currentRange = 'meso';
@@ -43,7 +44,7 @@ export function filterValidSets(rawWorkoutData) {
     const exercisesArray = extractExercisesFromData(rawWorkoutData);
 
     return exercisesArray
-        .filter(ex => ex && !ex.is_excluded && !ex.isExcluded)
+        .filter(ex => ex && !isWarmupExercise(ex))
         .map(ex => {
             let targetSets = [];
             if (Array.isArray(ex.loggedSets)) {
@@ -210,7 +211,7 @@ export function getExerciseNamesFromMeso(meso) {
         const arr = Array.isArray(exs) ? exs : Object.values(exs);
         arr.forEach(ex => {
             const name = ex?.name || ex?.nome || ex?.exerciseName;
-            if (name && typeof name === 'string' && name.trim() !== '' && !ex.is_excluded && !ex.isExcluded) {
+            if (name && typeof name === 'string' && name.trim() !== '' && !isWarmupExercise(ex)) {
                 const trimmedName = name.trim();
                 const lowerKey = trimmedName.toLowerCase();
                 // Salviamo la versione pulita evitando duplicati dovuti a casing o doppioni nel blocco
@@ -510,7 +511,7 @@ export function renderMuscleVolumeChart(canvasId, workoutData, range = currentRa
     days.forEach(day=>{
         const raw=day.exercises || day.esercizi || [];
         for(const ex of Array.isArray(raw)?raw:Object.values(raw)){
-            if(ex.isExcluded || ex.is_excluded)continue;
+            if(isWarmupExercise(ex))continue;
             const muscle=muscleFor(ex);
             const planned=Array.isArray(ex.sets)?ex.sets.length:
                 Array.isArray(ex.loggedSets)?ex.loggedSets.length:0;
@@ -718,7 +719,7 @@ export function initAnalyticsEvents(workoutData) {
             const arr = Array.isArray(rawExs) ? rawExs : Object.values(rawExs);
             const found = arr.find(x => {
                 const xName = x?.name || x?.nome || x?.exerciseName;
-                return xName && xName.trim().toLowerCase() === selectedName.trim().toLowerCase() && !x.is_excluded && !x.isExcluded;
+                return xName && xName.trim().toLowerCase() === selectedName.trim().toLowerCase() && !isWarmupExercise(x);
             });
             if (found) logs.push(found);
         });

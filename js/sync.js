@@ -7,7 +7,8 @@
 // 1. IMPORT & CONFIGURAZIONE
 // ==========================================
 import { supabase } from './config.js';
-import { getFromLocalStorageForUser, saveToLocalStorage, hasPendingSync, processSyncQueue, updateSyncStatusUI } from './storage.js';
+import { getFromLocalStorageForUser, saveToLocalStorage, hasPendingSync, processSyncQueue, updateSyncStatusUI,
+    getCloudRevision, setCloudRevision, recordSyncConflict } from './storage.js';
 import { renderWorkoutList } from './ui.js';
 
 /**
@@ -32,68 +33,136 @@ function extractEmail(userOrEmail) {
 // ==========================================
 // 2. RETRIEVAL (PULL) DATI
 // ==========================================
+/**
+ * Remote snapshot + row version. updated_at already exists in the deployed
+ * workouts schema. CAS compares it atomically in the UPDATE WHERE clause:
+ * no additional database migrations and no silent last-write-wins overwrites.
+ */
+export async function pullWorkoutRecord(userOrEmail) {
+    const email=extractEmail(userOrEmail);
+    if(!supabase || !email)throw Error('Utente non disponibile per la sincronizzazione.');
+    const {data,error}=await supabase.from('workouts')
+        .select('payload,updated_at').eq('email',email).maybeSingle();
+    if(error)throw error;
+    return data ? {payload:data.payload,revision:data.updated_at||null} : null;
+}
+
 export async function pullDataFromSupabase(userOrEmail) {
-    if (!supabase) return null;
-
-    const email = extractEmail(userOrEmail);
-    if (!email) {
-        console.warn("⚠️ [Sync] Ttentativo di Pull annullato: email non valida o booleana.");
-        return null;
-    }
-
     try {
-        const { data, error } = await supabase
-            .from('workouts')
-            .select('payload')
-            .eq('email', email)
-            .maybeSingle();
-
-        if (error) throw error;
-        return data ? data.payload : null;
-    } catch (err) {
-        console.error("❌ Errore nel recupero dati da Supabase:", err.message);
+        const record=await pullWorkoutRecord(userOrEmail);
+        // Only an account with no pending offline changes may accept the
+        // latest remote row as its optimistic concurrency baseline.
+        if(record?.revision && !hasPendingSync())setCloudRevision(userOrEmail,record.revision);
+        return record?.payload || null;
+    }catch(err){
+        console.error('❌ Errore lettura cloud:',err.message);
         return null;
     }
 }
 
-// ==========================================
-// 3. PERSISTENZA (PUSH) DATI
-// ==========================================
-export async function pushDataToSupabase(userOrEmail, payload, actionTimestamp = null) {
-    if (!supabase) return false;
+const samePayload=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+const conflict=(user,local,remote)=>{
+    recordSyncConflict(user,{
+        local,remote:remote?.payload||null,remoteRevision:remote?.revision||null,
+        detectedAt:new Date().toISOString()
+    });
+    return {ok:false,conflict:true};
+};
 
-    const email = extractEmail(userOrEmail);
-    if (!email) {
-        console.warn("⚠️ [Sync] Tentativo di Push annullato: email non valida.");
-        return false;
-    }
+/**
+ * Save an immutable queued snapshot, not a merged guess.
+ * On initial use never overwrite an existing foreign/stale snapshot. Later
+ * writes only succeed when the server version still matches the last
+ * acknowledged version for this account.
+ */
+export async function pushDataToSupabase(userOrEmail,payload,actionTimestamp=null) {
+    const email=extractEmail(userOrEmail);
+    if(!supabase || !email)return {ok:false};
+    try{
+        const remote=await pullWorkoutRecord(userOrEmail);
+        const expected=getCloudRevision(userOrEmail);
+        if(expected!==null && (!remote || remote.revision!==expected))
+            return conflict(userOrEmail,payload,remote);
+        if(expected===null && remote){
+            if(!samePayload(remote.payload,payload))
+                return conflict(userOrEmail,payload,remote);
+            setCloudRevision(userOrEmail,remote.revision);
+            return {ok:true};
+        }
 
-    try {
-        const recordData = {
-            email: email,
-            payload: payload
+        const recordData={
+            email,payload,
+            updated_at:actionTimestamp
+                ?new Date(actionTimestamp).toISOString()
+                :new Date().toISOString()
         };
-
-        if (actionTimestamp) {
-            recordData.updated_at = new Date(actionTimestamp).toISOString();
+        let result;
+        if(remote){
+            // PostgreSQL UPDATE ... WHERE updated_at=expected is atomic.
+            result=await supabase.from('workouts').update(recordData)
+                .eq('email',email).eq('updated_at',expected)
+                .select('updated_at').maybeSingle();
+        }else{
+            // Unique key prevents a concurrent first upload from replacing
+            // the other device's new journal.
+            result=await supabase.from('workouts').insert(recordData)
+                .select('updated_at').maybeSingle();
         }
-
-        const { error } = await supabase
-            .from('workouts')
-            .upsert(recordData, { onConflict: 'email' });
-
-        if (error) throw error;
-        return true;
-    } catch (err) {
-        console.error("❌ Errore nel salvataggio su Supabase:", err.message);
-        
-        if (err.code === '42501' || err.message?.includes('row-level security')) {
-            alert("⚠️ Licenza o periodo di prova scaduto! Attiva o rinnova l'abbonamento per continuare a salvare i tuoi allenamenti sul Cloud.");
-        } else {
-            alert(`Impossibile salvare sul Cloud: ${err.message}`);
+        if(result.error){
+            if(result.error.code==='23505'){
+                return conflict(userOrEmail,payload,await pullWorkoutRecord(userOrEmail));
+            }
+            throw result.error;
         }
-        return false;
+        if(!result.data?.updated_at)
+            return conflict(userOrEmail,payload,await pullWorkoutRecord(userOrEmail));
+        setCloudRevision(userOrEmail,result.data.updated_at);
+        return {ok:true};
+    }catch(err){
+        console.error('❌ Cloud non sincronizzato: i dati restano in coda.',err);
+        return {ok:false,error:err};
     }
+}
+
+/**
+ * The athlete must explicitly pick a winner and preserve a JSON backup.
+ * No automatic two-way merge of complete journals (could invent performance).
+ */
+export async function resolveSyncConflict(userOrEmail,choice,payload=null) {
+    const email=extractEmail(userOrEmail);
+    if(!email || !['local','cloud'].includes(choice))return {ok:false};
+    const remote=await pullWorkoutRecord(userOrEmail);
+    const expected=getCloudRevision(userOrEmail);
+    // A newer third-party edit must be reviewed as a NEW conflict.
+    const cached=localStorage.getItem('workoutApp_data_conflict_'+
+        String(userOrEmail?.id||email));
+    let observed=null;
+    try{observed=cached?JSON.parse(cached):null;}catch{}
+    if(!observed || (remote?.revision||null)!==observed.remoteRevision){
+        return conflict(userOrEmail,payload||getFromLocalStorageForUser(userOrEmail),remote);
+    }
+    if(choice==='cloud'){
+        if(!remote?.payload)return {ok:false,error:new Error('Versione cloud non disponibile.')};
+        setCloudRevision(userOrEmail,remote.revision);
+        return {ok:true,payload:remote.payload,revision:remote.revision};
+    }
+    const currentPayload=payload||getFromLocalStorageForUser(userOrEmail);
+    const writtenAt=new Date().toISOString();
+    let result;
+    if(remote){
+        result=await supabase.from('workouts')
+            .update({email,payload:currentPayload,updated_at:writtenAt})
+            .eq('email',email).eq('updated_at',observed.remoteRevision)
+            .select('updated_at').maybeSingle();
+    }else{
+        result=await supabase.from('workouts')
+            .insert({email,payload:currentPayload,updated_at:writtenAt})
+            .select('updated_at').maybeSingle();
+    }
+    if(result.error || !result.data?.updated_at)
+        return conflict(userOrEmail,currentPayload,await pullWorkoutRecord(userOrEmail));
+    setCloudRevision(userOrEmail,result.data.updated_at);
+    return {ok:true,payload:currentPayload,revision:result.data.updated_at};
 }
 
 // ==========================================
@@ -188,7 +257,7 @@ export function initBackgroundSync(state) {
             }
 
             const remoteData = await pullDataFromSupabase(user);
-                if (remoteData) {
+                if (remoteData && !hasPendingSync()) {
                     const localData = getFromLocalStorageForUser(user);
                     const localTime = new Date(localData.updatedAt || 0).getTime();
                     const remoteTime = new Date(remoteData.updatedAt || 0).getTime();

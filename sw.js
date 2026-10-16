@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v37-smart-prefill-visible-notes';
+const CACHE_NAME = 'workout-app-v38-warmup-safe-sync';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -35,6 +35,7 @@ const ASSETS_TO_CACHE = [
   '/js/workoutEvents.js',
   '/js/exerciseCard.js',
   '/js/setPrefill.js',
+  '/js/workoutSemantics.js',
   '/js/liveCoachUI.js',
   '/js/weeklyReviewUI.js',
   '/js/sessionTimer.js',
