@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v24-accurate-dashboards';
+const CACHE_NAME = 'workout-app-v25-complete-reports';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -11,6 +11,12 @@ const ASSETS_TO_CACHE = [
   '/js/sync.js',
   '/js/fullBackup.js',
   '/js/coachPreviewUI.js',
+  '/js/mesocyclePdfModel.js',
+  '/js/mesocycle.js',
+  '/js/pdfExport.js',
+  '/js/importer.js',
+  '/js/pdfParser.js',
+  '/js/pdfTextMapper.js',
   '/js/ui.js',
   '/js/workoutEvents.js',
   '/js/exerciseCard.js',

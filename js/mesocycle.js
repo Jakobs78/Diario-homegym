@@ -5,6 +5,7 @@
 // 1. IMPORT & DIPENDENZE
 // ==========================================
 import { state } from './state.js';
+import { buildMesocyclePdfOutline } from './mesocyclePdfModel.js';
 import { saveAndSync } from './storage.js';
 import { renderWorkoutList, showNotification } from './ui.js';
 
@@ -144,62 +145,45 @@ export function updateMesocycleUI() {
 }
 
 export function exportMesoToPDF(mesoData) {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
-  doc.text(`Mesociclo: ${mesoData.name || "Senza nome"}`, 14, 20);
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(11);
-  doc.text(`ID Univoco: ${mesoData.id || 'N/D'}`, 14, 28);
-  doc.text(`Data: ${new Date().toLocaleDateString()}`, 14, 34);
-
-  let startY = 45;
-
-  (mesoData.weeks || []).forEach((week, weekIndex) => {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(13);
-    doc.text(`Settimana ${weekIndex + 1}`, 14, startY);
-    startY += 8;
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-
-    const exercisesList = [];
-    if (Array.isArray(week.days)) {
-      week.days.forEach(day => {
-        const exs = day.exercises || day.esercizi || day.exerciseList || [];
-        if (Array.isArray(exs)) exercisesList.push(...exs);
-        else if (typeof exs === 'object') exercisesList.push(...Object.values(exs));
-      });
-    } else if (Array.isArray(week.exercises)) {
-      exercisesList.push(...week.exercises);
-    } else if (week.exercises && typeof week.exercises === 'object') {
-      exercisesList.push(...Object.values(week.exercises));
-    }
-
-    if (exercisesList.length === 0) {
-      doc.text("- Nessun esercizio registrato in questa settimana", 20, startY);
-      startY += 6;
-    } else {
-      exercisesList.forEach((ex) => {
-        const exName = ex.name || ex.nome || 'Esercizio';
-        const exerciseText = `- ${exName}: Topset ${ex.topset || '-'} kg | Range: ${ex.kgMin || 0}-${ex.kgMax || 0} kg`;
-        
-        if (startY > 280) {
-          doc.addPage();
-          startY = 20;
+    if(!mesoData){alert('Nessun mesociclo da esportare.');return;}
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({unit:'mm',format:'a4'});
+    const entries=buildMesocyclePdfOutline(mesoData);
+    const margin=14,innerWidth=182,pageBottom=280;
+    let y=20;
+    const advance=(height)=>{
+        if(y+height>pageBottom){doc.addPage();y=18;}
+    };
+    doc.setFont('helvetica','bold');doc.setFontSize(16);
+    const title=doc.splitTextToSize(mesoData.name || 'Mesociclo',innerWidth);
+    advance(title.length*7+2);doc.text(title,margin,y);y+=title.length*7+2;
+    doc.setFont('helvetica','normal');doc.setFontSize(9);
+    doc.text('Programmazione proposta / registrata. Verificare sempre kg, RPE e recuperi reali.',margin,y);y+=9;
+    for(const entry of entries){
+        if(entry.kind==='week'){
+            advance(15);
+            doc.setFillColor(226,232,240);doc.rect(margin,y-5,innerWidth,10,'F');
+            doc.setTextColor(15,23,42);doc.setFont('helvetica','bold');doc.setFontSize(12);
+            doc.text(entry.title,margin+3,y+2);y+=14;
+            continue;
         }
-
-        doc.text(exerciseText, 20, startY);
-        startY += 6;
-      });
+        if(entry.kind==='day'){
+            advance(12);doc.setFont('helvetica','bold');doc.setFontSize(11);
+            doc.text(entry.title,margin,y);y+=8;continue;
+        }
+        const desc=doc.splitTextToSize(entry.text,innerWidth-8);
+        const extra=entry.notes?doc.splitTextToSize('Note: '+entry.notes,innerWidth-12):[];
+        const height=desc.length*5+extra.length*4.3+5;
+        advance(height);
+        doc.setFont('helvetica','normal');doc.setFontSize(9);
+        doc.text(desc,margin+3,y);y+=desc.length*5;
+        if(extra.length){
+            doc.setTextColor(82,96,115);doc.setFontSize(8);
+            doc.text(extra,margin+5,y);y+=extra.length*4.3;
+            doc.setTextColor(15,23,42);
+        }
+        y+=5;
     }
-
-    startY += 6;
-  });
-
-  doc.save(`${mesoData.name || "mesociclo"}_${mesoData.id || 'export'}.pdf`);
+    const filename=String(mesoData.name||'mesociclo').replace(/[^a-zA-Z0-9_-]/g,'_');
+    doc.save(filename+'_programma_completo.pdf');
 }
