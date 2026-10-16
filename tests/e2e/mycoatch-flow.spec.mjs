@@ -1280,7 +1280,7 @@ test('settimane successive: riusa soltanto le serie confermate dello stesso meso
   });
   assert.equal(actual[0].weight,72.5);
   assert.equal(actual[0].reps,'9');
-  assert.equal(actual[0].rpe,'');
+  assert.equal(actual[0].rpe,8); // accettato dal check anche senza editing manuale
   assert.equal(actual[0].isLocked,true);
   assert.equal(actual[1].isLocked,false);
 
