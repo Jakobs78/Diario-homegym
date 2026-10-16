@@ -52,7 +52,7 @@ test('two different completed days with measured excessive RPE propose lower nex
     assert.equal(review.confirmedDays,2);
     assert.equal(review.affectedDays,2);
     assert.equal(review.measuredSets,6);
-    assert.equal(review.changes.length,3);
+    assert.equal(review.changes.length,1);
     assert.ok(review.changes.every(c=>c.from!==c.to));
     assert.equal(JSON.stringify(meso),before,'preview must be pure');
     assert.equal(reviewUpcomingWeek(meso,1).status,'none');
@@ -64,10 +64,13 @@ test('explicit confirmation applies target changes ONLY to untouched next week, 
     const proposal=reviewUpcomingWeek(meso,2);
     const applied=applyUpcomingWeekReview(meso,2,proposal);
     assert.equal(applied.status,'applied');
-    assert.equal(applied.changes,3);
+    assert.equal(applied.changes,1);
     assert.equal(meso.weeks[1].days[0].exercises[0].targetRpe,'@7.5');
     assert.equal(meso.weeks[1].days[0].exercises[0].rpe,'@7.5');
-    assert.equal(meso.weeks[1].days[0].exercises[1].targetRpe,'@7');
+    assert.equal(meso.weeks[1].days[0].exercises[1].targetRpe,'@7.5',
+        'spalle sane non ridotte per fatica del petto');
+    assert.equal(meso.weeks[1].days[1].exercises[0].targetRpe,'@8',
+        'dorso sano non ridotto per fatica del petto');
     assert.equal(meso.weeks[1].days[0].exercises[0].kgMin,'80',
         'audit of original planned kg retained');
     assert.equal(meso.weeks[1].days[0].exercises[0].sets[0].targetRpe,'@7.5');
@@ -175,5 +178,52 @@ test('undo refuses started training and conflicting manual changes',()=>{
     future.rpe='@7.5';
     future.loggedSets[0]=performed(77,6,8);
     assert.throws(()=>undoUpcomingWeekReview(meso,2),/iniziata/i);
-    assert.equal(meso.weeks[1].coachWeeklyReview.changes.length,3);
+    assert.equal(meso.weeks[1].coachWeeklyReview.changes.length,1);
+});
+
+test('two bad workouts of DIFFERENT muscles do not trigger blanket RPE reduction',()=>{
+    const meso=fixture();
+    meso.weeks[0].days[1].exercises[0].name='Rematore con Bilanciere';
+    const proposal=reviewUpcomingWeek(meso,2);
+    assert.equal(proposal.status,'steady');
+    assert.match(proposal.message,/distretti diversi/);
+    assert.ok(!meso.weeks[1].coachWeeklyReview);
+});
+
+test('two repeated bad chest days change only chest prescriptions across next week',()=>{
+    const meso=fixture();
+    const proposed=reviewUpcomingWeek(meso,2);
+    assert.equal(proposed.status,'ready');
+    assert.deepEqual(proposed.affectedMuscles,['Petto']);
+    assert.deepEqual(proposed.changes.map(c=>c.name),['Panca Piana con Bilanciere']);
+    applyUpcomingWeekReview(meso,2,proposed);
+    assert.equal(meso.weeks[1].days[0].exercises[0].targetRpe,'@7.5');
+    assert.equal(meso.weeks[1].days[0].exercises[1].targetRpe,'@7.5');
+    assert.equal(meso.weeks[1].days[1].exercises[0].targetRpe,'@8');
+});
+
+test('stale preview after editing the SOURCE evidence is rejected, even with same number of hard sets',()=>{
+    const meso=fixture();
+    const proposal=reviewUpcomingWeek(meso,2);
+    meso.weeks[0].days[0].exercises[0].loggedSets[0].rpe='9.75';
+    assert.equal(reviewUpcomingWeek(meso,2).status,'ready');
+    assert.throws(()=>applyUpcomingWeekReview(meso,2,proposal),/non più valida/);
+    assert.equal(meso.weeks[1].days[0].exercises[0].rpe,'@8');
+});
+
+test('check-in near midnight uses local training day, not truncated UTC date',()=>{
+    const previous=process.env.TZ;
+    try {
+        process.env.TZ='Europe/Rome';
+        const meso=fixture();
+        meso.weeks[0].days[0].date='2026-10-13';
+        meso.weeks[0].days[0].coachCheckin={
+            ...meso.weeks[0].days[0].coachCheckin,
+            checkedAt:'2026-10-12T22:30:00.000Z',pain:'present'
+        };
+        assert.equal(reviewUpcomingWeek(meso,2).status,'pain');
+    } finally {
+        if(previous===undefined)delete process.env.TZ;
+        else process.env.TZ=previous;
+    }
 });
