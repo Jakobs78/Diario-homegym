@@ -116,6 +116,8 @@ export function selectExercisesForTime(exercises, maxSessionMinutes, options = {
     // l'audit descrive solo la proposta e non fa parte dello storico.
     return {
         ...plan,
+        reducedPrioritySets:(basePlan.reducedPrioritySets||0) +
+            (plan === basePlan ? 0 : (plan.reducedPrioritySets||0)),
         selectionAudit: {
             strategy:'time_first_protected_core_coverage_score_v1',
             timeBudgetMinutes:maxSessionMinutes,
@@ -164,8 +166,15 @@ export function addFocusAccessorySlot(slots, {
         // solo se il catalogo ne offre un'altra (es. deltoide posteriore).
         if (focusMuscleGroup !== 'Spalle' && focusMuscleGroup !== 'Petto') return [...slots];
     }
+    const preferred = focusMuscleGroup === 'Spalle' ?
+        (slots.some(s=>s.muscle==='Spalle' && s.pattern==='isolation' &&
+            (s.prefer||[]).some(name=>/Posteriori|Face Pull|Reverse Fly/.test(name)))
+            ? ['Alzate Laterali con Manubri','Alzate Laterali ai Cavi']
+            : ['Alzate Posteriori con Manubri','Face Pull ai Cavi',
+                'Reverse Fly ai Cavi']) : undefined;
     return [...slots, {
         muscle:focusMuscleGroup,pattern:'isolation',optional:true,
+        ...(preferred?{prefer:preferred}:{}),
         addedForFocus:true
     }];
 }
