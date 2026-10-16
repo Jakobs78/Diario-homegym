@@ -1,7 +1,10 @@
 // ==========================================
 // MODULI: config.js - Configurazione del client Supabase e costanti globali dell'applicazione
 // ==========================================
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// Load the pinned, locally vendored UMD client from index.html.
+const createClient = window.supabase?.createClient;
+if(typeof createClient!=='function')
+    throw Error('Supabase client locale non disponibile. Verifica i file dell’app.');
 
 // Inserisci i tuoi dati Supabase
 const SUPABASE_URL = 'https://ircdhfsojwqyuqjsmmen.supabase.co';

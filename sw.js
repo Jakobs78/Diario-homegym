@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v29-analytics-selectors';
+const CACHE_NAME = 'workout-app-v30-offline-runtime';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -7,6 +7,20 @@ const ASSETS_TO_CACHE = [
   '/css/style.css',
   '/js/main.js',
   '/js/analytics.js',
+  '/js/vendor/supabase.js',
+  '/js/vendor/chart.js',
+  '/js/vendor/jspdf.js',
+  '/js/config.js',
+  '/js/state.js',
+  '/js/auth.js',
+  '/js/accountManager.js',
+  '/js/manual.js',
+  '/js/audio.js',
+  '/js/bottomSheet.js',
+  '/js/theme.js',
+  '/js/bannerSviluppo.js',
+  '/js/gestures.js',
+  '/js/charts.js',
   '/js/storage.js',
   '/js/sync.js',
   '/js/fullBackup.js',
