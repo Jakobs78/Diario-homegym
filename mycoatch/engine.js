@@ -35,6 +35,30 @@ export const MUSCLE_VOLUME_LANDMARKS = {
  * Genera un mesociclo ottimizzato bilanciando MEV/MAV/MRV, focus muscolari,
  * progressioni RPE e tecniche di intensità temporizzate.
  */
+/**
+ * Continuity must use the most recent COMPARABLE day, not always week 1.
+ * Prefer recent confirmed non-deload sessions, then a recent planned
+ * operational day. Deload variants are fallback only.
+ */
+export function previousComparableTrainingDay(lastMesocycle, dayNumber) {
+    const ordered=[...(lastMesocycle?.weeks || [])]
+        .sort((a,b)=>Number(b.weekNumber)-Number(a.weekNumber))
+        .map(week=>({
+            isDeload:week.isDeloadWeek===true || week.phase==='recovery',
+            day:(week.days || []).find(day=>Number(day.dayNumber)===Number(dayNumber))
+        }))
+        .filter(item=>Array.isArray(item.day?.exercises) &&
+            item.day.exercises.length>0);
+    const actuallyTrained=item=>item.day.exercises.some(ex=>
+        (ex.loggedSets || []).some(set=>
+            !set.isWarmup && !set.warmup && !set.is_warmup &&
+            (set.isLocked===true || set.completed===true) &&
+            Number(String(set.weight??set.actualKg??'').replace(',','.'))>0));
+    return (ordered.find(item=>!item.isDeload && actuallyTrained(item)) ||
+        ordered.find(item=>!item.isDeload) ||
+        ordered.find(actuallyTrained) || ordered[0])?.day || null;
+}
+
 export function generateSmartMesocycle(config = {}, historicalData = {}, rawLastMesocycle = null) {
     const safeHistory = historicalData || {};
     
@@ -108,8 +132,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             
             const exercisesSelectedToday = [];
             const daySelectionCounts = new Map(weeklySelectionCounts);
-            const previousDay = rawLastMesocycle?.weeks?.[0]?.days
-                ?.find(d => Number(d.dayNumber) === dayIndex + 1);
+            const previousDay = previousComparableTrainingDay(
+                rawLastMesocycle, dayIndex + 1);
             // Il selettore non confonde una preferenza storica con uno schema
             // motorio diverso. Le quattro alzate fondamentali occupano posizioni
             // protette contro i tagli per il tempo, ma possono essere sostituite
