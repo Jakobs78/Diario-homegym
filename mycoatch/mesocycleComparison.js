@@ -239,15 +239,17 @@ export function formatCoachReview(comparison, report) {
         .map(d => `G${d.day} ${d.minutes} min`).join(' · '));
 
     if (comparison.timeAwareSelections?.length) {
-        lines.push('SCELTA ESERCIZI IN BASE AL TEMPO (stimata, non prestazione):');
+        lines.push('SCELTA INIZIALE ESERCIZI IN BASE AL TEMPO (stime, prima dell’eventuale recupero settimanale degli accessori):');
         for (const plan of comparison.timeAwareSelections) {
             const chosen=plan.selected.slice(0, 4)
                 .map(item=>item.exercise+' ('+item.reason+')').join(' · ');
+            const excluded=plan.excluded.slice(0,3).map(item=>item.exercise);
             lines.push('G'+plan.day+': '+plan.protected.length+
                 ' movimenti prioritari protetti; '+
                 (chosen || 'nessun accessorio aggiunto oltre i fondamentali')+
-                (plan.excluded.length ? '; '+plan.excluded.length+
-                    ' accessori non inseriti per tempo/copertura' : '')+'.');
+                (excluded.length ? '; non inseriti: '+excluded.join(', ')+
+                    (plan.excluded.length>excluded.length ? ' e altri' : '')+
+                    ' (priorità e minuti disponibili)' : '')+'.');
         }
     }
     for (const a of comparison.adaptations.slice(0, 5)) {
