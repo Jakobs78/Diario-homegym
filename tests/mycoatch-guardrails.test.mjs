@@ -75,6 +75,19 @@ test('full generator rejects excess volume, dropsets and top sets despite user p
       }
     }
   }
+  const compact=generateSmartMesocycle(
+    buildConfig({maxSessionMinutes:60}),riskHistory);
+  for(const week of compact.weeks){
+    assert.equal(week.volumeBalance.isDeloadWeek,week.isDeloadWeek,
+      'non confondere veto accessori con settimana di scarico');
+    assert.deepEqual(week.volumeBalance.moves,[],
+      'niente volume accessorio riallocato nella fase di recupero');
+    for(const day of week.days){
+      assert.ok(day.estimatedMinutes<=60);
+      assert.ok(day.exercises.every(ex=>!ex.groupType),
+        'vietate superserie e triset con fatica ripetuta');
+    }
+  }
   const review=formatCoachReview(
     compareMesocyclePlans(null,generated,riskHistory),{
       inspectedMesocycles:1,sessionsAnalyzed:4
