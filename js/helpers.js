@@ -48,6 +48,12 @@ export function assignMuscleGroup(exerciseName) {
 /**
  * Genera l'HTML formattato per il riassunto dell'esercizio (peso, topset, set/reps, rest)
  */
+export function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char=>({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[char]));
+}
+
 export function formatExerciseSummary(ex) {
     if (!ex) return '';
 
@@ -87,14 +93,14 @@ export function formatExerciseSummary(ex) {
     const weightParts = [];
 
     if (hasKgRange) {
-        weightParts.push(`${kgMin}-${kgMax} kg`);
+        weightParts.push(`${escapeHtml(kgMin)}-${escapeHtml(kgMax)} kg`);
     } else if (isValidVal(kgMin)) {
-        weightParts.push(`${kgMin} kg`);
+        weightParts.push(`${escapeHtml(kgMin)} kg`);
     }
 
     if (hasTopset) {
         const cleanTopset = topset.toLowerCase().includes('topset') ? topset : `topset: ${topset}${topset.toLowerCase().includes('kg') ? '' : ' kg'}`;
-        weightParts.push(cleanTopset);
+        weightParts.push(escapeHtml(cleanTopset));
     }
 
     let weightPart;
@@ -107,13 +113,13 @@ export function formatExerciseSummary(ex) {
     const setsVal = Array.isArray(sets) ? sets.length : (sets || '-');
     const repsVal = reps || '-';
     
-    let setRepsPart = `${setsVal} x ${repsVal}`;
+    let setRepsPart = `${escapeHtml(setsVal)} x ${escapeHtml(repsVal)}`;
     if (rpe && rpe !== '-' && rpe !== '0') {
-        setRepsPart += ` ${rpe.startsWith('@') ? rpe : '@' + rpe}`;
+        setRepsPart += ' ' + escapeHtml(rpe.startsWith('@') ? rpe : '@' + rpe);
     }
 
     const restVal = recupero && recupero !== '-' ? recupero : '';
-    const restPart = restVal ? `rest ${restVal}` : '';
+    const restPart = restVal ? 'rest ' + escapeHtml(restVal) : '';
 
     const detailsPart = [setRepsPart, restPart].filter(Boolean).join(' | ');
 

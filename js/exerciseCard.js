@@ -3,7 +3,7 @@
  * Summary: Genera dinamicamente le card per ogni esercizio gestendo lo stato di esclusione dai massimali, i selettori del bilanciere, il calcolo dei dischi per lato e l'evidenziatura automatica fuori target per KG (inclusi Topset), REPS ed RPE (con supporto al feedback verde di miglioramento).
  */
 
-import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange, calculateSetVolumeTrend, isValueExceedingTarget, parseRPE } from './helpers.js';
+import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange, calculateSetVolumeTrend, isValueExceedingTarget, parseRPE, escapeHtml } from './helpers.js';
 import { state } from './state.js';
 import { enableCardSwipeGesture } from './gestures.js';
 import { saveAndSync } from './storage.js';
@@ -31,7 +31,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         </div>
         
         <!-- Nome Esercizio in primo piano -->
-        <h3 class="ex-name mb-md">${exIdx + 1}. ${ex.name}</h3>
+        <h3 class="ex-name mb-md">${exIdx + 1}. ${escapeHtml(ex.name)}</h3>
         
     `;
 
@@ -54,7 +54,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                     : `${s.reps || prevExercise.reps || '-'} reps`;
                 const rpeFormatted = s.rpe ? `, con ${s.rpe} rpe` : '';
 
-                return `<div class="text-xs mt-xs"><strong>${idx + 1}° set:</strong> ${kg}, ${repsFormatted}${rpeFormatted}</div>`;
+                return `<div class="text-xs mt-xs"><strong>${idx + 1}° set:</strong> ${escapeHtml(kg)}, ${escapeHtml(repsFormatted)}${escapeHtml(rpeFormatted)}</div>`;
             }).join('');
         }
     }
@@ -64,7 +64,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         if (ex.notes) {
             cardHtml += `
                 <div class="note-allenatore-title">NOTE ALLENATORE</div>
-                <div class="note-allenatore-text ${lastSessionSetsHtml ? 'mb-sm' : ''}">${ex.notes}</div>
+                <div class="note-allenatore-text ${lastSessionSetsHtml ? 'mb-sm' : ''}">${escapeHtml(ex.notes)}</div>
             `;
         }
         if (lastSessionSetsHtml) {
@@ -214,15 +214,15 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                 </td>
                 <td class="td-input td-kg-container">
                     <div class="kg-input-wrapper flex-column flex-center">
-                        <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-kg ios-no-zoom ${kgClass} ${isUnsavedKg ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${displayWeight}" placeholder="${targetWeightDefault}" ${isDisabled ? 'disabled' : ''}>
+                        <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-kg ios-no-zoom ${kgClass} ${isUnsavedKg ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayWeight)}" placeholder="${escapeHtml(targetWeightDefault)}" ${isDisabled ? 'disabled' : ''}>
                         ${trendHtml ? `<div class="set-trend-badge">${trendHtml}</div>` : ''}
                     </div>
                 </td>
                 <td class="td-input">
-                    <input type="text" inputmode="numeric" autocomplete="off" class="set-input set-reps ios-no-zoom ${repsClass} ${isUnsavedReps ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${displayReps}" placeholder="${defaultTargetReps}" ${isDisabled ? 'disabled' : ''}>
+                    <input type="text" inputmode="numeric" autocomplete="off" class="set-input set-reps ios-no-zoom ${repsClass} ${isUnsavedReps ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayReps)}" placeholder="${escapeHtml(defaultTargetReps)}" ${isDisabled ? 'disabled' : ''}>
                 </td>
                 <td class="td-input">
-                    <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe ios-no-zoom ${rpeClass} ${isUnsavedRpe ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${displayRpe}" placeholder="${ex.rpe || 'RPE'}" ${isDisabled ? 'disabled' : ''}>
+                    <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe ios-no-zoom ${rpeClass} ${isUnsavedRpe ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayRpe)}" placeholder="${escapeHtml(ex.rpe || 'RPE')}" ${isDisabled ? 'disabled' : ''}>
                 </td>
                 <td class="td-check text-center">
                     <input type="checkbox" class="set-lock-check custom-big-check" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''}>
@@ -235,7 +235,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             </tbody> 
         </table>
         <div id="mycoach-advice-${exIdx}" class="mycoach-fatigue-alert is-hidden"></div>
-        <input type="text" placeholder="Note esercizio..." value="${ex.userNotes || ''}" class="ex-user-notes w-100" data-ex="${exIdx}" ${isPastMeso ? 'disabled' : ''}>
+        <input type="text" placeholder="Note esercizio..." value="${escapeHtml(ex.userNotes || '')}" class="ex-user-notes w-100" data-ex="${exIdx}" ${isPastMeso ? 'disabled' : ''}>
     `;
 
     exCard.innerHTML = cardHtml;
