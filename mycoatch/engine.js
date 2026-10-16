@@ -368,7 +368,10 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             const timedPlan = selectExercisesForTime(processedExercises,
                 maxSessionMinutes, {
                     focusMuscleGroup:effectiveFocusMuscle,
-                    scheduledWeeklySets,history:analysis
+                    scheduledWeeklySets,history:analysis,
+                    // Le superserie alzano mediamente l'RPE percepito:
+                    // non accelerare sedute con fatica ripetuta documentata.
+                    allowGrouping:!guardrails.recoveryRequired
                 });
             registerSelectedWeeklySets(scheduledWeeklySets,timedPlan.exercises);
             // Le varianti scartate per il tempo NON vanno considerate come
@@ -391,7 +394,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
         // compatibili con margine sufficiente. Non modificare il deload.
         const balanced = rebalanceWeeklyAccessories(
             weekDays, intendedDays, maxSessionMinutes, {
-                isDeloadWeek,
+                isDeloadWeek:isDeloadWeek || guardrails.recoveryRequired,
                 maxAccessorySets: onboarding.volumeCap ?? 4
             }
         );
