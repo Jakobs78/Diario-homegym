@@ -5,6 +5,7 @@
 
 import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange, calculateSetVolumeTrend, isValueExceedingTarget, parseRPE, escapeHtml, slugify } from './helpers.js';
 import { state } from './state.js';
+import { enableCardSwipeGesture } from './gestures.js';
 import { saveAndSync } from './storage.js';
 import { renderWorkoutList } from './ui.js';
 import { getSetPrefill } from './setPrefill.js';
@@ -45,11 +46,9 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                 ${isDropsetPlan ? '<span class="badge-dropset">🔥 DROP SET</span>' : ''}
 
             </div>
-            <button type="button" class="exercise-exclude-btn btn btn-secondary btn-sm"
-                ${isPastMeso ? 'disabled' : ''} aria-pressed="${isExExcluded}"
-                aria-label="${isExExcluded ? 'Includi' : 'Escludi'} ${escapeHtml(ex.name)} dai massimali">
-                ${isExExcluded ? '↩ Includi nei massimali' : '⋯ Escludi dai massimali'}
-            </button>
+            ${isExExcluded
+                ? '<span class="badge-danger">ESCLUSO DAI MASSIMALI</span>'
+                : '<span class="exercise-exclude-hint text-xs text-muted flex-italic">(Doppio click o swipe per escludere)</span>'}
         </div>
         
         <!-- Nome Esercizio in primo piano -->
@@ -155,7 +154,8 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         const suggested = getSetPrefill(ex, setIdx, { previousExercise: prevExercise });
         const displayWeight = isLocked ? (setObj.weight ?? '') : suggested.weight;
         const displayReps = isLocked ? (setObj.reps ?? '') : suggested.reps;
-        const displayRpe = isLocked ? (setObj.rpe ?? '') : suggested.rpe;
+        // A suggested RPE is a training target, not a measurement. Show it only as a placeholder.
+        const displayRpe = setObj.rpe ?? '';
         const targetWeightDefault = ex.kgMin || ex.kgMax || 'Kg';
         const defaultTargetReps = ex.reps || ex.targetReps || 'reps';
 
@@ -219,7 +219,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                     <input type="text" inputmode="numeric" autocomplete="off" class="set-input set-reps ios-no-zoom ${repsClass} ${isUnsavedReps ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayReps)}" placeholder="${escapeHtml(defaultTargetReps)}" ${isDisabled ? 'disabled' : ''}>
                 </td>
                 <td class="td-input">
-                    <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe ios-no-zoom ${rpeClass} ${isUnsavedRpe ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayRpe)}" placeholder="${escapeHtml(ex.rpe || 'RPE')}" ${isDisabled ? 'disabled' : ''}>
+                    <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe ios-no-zoom ${rpeClass} ${isUnsavedRpe ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayRpe)}" placeholder="${escapeHtml(suggested.rpe ? 'Sug. ' + suggested.rpe : 'RPE')}" title="RPE percepito: inseriscilo se misurato. Il suggerimento non viene considerato un RPE reale." ${isDisabled ? 'disabled' : ''}>
                 </td>
                 <td class="td-check text-center">
                     <input type="checkbox" class="set-lock-check custom-big-check" aria-label="Conferma o riapri serie ${setIdx+1}" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''}>
@@ -234,9 +234,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     `;
 
     cardHtml += `
-        ${selected < logs.length && !isPastMeso && firstUnfinished !== -1
-            ? '<button type="button" class="btn btn-primary workout-confirm-set" aria-label="Conferma la serie selezionata">✓ Conferma serie '+(selected+1)+'</button>'
-            : ''}
+        <p class="workout-rpe-hint">✓ Spunta la serie per confermare i kg e le ripetizioni mostrati. L'RPE grigio è soltanto un suggerimento: inserisci il valore percepito, se lo conosci.</p>
     `;
     cardHtml += `
         <!-- Carico e dischi per la serie selezionata, non solo per il primo set -->
@@ -287,8 +285,15 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         renderWorkoutList();
     };
 
-    // Accessible, explicit action instead of accidental double tap or 300px swipe.
-    exCard.querySelector('.exercise-exclude-btn')?.addEventListener('click', toggleExclusion);
+    // Ripristino del gesto intenzionale: doppio click su desktop e swipe orizzontale >=300px su telefono.
+    // I campi, gli elementi interattivi e le note non devono attivare l'esclusione.
+    exCard.addEventListener('dblclick', event => {
+        // I doppi tocchi sul telefono non equivalgono a un doppio click da PC.
+        if (window.matchMedia?.('(pointer: coarse)').matches) return;
+        if (event.target.closest('input, select, textarea, button, a, label, summary, details')) return;
+        toggleExclusion();
+    });
+    enableCardSwipeGesture(exCard, toggleExclusion, toggleExclusion);
     exCard.querySelector('.exercise-coach-notes')?.addEventListener('toggle', event=>{
         expandedNotesByKey.set(uiKey,event.target.open);
     });
@@ -306,23 +311,12 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         if(title)title.textContent='Serie '+(idx+1)+' di '+logs.length+' selezionata';
         const platesTitle=exCard.querySelector('.plates-active-set');
         if(platesTitle)platesTitle.textContent=String(idx+1);
-        const confirm=exCard.querySelector('.workout-confirm-set');
-        if(confirm){
-            confirm.textContent='✓ Conferma serie '+(idx+1);
-            confirm.disabled=Boolean(logs[idx]?.isLocked||logs[idx]?.completed);
-        }
         updatePlatesBadgeUI(exIdx,exCard);
     };
     exCard.querySelectorAll('.workout-set-row').forEach(row=>{
         const idx=Number(row.dataset.setIndex);
         row.addEventListener('click',()=>selectSet(idx));
         row.addEventListener('focusin',()=>selectSet(idx));
-    });
-    exCard.querySelector('.workout-confirm-set')?.addEventListener('click',()=>{
-        const idx=Number(exCard.dataset.activeSet);
-        const checkbox=exCard.querySelector('.set-lock-check[data-set="'+idx+'"]');
-        if(checkbox && !checkbox.disabled && !checkbox.checked)checkbox.click();
-        // Native change handler remains the only writer and enforces coaching validation.
     });
     const barSelect=exCard.querySelector('.bar-select');
     if(barSelect){

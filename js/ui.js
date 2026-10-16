@@ -16,7 +16,6 @@ import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
 import { createLiveCoachPanel, updateLiveCoachPanel, refreshLiveCoachClock, dismissLiveCoachToast } from './liveCoachUI.js';
 import { toggleCurrentMesocycleLock } from './mesocycle.js';
 import { createWeeklyReviewPanel } from './weeklyReviewUI.js';
-import { createExerciseJumpNavigation } from './exerciseNavigation.js';
 
 export const DOM = {
     appContainer: document.getElementById('app-container'),
@@ -257,23 +256,17 @@ export function renderWorkoutList() {
     `;
     quickRow.appendChild(timerRow);
 
-    const moreActions = document.createElement('details');
-    moreActions.className = 'meso-more-actions';
-    const moreSummary = document.createElement('summary');
-    moreSummary.textContent = '⋯';
-    moreSummary.setAttribute('title', 'Opzioni mesociclo');
-    moreSummary.setAttribute('aria-label', 'Opzioni mesociclo');
-    const moreContent = document.createElement('div');
-    moreContent.className = 'meso-more-content';
+    // Blocco mesociclo sempre visibile, anche su smartphone.
     const lockButton = document.createElement('button');
     lockButton.type = 'button';
     lockButton.className = `btn btn-secondary btn-sm ${isLocked ? 'is-locked' : ''}`;
     lockButton.id = 'toggle-lock-meso-btn';
     lockButton.textContent = isLocked ? '🔒 Sblocca mesociclo' : '🔓 Blocca mesociclo';
     lockButton.title = isLocked ? 'Rendi modificabile il mesociclo' : 'Blocca il mesociclo';
-    moreContent.append(lockButton);
-    moreActions.append(moreSummary, moreContent);
-    quickRow.appendChild(moreActions);
+    lockButton.setAttribute('aria-pressed', String(isLocked));
+    lockButton.setAttribute('aria-label', isLocked ? 'Sblocca mesociclo' : 'Blocca mesociclo');
+    lockButton.classList.add('meso-direct-lock');
+    quickRow.appendChild(lockButton);
     unifiedHeaderBox.appendChild(quickRow);
 
     // I giorni restano accessibili tramite chip scorrevoli.
@@ -388,8 +381,6 @@ export function renderWorkoutList() {
         }
     }
 
-    // Navigation links scroll to the existing card: no new workout-data state.
-    createExerciseJumpNavigation(DOM.workoutListContainer,exercises);
     bindWorkoutTableEvents(currentDay, isPastMeso, renderWorkoutList);
     // Ora le input delle schede esistono: eventuali pulsanti di suggerimento
     // possono riferirsi solo a set futuri realmente modificabili.

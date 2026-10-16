@@ -341,7 +341,8 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/3');
   await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('80');
   await expect(page.locator('.set-reps[data-set="0"]')).toHaveValue('6');
-  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('8');
+  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('');
+  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveAttribute('placeholder','Sug. 8');
   assert.equal(await page.locator('.set-kg[data-set="0"]').getAttribute('placeholder'), '80');
 
   // Il CSV precompila, ma non crea serie confermate prima della spunta.
@@ -361,7 +362,8 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   await expect(page.locator('.mycoatch-live-advice-history')).not.toHaveAttribute('open', '');
   await expect(page.locator('.set-kg[data-set="1"]')).toHaveValue('80');
   await expect(page.locator('.set-reps[data-set="1"]')).toHaveValue('8');
-  await expect(page.locator('.set-rpe[data-set="1"]')).toHaveValue('9.5');
+  await expect(page.locator('.set-rpe[data-set="1"]')).toHaveValue('');
+  await expect(page.locator('.set-rpe[data-set="1"]')).toHaveAttribute('placeholder','Sug. 9.5');
   await expect(page.locator('#live-session-timer')).not.toHaveText('0:00');
 
   await page.locator('.mycoatch-live-toast .mycoatch-live-apply').click();
@@ -542,7 +544,8 @@ test('MyCoatch suggerisce la revisione della settimana seguente e applica solo d
   await panel.locator('.mycoatch-weekly-apply').click();
   await expect(page.locator('#mycoatch-weekly-review')).toContainText('Settimana 2 rivista');
   await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('');
-  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('7.5');
+  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('');
+  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveAttribute('placeholder','Sug. 7.5');
   let saved=await page.evaluate(async()=>{
     const {state}=await import('/js/state.js');
     const m=state.workoutData.history.years[new Date().getFullYear()].mesocycles[0];
@@ -559,7 +562,8 @@ test('MyCoatch suggerisce la revisione della settimana seguente e applica solo d
   await page.locator('.mycoatch-weekly-undo').click();
   await expect(page.locator('#mycoatch-weekly-review')).toContainText('Revisione settimana 2 da valutare');
   await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('82.5');
-  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('8');
+  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('');
+  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveAttribute('placeholder','Sug. 8');
   assert.deepEqual(monitoring.remoteRequests,[]);
   assert.deepEqual(monitoring.pageErrors,[]);
 });
@@ -614,7 +618,7 @@ test('ripetere una seduta archivia la sessione reale prima del nuovo allenamento
     await expect(page.locator(`.set-lock-check[data-set="${set}"]`)).not.toBeChecked();
     await expect(page.locator(`.set-kg[data-set="${set}"]`)).toHaveValue('80');
     await expect(page.locator(`.set-reps[data-set="${set}"]`)).toHaveValue('6');
-    await expect(page.locator(`.set-rpe[data-set="${set}"]`)).toHaveValue('8');
+    await expect(page.locator(`.set-rpe[data-set="${set}"]`)).toHaveValue('');
   }
   const result = await page.evaluate(async () => {
     const { state } = await import('/js/state.js');
@@ -1140,7 +1144,7 @@ test('CSV precompila davvero gli input, il check copia alle serie dopo senza inv
 
   await expect(kg(0)).toHaveValue('70');
   await expect(reps(0)).toHaveValue('8');
-  await expect(rpe(0)).toHaveValue('8');
+  await expect(rpe(0)).toHaveValue('');
   await expect(kg(1)).toHaveValue('70');
   await expect(reps(1)).toHaveValue('8');
 
@@ -1178,7 +1182,8 @@ test('CSV precompila davvero gli input, il check copia alle serie dopo senza inv
 
   await expect(kg(2)).toHaveValue('72.5');
   await expect(reps(2)).toHaveValue('9');
-  await expect(rpe(2)).toHaveValue('9');
+  await expect(rpe(2)).toHaveValue('');
+  await expect(rpe(2)).toHaveAttribute('placeholder','Sug. 9');
   const second = await page.evaluate(async () => {
     const { state } = await import('/js/state.js');
     const current = state.workoutData.history.years[String(new Date().getFullYear())].mesocycles.at(-1);
@@ -1218,7 +1223,8 @@ test('calibrazione CSV senza kg: il check richiede ancora un carico reale', asyn
   assert.equal(result.success,true);
   await expect(page.locator('.set-kg[data-ex="0"][data-set="0"]')).toHaveValue('');
   await expect(page.locator('.set-reps[data-ex="0"][data-set="0"]')).toHaveValue('6');
-  await expect(page.locator('.set-rpe[data-ex="0"][data-set="0"]')).toHaveValue('7.5');
+  await expect(page.locator('.set-rpe[data-ex="0"][data-set="0"]')).toHaveValue('');
+  await expect(page.locator('.set-rpe[data-ex="0"][data-set="0"]')).toHaveAttribute('placeholder','Sug. 7.5');
   // Il check viene annullato dalla validazione per assenza di kg.
   await page.locator('.set-lock-check[data-ex="0"][data-set="0"]').click();
   await expect(page.locator('.set-lock-check[data-ex="0"][data-set="0"]')).not.toBeChecked();
@@ -1260,7 +1266,7 @@ test('settimane successive: riusa soltanto le serie confermate dello stesso meso
   await expect(kg(1)).toHaveValue('65');
   await expect(reps(1)).toHaveValue('10');
   await expect(kg(2)).toHaveValue('70'); // non eseguito: CSV
-  await expect(rpe(0)).toHaveValue('8'); // solo RPE di programmazione
+  await expect(rpe(0)).toHaveValue(''); // solo RPE di programmazione
   await expect(check(0)).not.toBeChecked();
 
   const before = await page.evaluate(async () => {
@@ -1540,8 +1546,9 @@ test('punto 3: mobile card keeps previous performance, per-set plates, coach not
   await expect(card.locator('.history-content')).toContainText('72.5kg');
   await expect(card.locator('.exercise-coach-notes')).not.toHaveAttribute('open');
   await expect(card.locator('.workout-set-row.is-active-set')).toHaveAttribute('data-set-index','0');
-  await expect(page.locator('.workout-exercise-nav')).toBeVisible();
-  await expect(card.locator('.workout-confirm-set')).toBeVisible();
+  await expect(page.locator('.workout-exercise-nav')).toHaveCount(0);
+  await expect(card.locator('.workout-confirm-set')).toHaveCount(0);
+  await expect(page.locator('#toggle-lock-meso-btn')).toBeVisible();
 
   const secondKg=card.locator('.set-kg[data-set="1"]');
   await secondKg.fill('85');
@@ -1555,7 +1562,7 @@ test('punto 3: mobile card keeps previous performance, per-set plates, coach not
   await card.locator('.set-rpe[data-set="0"]').fill('8');
   await card.locator('.exercise-coach-notes summary').click();
   await expect(card.locator('.exercise-coach-notes')).toHaveAttribute('open');
-  await card.locator('.workout-confirm-set').click();
+  await card.locator('.set-lock-check[data-set="0"]').check();
   const first=await page.evaluate(async()=>{
     const {state}=await import('/js/state.js');
     const day=state.workoutData.history.years['2026'].mesocycles[0].weeks[1].days[0];
@@ -1575,29 +1582,84 @@ test('punto 3: mobile card keeps previous performance, per-set plates, coach not
   assert.deepEqual(monitoring.pageErrors,[]);
 });
 
-test('punto 3: 320px navigation, explicit exclusion reversal and no accidental double-tap',async({page})=>{
+test('mobile 320px: meso lock always visible, no nav, exclusion by double-click only',async({page})=>{
   await page.setViewportSize({width:320,height:760});
   await openIsolatedApp(page);
-  await page.evaluate(async()=>{
-    const {state}=await import('/js/state.js');
-    const {renderWorkoutList}=await import('/js/ui.js');
-    const first=state.workoutData.history.years['2026'].mesocycles[0].weeks[0].days[0].exercises[0];
-    const day=state.workoutData.history.years['2026'].mesocycles[0].weeks[0].days[0];
-    day.exercises.push({...first,name:'Rematore bilanciere',loggedSets:[{weight:'',reps:'',rpe:'',isLocked:false}]});
-    state.activeWeek=1;state.activeDay=1;renderWorkoutList();
-  });
-  const nav=page.locator('.workout-exercise-nav');
-  await expect(nav).toBeVisible();
-  await expect(nav.locator('.workout-jump-current')).toContainText('1/2');
-  await nav.getByRole('button',{name:'Esercizio successivo'}).click();
-  await expect(nav.locator('.workout-jump-current')).toContainText('2/2');
+  const lock=page.locator('#toggle-lock-meso-btn');
+  await expect(lock).toBeVisible();
+  await expect(page.locator('.meso-more-actions')).toHaveCount(0);
+  await expect(page.locator('.workout-exercise-nav')).toHaveCount(0);
+  page.on('dialog',dialog=>dialog.accept());
+  await lock.click();
+  await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Sblocca mesociclo');
+  await page.locator('#toggle-lock-meso-btn').click();
+  await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Blocca mesociclo');
   const card=page.locator('.ex-card[data-ex="0"]');
+  await expect(card.locator('.exercise-exclude-hint')).toContainText('Doppio click o swipe per escludere');
+  await expect(card.locator('.exercise-exclude-btn')).toHaveCount(0);
   await card.locator('.ex-name').dblclick();
-  await expect(card).not.toHaveClass(/is-excluded/);
-  await card.locator('.exercise-exclude-btn').click();
   await expect(page.locator('.ex-card[data-ex="0"]')).toHaveClass(/is-excluded/);
-  await page.locator('.ex-card[data-ex="0"] .exercise-exclude-btn').click();
+  await page.locator('.ex-card[data-ex="0"] .ex-name').dblclick();
   await expect(page.locator('.ex-card[data-ex="0"]')).not.toHaveClass(/is-excluded/);
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
   assert.ok(overflow<=2,'Unexpected horizontal overflow: '+overflow);
+});
+
+test('gesture: 299px ignores, 310px toggles, reverse toggles back, inputs cannot trigger',async({page})=>{
+  await page.setViewportSize({width:375,height:780});
+  await openIsolatedApp(page);
+  const swipe=async(x1,x2,selector='.ex-name')=>page.evaluate(([start,end,sel])=>{
+    const el=document.querySelector('.ex-card[data-ex="0"] '+sel);
+    const pt=x=>new Touch({identifier:7,target:el,clientX:x,clientY:240,pageX:x,pageY:240});
+    el.dispatchEvent(new TouchEvent('touchstart',{bubbles:true,touches:[pt(start)],changedTouches:[pt(start)]}));
+    el.dispatchEvent(new TouchEvent('touchmove',{bubbles:true,touches:[pt(end)],changedTouches:[pt(end)]}));
+    el.dispatchEvent(new TouchEvent('touchend',{bubbles:true,touches:[],changedTouches:[pt(end)]}));
+  },[x1,x2,selector]);
+  await swipe(340,41);
+  await expect(page.locator('.ex-card[data-ex="0"]')).not.toHaveClass(/is-excluded/);
+  await swipe(342,32);
+  await expect(page.locator('.ex-card[data-ex="0"]')).toHaveClass(/is-excluded/);
+  await swipe(32,342);
+  await expect(page.locator('.ex-card[data-ex="0"]')).not.toHaveClass(/is-excluded/);
+  await swipe(342,32,'.set-kg');
+  await expect(page.locator('.ex-card[data-ex="0"]')).not.toHaveClass(/is-excluded/);
+});
+
+test('checkbox accepts unchanged prefill and recheck edits, without inventing an RPE for MyCoatch',async({page})=>{
+  const monitoring=await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+  const kg=page.locator('.set-kg[data-set="0"]');
+  const reps=page.locator('.set-reps[data-set="0"]');
+  const rpe=page.locator('.set-rpe[data-set="0"]');
+  const check=page.locator('.set-lock-check[data-set="0"]');
+  await expect(kg).toHaveValue('80');
+  await expect(reps).toHaveValue('6');
+  await expect(rpe).toHaveValue('');
+  await expect(rpe).toHaveAttribute('placeholder','Sug. 8');
+  await expect(page.locator('.workout-confirm-set')).toHaveCount(0);
+  await check.check();  // no text-input event sent
+  await expect(check).toBeChecked();
+  let result=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const s=state.workoutData.history.years[new Date().getFullYear()].mesocycles[0].weeks[0].days[0].exercises[0].loggedSets[0];
+    return {weight:s.weight,reps:s.reps,rpe:s.rpe,isLocked:s.isLocked};
+  });
+  assert.deepEqual(result,{weight:80,reps:'6',rpe:'',isLocked:true});
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 1/3');
+  await check.uncheck();
+  await expect(kg).toBeEnabled();
+  await expect(reps).toBeEnabled();
+  await expect(rpe).toBeEnabled();
+  await kg.fill('85');
+  await reps.fill('8');
+  await rpe.fill('9');
+  await check.check();
+  result=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const s=state.workoutData.history.years[new Date().getFullYear()].mesocycles[0].weeks[0].days[0].exercises[0].loggedSets[0];
+    return {weight:s.weight,reps:s.reps,rpe:s.rpe,isLocked:s.isLocked};
+  });
+  assert.deepEqual(result,{weight:85,reps:'8',rpe:9,isLocked:true});
+  assert.deepEqual(monitoring.remoteRequests,[]);
+  assert.deepEqual(monitoring.pageErrors,[]);
 });
