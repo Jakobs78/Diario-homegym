@@ -1451,3 +1451,25 @@ test('shell compatto su smartphone stretto e navigazione mesocicli/settimane', a
   assert.deepEqual(monitoring.remoteRequests, []);
   assert.deepEqual(monitoring.pageErrors, []);
 });
+
+test('MyCoatch visual preview: all weeks shown and diary changes only after explicit apply', async ({ page })=>{
+  const monitoring=await openIsolatedApp(page);
+  await startCoach(page,'60');
+  page.on('dialog',async dialog=>dialog.accept());
+  await page.locator('#mycoatch-preview-btn').click();
+  await expect(page.locator('#mycoatch-preview-overlay')).not.toHaveClass(/hidden/);
+  await expect(page.locator('.mycoatch-preview-week')).toHaveCount(4);
+  await expect(page.locator('#mycoatch-preview-summary')).toContainText('scheda esistente rimane intatta');
+  const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('workoutApp_data')));
+  assert.deepEqual(before,fixture);
+  await page.locator('#mycoatch-preview-apply').click();
+  await expect(page.locator('#mycoatch-preview-overlay')).toHaveClass(/hidden/);
+  const updated=await page.evaluate(()=>{
+    const d=JSON.parse(localStorage.getItem('workoutApp_data'));
+    const mesos=d.history.years[new Date().getFullYear()].mesocycles;
+    return {count:mesos.length,first:mesos[0].name,last:mesos.at(-1).name,days:mesos.at(-1).weeks[0].days.map(x=>x.dayName)};
+  });
+  assert.equal(updated.count,2);
+  assert.deepEqual(updated.days,['Upper A','Lower A','Upper B','Lower B']);
+  assert.deepEqual(monitoring.pageErrors,[]);
+});
