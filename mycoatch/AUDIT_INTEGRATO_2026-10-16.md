@@ -47,3 +47,21 @@ L'app usa cache statiche versionate che includono `mycoatch/engine.js`, `mycoatc
 ## Criterio di approvazione
 
 **Blocco della PR finché non passano tutti i test funzionali ed E2E.** Nessuna modifica di dati privati, log completati, password, database o formato CSV; le correzioni operate dal coach restano condizionate alla qualità dell'evidenza e alla conferma esplicita. Dopo il merge, distinguere sempre stato GitHub da stato di deployment Vercel (non verificato).
+
+## Follow-up: recupero per regione (16 ottobre 2026)
+
+Il P2 sul veto globale attivato da un solo esercizio è stato affrontato con
+`recoveryScope.js` e test di regressione. Fatiche ripetute in una sola regione
+autorizzano un veto **locale**: RPE prudente, stop a top set, nuove tecniche
+e raggruppamenti nella regione coinvolta; niente trasferimento di volume
+accessorio di quella regione e una riduzione di una serie accessoria solo
+se non è già stato applicato un taglio (minimo due serie). Gli altri
+distretti non sono declassati automaticamente.
+
+Se segnali ripetuti riguardano **regioni distinte**, o categorie non
+riconosciute, resta il veto globale con scarico iniziale. `Back_Lats`
+e `Back_Thickness` costituiscono una regione, così come le categorie
+principali delle gambe. È una classificazione euristica dei log, non una
+diagnosi di fatica sistemica e non una prova che dolore o stress siano
+assenti. La cache PWA passa a **v21**, includendo il nuovo modulo;
+il deployment effettivo va verificato separatamente.
