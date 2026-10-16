@@ -47,6 +47,7 @@ test('a 30 minuti taglia gli accessori invece dei fondamentali', () => {
 
 test('sedute da 45 minuti possono preservare piu accessori usando superserie', () => {
     const day = makeMeso(45).weeks[0].days[0];
+    console.error('TIME45_DIAGNOSTIC',JSON.stringify({exercises:day.exercises.map(e=>({name:e.name,sets:e.setsCount,group:e.groupType})),audit:day.selectionAudit,estimate:day.estimatedMinutes}));
     assert.equal(day.exercises.length, 5);
     assert.ok(day.groupCount >= 1);
     assert.ok(day.estimatedMinutes <= 45);
