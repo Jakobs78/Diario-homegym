@@ -58,6 +58,8 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             }
             if (isReps) setObj.reps = val;
             if (isRpe) setObj.rpe = val;
+            // Un valore modificato non deve apparire ancora come suggerimento.
+            if (isKg || isReps || isRpe) target.classList.remove('text-placeholder-active');
 
             if (isKg) updatePlatesBadgeUI(exIdx);
 
@@ -142,9 +144,9 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             const rpeInput = rowCard?.querySelector(`.set-rpe[data-set="${setIdx}"]`);
 
             if (isChecked) {
-                // Il checkbox e' l'unica conferma: accetta i valori gia' visibili
-                // anche se l'atleta non ha digitato nulla. Il target RPE in grigio
-                // e' un placeholder, dunque non viene mai inventato come RPE reale.
+                // Il checkbox attesta l'intera riga, anche senza editare i campi.
+                // Kg/reps/RPE precompilati restano suggerimenti finche' non si spunta ✓.
+                // MyCoatch considera solo set isLocked/completed confermati.
                 const entered = {
                     weight: kgInput?.value ?? setObj.weight,
                     reps: repsInput?.value ?? setObj.reps,
