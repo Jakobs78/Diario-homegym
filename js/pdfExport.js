@@ -56,27 +56,8 @@ async function generateQRCodeDataUrl(text) {
         console.warn("new QRCode() non riuscito, proseguo con fallback API...", e);
     }
 
-    // 3. Fallback universale via Canvas / QR API (garantisce sempre l'immagine)
-    try {
-        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(text)}`;
-        const img = new Image();
-        img.crossOrigin = 'Anonymous';
-        return await new Promise((resolve) => {
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0);
-                resolve(canvas.toDataURL('image/png'));
-            };
-            img.onerror = () => resolve(null);
-            img.src = qrApiUrl;
-        });
-    } catch (e) {
-        console.warn("Generazione QR Code fallita:", e);
-    }
-
+    // Privacy / offline-first: never send the current diary URL to an
+    // external QR service. If both local generators fail, omit the QR.
     return null;
 }
 

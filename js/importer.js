@@ -115,6 +115,23 @@ export async function handleUniversalImport(file, statusMsgEl, closeModalCallbac
         try {
             const pdfData = await parseCoachPDF(file);
             const mappedData = mapPdfTextToWorkoutData(pdfData.cleanedText);
+            const preview=(mappedData?.weeks || []).flatMap(week=>
+                (week.days || []).flatMap(day=>(day.exercises || []).map(ex=>({
+                    week:week.weekNumber,day:day.dayName || day.dayNumber,
+                    name:ex.name,sets:ex.setsCount || ex.set || ex.loggedSets?.length || '?',
+                    reps:ex.reps || 'da verificare'
+                }))));
+            if(!preview.length)throw Error('Il PDF non contiene esercizi riconosciuti.');
+            const summary='PDF letto: '+mappedData.weeks.length+' settimane, '+
+                preview.length+' esercizi.\n\n'+
+                preview.slice(0,12).map(x=>'S'+x.week+' '+x.day+': '+x.name+
+                    ' · '+x.sets+' serie × '+x.reps+' reps').join('\n')+
+                (preview.length>12?'\n… e altri '+(preview.length-12)+' esercizi.':'')+
+                '\n\nControlla attentamente la scheda e i recuperi dopo l’importazione. Aggiungere questo mesociclo?';
+            if(!window.confirm(summary)){
+                if(statusMsgEl)statusMsgEl.textContent='Importazione annullata: lo storico è invariato.';
+                return;
+            }
             
             const currentYear = new Date().getFullYear().toString();
             if (!state.workoutData.history) state.workoutData.history = {};

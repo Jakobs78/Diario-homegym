@@ -7,11 +7,11 @@
     <link rel="stylesheet" href="css/style.css">
     
     <!-- Supabase JS Client -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/vendor/supabase.js"></script>
     <!-- Chart.js per le Dashboard e i Grafici -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+    <script src="js/vendor/chart.js"></script>
     <!-- jsPDF per esportazione report -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="js/vendor/jspdf.js"></script>
     <!-- SheetJS per la lettura nativa dei file Excel e CSV -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- PDF.js per la lettura dei file PDF della scheda allenamento -->
@@ -86,6 +86,7 @@
 
         <!-- Hidden file input per importazione storico -->
         <input type="file" id="import-history-input" accept=".csv" class="d-none">
+        <input type="file" id="restore-full-backup-input" accept=".json,application/json" class="d-none">
    
        <!-- Lista e Contenitori Allenamento (Generati Dinamicamente da JS) -->
         <div id="workout-list-container"></div>
@@ -102,6 +103,11 @@
                     <button class="filter-btn" data-range="all">Storico Completo</button>
                 </div>
 
+                <div class="analytics-meso-picker">
+                    <label for="analytics-meso-select">Mesociclo per le analisi Macro e Micro</label>
+                    <select id="analytics-meso-select" class="analytics-select" aria-label="Seleziona il mesociclo da analizzare"></select>
+                </div>
+
                 <!-- Sub-Tab di Navigazione -->
                 <div class="sub-tabs">
                     <button class="sub-tab-btn active" onclick="switchAnalyticsTab('subtab-macro')">📊 Macro Mesociclo</button>
@@ -113,23 +119,27 @@
                 <div id="subtab-macro" class="sub-tab-content active">
                     <div class="kpi-grid">
                         <div class="kpi-card">
-                            <span class="kpi-title">🎯 Aderenza Piano</span>
+                            <span class="kpi-title">🎯 Sedute completate</span>
                             <span id="kpi-adherence" class="kpi-value">--%</span>
                         </div>
                         <div class="kpi-card">
-                            <span class="kpi-title">🏋️ Volume Netto Totale</span>
+                            <span class="kpi-title">🏋️ Tonnellaggio eseguito</span>
                             <span id="kpi-volume" class="kpi-value">-- Ton</span>
                         </div>
                         <div class="kpi-card">
-                            <span class="kpi-title">⚡ Indice Fatica (RPE)</span>
+                            <span class="kpi-title">⚡ RPE medio registrato</span>
                             <span id="kpi-fatigue" class="kpi-value">--</span>
                             <span id="fatigue-status-badge" class="status-badge">🟢 Calcolo...</span>
                         </div>
                     </div>
 
                     <div class="chart-card">
-                        <h4>Set Allenanti Settimanali per Distretto Muscolare (Soglie Coach)</h4>
+                        <h4>Serie settimanali per muscolo: previste vs confermate</h4>
                         <canvas id="chart-muscle-volume"></canvas>
+                        </div>
+                        <div class="chart-card">
+                            <h4>Calendario delle sedute eseguite</h4>
+                            <div id="analytics-session-calendar"></div>
                     </div>
                 </div>
 
@@ -186,7 +196,7 @@
                         </div>
                     </div>
                     <div class="chart-card">
-                        <h4>Confronto Sovrapposto Volume & Intensità</h4>
+                        <h4>Confronto mesocicli: risultati reali e aderenza</h4>
                         <canvas id="chart-compare-mesos"></canvas>
                     </div>
                 </div>
@@ -229,8 +239,10 @@
                     <button class="sheet-item" data-action="export-meso-pdf">📑 Esporta Intero Mesociclo (PDF)</button>
                     <button class="sheet-item mycoatch-btn" data-action="generate-mycoatch-csv">🤖 Scarica Nuovo Mesociclo (.CSV) - MyCoatch</button>
                     <button class="sheet-item" data-action="import-plan">📥 Importa scheda allenamento</button>
-                    <button class="sheet-item" data-action="export-csv">💾 Backup storico CSV</button>
+                    <button class="sheet-item" data-action="export-csv">📄 Storico CSV (anno corrente)</button>
                     <button class="sheet-item" data-action="import-history">📥 Import storico CSV</button>
+                    <button class="sheet-item" data-action="backup-json">🛡️ Backup integrale diario (JSON)</button>
+                    <button class="sheet-item" data-action="restore-json">♻️ Ripristina diario dal backup JSON</button>
                     
                     <a href="mailto:tetrix@outlook.it?subject=Segnalazione%20Bug%20/%20Supporto%20Webapp&body=Ciao,%20ti%20scrivo%20perchè..." class="btn btn-secondary support-btn">
                         ✉️ Hai bisogno d'aiuto?
@@ -404,9 +416,32 @@
                     </fieldset>
                     <p class="mycoatch-form-hint">MyCoatch usa la durata scelta per progettare la seduta. Il riscaldamento generale non è obbligatorio; le serie di avvicinamento ai fondamentali restano consigliate.</p>
                     <p id="mycoatch-form-feedback" class="mycoatch-form-feedback" role="alert" aria-live="polite"></p>
+                    <button id="mycoatch-preview-btn" type="button" class="btn btn-secondary">👁️ Anteprima visiva e applica nel diario</button>
                     <button id="mycoatch-submit" type="submit" class="btn btn-primary">Genera e scarica CSV</button>
                 </form>
             </div>
+        </div>
+
+        <!-- Preview separated from the existing workout card layout. -->
+        <div id="mycoatch-preview-overlay" class="bottom-sheet-overlay hidden">
+          <div class="mycoatch-preview-content" role="dialog" aria-modal="true"
+            aria-labelledby="mycoatch-preview-title">
+            <div class="mycoatch-preview-header">
+              <h2 id="mycoatch-preview-title">Anteprima mesociclo MyCoatch</h2>
+              <button id="mycoatch-preview-close" type="button" class="btn btn-secondary" aria-label="Chiudi anteprima">✕</button>
+            </div>
+            <p id="mycoatch-preview-summary"></p>
+            <div id="mycoatch-preview-weeks"></div>
+            <details><summary>Motivazioni e analisi dello storico</summary>
+              <pre id="mycoatch-preview-explanation" class="mycoatch-preview-explanation"></pre>
+            </details>
+            <p id="mycoatch-preview-error" role="alert" aria-live="polite"></p>
+            <div class="mycoatch-preview-actions">
+              <button id="mycoatch-preview-apply" type="button" class="btn btn-primary">Applica come nuovo mesociclo</button>
+              <button id="mycoatch-preview-download" type="button" class="btn btn-secondary">Scarica CSV</button>
+              <button id="mycoatch-preview-cancel" type="button" class="btn btn-secondary">Annulla</button>
+            </div>
+          </div>
         </div>
 
         <!-- Modale Importazione Scheda Allenamento -->

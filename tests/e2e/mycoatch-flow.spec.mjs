@@ -1451,3 +1451,68 @@ test('shell compatto su smartphone stretto e navigazione mesocicli/settimane', a
   assert.deepEqual(monitoring.remoteRequests, []);
   assert.deepEqual(monitoring.pageErrors, []);
 });
+
+test('MyCoatch visual preview: all weeks shown and diary changes only after explicit apply', async ({ page })=>{
+  const monitoring=await openIsolatedApp(page);
+  await startCoach(page,'60');
+  page.on('dialog',async dialog=>dialog.accept());
+  await page.locator('#mycoatch-preview-btn').click();
+  await expect(page.locator('#mycoatch-preview-overlay')).not.toHaveClass(/hidden/);
+  await expect(page.locator('.mycoatch-preview-week')).toHaveCount(4);
+  await expect(page.locator('#mycoatch-preview-summary')).toContainText('scheda esistente rimane intatta');
+  const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('workoutApp_data')));
+  assert.deepEqual(before,fixture);
+  await page.locator('#mycoatch-preview-apply').click();
+  await expect(page.locator('#mycoatch-preview-overlay')).toHaveClass(/hidden/);
+  const updated=await page.evaluate(()=>{
+    const d=JSON.parse(localStorage.getItem('workoutApp_data'));
+    const mesos=d.history.years[new Date().getFullYear()].mesocycles;
+    return {count:mesos.length,first:mesos[0].name,last:mesos.at(-1).name,days:mesos.at(-1).weeks[0].days.map(x=>x.dayName)};
+  });
+  assert.equal(updated.count,2);
+  assert.deepEqual(updated.days,['Upper A','Lower A','Upper B','Lower B']);
+  assert.deepEqual(monitoring.pageErrors,[]);
+});
+
+test('analytics mesocycle selector isolates Macro/Micro across years',async({page})=>{
+  await page.addInitScript(()=>{window.Chart=class {constructor(){}destroy(){}};});
+  const monitoring=await openIsolatedApp(page);
+  await page.locator('#open-analytics-btn').click();
+  await page.locator('[data-subtab="subtab-macro"]').click();
+  const select=page.locator('#analytics-meso-select');
+  await expect(select).toBeVisible();
+  await expect(select.locator('option')).toHaveCount(2);
+  const options=await select.locator('option').evaluateAll(options=>
+    options.map(option=>({value:option.value,text:option.textContent})));
+  assert.ok(options[0].text.includes('Primo mesociclo'));
+  assert.ok(options[1].text.includes('Secondo mesociclo'));
+  await select.selectOption(options[0].value);
+  await expect(page.locator('#kpi-volume')).toHaveText('0.6 Ton');
+  await select.selectOption(options[1].value);
+  await expect(page.locator('#kpi-volume')).toHaveText('1.8 Ton');
+  await page.locator('#open-analytics-btn').click();
+  await page.locator('[data-subtab="subtab-micro"]').click();
+  await expect(select).toHaveValue(options[1].value);
+  assert.deepEqual(monitoring.pageErrors,[]);
+});
+
+test('signed-in local snapshots are isolated by account id',async({page})=>{
+  await openIsolatedApp(page);
+  const result=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {saveToLocalStorage,getFromLocalStorageForUser}=await import('/js/storage.js');
+    const original=state.currentUser;
+    state.currentUser={id:'athlete-A',email:'a@invalid.example'};
+    saveToLocalStorage({history:{years:{'2025':{mesocycles:[]}}},updatedAt:'2025-01-01T00:00:00Z'});
+    const a=getFromLocalStorageForUser({id:'athlete-A'});
+    const b=getFromLocalStorageForUser({id:'athlete-B'});
+    state.currentUser={id:'athlete-B',email:'b@invalid.example'};
+    saveToLocalStorage({history:{years:{'2026':{mesocycles:[]}}}});
+    const aStill=getFromLocalStorageForUser({id:'athlete-A'});
+    const bNow=getFromLocalStorageForUser({id:'athlete-B'});
+    state.currentUser=original;
+    return {a:Object.keys(a.history.years),b:Object.keys(b.history.years),
+      aStill:Object.keys(aStill.history.years),bNow:Object.keys(bNow.history.years)};
+  });
+  assert.deepEqual(result,{a:['2025'],b:[],aStill:['2025'],bNow:['2026']});
+});

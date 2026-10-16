@@ -7,7 +7,8 @@
 // ==========================================
 import { CONFIG, supabase } from './config.js';
 import { state } from './state.js';
-import { getFromLocalStorage, saveToLocalStorage, hasPendingSync, processSyncQueue, clearLocalData, updateSyncStatusUI } from './storage.js';
+import { getFromLocalStorage, getFromLocalStorageForUser, getStoredLocalOwner,
+    saveToLocalStorage, saveAndSync, hasPendingSync, processSyncQueue, clearLocalData, updateSyncStatusUI } from './storage.js';
 import { pullDataFromSupabase, initBackgroundSync } from './sync.js';
 import { renderWorkoutList } from './ui.js';
 import { handlePdfExportFromState } from './pdfExport.js';
@@ -23,9 +24,13 @@ import { setupBottomSheet } from './bottomSheet.js';
 import { initDevBanner } from './bannerSviluppo.js';
 import { applyUserToUI, checkSubscriptionStatus, deleteUserAccount } from './accountManager.js';
 // Corretto il percorso dell'import relativo
-import { startCoachChatAndGenerate, generateAndDownloadMesocycleCSV } from '../mycoatch/mycoatch-adapter.js';
+import { startCoachChatAndGenerate, generateAndDownloadMesocycleCSV,
+    createVisualCoachProposal, clearVisualCoachProposal, downloadVisualCoachProposal
+} from '../mycoatch/mycoatch-adapter.js';
+import { initCoachPreview } from './coachPreviewUI.js';
 import { parseCoachPreferences } from '../mycoatch/userPreferences.js';
 import { DEFAULT_HOME_GYM_ACCESSORIES } from '../mycoatch/exercisesDB.js';
+import { downloadFullBackup, restoreFullBackupFile } from './fullBackup.js';
 
 // Esposizione globale per eventi inline / retrocompatibilità
 window.logoutUser = logoutUser;
@@ -38,15 +43,26 @@ window.switchAnalyticsTab = switchAnalyticsTab;
 // ==========================================
 supabase.auth.onAuthStateChange(async (event, session) => {
     if (session?.user) {
+        const owner=getStoredLocalOwner();
         state.currentUser = session.user;
+        if(owner && owner!==String(session.user.id)){
+            state.workoutData=getFromLocalStorageForUser(session.user);
+            renderWorkoutList();
+        }
         applyUserToUI(session.user);
 
         try {
             const remoteData = await pullDataFromSupabase(session.user);
-            if (remoteData) {
-                state.workoutData = remoteData;
-                saveToLocalStorage(remoteData);
-                renderWorkoutList();
+            if (remoteData && !hasPendingSync()) {
+                const localStamp=Date.parse(state.workoutData?.updatedAt || '') || 0;
+                const remoteStamp=Date.parse(remoteData.updatedAt || '') || 0;
+                const hasLocalHistory=Object.values(state.workoutData?.history?.years || {})
+                    .some(year=>year?.mesocycles?.length>0);
+                if(remoteStamp>localStamp || !hasLocalHistory){
+                    state.workoutData=remoteData;
+                    saveToLocalStorage(remoteData,{preserveUpdatedAt:true});
+                    renderWorkoutList();
+                }
             }
         } catch (err) {
             console.warn("Errore caricamento dati da cloud all'auth change:", err);
@@ -67,7 +83,7 @@ async function initApp() {
     initDevBanner();
     initBackgroundSync(state);
     
-    const localData = getFromLocalStorage();
+    let localData = getFromLocalStorage();
     state.workoutData = localData;
     updateSyncStatusUI();
     
@@ -76,6 +92,8 @@ async function initApp() {
 
         if (user) {
             state.currentUser = user;
+            localData=getFromLocalStorageForUser(user);
+            state.workoutData=localData;
             const authOverlay = document.getElementById('auth-overlay');
             if (authOverlay) authOverlay.classList.add('d-none');
 
@@ -95,7 +113,7 @@ async function initApp() {
 
                     if (remoteTime > localTime && !hasPendingSync()) {
                         state.workoutData = remoteData;
-                        saveToLocalStorage(remoteData); 
+                        saveToLocalStorage(remoteData,{preserveUpdatedAt:true}); 
                     }
                 } else {
                     console.log("⚠️ Cloud vuoto o non raggiungibile: mantengo i dati locali in sicurezza.");
@@ -222,13 +240,8 @@ function setupEventListeners() {
         input.max = new Date().toISOString().slice(0, 10);
     }
 
-    coachForm?.addEventListener('submit', async event => {
-        event.preventDefault();
-        if (coachSubmit?.disabled) return;
-
-        let options;
-        try {
-            options = parseCoachPreferences({
+    function readCoachOptions() {
+        return parseCoachPreferences({
                 selectedTime: timeSelect?.value,
                 customTime: customTime?.value,
                 daysPerWeek: document.getElementById('select-days')?.value,
@@ -255,9 +268,19 @@ function setupEventListeners() {
                             performedOn: document.getElementById('mycoatch-load-' + lift + '-date')?.value || ''
                         }]))
                 }
-            });
-        } catch (error) {
-            if (coachFeedback) coachFeedback.textContent = error.message;
+            })
+    }
+
+    initCoachPreview(readCoachOptions,coachModal);
+
+    coachForm?.addEventListener('submit', async event => {
+        event.preventDefault();
+        if (coachSubmit?.disabled) return;
+
+        let options;
+        try { options=readCoachOptions(); }
+        catch(error) {
+            if(coachFeedback)coachFeedback.textContent=error.message;
             return;
         }
 
@@ -359,6 +382,12 @@ function setupEventListeners() {
                 case 'import-history':
                     document.getElementById('import-history-input')?.click();
                     break;
+                case 'backup-json':
+                    downloadFullBackup(state.workoutData);
+                    break;
+                case 'restore-json':
+                    document.getElementById('restore-full-backup-input')?.click();
+                    break;
                 case 'reset-meso':
                     deleteCurrentMesocycle();
                     break;
@@ -402,6 +431,17 @@ function setupEventListeners() {
         e.target.value = '';
     });
 
+    document.getElementById('restore-full-backup-input')?.addEventListener('change', async (e)=>{
+        const file=e.target.files?.[0];
+        if(!file)return;
+        try {
+            await restoreFullBackupFile(file,{state,saveAndSync,renderWorkoutList});
+        } catch(err) {
+            alert('Ripristino non eseguito: '+err.message);
+        } finally {
+            e.target.value='';
+        }
+    });
     document.getElementById('week-selector')?.addEventListener('change', (e) => {
         state.activeWeek = parseInt(e.target.value, 10);
         localStorage.setItem('ui_active_week', state.activeWeek);

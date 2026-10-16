@@ -2572,3 +2572,44 @@ body.dark-mode .group-title-badge {
     font-weight: 650;
 }
 .mycoatch-weekly-error:empty { display:none; }
+
+/* Preview MyCoatch: outside the live workout layout (no card changes). */
+#mycoatch-preview-overlay { z-index: 1100; justify-content:center; align-items:center; }
+.mycoatch-preview-content {
+    width:min(95vw,850px);max-height:88dvh;overflow:auto;overscroll-behavior:contain;
+    background:var(--card-bg);color:var(--text-color);border-radius:16px;
+    padding:16px;box-shadow:0 14px 45px rgba(0,0,0,.2);
+}
+.mycoatch-preview-header {display:flex;justify-content:space-between;align-items:center;gap:12px;}
+.mycoatch-preview-header h2 {font-size:1.12rem;margin:0;}
+.mycoatch-preview-content summary {cursor:pointer;font-weight:700;padding:10px;}
+.mycoatch-preview-week {border:1px solid var(--border-color);border-radius:10px;margin:8px 0;}
+.mycoatch-preview-day {padding:7px 12px;border-top:1px solid var(--border-color);}
+.mycoatch-preview-day h4 {margin:4px 0 8px;}
+.mycoatch-preview-day ul {margin:0 0 7px;padding-left:20px;}
+.mycoatch-preview-day li {margin:4px 0;line-height:1.45;overflow-wrap:anywhere;}
+.mycoatch-preview-explanation {white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:.82rem;}
+.mycoatch-preview-actions {display:flex;flex-wrap:wrap;gap:9px;margin-top:13px;}
+.mycoatch-preview-actions button {min-height:44px;flex:1 1 160px;}
+#mycoatch-preview-error {color:#b91c1c;}
+
+.meso-comparison-table {width:100%;border-collapse:collapse;font-size:.85rem;}
+.meso-comparison-table th,.meso-comparison-table td {
+    padding:10px 7px;border-bottom:1px solid var(--border-color);text-align:left;
+    overflow-wrap:anywhere;
+}
+.meso-comparison-table th {background:var(--block-bg);}
+.meso-comparison-table tr td:first-child {font-weight:650;}
+
+/* Long management menus remain scrollable on phones; workout cards unchanged. */
+#tools-modal .bottom-sheet-content {max-height:88dvh;overflow-y:auto;overscroll-behavior:contain;}
+
+.training-calendar-month {border:1px solid var(--border-color);border-radius:9px;margin:7px 0;padding:8px 12px;}
+.training-calendar-month summary {cursor:pointer;font-weight:700;text-transform:capitalize;}
+.training-calendar-month ul {padding-left:18px;margin:10px 0;}
+.training-calendar-month li {margin:6px 0;font-size:.86rem;line-height:1.45;}
+
+.analytics-meso-picker {display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:7px 0 14px;}
+.analytics-meso-picker label {font-size:.83rem;font-weight:700;}
+.analytics-meso-picker select {flex:1;min-width:160px;min-height:42px;padding:8px;
+    background:var(--card-bg);color:var(--text-color);border:1px solid var(--border-color);border-radius:9px;}

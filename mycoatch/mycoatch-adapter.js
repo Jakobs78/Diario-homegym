@@ -81,6 +81,36 @@ export async function generateAndDownloadMesocycleCSV(options = {}) {
  * Apre la configurazione MyCoatch. La scelta del tempo e' obbligatoria a ogni generazione.
  * Il submit convalida i dati in js/main.js prima di chiamare l'adapter.
  */
+export async function createVisualCoachProposal(options={}) {
+    const minutes=Number(options.maxSessionMinutes);
+    if(!Number.isInteger(minutes)||minutes<25||minutes>180)
+        throw Error('Indica il tempo reale della seduta.');
+    const hasHistory=data=>Boolean(data?.history?.years &&
+        Object.values(data.history.years).some(year=>year?.mesocycles?.length>0));
+    let history=hasHistory(state.workoutData)?state.workoutData:null;
+    if(!history){
+        try{
+            const raw=localStorage.getItem(CONFIG.STORAGE_KEY);
+            const local=raw?JSON.parse(raw):null;
+            if(hasHistory(local))history=local;
+        }catch { /* No assumption about corrupted browser cache */ }
+    }
+    if(!history&&state.currentUser){
+        const remote=await pullDataFromSupabase(state.currentUser);
+        if(hasHistory(remote))history=remote;
+    }
+    const proposal=MyCoatch.generateNextFromHistory(history||{},options);
+    return {
+        proposal,csv:MyCoatch.exportAsCSV(),
+        review:formatCoachReview(proposal.coachReport.comparison,proposal.coachReport)
+    };
+}
+
+export function clearVisualCoachProposal(){MyCoatch.clearProposal();}
+
+export function downloadVisualCoachProposal(){return downloadMesocycleCSV();}
+
+/** Opens MyCoatch configuration. */
 export function startCoachChatAndGenerate() {
     const modal = document.getElementById('mycoatch-config-modal');
     if (!modal) {
