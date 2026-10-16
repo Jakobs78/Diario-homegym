@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v28-training-calendar';
+const CACHE_NAME = 'workout-app-v29-analytics-selectors';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [

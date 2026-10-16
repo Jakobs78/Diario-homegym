@@ -2608,3 +2608,8 @@ body.dark-mode .group-title-badge {
 .training-calendar-month summary {cursor:pointer;font-weight:700;text-transform:capitalize;}
 .training-calendar-month ul {padding-left:18px;margin:10px 0;}
 .training-calendar-month li {margin:6px 0;font-size:.86rem;line-height:1.45;}
+
+.analytics-meso-picker {display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:7px 0 14px;}
+.analytics-meso-picker label {font-size:.83rem;font-weight:700;}
+.analytics-meso-picker select {flex:1;min-width:160px;min-height:42px;padding:8px;
+    background:var(--card-bg);color:var(--text-color);border:1px solid var(--border-color);border-radius:9px;}

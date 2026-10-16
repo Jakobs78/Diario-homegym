@@ -265,6 +265,11 @@ export function initMacroMesoSelector(workoutData) {
 
     if (currentVal && mesos.some(m => String(m.id) === currentVal)) {
         mesoSelect.value = currentVal;
+    } else {
+        const year=String(state.currentYear || new Date().getFullYear());
+        const active=mesos.find(m=>m.sourceYear===year &&
+            m.sourceIndex===(state.activeMesocycleIndex || 0));
+        mesoSelect.value=String((active || mesos[mesos.length-1]).id);
     }
 
     mesoSelect.onchange = () => {
@@ -636,6 +641,11 @@ export function initAnalyticsEvents(workoutData) {
 
             if (currentSelectedMeso && mesos.some(m => String(m.id) === currentSelectedMeso)) {
                 mesoSelect.value = currentSelectedMeso;
+            } else {
+                const year=String(state.currentYear || new Date().getFullYear());
+                const active=mesos.find(m=>m.sourceYear===year &&
+                    m.sourceIndex===(state.activeMesocycleIndex || 0));
+                mesoSelect.value=String((active||mesos[mesos.length-1]).id);
             }
         }
 
