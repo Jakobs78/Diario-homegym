@@ -63,3 +63,20 @@ Un coach software spiegabile e prudente che adatta **proposte** di microciclo/me
 - **Bilancio settimanale:** gli accessori non selezionati per il tempo non vengono contati come già programmati nella scelta degli altri giorni. Il ribilanciamento successivo può recuperare parte del volume compatibile e ne registra chiaramente gli spostamenti; non dichiara come recuperato il lavoro impossibile.
 - **Trasparenza CSV:** l'anteprima descrive il nucleo protetto, le ragioni degli accessori selezionati, gli esercizi inizialmente omessi e il ribilanciamento successivo. I dati rimangono solo proposte: nessuna modifica allo storico né inventario dei kg già svolti.
 - **Limite ancora presente:** lo split 3 giorni Full Body o 4 giorni Upper/Lower e gli slot motori fondamentali sono deliberatamente mantenuti. È un *selettore adattivo all'interno di uno split sicuro*, non un algoritmo che inventa liberamente qualunque split o un preparatore umano.
+
+
+## Autonomia con diritto di veto e revisione evidenze (16 ottobre 2026)
+
+**Gerarchia:** registrazioni attendibili, recupero e vincoli reali dell'atleta prima di qualsiasi preferenza estetica, aumento di carico o tecnica speciale. Il coach puo' rifiutare o rinviare una richiesta, spiegando nell'anteprima della scheda *perche'*. Non esegue cambiamenti invisibili sui workout gia' salvati.
+
+- **Veto sullo scarico:** fatica ripetuta e supportata da almeno due settimane differenti fa partire la settimana di recupero anche se l'utente vuole evitarla o rinviarla. Il resto del blocco proposto usa RPE prudenziali finche' mancano nuove osservazioni.
+- **Veto sulla specializzazione:** in presenza dei medesimi segnali non aggiunge serie o esercizi dedicati al distretto richiesto, anche se la priorita' muscolare e' stata esplicitamente impostata.
+- **Veto su dropset e top set:** niente nuove tecniche di intensita' con fatica confermata. Un top set, anche se attivato nelle opzioni, richiede due settimane distinte di serie confermate con RPE misurato entro target; non prevede peso superiore al carico verificato, ne' prevede cedimento.
+- **Assenza di dati ≠ conferma di recupero:** non si attribuisce un RPE mancante al valore target e non si deduce che una persona abbia recuperato da un semplice calendario.
+- **Controllo scientifico** basato su ricerche sottoposte a revisione paritaria e riesaminate il **2026-10-16**:
+  - Pelland et al., *Sports Medicine* (2026), DOI [10.1007/s40279-025-02344-w](https://doi.org/10.1007/s40279-025-02344-w): relazione dose-risposta fra volume settimanale e ipertrofia/forza con rendimenti decrescenti, conteggio frazionario del lavoro indiretto. Non ne deriva un numero magico universale di serie.
+  - Zhang et al., *Sports Medicine* (2025), DOI [10.1007/s40279-025-02176-8](https://doi.org/10.1007/s40279-025-02176-8): superserie come alternativa efficiente in termini di tempo, non automaticamente superiore; aumento medio dello sforzo percepito.
+  - Sødal et al., *Sports Medicine - Open* (2023), DOI [10.1186/s40798-023-00620-5](https://doi.org/10.1186/s40798-023-00620-5): nessun vantaggio statisticamente significativo dei dropset sull'ipertrofia rispetto alle serie normali, ma risparmio di tempo in alcuni protocolli.
+  - Grgic et al., *Sports Medicine* (2023), DOI [10.1007/s40279-022-01784-y](https://doi.org/10.1007/s40279-022-01784-y): allenamento al cedimento muscolare momentaneo non dimostrato superiore in modo generale.
+- **Nessun aggiornamento scientifico automatico:** la PWA non consulta PubMed in tempo reale. L'archivio studi versionato nel codice (coachGuardrails.js) richiede aggiornamento e verifica delle fonti prima di cambiare le regole. Evitare affermazioni come "sempre allineato all'ultimo studio".
+- **Allenatori celebri e tecniche famose:** nessun protocollo deve essere adottato per notorieta' del suo inventore. MyCoatch usa l'opzione quando vi sono scopo plausibile, compatibilita' con l'esercizio, evidenza, tempo e segnali di tolleranza documentati; altrimenti rifiuta. Il programma non equivale a un allenatore d'elite che esamina tecnica, dolore, sonno e fisiologia in presenza.
