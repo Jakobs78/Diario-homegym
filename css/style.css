@@ -2486,3 +2486,53 @@ body.dark-mode .group-title-badge {
 @media (prefers-reduced-motion: reduce) {
     .mycoatch-live-trigger::after { transition: none; }
 }
+
+/* Check-in seduta: compatto, leggibile su smartphone, senza modal. */
+.mycoatch-session-checkin {
+    margin: 8px 0 12px;
+    padding: 9px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+}
+.mycoatch-session-checkin > summary {
+    cursor: pointer;
+    font-weight: 700;
+    font-size: .83rem;
+}
+.mycoatch-checkin-body { display: grid; gap: 8px; padding-top: 8px; }
+.mycoatch-checkin-message {
+    margin: 0;
+    font-size: .79rem;
+    line-height: 1.45;
+}
+.mycoatch-checkin-warning { font-weight: 650; }
+.mycoatch-checkin-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+.mycoatch-checkin-fields label {
+    display: grid;
+    gap: 3px;
+    font-weight: 600;
+    font-size: .75rem;
+    min-width: 0;
+}
+.mycoatch-checkin-fields select {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    padding: 7px 4px;
+    background: var(--card-bg, var(--bg-color));
+    color: var(--text-color);
+    font: inherit;
+    font-size: .78rem;
+}
+.mycoatch-checkin-form .btn { margin-top: 8px; }
+.mycoatch-checkin-disclaimer {
+    font-size: .7rem;
+    line-height: 1.4;
+    color: var(--text-muted);
+}
+.mycoatch-session-adjustment { font-weight: 650; }
