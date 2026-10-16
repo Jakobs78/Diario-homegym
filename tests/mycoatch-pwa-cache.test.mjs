@@ -4,7 +4,7 @@ import { access, readFile } from 'node:fs/promises';
 
 test('PWA caches every necessary JS module for new MyCoatch and prefilled workout cards', async () => {
     const script=await readFile(new URL('../sw.js',import.meta.url),'utf8');
-    assert.match(script,/CACHE_NAME\s*=\s*'workout-app-v15-/);
+    assert.match(script,/CACHE_NAME\s*=\s*'workout-app-v16-/);
     const routes=[...script.matchAll(/'\/(?:js|mycoatch)\/[^']+\.js'/g)]
         .map(match=>match[0].slice(1,-1));
     for (const module of [
@@ -14,6 +14,7 @@ test('PWA caches every necessary JS module for new MyCoatch and prefilled workou
         '/mycoatch/macrocyclePlanner.js',
         '/mycoatch/volumeAccounting.js',
         '/mycoatch/periodizationPolicy.js',
+        '/mycoatch/sessionSelection.js',
         '/mycoatch/prescriptionPolicy.js',
         '/mycoatch/intensityTechniquePolicy.js'
     ]) assert.ok(routes.includes(module),module+' missing from the offline cache');
