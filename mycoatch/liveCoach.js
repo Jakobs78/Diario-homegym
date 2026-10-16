@@ -275,6 +275,51 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
     };
 }
 
+/**
+ * Adattamento intra-seduta solo su serie REALMENTE confermate.
+ * Non dedurre stanchezza clinica, non modificare automaticamente serie,
+ * recuperi o peso e non togliere movimenti fondamentali.
+ */
+export function assessSessionAdjustment(day, readiness = null) {
+    const hard = [];
+    for (const exercise of day?.exercises || []) {
+        if (exercise?.isExcluded) continue;
+        const goal = plannedRpe(exercise);
+        for (const set of exercise?.loggedSets || []) {
+            const real = normalizedConfirmedSet(set, exercise);
+            if (!real || real.technique || real.rpe === null) continue;
+            if (real.rpe >= 9.5 ||
+                (goal !== null && real.rpe >= goal + 1)) {
+                hard.push({ name: exercise.name, rpe: real.rpe });
+            }
+        }
+    }
+    if (readiness?.level === 'stop') return {
+        action: 'stop', hardSets: hard.length, accessoryCandidates: [],
+        message: 'Dolore presente: evita l’esercizio doloroso e non forzare la seduta. ' +
+            'MyCoatch non modifica le serie già registrate.'
+    };
+    if (hard.length < 2) return null;
+
+    const optional = (day?.exercises || []).filter(ex =>
+        !ex.isExcluded && (ex.pattern === 'isolation' || ex.isOptional) &&
+        !ex.anchorKey && !ex.priorityProtected &&
+        (ex.loggedSets || []).length > 0 &&
+        (ex.loggedSets || []).every(set => !isConfirmed(set) || isWarmup(set))
+    ).map(ex => ex.name);
+    return {
+        action: 'reduce', hardSets: hard.length,
+        accessoryCandidates: optional,
+        message: 'Più serie confermate con RPE oltre il previsto: ' +
+            'rispetta pause complete, non aumentare i kg e valuta di ' +
+            (optional.length ?
+                'ridurre o saltare solo gli accessori non iniziati (' +
+                optional.slice(0,2).join(', ') + ').' :
+                'ridurre il carico del prossimo set se la tecnica peggiora.') +
+            ' Nessuna serie viene modificata automaticamente.'
+    };
+}
+
 function elapsedSeconds(day, now) {
     if (day?.completed && Number.isFinite(day.totalDurationMinutes))
         return Math.max(0, day.totalDurationMinutes * 60);
@@ -375,6 +420,7 @@ export function buildLiveSessionSnapshot(day, { now = Date.now(), history = null
     const e1rmChangePercent = previous?.e1rm !== null && previous?.e1rm > 0 &&
         lastAdvice?.e1rm !== null && lastAdvice?.e1rm !== undefined
         ? Math.round(1000 * (lastAdvice.e1rm / previous.e1rm - 1)) / 10 : null;
+    const sessionAdjustment = assessSessionAdjustment(day, readiness);
     const time = plannedTimeMinutes(day);
     const projected = remaining === null ? null
         : Math.ceil((seconds + remaining) / 60);
@@ -397,6 +443,7 @@ export function buildLiveSessionSnapshot(day, { now = Date.now(), history = null
         possibleOverrun,
         lastAdvice,
         readiness,
+        sessionAdjustment,
         previousExercise: previous,
         e1rmChangePercent,
         paceCalibration: pace,
