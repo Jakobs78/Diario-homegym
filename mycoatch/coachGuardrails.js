@@ -4,8 +4,6 @@
  * Le soglie sono euristiche conservative: nessuna diagnosi medica o misura
  * automatica della tecnica, della crescita o del recupero.
  */
-import { canonicalExerciseKey } from './exerciseIdentity.js';
-
 export const SCIENCE_SNAPSHOT = Object.freeze({
     reviewedOn:'2026-10-16',
     automaticLiteratureUpdates:false,
@@ -63,13 +61,24 @@ export function evaluateCoachingGuardrails(config={}, history={}, onboarding={})
             muscle:athletePriority
         });
     }
-    if(config.useTopset===true && (recoveryRequired ||
-        onboarding.calibrationWeek || onboarding.experience==='beginner')){
-        reasons.push({
-            code:'TOPSET_VETO',
-            decision:'TOP SET NON AUTORIZZATO',
-            reason:'Un top set opzionale non è prioritario in recupero, durante la calibrazione o per un principiante.'
-        });
+    if(config.useTopset===true){
+        const anyEligible=exercises.some(ex=>authorizeTopset(ex,{
+            recoveryRequired,calibrationWeek:onboarding.calibrationWeek,
+            experience:onboarding.experience
+        }));
+        if(!anyEligible){
+            reasons.push({
+                code:'TOPSET_VETO',
+                decision:'TOP SET NON AUTORIZZATO',
+                reason:'La richiesta di top set è respinta: servono almeno due settimane confrontabili con tutte le serie completate, RPE misurati entro target e recupero adeguato.'
+            });
+        } else {
+            reasons.push({
+                code:'TOPSET_CONDITIONAL',
+                decision:'TOP SET SOLTANTO DOVE DOCUMENTATO',
+                reason:'La preferenza non autorizza carichi extra: i top set si usano solo su movimenti con storico sufficiente e con peso già verificato.'
+            });
+        }
     }
     return {
         version:1,
@@ -100,9 +109,3 @@ export function authorizeTopset(exerciseHistory,{recoveryRequired=false,
         ex.allStraightSets===true && ex.avgRpe!==null && ex.avgRpe<=8.5);
 }
 
-/** Nessuna tecnica addizionale su lavoro diretto di distretti con fatica
- * documentata, anche se il profilo richiede 'più intensità'. */
-export function allowMuscleIntensification(category,guardrails) {
-    if(guardrails?.recoveryRequired) return false;
-    return true;
-}
