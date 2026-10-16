@@ -46,9 +46,10 @@ export function hasPendingSync() {
 // ==========================================
 // 3. OPERAZIONI LOCALSTORAGE
 // ==========================================
-export function saveToLocalStorage(data) {
+export function saveToLocalStorage(data, {preserveUpdatedAt = false} = {}) {
     try {
-        data.updatedAt = new Date().toISOString();
+        // Cloud hydration MUST NOT change the original modification timestamp.
+        if (!preserveUpdatedAt) data.updatedAt = new Date().toISOString();
         localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(data));
         state.workoutData = data;
     } catch (e) {
@@ -115,9 +116,12 @@ export async function processSyncQueue() {
             if (!success) {
                 throw new Error(`Sincronizzazione fallita per l'azione ${action.id}`);
             }
+            // Keep edits enqueued during the network request; only delete
+            // entries that were actually acknowledged by the cloud.
+            const remaining=getQueue().filter(item=>item.id!==action.id);
+            if(remaining.length)localStorage.setItem(QUEUE_KEY,JSON.stringify(remaining));
+            else clearQueue();
         }
-        
-        clearQueue();
     } catch (error) {
         console.error("❌ Errore durante la sincronizzazione cloud (i dati restano in coda):", error);
     } finally {

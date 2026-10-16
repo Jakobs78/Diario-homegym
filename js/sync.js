@@ -195,7 +195,7 @@ export function initBackgroundSync(state) {
 
                     if (remoteTime > localTime) {
                         state.workoutData = remoteData;
-                        saveToLocalStorage(remoteData);
+                        saveToLocalStorage(remoteData,{preserveUpdatedAt:true});
                         renderWorkoutList();
                         updateSyncStatusUI();
                         showSyncToast("Dati aggiornati dal cloud ✨");

@@ -86,6 +86,7 @@
 
         <!-- Hidden file input per importazione storico -->
         <input type="file" id="import-history-input" accept=".csv" class="d-none">
+        <input type="file" id="restore-full-backup-input" accept=".json,application/json" class="d-none">
    
        <!-- Lista e Contenitori Allenamento (Generati Dinamicamente da JS) -->
         <div id="workout-list-container"></div>
@@ -229,8 +230,10 @@
                     <button class="sheet-item" data-action="export-meso-pdf">📑 Esporta Intero Mesociclo (PDF)</button>
                     <button class="sheet-item mycoatch-btn" data-action="generate-mycoatch-csv">🤖 Scarica Nuovo Mesociclo (.CSV) - MyCoatch</button>
                     <button class="sheet-item" data-action="import-plan">📥 Importa scheda allenamento</button>
-                    <button class="sheet-item" data-action="export-csv">💾 Backup storico CSV</button>
+                    <button class="sheet-item" data-action="export-csv">📄 Storico CSV (anno corrente)</button>
                     <button class="sheet-item" data-action="import-history">📥 Import storico CSV</button>
+                    <button class="sheet-item" data-action="backup-json">🛡️ Backup integrale diario (JSON)</button>
+                    <button class="sheet-item" data-action="restore-json">♻️ Ripristina diario dal backup JSON</button>
                     
                     <a href="mailto:tetrix@outlook.it?subject=Segnalazione%20Bug%20/%20Supporto%20Webapp&body=Ciao,%20ti%20scrivo%20perchè..." class="btn btn-secondary support-btn">
                         ✉️ Hai bisogno d'aiuto?

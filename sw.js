@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v21-scoped-recovery';
+const CACHE_NAME = 'workout-app-v22-data-integrity';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -6,6 +6,10 @@ const ASSETS_TO_CACHE = [
   '/index.html',
   '/css/style.css',
   '/js/main.js',
+  '/js/analytics.js',
+  '/js/storage.js',
+  '/js/sync.js',
+  '/js/fullBackup.js',
   '/js/ui.js',
   '/js/workoutEvents.js',
   '/js/exerciseCard.js',
