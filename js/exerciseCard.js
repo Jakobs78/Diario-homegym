@@ -3,12 +3,19 @@
  * Summary: Genera dinamicamente le card per ogni esercizio gestendo lo stato di esclusione dai massimali, i selettori del bilanciere, il calcolo dei dischi per lato e l'evidenziatura automatica fuori target per KG (inclusi Topset), REPS ed RPE (con supporto al feedback verde di miglioramento).
  */
 
-import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange, calculateSetVolumeTrend, isValueExceedingTarget, parseRPE, escapeHtml } from './helpers.js';
+import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange, calculateSetVolumeTrend, isValueExceedingTarget, parseRPE, escapeHtml, slugify } from './helpers.js';
 import { state } from './state.js';
-import { enableCardSwipeGesture } from './gestures.js';
 import { saveAndSync } from './storage.js';
 import { renderWorkoutList } from './ui.js';
 import { getSetPrefill } from './setPrefill.js';
+
+// UI-only state: never stored in the journal or mistaken for a performed set.
+const chosenSetByKey=new Map();
+const expandedNotesByKey=new Map();
+const selectedKey=exIdx=>[
+    state.currentUser?.id || 'local',state.currentYear || new Date().getFullYear(),
+    state.activeMesocycleIndex || 0,state.activeWeek || 1,state.activeDay || 1,exIdx
+].join(':');
 
 export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, activeDayNum, isPastMeso) {
     const isExExcluded = ex.isExcluded || false;
@@ -18,6 +25,17 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     const exCard = document.createElement('div');
     exCard.className = `ex-card ${isExExcluded ? 'is-excluded' : ''} ${isDropsetPlan ? 'is-dropset' : ''}`;
     exCard.dataset.ex = exIdx;
+    exCard.id = 'workout-exercise-' + exIdx;
+    const uiKey=selectedKey(exIdx);
+    const logs=ex.loggedSets || [];
+    const remembered=chosenSetByKey.get(uiKey);
+    const firstUnfinished=logs.findIndex(set=>!set.isLocked && !set.completed);
+    const selected=Number.isInteger(remembered) && remembered>=0 && remembered<logs.length &&
+        !(logs[remembered]?.isLocked || logs[remembered]?.completed) ? remembered :
+        (firstUnfinished>=0 ? firstUnfinished : Math.max(0,logs.length-1));
+    exCard.dataset.activeSet=String(selected);
+    const completedCount=logs.filter(set=>set.isLocked || set.completed).length;
+    const barKey='homegym_bar_'+(state.currentUser?.id || 'local')+'_'+slugify(ex.name);
 
 
     let cardHtml = `
@@ -25,9 +43,13 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             <div class="flex-center gap-md">
                 <div class="block-title m-0">BLOCCO ${ex.block || (exIdx + 1)}</div>
                 ${isDropsetPlan ? '<span class="badge-dropset">🔥 DROP SET</span>' : ''}
-                ${!isExExcluded ? '<span class="text-xs text-muted flex-italic">(Doppio click o swipe per escludere)</span>' : ''}
+
             </div>
-            ${isExExcluded ? '<span class="badge-danger">ESCLUSO DAI MASSIMALI</span>' : ''}
+            <button type="button" class="exercise-exclude-btn btn btn-secondary btn-sm"
+                ${isPastMeso ? 'disabled' : ''} aria-pressed="${isExExcluded}"
+                aria-label="${isExExcluded ? 'Includi' : 'Escludi'} ${escapeHtml(ex.name)} dai massimali">
+                ${isExExcluded ? '↩ Includi nei massimali' : '⋯ Escludi dai massimali'}
+            </button>
         </div>
         
         <!-- Nome Esercizio in primo piano -->
@@ -59,23 +81,15 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         }
     }
 
-    if (ex.notes || lastSessionSetsHtml) {
-        cardHtml += `<div class="exercise-notes-box mb-md">`;
-        if (ex.notes) {
-            cardHtml += `
-                <div class="note-allenatore-title">NOTE ALLENATORE</div>
-                <div class="note-allenatore-text ${lastSessionSetsHtml ? 'mb-sm' : ''}">${escapeHtml(ex.notes)}</div>
-            `;
-        }
-        if (lastSessionSetsHtml) {
-            const divider = ex.notes ? `<div class="divider-line my-sm"></div>` : '';
-            cardHtml += `
-                ${divider}
-                <div class="history-title mb-xs">ULTIMA SESSIONE PRECEDENTE</div>
+    // Performed history stays in plain sight; long coach notes move below the set table.
+    if (lastSessionSetsHtml) {
+        cardHtml += `
+            <section class="exercise-history-box exercise-notes-box mb-md"
+                     aria-label="Ultima sessione precedente">
+                <div class="history-title mb-xs">↩ ULTIMA SESSIONE PRECEDENTE</div>
                 <div class="history-content">${lastSessionSetsHtml}</div>
-            `;
-        }
-        cardHtml += `</div>`;
+            </section>
+        `;
     }
 
     cardHtml += `
@@ -84,31 +98,14 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             <strong>TARGET:</strong> ${formatExerciseSummary(ex)}
         </div>
 
-        <!-- 2. Selettore Bilanciere e Dischi -->
-        <div class="bar-plates-container mb-md">
-            <div class="flex-center gap-md">
-                <span class="bar-select-label">BILANCIERE:</span>
-                <select class="bar-select flex-1" data-ex="${exIdx}" ${isPastMeso ? 'disabled' : ''}>
-                    <option value="20">Bil 20kg</option>
-                    <option value="15">Bil 15kg</option>
-                    <option value="12">Bil 12kg</option>
-                    <option value="10">Bil 10kg</option>
-                    <option value="9">Bil 9kg</option>
-                    <option value="6">Bil 6kg</option>
-                </select>
-            </div>
-    
-            <div class="plates-badge flex-between gap-sm" data-ex="${exIdx}">
-                <span class="plates-label">🏋️️ CARICO PER LATO:</span>
-                <div class="plates-content flex-center gap-xs">
-                    0 kg
-                </div>
-            </div>
+        <div class="workout-set-status flex-between mb-sm">
+            <strong>Serie di oggi · ${completedCount}/${logs.length} confermate</strong>
+            <span class="active-set-label" aria-live="polite">Serie ${selected+1} selezionata</span>
         </div>
     `;
 
     cardHtml += `
-        <table class="set-table mb-md">
+        <table class="set-table mb-sm">
             <thead>
                 <tr>
                     <th class="col-set">SET</th>
@@ -207,7 +204,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         }
 
         cardHtml += `
-            <tr>
+            <tr class="workout-set-row" data-set-index="${setIdx}">
                 <td class="td-set flex-column flex-center">
                     <span class="font-bold text-sm">${setIdx + 1}</span>
                     ${intensityBadgeHtml}
@@ -225,17 +222,58 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                     <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe ios-no-zoom ${rpeClass} ${isUnsavedRpe ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayRpe)}" placeholder="${escapeHtml(ex.rpe || 'RPE')}" ${isDisabled ? 'disabled' : ''}>
                 </td>
                 <td class="td-check text-center">
-                    <input type="checkbox" class="set-lock-check custom-big-check" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''}>
+                    <input type="checkbox" class="set-lock-check custom-big-check" aria-label="Conferma o riapri serie ${setIdx+1}" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''}>
                 </td>
             </tr>
         `;
     });
 
     cardHtml += `
-            </tbody> 
+            </tbody>
         </table>
+    `;
+
+    cardHtml += `
+        ${selected < logs.length && !isPastMeso && firstUnfinished !== -1
+            ? '<button type="button" class="btn btn-primary workout-confirm-set" aria-label="Conferma la serie selezionata">✓ Conferma serie '+(selected+1)+'</button>'
+            : ''}
+    `;
+    cardHtml += `
+        <!-- Carico e dischi per la serie selezionata, non solo per il primo set -->
+        <div class="bar-plates-container mb-md" aria-label="Calcolo dischi serie attiva">
+            <div class="flex-center gap-md">
+                <span class="bar-select-label">🏋️ DISCHI · SERIE <span class="plates-active-set">${selected+1}</span></span>
+                <select class="bar-select flex-1" data-ex="${exIdx}" ${isPastMeso ? 'disabled' : ''}>
+                    <option value="20">Bil 20kg</option>
+                    <option value="15">Bil 15kg</option>
+                    <option value="12">Bil 12kg</option>
+                    <option value="10">Bil 10kg</option>
+                    <option value="9">Bil 9kg</option>
+                    <option value="6">Bil 6kg</option>
+                    <option value="0">Manubri / Macchina</option>
+                </select>
+            </div>
+    
+            <div class="plates-badge flex-between gap-sm" data-ex="${exIdx}">
+                <span class="plates-label">CARICO PER LATO:</span>
+                <div class="plates-content flex-center gap-xs">
+                    0 kg
+                </div>
+            </div>
+        </div>
+    `;
+    cardHtml += `
         <div id="mycoach-advice-${exIdx}" class="mycoach-fatigue-alert is-hidden"></div>
-        <input type="text" placeholder="Note esercizio..." value="${escapeHtml(ex.userNotes || '')}" class="ex-user-notes w-100" data-ex="${exIdx}" ${isPastMeso ? 'disabled' : ''}>
+        <details class="exercise-coach-notes" ${expandedNotesByKey.get(uiKey) ? 'open' : ''}>
+            <summary>📝 Note allenatore e appunti</summary>
+            <div class="exercise-coach-notes-body">
+                ${ex.notes ? '<div class="note-allenatore-title">NOTE ALLENATORE</div><div class="note-allenatore-text">'+escapeHtml(ex.notes)+'</div>' : ''}
+                <label class="workout-notes-label" for="ex-user-notes-${exIdx}">Note personali</label>
+                <input type="text" id="ex-user-notes-${exIdx}" placeholder="Scrivi una nota..."
+                    value="${escapeHtml(ex.userNotes || '')}" class="ex-user-notes w-100"
+                    data-ex="${exIdx}" ${isPastMeso ? 'disabled' : ''}>
+            </div>
+        </details>
     `;
 
     exCard.innerHTML = cardHtml;
@@ -249,68 +287,120 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         renderWorkoutList();
     };
 
-    exCard.addEventListener('dblclick', (e) => {
-        if (['INPUT', 'SELECT', 'BUTTON'].includes(e.target.tagName)) return;
-        toggleExclusion();
+    // Accessible, explicit action instead of accidental double tap or 300px swipe.
+    exCard.querySelector('.exercise-exclude-btn')?.addEventListener('click', toggleExclusion);
+    exCard.querySelector('.exercise-coach-notes')?.addEventListener('toggle', event=>{
+        expandedNotesByKey.set(uiKey,event.target.open);
     });
 
-    const barSelectEl = exCard.querySelector('.bar-select');
-    if (barSelectEl) {
-        barSelectEl.addEventListener('change', () => updatePlatesBadgeUI(exIdx));
+    const selectSet=(idx)=>{
+        if(!Number.isInteger(idx)||idx<0||idx>=logs.length)return;
+        exCard.dataset.activeSet=String(idx);
+        chosenSetByKey.set(uiKey,idx);
+        exCard.querySelectorAll('.workout-set-row').forEach(row=>{
+            const active=Number(row.dataset.setIndex)===idx;
+            row.classList.toggle('is-active-set',active);
+            row.setAttribute('aria-current',active?'true':'false');
+        });
+        const title=exCard.querySelector('.active-set-label');
+        if(title)title.textContent='Serie '+(idx+1)+' di '+logs.length+' selezionata';
+        const platesTitle=exCard.querySelector('.plates-active-set');
+        if(platesTitle)platesTitle.textContent=String(idx+1);
+        const confirm=exCard.querySelector('.workout-confirm-set');
+        if(confirm){
+            confirm.textContent='✓ Conferma serie '+(idx+1);
+            confirm.disabled=Boolean(logs[idx]?.isLocked||logs[idx]?.completed);
+        }
+        updatePlatesBadgeUI(exIdx,exCard);
+    };
+    exCard.querySelectorAll('.workout-set-row').forEach(row=>{
+        const idx=Number(row.dataset.setIndex);
+        row.addEventListener('click',()=>selectSet(idx));
+        row.addEventListener('focusin',()=>selectSet(idx));
+    });
+    exCard.querySelector('.workout-confirm-set')?.addEventListener('click',()=>{
+        const idx=Number(exCard.dataset.activeSet);
+        const checkbox=exCard.querySelector('.set-lock-check[data-set="'+idx+'"]');
+        if(checkbox && !checkbox.disabled && !checkbox.checked)checkbox.click();
+        // Native change handler remains the only writer and enforces coaching validation.
+    });
+    const barSelect=exCard.querySelector('.bar-select');
+    if(barSelect){
+        const preferred=localStorage.getItem(barKey);
+        const equipment=String(ex.equipment||'').toLowerCase();
+        const dumbbell=/dumbbell|manubri|manubrio|machine|macchina|cable|cavi/.test(equipment)
+            || /manubri|manubrio|macchina|cavi/.test(ex.name.toLowerCase());
+        const fallback=dumbbell?'0':'20';
+        barSelect.value=[...barSelect.options].some(opt=>opt.value===preferred)?preferred:fallback;
+        barSelect.addEventListener('change',()=>{
+            localStorage.setItem(barKey,barSelect.value);
+            updatePlatesBadgeUI(exIdx,exCard);
+        });
     }
-
-    const firstSetInputEl = exCard.querySelector('.set-kg[data-set="0"]');
-    if (firstSetInputEl) {
-        firstSetInputEl.addEventListener('input', () => updatePlatesBadgeUI(exIdx));
-    }
-
-    updatePlatesBadgeUI(exIdx);
-
-    enableCardSwipeGesture(exCard, toggleExclusion, toggleExclusion);
+    selectSet(selected);
     return exCard;
 }
 
-export function updatePlatesBadgeUI(exIdx) {
-    const card = document.querySelector(`.exercise-card[data-ex="${exIdx}"], .ex-card[data-ex="${exIdx}"]`);
-    if (!card) return;
-
-    const barSelect = card.querySelector('.bar-select');
-    const set1Input = card.querySelector('.set-kg[data-set="0"]');
-    const badge = card.querySelector('.plates-badge');
-    if (!badge) return;
-
-    const barWeight = parseFloat(barSelect?.value || 20);
-    const totalKg = parseFloat(set1Input?.value?.replace(',', '.')) || 0;
-
-    if (barWeight === 0) {
-        badge.className = 'plates-badge plates-badge-disabled';
-        badge.innerHTML = `<span class="text-muted font-semibold">🏋️ Manubri / Macchina</span>`;
+export function updatePlatesBadgeUI(exIdx, cardNode=null) {
+    const card=cardNode || document.querySelector('.ex-card[data-ex="'+exIdx+'"]');
+    if(!card)return;
+    const badge=card.querySelector('.plates-badge');
+    if(!badge)return;
+    const select=card.querySelector('.bar-select');
+    const setIdx=Number(card.dataset.activeSet||0);
+    const kgField=card.querySelector('.set-kg[data-set="'+setIdx+'"]');
+    const total=Number(String(kgField?.value||'').replace(',','.'));
+    const barWeight=Number(select?.value??20);
+    if(barWeight===0){
+        badge.className='plates-badge plates-badge-disabled';
+        badge.textContent='Manubri / macchina · dischi non necessari';
         return;
     }
-
-    const breakdown = getPlateBreakdown(totalKg, barWeight);
-
-    if (!breakdown || !breakdown.plates || breakdown.plates.length === 0) {
-        badge.innerHTML = `🏋️️ 0 kg/lato`;
-        badge.className = 'plates-badge plates-badge-empty';
-    } else {
-        const counts = {};
-        breakdown.plates.forEach(p => counts[p] = (counts[p] || 0) + 1);
-        const sortedPlates = Object.keys(counts).map(Number).sort((a, b) => b - a);
-
-        const platesPills = sortedPlates.map(p => {
-            const count = counts[p];
-            const label = count > 1 ? `${count}×${p}` : `${p}`;
-            return `<span class="plate-pill">${label}</span>`;
-        }).join('<span class="plate-plus">+</span>');
-
-        badge.innerHTML = `
-            <div class="flex-center gap-xs w-100 flex-wrap">
-                <span class="whitespace-nowrap">🏋️ <strong>${breakdown.sideWeight}kg</strong>/lato:</span>
-                <div class="flex-center gap-xs flex-wrap">${platesPills}</div>
-            </div>
-        `;
-        
-        badge.className = 'plates-badge plates-badge-active';
+    if(!kgField?.value.trim() || !Number.isFinite(total) || total<=0){
+        badge.className='plates-badge plates-badge-empty';
+        badge.textContent='Inserisci i kg della serie per vedere i dischi per lato.';
+        return;
+    }
+    if(total<barWeight){
+        badge.className='plates-badge plates-badge-empty';
+        badge.textContent='Carico inferiore al peso del bilanciere selezionato.';
+        return;
+    }
+    if(total===barWeight){
+        badge.className='plates-badge plates-badge-active';
+        badge.textContent='Solo bilanciere: 0 kg di dischi per lato.';
+        return;
+    }
+    const breakdown=getPlateBreakdown(total,barWeight);
+    if(!breakdown?.plates?.length){
+        badge.className='plates-badge plates-badge-empty';
+        badge.textContent='Nessuna combinazione disponibile per questo carico.';
+        return;
+    }
+    const counts={};
+    for(const plate of breakdown.plates)counts[plate]=(counts[plate]||0)+1;
+    const fragments=Object.keys(counts).map(Number).sort((a,b)=>b-a)
+        .map(plate=>counts[plate]>1?counts[plate]+'×'+plate: String(plate));
+    const loaded=breakdown.plates.reduce((sum,plate)=>sum+plate,0);
+    const leftover=Math.round((breakdown.sideWeight-loaded)*100)/100;
+    badge.className='plates-badge plates-badge-active';
+    badge.replaceChildren();
+    const heading=document.createElement('strong');
+    heading.textContent=breakdown.sideWeight+' kg/lato: ';
+    const list=document.createElement('span');
+    list.className='plate-breakdown-items';
+    list.textContent=fragments.join(' + ')+' kg';
+    badge.append(heading,list);
+    if(leftover>0.001){
+        const note=document.createElement('small');
+        note.className='plate-breakdown-warning';
+        note.textContent='Combinazione incompleta: mancano '+leftover+' kg/lato.';
+        badge.append(note);
+    }
+    if(kgField.classList.contains('text-placeholder-active')){
+        const hint=document.createElement('small');
+        hint.className='plate-breakdown-hint';
+        hint.textContent='Carico suggerito, non ancora confermato.';
+        badge.append(hint);
     }
 }
