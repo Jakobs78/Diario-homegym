@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v31-offline-dependency-graph';
+const CACHE_NAME = 'workout-app-v32-safe-deletions';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
