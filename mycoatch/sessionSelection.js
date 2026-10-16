@@ -48,83 +48,106 @@ function scoreAccessory(ex, index, {
                     : 'completamento dello schema motorio e del volume' };
 }
 
-function unchangedExisting(before, after) {
-    if (after.length !== before.length + 1) return false;
-    return before.every(ex => {
-        const found = after.find(candidate =>
-            canonicalExerciseKey(candidate.name) === canonicalExerciseKey(ex.name));
-        return found && found.setsCount === ex.setsCount;
+function planPreservesProtected(reference, proposal) {
+    // Un accessorio può far risparmiare tempo solo con un diverso assetto
+    // degli accessori, MA non può imporre ulteriori tagli ai fondamentali.
+    return reference.every(core => {
+        const retained = proposal.find(ex =>
+            canonicalExerciseKey(ex.name) === canonicalExerciseKey(core.name));
+        return retained && retained.setsCount >= core.setsCount;
     });
 }
 
-function insertByOriginalOrder(selected, newExercise, positions) {
-    return [...selected, newExercise].sort((a, b) =>
-        positions.get(canonicalExerciseKey(a.name)) -
-        positions.get(canonicalExerciseKey(b.name)));
+function planUtility(plan, candidates, basePlan) {
+    const scores = candidates.reduce((total,candidate) => {
+        const actual = plan.exercises.find(ex =>
+            canonicalExerciseKey(ex.name) ===
+            canonicalExerciseKey(candidate.exercise.name));
+        if (!actual) return Number.NEGATIVE_INFINITY;
+        // Ogni distretto effettivamente presente vale più dell'ennesima
+        // serie del medesimo accessorio. Volume sacrificato => costo esplicito.
+        const missingSets = Math.max(0,candidate.exercise.setsCount-actual.setsCount);
+        return total + candidate.score + 10 +
+            Math.max(0,actual.setsCount-2)*4 - missingSets*7;
+    },0);
+    const extraCoreCuts = Math.max(0,(plan.reducedPrioritySets||0) -
+        (basePlan.reducedPrioritySets||0));
+    return scores - extraCoreCuts*1000;
 }
 
 export function selectExercisesForTime(exercises, maxSessionMinutes, options = {}) {
     if (!Array.isArray(exercises) || exercises.length < 2) {
         throw new Error('MyCoatch: selezione esercizi incompleta.');
     }
-    const positions = new Map(exercises.map((ex, i) => [canonicalExerciseKey(ex.name), i]));
-    const protectedExercises = exercises.filter(isProtected);
+    const positions=new Map(exercises.map((ex,i)=>[canonicalExerciseKey(ex.name),i]));
+    const protectedExercises=exercises.filter(isProtected);
     if (protectedExercises.length < 2) {
         throw new Error('MyCoatch: servono almeno due movimenti prioritari.');
     }
-    const basePlan = optimizeSession(protectedExercises, maxSessionMinutes);
-    let selected = basePlan.exercises;
-    const ranking = exercises.map((ex, index) => ({ ex, index }))
-        .filter(({ex, index}) => !isProtected(ex,index))
-        .map(({ex,index}) => scoreAccessory(ex,index,options))
-        .sort((a,b) => b.score - a.score || a.index - b.index);
-    const accepted = [];
-    const skipped = [];
-    let plan = basePlan;
 
-    for (const candidate of ranking) {
-        const {exercise,score,reason} = candidate;
-        if (selected.length >= MAX_DAILY_EXERCISES) {
-            skipped.push({exercise:exercise.name,muscle:exercise.category,
-                reason:'limite prudenziale di sei esercizi per seduta'});
-            continue;
-        }
-        const proposed = insertByOriginalOrder(selected,exercise,positions);
+    // Il nucleo obbligatorio viene programmato per primo. Se non basta il
+    // tempo, l'ottimizzatore può ridurne le serie, MA non cancellarlo.
+    const basePlan=optimizeSession(protectedExercises,maxSessionMinutes);
+    const ranking=exercises.map((ex,index)=>({ex,index}))
+        .filter(({ex,index})=>!isProtected(ex,index))
+        .map(({ex,index})=>scoreAccessory(ex,index,options))
+        .sort((a,b)=>b.score-a.score || a.index-b.index);
+
+    // Massimo 4 complementari in una seduta da 6 esercizi: enumerare i
+    // sottogruppi (<=16 casi), anziché scegliere con un greedy che può
+    // impedire una superserie utile o escludere un distretto prioritario.
+    let bestPlan=basePlan;
+    let bestCandidates=[];
+    let bestScore=0;
+    for(let mask=1;mask<(1<<ranking.length);mask++) {
+        const included=ranking.filter((_,index)=>(mask & (1<<index))!==0);
+        if(protectedExercises.length+included.length>MAX_DAILY_EXERCISES) continue;
+        const proposal=[...protectedExercises,...included.map(x=>x.exercise)]
+            .sort((a,b)=>positions.get(canonicalExerciseKey(a.name))-
+                positions.get(canonicalExerciseKey(b.name)));
         let trial;
-        try {
-            trial = optimizeSession(proposed,maxSessionMinutes);
-        } catch {
-            skipped.push({exercise:exercise.name,muscle:exercise.category,
-                reason:'tempo insufficiente senza ridurre i movimenti prioritari'});
-            continue;
+        try { trial=optimizeSession(proposal,maxSessionMinutes); }
+        catch { continue; }
+        // Escludi le combinazioni che perderebbero un accessorio intero
+        // oppure richiederebbero di sacrificare ancora il lavoro cardine.
+        if(trial.exercises.length!==proposal.length ||
+            !planPreservesProtected(basePlan.exercises,trial.exercises)) continue;
+        const score=planUtility(trial,included,basePlan);
+        if(score>bestScore || (score===bestScore &&
+            trial.estimatedSeconds<bestPlan.estimatedSeconds)){
+            bestScore=score;
+            bestPlan=trial;
+            bestCandidates=included;
         }
-        if (!unchangedExisting(selected,trial.exercises) ||
-            !trial.exercises.some(x =>
-                canonicalExerciseKey(x.name) === canonicalExerciseKey(exercise.name) &&
-                x.setsCount === exercise.setsCount)) {
-            skipped.push({exercise:exercise.name,muscle:exercise.category,
-                reason:'l’aggiunta ridurrebbe serie già programmate'});
-            continue;
-        }
-        selected=trial.exercises;
-        plan=trial;
-        accepted.push({exercise:exercise.name,muscle:exercise.category,
-            score,reason,sets:exercise.setsCount});
     }
 
-    // Non riprogrammare sessioni altrui né completare set simulati:
-    // l'audit descrive solo la proposta e non fa parte dello storico.
+    const selectedKeys=new Set(bestCandidates.map(c=>
+        canonicalExerciseKey(c.exercise.name)));
     return {
-        ...plan,
-        reducedPrioritySets:(basePlan.reducedPrioritySets||0) +
-            (plan === basePlan ? 0 : (plan.reducedPrioritySets||0)),
-        selectionAudit: {
+        ...bestPlan,
+        selectionAudit:{
             strategy:'time_first_protected_core_coverage_score_v1',
             timeBudgetMinutes:maxSessionMinutes,
             protected:protectedExercises.map(x=>x.name),
-            selectedAccessories:accepted,
-            excludedAccessories:skipped,
-            estimatedMinutes:plan.estimatedMinutes
+            selectedAccessories:bestCandidates.map(candidate=>{
+                const real=bestPlan.exercises.find(x=>
+                    canonicalExerciseKey(x.name)===
+                    canonicalExerciseKey(candidate.exercise.name));
+                return {
+                    exercise:candidate.exercise.name,
+                    muscle:candidate.exercise.category,
+                    score:candidate.score,
+                    reason:candidate.reason,
+                    sets:real.setsCount
+                };
+            }),
+            excludedAccessories:ranking.filter(c=>
+                !selectedKeys.has(canonicalExerciseKey(c.exercise.name)))
+                .map(c=>({
+                    exercise:c.exercise.name,muscle:c.exercise.category,
+                    reason:'non prioritario entro il tempo e la copertura disponibili'
+                })),
+            estimatedMinutes:bestPlan.estimatedMinutes
         }
     };
 }
