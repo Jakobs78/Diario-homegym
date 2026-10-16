@@ -113,6 +113,7 @@ test('AUDIT CONTINUITY: use latest confirmed operational variant, not week one o
     const generated=generateSmartMesocycle(cfg(3,60),{
         byExercise:{},byMuscle:{}
     },previous);
+    console.error('AUDIT_VARIANT_DEBUG',JSON.stringify(generated.weeks[0].days[0].exercises.slice(0,3).map(ex=>({name:ex.name,reason:ex.selectionReason,anchor:ex.anchorKey}))));
     assert.ok(generated.weeks[0].days[0].exercises.some(ex=>
         ex.name==='Panca Inclinata con Manubri'),'bench variant continuity from last operational week');
     assert.equal(JSON.stringify(previous),before,'prior mesocycle is read-only');
