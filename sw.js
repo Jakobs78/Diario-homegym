@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v33-coach-volume-preview';
+const CACHE_NAME = 'workout-app-v34-mobile-training';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -34,6 +34,7 @@ const ASSETS_TO_CACHE = [
   '/js/ui.js',
   '/js/workoutEvents.js',
   '/js/exerciseCard.js',
+  '/js/exerciseNavigation.js',
   '/js/setPrefill.js',
   '/js/liveCoachUI.js',
   '/js/weeklyReviewUI.js',
