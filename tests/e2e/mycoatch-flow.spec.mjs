@@ -1516,3 +1516,88 @@ test('signed-in local snapshots are isolated by account id',async({page})=>{
   });
   assert.deepEqual(result,{a:['2025'],b:[],aStill:['2025'],bNow:['2026']});
 });
+
+
+test('punto 3: mobile card keeps previous performance, per-set plates, coach notes and real set confirmation',async({page})=>{
+  await page.setViewportSize({width:375,height:812});
+  const monitoring=await openIsolatedApp(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    const meso=state.workoutData.history.years['2026'].mesocycles[0];
+    const day=meso.weeks[1].days[0];
+    const base=day.exercises[0];
+    base.notes='Scapole stabili e fermo al petto. '+ 'Controlla la tecnica. '.repeat(18);
+    base.loggedSets=[0,1,2].map(()=>({weight:'',reps:'',rpe:'',isLocked:false,completed:false}));
+    day.exercises.push({
+      ...base,name:'Rematore bilanciere',
+      notes:'Busto stabile',loggedSets:[{weight:'',reps:'',rpe:'',isLocked:false}]
+    });
+    state.activeWeek=2;state.activeDay=1;
+    renderWorkoutList();
+  });
+  const card=page.locator('.ex-card[data-ex="0"]');
+  await expect(card.locator('.history-content')).toContainText('72.5kg');
+  await expect(card.locator('.exercise-coach-notes')).not.toHaveAttribute('open');
+  await expect(card.locator('.workout-set-row.is-active-set')).toHaveAttribute('data-set-index','0');
+  await expect(page.locator('.workout-exercise-nav')).toBeVisible();
+  await expect(card.locator('.workout-confirm-set')).toBeVisible();
+
+  const secondKg=card.locator('.set-kg[data-set="1"]');
+  await secondKg.fill('85');
+  await expect(card.locator('.workout-set-row.is-active-set')).toHaveAttribute('data-set-index','1');
+  await expect(card.locator('.plates-badge')).toContainText('32.5 kg/lato');
+  await card.locator('.bar-select').selectOption('15');
+  await expect(card.locator('.plates-badge')).toContainText('35 kg/lato');
+  await card.locator('.bar-select').selectOption('20');
+  await card.locator('.set-kg[data-set="0"]').fill('80');
+  await card.locator('.set-reps[data-set="0"]').fill('8');
+  await card.locator('.set-rpe[data-set="0"]').fill('8');
+  await card.locator('.exercise-coach-notes summary').click();
+  await expect(card.locator('.exercise-coach-notes')).toHaveAttribute('open');
+  await card.locator('.workout-confirm-set').click();
+  const first=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const day=state.workoutData.history.years['2026'].mesocycles[0].weeks[1].days[0];
+    return {sets:day.exercises[0].loggedSets.map(s=>({locked:s.isLocked,weight:s.weight,reps:s.reps,rpe:s.rpe})),
+      prev:state.workoutData.history.years['2026'].mesocycles[0].weeks[0].days[0].exercises[0].loggedSets[0].weight};
+  });
+  assert.equal(first.sets[0].locked,true);
+  assert.equal(Number(first.sets[0].weight),80);
+  assert.equal(first.sets[0].reps,'8');
+  assert.equal(Number(first.sets[0].rpe),8);
+  assert.equal(first.sets[1].locked,false);
+  assert.equal(first.prev,'72.5'); // preceding synthetic week is unchanged
+  await expect(card.locator('.workout-set-row.is-active-set')).toHaveAttribute('data-set-index','1');
+  await expect(card.locator('.exercise-coach-notes')).toHaveAttribute('open');
+  await expect(card.locator('.history-content')).toContainText('72.5kg');
+  assert.deepEqual(monitoring.remoteRequests,[]);
+  assert.deepEqual(monitoring.pageErrors,[]);
+});
+
+test('punto 3: 320px navigation, explicit exclusion reversal and no accidental double-tap',async({page})=>{
+  await page.setViewportSize({width:320,height:760});
+  await openIsolatedApp(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    const first=state.workoutData.history.years['2026'].mesocycles[0].weeks[0].days[0].exercises[0];
+    const day=state.workoutData.history.years['2026'].mesocycles[0].weeks[0].days[0];
+    day.exercises.push({...first,name:'Rematore bilanciere',loggedSets:[{weight:'',reps:'',rpe:'',isLocked:false}]});
+    state.activeWeek=1;state.activeDay=1;renderWorkoutList();
+  });
+  const nav=page.locator('.workout-exercise-nav');
+  await expect(nav).toBeVisible();
+  await expect(nav.locator('.workout-jump-current')).toContainText('1/2');
+  await nav.getByRole('button',{name:'Esercizio successivo'}).click();
+  await expect(nav.locator('.workout-jump-current')).toContainText('2/2');
+  const card=page.locator('.ex-card[data-ex="0"]');
+  await card.locator('.ex-name').dblclick();
+  await expect(card).not.toHaveClass(/is-excluded/);
+  await card.locator('.exercise-exclude-btn').click();
+  await expect(page.locator('.ex-card[data-ex="0"]')).toHaveClass(/is-excluded/);
+  await page.locator('.ex-card[data-ex="0"] .exercise-exclude-btn').click();
+  await expect(page.locator('.ex-card[data-ex="0"]')).not.toHaveClass(/is-excluded/);
+  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
+  assert.ok(overflow<=2,'Unexpected horizontal overflow: '+overflow);
+});

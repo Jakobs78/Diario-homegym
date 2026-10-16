@@ -59,9 +59,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             if (isReps) setObj.reps = val;
             if (isRpe) setObj.rpe = val;
 
-            if (setIdx === 0 && isKg) {
-                updatePlatesBadgeUI(exIdx);
-            }
+            if (isKg) updatePlatesBadgeUI(exIdx);
 
             if (isKg || isReps || isRpe) {
                 let minVal, maxVal, parsedVal;

@@ -16,6 +16,7 @@ import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
 import { createLiveCoachPanel, updateLiveCoachPanel, refreshLiveCoachClock, dismissLiveCoachToast } from './liveCoachUI.js';
 import { toggleCurrentMesocycleLock } from './mesocycle.js';
 import { createWeeklyReviewPanel } from './weeklyReviewUI.js';
+import { createExerciseJumpNavigation } from './exerciseNavigation.js';
 
 export const DOM = {
     appContainer: document.getElementById('app-container'),
@@ -387,6 +388,8 @@ export function renderWorkoutList() {
         }
     }
 
+    // Navigation links scroll to the existing card: no new workout-data state.
+    createExerciseJumpNavigation(DOM.workoutListContainer,exercises);
     bindWorkoutTableEvents(currentDay, isPastMeso, renderWorkoutList);
     // Ora le input delle schede esistono: eventuali pulsanti di suggerimento
     // possono riferirsi solo a set futuri realmente modificabili.

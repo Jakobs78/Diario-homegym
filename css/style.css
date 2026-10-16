@@ -2613,3 +2613,217 @@ body.dark-mode .group-title-badge {
 .analytics-meso-picker label {font-size:.83rem;font-weight:700;}
 .analytics-meso-picker select {flex:1;min-width:160px;min-height:42px;padding:8px;
     background:var(--card-bg);color:var(--text-color);border:1px solid var(--border-color);border-radius:9px;}
+
+/* ==========================================================
+   WORKOUT POINT 3 · mobile gym mode, October 2026
+   History stays readable, the selected set drives the plates,
+   and notes are optional instead of taking the first screen.
+   ========================================================== */
+.ex-card {
+    scroll-margin-top: 12px;
+    padding: 13px;
+    margin-bottom: 12px;
+    user-select: text;
+    -webkit-user-select: text;
+    will-change: auto;
+}
+.ex-card .ex-card-header { gap: 8px; flex-wrap: wrap; }
+.ex-card .ex-card-header > .flex-center { flex-wrap: wrap; gap: 6px; }
+.ex-card .ex-name { font-size: 1.16rem !important; margin: 6px 0 10px; overflow-wrap: anywhere; }
+.ex-card .block-title { font-size: .72rem; }
+.ex-card .exercise-exclude-btn {
+    min-height: 40px;
+    margin-left: auto;
+    padding: 8px;
+    white-space: normal;
+    font-size: .73rem;
+}
+.ex-card.is-excluded .exercise-exclude-btn {
+    pointer-events: auto;  /* Essential: allow users to undo exclusion. */
+    opacity: 1;
+    position: relative;
+    z-index: 1;
+}
+.ex-card.is-excluded::after { display: none; }
+.ex-card .exercise-history-box {
+    padding: 10px 12px;
+    margin-bottom: 9px;
+    border-left: 3px solid var(--accent-color);
+}
+.ex-card .history-title { font-weight: 800; font-size: .74rem; letter-spacing: .02em; }
+.ex-card .history-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit,minmax(min(100%,145px),1fr));
+    gap: 3px 9px;
+    font-variant-numeric: tabular-nums;
+}
+.ex-card .history-content > div {
+    margin: 0;
+    line-height: 1.5;
+    color: var(--text-color);
+}
+.ex-card .target-box {
+    font-family: inherit;
+    font-size: .88rem;
+    line-height: 1.4;
+    padding: 9px 11px;
+    margin-bottom: 10px;
+    overflow-wrap: anywhere;
+}
+.ex-card .workout-set-status {
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    font-size: .78rem;
+    color: var(--text-color);
+}
+.ex-card .active-set-label { color: var(--accent-color); font-size: .76rem; font-weight: 700; }
+.ex-card .set-table { margin-bottom: 8px; table-layout: fixed; }
+.ex-card .col-set { width: 11% !important; }
+.ex-card .col-kg { width: 26% !important; }
+.ex-card .col-reps { width: 25% !important; }
+.ex-card .col-rpe { width: 22% !important; }
+.ex-card .col-check { width: 16% !important; }
+.ex-card .set-table th { height: 31px !important; line-height: 31px !important; }
+.ex-card .set-table td,
+.ex-card .set-table td:first-child {
+    height: 50px !important;
+    line-height: normal !important;
+}
+.ex-card .set-table .set-input {
+    min-height: 46px !important;
+    font-size: 16px !important; /* iOS: avoids keyboard-triggered page zoom */
+    padding: 1px 2px !important;
+}
+.ex-card .set-table tr.is-active-set td {
+    background: rgba(2,132,199,.075);
+    border-top-color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+}
+.ex-card .set-table tr.is-active-set td:first-child {
+    box-shadow: inset 3px 0 var(--accent-color);
+    color: var(--accent-color);
+}
+.ex-card .set-table tr:focus-within td { background: rgba(2,132,199,.11); }
+.ex-card .custom-big-check { width: 30px !important; height: 30px !important; }
+.ex-card .workout-confirm-set {
+    display: block;
+    width: 100%;
+    min-height: 46px;
+    margin: 2px 0 9px;
+    font-size: .92rem;
+    font-weight: 800;
+}
+.ex-card .bar-plates-container {
+    padding: 10px;
+    gap: 7px;
+    margin-bottom: 10px;
+}
+.ex-card .bar-plates-container > .flex-center {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 6px;
+}
+.ex-card .bar-select { min-height: 44px; max-width: 190px; }
+.ex-card .plates-badge {
+    min-height: 44px;
+    padding: 9px 10px;
+    align-items: center;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+.ex-card .plate-breakdown-items { font-variant-numeric: tabular-nums; }
+.ex-card .plate-breakdown-warning { display:block; color:#b45309; width:100%; }
+.ex-card .plate-breakdown-hint { display:block; width:100%; color:var(--text-muted); font-weight:500; }
+.ex-card .exercise-coach-notes {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--block-bg);
+    margin-top: 8px;
+}
+.ex-card .exercise-coach-notes > summary {
+    cursor: pointer;
+    padding: 12px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    font-size: .84rem;
+    font-weight: 800;
+    list-style: none;
+}
+.ex-card .exercise-coach-notes > summary::-webkit-details-marker { display:none; }
+.ex-card .exercise-coach-notes > summary::after {
+    content: "⌄";
+    margin-left:auto;
+    font-size:1rem;
+    color:var(--accent-color);
+}
+.ex-card .exercise-coach-notes[open] > summary::after { transform:rotate(180deg); }
+.ex-card .exercise-coach-notes-body {
+    padding: 2px 12px 12px;
+    display: grid;
+    gap: 8px;
+    overflow-wrap: anywhere;
+}
+.ex-card .note-allenatore-text { line-height:1.5; white-space:pre-wrap; }
+.ex-card .workout-notes-label { font-size:.76rem; font-weight:700; }
+.ex-card .ex-user-notes { min-height:44px; font-size:16px; }
+.ex-card button:focus-visible,
+.ex-card summary:focus-visible,
+.workout-exercise-nav button:focus-visible {
+    outline:3px solid var(--accent-color);
+    outline-offset:2px;
+}
+
+/* A small, fixed jump bar that never obscures the keyboard or rest timer. */
+.workout-exercise-nav { display:none; }
+@media (max-width:799px) {
+    #workout-list-container:not(.d-none) { padding-bottom: 85px; }
+    #workout-list-container:not(.d-none) .workout-exercise-nav:not(.is-editing) {
+        position: fixed;
+        bottom: calc(8px + env(safe-area-inset-bottom,0px));
+        left: max(10px,env(safe-area-inset-left,0px));
+        right: max(10px,env(safe-area-inset-right,0px));
+        display: grid;
+        grid-template-columns: 48px minmax(0,1fr) 48px;
+        gap: 7px;
+        align-items: center;
+        padding: 6px;
+        border-radius: 15px;
+        border: 1px solid var(--border-color);
+        background: var(--card-bg);
+        box-shadow: 0 8px 30px rgba(0,0,0,.19);
+        z-index: 95;
+    }
+    .workout-exercise-nav .workout-jump-current {
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        text-align:center;
+        font-size:.8rem;
+        font-weight:750;
+        color:var(--text-color);
+    }
+    .workout-exercise-nav .workout-jump-button {
+        min-width:46px;
+        min-height:44px;
+        border-radius:10px;
+        border:1px solid var(--border-color);
+        background:var(--block-bg);
+        color:var(--text-color);
+        font-size:1.35rem;
+    }
+    .workout-exercise-nav .workout-jump-button:disabled { opacity:.38; }
+    body:has(#floating-timer.active) .workout-exercise-nav:not(.is-editing) {
+        bottom:calc(95px + env(safe-area-inset-bottom,0px));
+    }
+}
+@media (max-width:355px) {
+    .ex-card { padding:9px; }
+    .ex-card .set-table .set-input { font-size:16px !important; letter-spacing:-.03em; }
+    .ex-card .exercise-exclude-btn { font-size:.69rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .ex-card .exercise-coach-notes > summary::after { transition:none; }
+}
