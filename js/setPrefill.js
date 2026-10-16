@@ -84,12 +84,13 @@ function repsCompatible(reps, exercise) {
  * nello STESSO mesociclo. Per sicurezza e confrontabilita' si confronta la
  * stessa posizione (top set con top set, back-off con back-off).
  *
- * La priorita' e':
- * 1. modifiche gia' scritte dall'atleta;
- * 2. serie confermata nella seduta corrente (se non e' un top-set da cui
- *    non si deve ereditare il carico nei back-off);
- * 3. stessa serie nella settimana precedente quando il piano kg non cambia;
- * 4. prescrizione valida del CSV; mai carichi inventati.
+ * La priorita' per kg e ripetizioni e':
+ * 1. valori gia' scritti dall'atleta;
+ * 2. serie confermata in questa seduta solo per set omogenei;
+ * 3. stessa posizione dell'ultima sessione solo se il piano non cambia;
+ * 4. prescrizione corrente CSV/MyCoatch, senza inventare carichi.
+ * L'RPE parte invece dal TARGET ATTUALE: la fatica della seduta passata
+ * non va copiata in automatico quando il coach l'ha gia' prescritta.
  *
  * Le proposte restano solo sullo schermo. Le statistiche MyCoatch leggono
  * esclusivamente set con checked/confirmed e dati reali.
@@ -117,20 +118,34 @@ export function getSetPrefill(exercise, index, { previousExercise = null } = {})
     const earlierPlan = previousIndex >= 0 ? plannedFor(exercise, previousIndex) : null;
     // Protegge anche le progressioni impostate serie per serie: il carico
     // target del set corrente prevale sull'ultima serie confermata.
-    const programmedStep = plan.weight && earlierPlan?.weight &&
-        Number(plan.weight) !== Number(earlierPlan.weight);
-    const sameSession = Boolean(previous && !backoffAfterTop && !programmedStep);
+    const programmedStep = Boolean((plan.weight && earlierPlan?.weight &&
+        Number(plan.weight) !== Number(earlierPlan.weight)) ||
+        (plan.reps && earlierPlan?.reps && plan.reps !== earlierPlan.reps) ||
+        (plan.rpe && earlierPlan?.rpe && plan.rpe !== earlierPlan.rpe));
+    // Un carico usato nella serie appena confermata e' utile quando il
+    // programma prescrive lavoro omogeneo. Non copiarlo nei back-off, nei
+    // ramping set o tra target RPE/ripetizioni differenti.
+    const sameSession = Boolean(previous && !backoffAfterTop && !programmedStep &&
+        repsCompatible(repsFor(previous),exercise) &&
+        !(previous?.intensityTechnique && !logs[index]?.intensityTechnique));
 
     const priorSet = previousExercise?.loggedSets?.[index];
     const priorPlan = previousExercise ? plannedFor(previousExercise, index) : null;
-    const comparablePlan = !plan.weight ||
-        (priorPlan?.weight && Number(plan.weight) === Number(priorPlan.weight));
+    // L'ultima prestazione e' una scorciatoia, mai un sostituto della
+    // prescrizione quando cambiano kg, obiettivo ripetizioni o intensita'.
+    const comparablePlan = (!plan.weight ||
+        (priorPlan?.weight && Number(plan.weight) === Number(priorPlan.weight))) &&
+        (!plan.reps || !priorPlan?.reps || plan.reps === priorPlan.reps) &&
+        (!plan.rpe || !priorPlan?.rpe || plan.rpe === priorPlan.rpe) &&
+        !exercise?.isDeload && !exercise?.isDeloadWeek &&
+        !(priorSet?.intensityTechnique && !logs[index]?.intensityTechnique);
     const fromLastWeek = !exercise?.coachWeeklyLoadReview && !sameSession && priorSet &&
         confirmed(priorSet) && !priorSet.isWarmup && !priorSet.warmup &&
         !priorSet.is_warmup && comparablePlan &&
         weightFor(priorSet) && repsFor(priorSet) &&
         repsCompatible(repsFor(priorSet), exercise);
-    const source = sameSession ? 'confirmed_previous_set' :
+    const source = filled(current.weight) || filled(current.reps) || filled(current.rpe)
+        ? 'current_entry' : sameSession ? 'confirmed_previous_set' :
         fromLastWeek ? 'confirmed_previous_week' : 'csv_target';
     return {
         weight: filled(current.weight) ? String(current.weight)
@@ -139,11 +154,13 @@ export function getSetPrefill(exercise, index, { previousExercise = null } = {})
         reps: filled(current.reps) ? String(current.reps)
             : sameSession ? repsFor(previous)
                 : fromLastWeek ? repsFor(priorSet) : plan.reps,
-        // Il valore e' visualizzato come prefill, senza alterare lo storico.
-        // Diventa RPE confermato solo quando l'atleta spunta il set.
-        rpe: filled(current.rpe) ? String(current.rpe)
-            : previous && targetRpe(previous.rpe)
-                ? targetRpe(previous.rpe) : plan.rpe,
+        // RPE = obiettivo della seduta corrente, NON fatica percepita
+        // nell'ultima sessione. Se il piano non indica un RPE, proponi solo
+        // una misura reale e confermata, privilegiando lo stesso esercizio.
+        // La spunta attesta l'intera riga e solo allora la salva.
+        rpe: filled(current.rpe) ? String(current.rpe) : plan.rpe ||
+            (sameSession && targetRpe(previous?.rpe)) ||
+            (fromLastWeek && targetRpe(priorSet?.rpe)) || '',
         source,
         isSuggestedWeight: !filled(current.weight),
         isSuggestedReps: !filled(current.reps),

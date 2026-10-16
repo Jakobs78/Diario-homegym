@@ -12,7 +12,6 @@ import { getSetPrefill } from './setPrefill.js';
 
 // UI-only state: never stored in the journal or mistaken for a performed set.
 const chosenSetByKey=new Map();
-const expandedNotesByKey=new Map();
 const selectedKey=exIdx=>[
     state.currentUser?.id || 'local',state.currentYear || new Date().getFullYear(),
     state.activeMesocycleIndex || 0,state.activeWeek || 1,state.activeDay || 1,exIdx
@@ -204,7 +203,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         }
 
         cardHtml += `
-            <tr class="workout-set-row" data-set-index="${setIdx}">
+            <tr class="workout-set-row" data-set-index="${setIdx}" data-prefill-source="${suggested.source}">
                 <td class="td-set flex-column flex-center">
                     <span class="font-bold text-sm">${setIdx + 1}</span>
                     ${intensityBadgeHtml}
@@ -234,9 +233,6 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     `;
 
     cardHtml += `
-        <p class="workout-rpe-hint">Verifica kg, ripetizioni e RPE proposti. Con ✓ confermi tutti i valori visualizzati come realmente eseguiti; senza spunta non sono conteggiati da MyCoatch.</p>
-    `;
-    cardHtml += `
         <!-- Carico e dischi per la serie selezionata, non solo per il primo set -->
         <div class="bar-plates-container mb-md" aria-label="Calcolo dischi serie attiva">
             <div class="flex-center gap-md">
@@ -262,16 +258,16 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     `;
     cardHtml += `
         <div id="mycoach-advice-${exIdx}" class="mycoach-fatigue-alert is-hidden"></div>
-        <details class="exercise-coach-notes" ${expandedNotesByKey.get(uiKey) ? 'open' : ''}>
-            <summary>📝 Note allenatore e appunti</summary>
+        <section class="exercise-coach-notes" aria-label="Note del coach e note personali">
             <div class="exercise-coach-notes-body">
-                ${ex.notes ? '<div class="note-allenatore-title">NOTE ALLENATORE</div><div class="note-allenatore-text">'+escapeHtml(ex.notes)+'</div>' : ''}
-                <label class="workout-notes-label" for="ex-user-notes-${exIdx}">Note personali</label>
-                <input type="text" id="ex-user-notes-${exIdx}" placeholder="Scrivi una nota..."
+                <div class="note-allenatore-title">📝 NOTE COACH</div>
+                <div class="note-allenatore-text">${ex.notes ? escapeHtml(ex.notes) : '<span class="text-muted">Nessuna nota del coach.</span>'}</div>
+                <label class="workout-notes-label" for="ex-user-notes-${exIdx}">✍️ Note personali</label>
+                <input type="text" id="ex-user-notes-${exIdx}" placeholder="Aggiungi una nota all'esercizio..."
                     value="${escapeHtml(ex.userNotes || '')}" class="ex-user-notes w-100"
                     data-ex="${exIdx}" ${isPastMeso ? 'disabled' : ''}>
             </div>
-        </details>
+        </section>
     `;
 
     exCard.innerHTML = cardHtml;
@@ -290,13 +286,10 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     exCard.addEventListener('dblclick', event => {
         // I doppi tocchi sul telefono non equivalgono a un doppio click da PC.
         if (window.matchMedia?.('(pointer: coarse)').matches) return;
-        if (event.target.closest('input, select, textarea, button, a, label, summary, details')) return;
+        if (event.target.closest('input, select, textarea, button, a, label, summary, details, .exercise-coach-notes')) return;
         toggleExclusion();
     });
     enableCardSwipeGesture(exCard, toggleExclusion, toggleExclusion);
-    exCard.querySelector('.exercise-coach-notes')?.addEventListener('toggle', event=>{
-        expandedNotesByKey.set(uiKey,event.target.open);
-    });
 
     const selectSet=(idx)=>{
         if(!Number.isInteger(idx)||idx<0||idx>=logs.length)return;

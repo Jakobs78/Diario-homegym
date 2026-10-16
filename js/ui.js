@@ -312,6 +312,14 @@ export function renderWorkoutList() {
     });
     if(weeklyReview)DOM.workoutListContainer.appendChild(weeklyReview);
 
+    // Una sola istruzione per la seduta: mai ripeterla per ogni esercizio.
+    if ((currentDay.exercises || []).length) {
+        const info = document.createElement('p');
+        info.className = 'workout-confirmation-help';
+        info.textContent = 'Verifica kg, ripetizioni e RPE proposti: ✓ conferma i valori della serie. Le serie senza spunta non vengono usate da MyCoatch.';
+        DOM.workoutListContainer.appendChild(info);
+    }
+
     if (currentDay.sessionStart) {
         const startDate = new Date(currentDay.sessionStart).toDateString();
         const todayDate = new Date().toDateString();
