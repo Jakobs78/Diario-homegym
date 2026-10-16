@@ -101,13 +101,18 @@ export function renderUploadCard(onFileProcessed) {
 // ==========================================
 function getActiveYearAndMeso() {
     const yearsObj = state.workoutData?.history?.years || {};
-    const currentYear = new Date().getFullYear().toString();
+    const requested=String(state.currentYear || new Date().getFullYear());
+    const currentYear=yearsObj[requested] ? requested
+        : yearsObj[String(new Date().getFullYear())] ? String(new Date().getFullYear())
+        : Object.keys(yearsObj).filter(y=>/^\d{4}$/.test(y))
+            .sort((a,b)=>Number(b)-Number(a))[0];
+    if(currentYear && currentYear!==state.currentYear)state.currentYear=currentYear;
     
     let yearData = yearsObj[currentYear];
     if (!yearData || !yearData.mesocycles || yearData.mesocycles.length === 0) {
         const yearKeys = Object.keys(yearsObj);
         if (yearKeys.length > 0) {
-            yearData = yearsObj[yearKeys[0]];
+            yearData = yearsObj[yearKeys.sort((a,b)=>Number(b)-Number(a))[0]];
         }
     }
     
@@ -211,6 +216,37 @@ export function renderWorkoutList() {
     quickRow.className = 'workout-quick-controls';
 
     const isLocked = Boolean(meso.locked);
+    const years=Object.keys(state.workoutData?.history?.years||{})
+        .filter(y=>/^\d{4}$/.test(y) && state.workoutData.history.years[y]?.mesocycles?.length)
+        .sort((a,b)=>Number(b)-Number(a));
+    if(years.length){
+        const wrapper=document.createElement('div');
+        wrapper.className='year-selector-container';
+        const label=document.createElement('label');
+        label.htmlFor='workout-year-select';
+        label.textContent='Anno';
+        label.className='workout-compact-label';
+        const sel=document.createElement('select');
+        sel.id='workout-year-select';
+        sel.className='week-select-input';
+        for(const year of years){
+            const opt=document.createElement('option');
+            opt.value=year;opt.textContent=year;
+            opt.selected=year===String(state.currentYear);
+            sel.append(opt);
+        }
+        sel.addEventListener('change',()=>{
+            state.currentYear=sel.value;
+            localStorage.setItem('ui_active_year',sel.value);
+            state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=1;
+            localStorage.setItem('ui_active_meso','0');
+            localStorage.setItem('ui_active_week','1');
+            localStorage.setItem('ui_active_day','1');
+            renderWorkoutList();
+        });
+        wrapper.append(label,sel);
+        quickRow.appendChild(wrapper);
+    }
     const mesoRow = document.createElement('div');
     mesoRow.className = 'meso-compact-control';
     mesoRow.innerHTML = `

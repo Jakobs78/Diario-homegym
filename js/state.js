@@ -4,6 +4,7 @@
 
 export const state = {
     currentUser: null,
+    currentYear: localStorage.getItem('ui_active_year') || String(new Date().getFullYear()),
     // 🧠 Legge la posizione visiva salvata dal browser
     activeMesocycleIndex: parseInt(localStorage.getItem('ui_active_meso')) || 0,
     activeWeek: parseInt(localStorage.getItem('ui_active_week')) || 1,
@@ -34,6 +35,7 @@ export function resetState() {
     }
 
     state.currentUser = null;
+    state.currentYear = String(new Date().getFullYear());
     state.activeMesocycleIndex = 0;
     state.activeWeek = 1;
     state.activeView = 'workout';

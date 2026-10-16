@@ -93,11 +93,11 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                 const isExceeding = isValueExceedingTarget(parsedVal, minVal, maxVal);
 
                 const mesoIndex = state.activeMesocycleIndex || 0;
-                const currentYear = new Date().getFullYear().toString();
+                const currentYear = String(state.currentYear || new Date().getFullYear());
                 const yearData = state.workoutData?.history?.years?.[currentYear];
                 const targetWeek = yearData?.mesocycles?.[mesoIndex]?.weeks?.find(w => w.weekNumber === (state.activeWeek || 1));
                 const activeDayNum = state.activeDay || 1;
-                const prevEx = findPreviousExercise(state.workoutData, mesoIndex, targetWeek?.weekNumber || 1, activeDayNum - 1, ex, true);
+                const prevEx = findPreviousExercise(state.workoutData, mesoIndex, targetWeek?.weekNumber || 1, activeDayNum - 1, ex, false, state.currentYear);
                 const prevSet = prevEx?.loggedSets?.[setIdx];
 
                 const currentKg = parseFloat(ex.loggedSets[setIdx]?.weight) || 0;
@@ -125,6 +125,24 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
     workoutListContainer.querySelectorAll('.bar-select').forEach(select => {
         select.addEventListener('change', (e) => {
             updatePlatesBadgeUI(e.target.dataset.ex);
+        });
+    });
+
+    workoutListContainer.querySelectorAll('.set-warmup-toggle').forEach(button=>{
+        button.addEventListener('click',event=>{
+            if(isPastMeso)return;
+            event.stopPropagation();
+            const exIdx=Number(button.dataset.ex),setIdx=Number(button.dataset.set);
+            const set=currentDay.exercises?.[exIdx]?.loggedSets?.[setIdx];
+            if(!set)return;
+            const wasWarm=Boolean(set.isWarmup||set.warmup||set.is_warmup);
+            set.isWarmup=!wasWarm;
+            delete set.warmup;delete set.is_warmup;
+            // A completed warm-up remains in the diary; removing W never
+            // silently checks an unfinished working set.
+            updateSessionAndCompletionState(currentDay);
+            saveAndSync(state.workoutData);
+            if(typeof renderCallback==='function')renderCallback();
         });
     });
 
@@ -181,11 +199,11 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             // 2. Aggiornamento dinamico delle classi e dei trend per ogni riga
             if (rowCard) {
                 const mesoIndex = state.activeMesocycleIndex || 0;
-                const currentYear = new Date().getFullYear().toString();
+                const currentYear = String(state.currentYear || new Date().getFullYear());
                 const yearData = state.workoutData?.history?.years?.[currentYear];
                 const targetWeek = yearData?.mesocycles?.[mesoIndex]?.weeks?.find(w => w.weekNumber === (state.activeWeek || 1));
                 const activeDayNum = state.activeDay || 1;
-                const prevEx = findPreviousExercise(state.workoutData, mesoIndex, targetWeek?.weekNumber || 1, activeDayNum - 1, ex, true);
+                const prevEx = findPreviousExercise(state.workoutData, mesoIndex, targetWeek?.weekNumber || 1, activeDayNum - 1, ex, false, state.currentYear);
 
                 rowCard.querySelectorAll('.set-input').forEach(inp => {
                     const sIdx = parseInt(inp.dataset.set, 10);
@@ -225,7 +243,8 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
 
             if (isChecked) {
                 const totalSets = ex.loggedSets?.length || ex.sets?.length || 1;
-                const startRecovery = shouldStartRecoveryTimer(ex, setObj, setIdx, totalSets);
+                const startRecovery = !(setObj.isWarmup||setObj.warmup||setObj.is_warmup) &&
+                    shouldStartRecoveryTimer(ex, setObj, setIdx, totalSets);
 
                 if (startRecovery) {
                     let rawRecovery = '';

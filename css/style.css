@@ -2896,3 +2896,51 @@ body.dark-mode .group-title-badge {
 @media(max-width:420px){
     .sync-conflict-panel .sync-conflict-actions {grid-template-columns:1fr;}
 }
+
+
+/* Lightweight set-level warmup toggle and per-user equipment inventory. */
+.set-warmup-toggle {
+    min-height:25px;min-width:33px;margin-top:3px;padding:3px 4px;
+    font-size:.72rem;font-weight:800;border-radius:7px;
+    background:var(--bg-color);color:var(--text-muted);
+    border:1px solid var(--border-color);
+}
+.set-warmup-toggle[aria-pressed="true"] {
+    background:rgba(217,119,6,.12);border-color:#d97706;
+    color:#e1a641;
+}
+.workout-set-row.is-warmup-set .td-set {background:rgba(217,119,6,.08);}
+.set-warmup-toggle:focus-visible {outline:3px solid var(--accent-color);}
+.equipment-settings {margin:8px 0;padding:10px;border:1px solid var(--border-color);
+    border-radius:10px;background:var(--block-bg);}
+.equipment-settings summary {font-weight:750;cursor:pointer;min-height:44px;
+    display:flex;align-items:center;}
+.equipment-settings p {font-size:.8rem;line-height:1.5;}
+.equipment-steps-grid,.equipment-plate-grid {
+    display:grid;gap:8px;grid-template-columns:repeat(3,minmax(0,1fr));
+}
+.equipment-plate-grid {grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:12px;}
+.equipment-settings label {display:flex;flex-direction:column;gap:4px;
+    font-size:.76rem;line-height:1.35;}
+.equipment-settings input {width:100%;min-height:42px;border:1px solid var(--border-color);
+    border-radius:8px;padding:6px;background:var(--bg-color);color:var(--text-color);}
+.equipment-settings #homegym-equipment-status {font-weight:700;}
+@media(max-width:375px) {.equipment-steps-grid {grid-template-columns:1fr 1fr;}}
+.mycoatch-next-loads {margin:10px 0;padding:10px;border:1px solid var(--border-color);
+    border-radius:10px;}
+.mycoatch-next-load {display:flex;flex-direction:column;gap:4px;padding:5px 0;}
+.mycoatch-next-load small {font-size:.76rem;line-height:1.4;}
+
+/* Concise, persistent end-of-workout feedback, no interruption of the set UI */
+.mycoatch-session-summary {
+    border:1px solid var(--border-color);
+    border-radius:10px;
+    padding:10px 12px;
+    margin-top:10px;
+    line-height:1.45;
+}
+.mycoatch-session-summary h4 {margin:0 0 8px;font-size:.95rem;}
+.mycoatch-session-summary p {margin:5px 0;font-size:.84rem;}
+.mycoatch-session-summary small {display:block;margin-top:7px;font-size:.74rem;color:var(--text-muted);}
+.year-selector-container {display:inline-flex;align-items:center;gap:5px;}
+.year-selector-container .week-select-input {min-height:38px;font-size:.82rem;}

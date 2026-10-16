@@ -2,6 +2,7 @@ import { canonicalExerciseKey, canonicalExerciseName } from './exerciseIdentity.
 import { numericValue, estimateE1rm } from './historyAnalysis.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { evaluateExerciseProgression } from './progressionPolicy.js';
+import { isWarmupExercise } from '../js/workoutSemantics.js';
 import { contributionsForExercise, TRACKED_MUSCLES, VOLUME_ACCOUNTING_METHOD } from './volumeAccounting.js';
 
 const catalog = new Map(EXERCISE_DATABASE.map(ex => [canonicalExerciseKey(ex.name), ex]));
@@ -23,7 +24,7 @@ function parseRpe(value) {
 }
 
 function inspectExercise(exercise, context) {
-    if (!exercise || exercise.isExcluded) return null;
+    if (!exercise || isWarmupExercise(exercise)) return null;
     const logged = Array.isArray(exercise.loggedSets) ? exercise.loggedSets :
         (Array.isArray(exercise.sets) ? exercise.sets : []);
     const valid = logged.flatMap(set => {
@@ -98,6 +99,13 @@ function inspectExercise(exercise, context) {
         allRepsAtTop: max !== undefined && valid.length === plannedSets &&
             valid.every(set => set.reps >= max && set.reps <= max + 2),
         allRepsBelowMin: min !== undefined && valid.every(set => set.reps < min),
+        // One RPE point below today's target in every checked working set
+        // is evidence of available reserve, not an estimated RPE.
+        allLowRpeWithValidReps: targetRpe !== null &&
+            min !== undefined && valid.length === plannedSets &&
+            validRpe.length === valid.length &&
+            valid.every(set => !set.special && set.reps >= min &&
+                set.reps <= (max ?? min) + 2 && set.rpe <= targetRpe - 1),
         allRpeWithinTarget: targetRpe !== null && validRpe.length === valid.length &&
             valid.every(set => set.rpe <= targetRpe),
         allRpeMeasured: valid.length === plannedSets &&

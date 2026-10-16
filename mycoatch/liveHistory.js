@@ -70,7 +70,7 @@ export function previousExercisePerformance(history, currentDay, exerciseName) {
     if (!key) return null;
     for (const day of previousDays(history, currentDay)) {
         for (const ex of day.exercises || []) {
-            if (ex.isExcluded || canonicalExerciseKey(ex.name) !== key) continue;
+            if (ex.isWarmup || ex.isExcluded || ex.is_excluded || canonicalExerciseKey(ex.name) !== key) continue;
             const sets = simpleValidSets(ex);
             if (!sets.length) continue;
             last = sets
@@ -104,7 +104,7 @@ function exercisePattern(day) {
  */
 export function historicalSessionPace(history, currentDay) {
     const sample = [];
-    const activeSets = (currentDay?.exercises || []).filter(ex => !ex.isExcluded)
+    const activeSets = (currentDay?.exercises || []).filter(ex => !ex.isWarmup && !ex.isExcluded && !ex.is_excluded)
         .reduce((sum, ex) => sum + (ex.loggedSets || []).length, 0);
     if (!activeSets) return null;
 
@@ -114,7 +114,7 @@ export function historicalSessionPace(history, currentDay) {
         if (exercisePattern(day) !== activePattern) continue;
         const duration = Number(day.totalDurationMinutes);
         if (!Number.isFinite(duration) || duration < 10 || duration > 180) continue;
-        const valid = (day.exercises || []).filter(ex => !ex.isExcluded)
+        const valid = (day.exercises || []).filter(ex => !ex.isWarmup && !ex.isExcluded && !ex.is_excluded)
             .reduce((sum, ex) => sum + simpleValidSets(ex).length, 0);
         if (valid < 4 || valid < activeSets * 0.65 || valid > activeSets * 1.35) continue;
         const secondsPerSet = duration * 60 / valid;

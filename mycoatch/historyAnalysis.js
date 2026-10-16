@@ -1,3 +1,4 @@
+import { isWarmupExercise, isWarmupSet } from '../js/workoutSemantics.js';
 // Analisi conservativa dei dati realmente registrati.
 // Non sostituisce gli RPE mancanti con valori inventati e non considera una serie
 // prescritta come completata.
@@ -16,7 +17,7 @@ function actualSets(exercise) {
     const source = Array.isArray(exercise?.loggedSets) ? exercise.loggedSets :
         (Array.isArray(exercise?.sets) ? exercise.sets : []);
     return source.flatMap(set => {
-        if (set?.isLocked !== true && set?.completed !== true) return [];
+        if ((set?.isLocked !== true && set?.completed !== true) || isWarmupSet(set)) return [];
         const weight = numericValue(set.weight ?? set.actualKg);
         const reps = numericValue(set.reps ?? set.actualReps);
         if (weight === null || weight <= 0 || reps === null || reps <= 0) return [];
@@ -44,6 +45,7 @@ export function analyzeCompletedMesocycle(mesocycle) {
     for (const week of weeks) {
         for (const day of (week.days || [])) {
             for (const exercise of (day.exercises || [])) {
+                if(isWarmupExercise(exercise)) continue;
                 const key = exerciseKey(exercise.name);
                 if (!key) continue;
                 const sets = actualSets(exercise);

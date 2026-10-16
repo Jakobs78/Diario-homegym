@@ -62,6 +62,8 @@ const DEFAULT_WORKOUT_DATA = {
 
 let syncDebounceTimer = null;
 let isSyncing = false;
+let storageFailure = false;
+let uploadingActionId=null;
 
 // ==========================================
 // 2. GESTIONE CODA OFFLINE (SYNC QUEUE)
@@ -69,13 +71,23 @@ let isSyncing = false;
 function getQueue() {
     const queue = localStorage.getItem(QUEUE_KEY);
     try{return queue ? JSON.parse(queue) : [];}
-    catch(error){console.error('Coda sync illeggibile: dati non cancellati.',error);return [];}
+    catch(error){
+        storageFailure=true;
+        console.error('Coda sync illeggibile: dati non cancellati.',error);
+        return [];
+    }
 }
 
 function enqueueAction(action) {
     const queue = getQueue();
-    queue.push(action);
-    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    // Each queued action is a FULL journal snapshot. Only the latest
+    // snapshot for a given account is needed. Never discard other accounts'
+    // records, or the snapshot currently being uploaded on the network.
+    const owner=String(action.ownerId??'');
+    const compact=queue.filter(item=>String(item.ownerId??'')!==owner ||
+        (isSyncing && item.id===uploadingActionId));
+    compact.push(action);
+    localStorage.setItem(QUEUE_KEY,JSON.stringify(compact));
 }
 
 function clearQueue() {
@@ -106,8 +118,13 @@ export function saveToLocalStorage(data, {preserveUpdatedAt = false} = {}) {
             localStorage.setItem(OWNER_KEY,String(id));
         }
         state.workoutData = data;
+        storageFailure=false;
+        return true;
     } catch (e) {
+        storageFailure=true;
         console.error('❌ Errore critico nel salvataggio in LocalStorage:', e);
+        updateSyncStatusUI();
+        return false;
     }
 }
 
@@ -125,15 +142,22 @@ export function getFromLocalStorage() {
 // 4. SINCRONIZZAZIONE CLOUD & CODA
 // ==========================================
 export async function saveAndSync(data, actionType = 'UPDATE_WORKOUT') {
-    saveToLocalStorage(data);
-    
-    enqueueAction({
+    if(!saveToLocalStorage(data)){
+        updateSyncStatusUI();
+        return false; // Do not pretend a diary is saved when storage is full.
+    }
+    try{enqueueAction({
         id: crypto.randomUUID(),
         type: actionType,
         payload: data, 
         timestamp: Date.now(),
         ownerId:state.currentUser?.id || getStoredLocalOwner() || null
-    });
+    });}catch(error){
+        storageFailure=true;
+        console.error('Impossibile mettere in coda il diario:',error);
+        updateSyncStatusUI();
+        return false;
+    }
 
     updateSyncStatusUI(); 
 
@@ -172,6 +196,7 @@ export async function processSyncQueue() {
             const currentId=String(state.currentUser?.id || '');
             const expectedId=String(action.ownerId || getStoredLocalOwner() || '');
             if(expectedId && currentId!==expectedId)continue;
+            uploadingActionId=action.id;
             const result = await pushDataToSupabase(state.currentUser, action.payload, action.timestamp);
             if (!result?.ok) {
                 if(result?.conflict){
@@ -189,6 +214,7 @@ export async function processSyncQueue() {
     } catch (error) {
         console.error("❌ Errore durante la sincronizzazione cloud (i dati restano in coda):", error);
     } finally {
+        uploadingActionId=null;
         isSyncing = false;
         updateSyncStatusUI(); 
     }
@@ -206,20 +232,25 @@ export function updateSyncStatusUI() {
     const pending = !offline && hasPendingSync();
     // Stato sempre leggibile nel layout compatto: messaggio esteso come
     // tooltip e nome accessibile, senza nascondere gli avvisi di rischio.
-    const detail = conflict
+    const detail = storageFailure
+        ? 'ATTENZIONE: impossibile conservare tutti i dati locali. Scarica subito un backup JSON e verifica lo spazio disponibile.'
+        : conflict
         ? 'Conflitto tra dispositivi: i dati locali sono protetti. Scegli la versione da conservare.'
         : offline
         ? 'Offline: dati salvati sul dispositivo in attesa di rete.'
         : pending
             ? 'Modifiche non sincronizzate: non cambiare dispositivo prima della sincronizzazione.'
             : 'Sincronizzato: tutti i dati sono allineati con il cloud.';
-    syncBadge.textContent = conflict ? '⚠ Conflitto' : offline ? '● Offline' : pending ? '⚠ In coda' : '✓ Cloud';
+    const unverified=!state.currentUser || !getCloudRevision(state.currentUser);
+    syncBadge.textContent = storageFailure ? '⚠ Salvataggio'
+        : conflict ? '⚠ Conflitto' : offline ? '● Offline'
+        : pending ? '⚠ In coda' : unverified ? '○ Cloud?' : '✓ Cloud';
     syncBadge.title = detail;
     syncBadge.setAttribute('aria-label', detail);
     syncBadge.classList.toggle('is-offline', offline);
-    syncBadge.classList.toggle('is-pending', pending || Boolean(conflict));
+    syncBadge.classList.toggle('is-pending', pending || Boolean(conflict) || storageFailure);
     renderSyncConflictControls(conflict);
-    syncBadge.style.cursor = pending || conflict ? 'pointer' : 'default';
+    syncBadge.style.cursor = pending || conflict || storageFailure ? 'pointer' : 'default';
     syncBadge.style.background = '';
     syncBadge.style.color = '';
     syncBadge.style.padding = '';

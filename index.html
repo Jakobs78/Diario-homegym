@@ -242,6 +242,48 @@
                     <button class="sheet-item" data-action="export-csv">📄 Storico CSV (anno corrente)</button>
                     <button class="sheet-item" data-action="import-history">📥 Import storico CSV</button>
                     <button class="sheet-item" data-action="backup-json">🛡️ Backup integrale diario (JSON)</button>
+                    <details class="equipment-settings">
+                        <summary>🏋️ Attrezzatura personale · dischi e incrementi</summary>
+                        <form id="homegym-equipment-form">
+                            <p>Indica il minimo incremento realmente disponibile per il peso totale mostrato nella card. Per i manubri, per singolo manubrio. L'impostazione è inclusa nel diario e sincronizzata.</p>
+                            <div class="equipment-steps-grid">
+                                <label>Peso bilanciere abituale (kg)<input type="number" id="equipment-bar-weight" min="0" max="30" step=".25" value="20" required inputmode="decimal"></label>
+                                <label>Bilanciere · incremento (kg)<input type="number" id="equipment-step-barbell" min=".25" max="25" step=".25" value="2.5" required inputmode="decimal"></label>
+                                <label>Manubrio · incremento (kg)<input type="number" id="equipment-step-dumbbell" min=".25" max="25" step=".25" value="1" required inputmode="decimal"></label>
+                                <label>Macchina/cavo · incremento (kg)<input type="number" id="equipment-step-machine" min=".25" max="25" step=".25" value="2.5" required inputmode="decimal"></label>
+                            </div>
+                            <p>Numero di coppie di dischi realmente possedute (una coppia = un disco per lato). Impostando 0 escludi quel formato.</p>
+                            <div class="equipment-plate-grid"><label class="equipment-plate-label">20 kg / lato
+  <input type="number" class="equipment-plate-pairs" data-plate="20" min="0" max="24" step="1" value="2" inputmode="numeric"/>
+</label>
+<label class="equipment-plate-label">15 kg / lato
+  <input type="number" class="equipment-plate-pairs" data-plate="15" min="0" max="24" step="1" value="2" inputmode="numeric"/>
+</label>
+<label class="equipment-plate-label">10 kg / lato
+  <input type="number" class="equipment-plate-pairs" data-plate="10" min="0" max="24" step="1" value="2" inputmode="numeric"/>
+</label>
+<label class="equipment-plate-label">5 kg / lato
+  <input type="number" class="equipment-plate-pairs" data-plate="5" min="0" max="24" step="1" value="2" inputmode="numeric"/>
+</label>
+<label class="equipment-plate-label">2.5 kg / lato
+  <input type="number" class="equipment-plate-pairs" data-plate="2.5" min="0" max="24" step="1" value="2" inputmode="numeric"/>
+</label>
+<label class="equipment-plate-label">2 kg / lato
+  <input type="number" class="equipment-plate-pairs" data-plate="2" min="0" max="24" step="1" value="2" inputmode="numeric"/>
+</label>
+<label class="equipment-plate-label">1.25 kg / lato
+  <input type="number" class="equipment-plate-pairs" data-plate="1.25" min="0" max="24" step="1" value="2" inputmode="numeric"/>
+</label>
+<label class="equipment-plate-label">1 kg / lato
+  <input type="number" class="equipment-plate-pairs" data-plate="1" min="0" max="24" step="1" value="2" inputmode="numeric"/>
+</label>
+<label class="equipment-plate-label">0.5 kg / lato
+  <input type="number" class="equipment-plate-pairs" data-plate="0.5" min="0" max="24" step="1" value="2" inputmode="numeric"/>
+</label></div>
+                            <button type="submit" class="btn btn-primary">Salva attrezzatura nel diario</button>
+                            <p id="homegym-equipment-status" role="status" aria-live="polite"></p>
+                        </form>
+                    </details>
                     <button class="sheet-item" data-action="restore-json">♻️ Ripristina diario dal backup JSON</button>
                     
                     <a href="mailto:tetrix@outlook.it?subject=Segnalazione%20Bug%20/%20Supporto%20Webapp&body=Ciao,%20ti%20scrivo%20perchè..." class="btn btn-secondary support-btn">

@@ -132,17 +132,17 @@ test('fatica ripetuta e regression: riduzione del carico e una serie accessoria 
     assert.equal(chestAccessory.setsCount, 2);
 });
 
-test('stallo con buona aderenza e RPE moderato: +1 serie accessoria se il tempo lo consente', () => {
+test('RPE sotto target su tutte le serie in settimane diverse: incremento kg, senza aumentare anche volume', () => {
     const stableSets = Array.from({ length: 3 }, () => [80, 7, '@7']);
     const meso = mesocycle('Stallo', [stableSets, stableSets, stableSets]);
     const report = analyzeTrainingHistory(historyOf(years(2026, meso)));
     const decision = planAdaptiveDecisions(report);
-    assert.equal(decision.byExercise[canonicalExerciseKey('panca')].action, 'review_stall');
-    assert.equal(decision.byMuscle.Petto.volumeDelta, 1);
+    assert.equal(decision.byExercise[canonicalExerciseKey('panca')].action, 'increase_load');
+    assert.equal(decision.byExercise[canonicalExerciseKey('panca')].plannedKg, 82.5);
+    assert.equal(decision.byMuscle.Petto.volumeDelta, 0);
     const result = MyCoatch.generateNextFromHistory(historyOf(years(2026, meso)), baseConfig);
     const chestAccessory = result.weeks[0].days[0].exercises.find(ex => ex.category === 'Petto' && ex.pattern === 'isolation');
-    assert.equal(chestAccessory.setsCount, 4);
-    assert.match(chestAccessory.notes, /serie accessoria aggiuntiva/);
+    assert.ok(chestAccessory.setsCount <= 3, 'No simultaneous accessory-volume increase');
 });
 
 test('deload RPE basso non diventa riferimento artificioso per il nuovo carico', () => {

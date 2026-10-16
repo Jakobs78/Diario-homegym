@@ -11,6 +11,7 @@ import { getFromLocalStorage, getFromLocalStorageForUser, getStoredLocalOwner,
     saveToLocalStorage, saveAndSync, hasPendingSync, processSyncQueue, clearLocalData, updateSyncStatusUI } from './storage.js';
 import { pullDataFromSupabase, initBackgroundSync } from './sync.js';
 import { renderWorkoutList } from './ui.js';
+import { restoreActiveRestTimer } from './timer.js';
 import { handlePdfExportFromState } from './pdfExport.js';
 import { downloadExcelTemplate, handleUniversalImport } from './importer.js';
 import { readCsvFile, importProgressCSV, exportToCSV } from './csvHandler.js';
@@ -125,6 +126,7 @@ async function initApp() {
     }
     
     renderWorkoutList();
+    restoreActiveRestTimer();
     setupEventListeners();
     setupAuthListeners();
     initAudioUnlock();
@@ -400,6 +402,68 @@ function setupEventListeners() {
                     break;
             }
         }
+    });
+
+    // Personal equipment is persisted inside the user's journal and included
+    // in normal backup/sync. Never present default inventory as owned stock.
+    const equipmentForm=document.getElementById('homegym-equipment-form');
+    const readEquipment=()=>{
+        const athlete=state.workoutData?.athlete||{};
+        const barWeight=document.getElementById('equipment-bar-weight');
+        if(barWeight)barWeight.value=athlete.barbellWeight??20;
+        for(const name of ['barbell','dumbbell','machine']){
+            const field=document.getElementById('equipment-step-'+name);
+            if(field)field.value=athlete.loadingSteps?.[name]??({
+                barbell:2.5,dumbbell:1,machine:2.5
+            })[name];
+        }
+        for(const field of equipmentForm?.querySelectorAll('.equipment-plate-pairs')||[]){
+            const weight=field.dataset.plate;
+            field.value=athlete.platePairs?.[weight]??2;
+        }
+    };
+    // The native <details> "toggle" event is asynchronous and could fire
+    // after the athlete starts editing, reverting their input unexpectedly.
+    // Populate synchronously on the opening click instead.
+    const equipmentDetails=document.querySelector('.equipment-settings');
+    equipmentDetails?.querySelector('summary')?.addEventListener('click',()=>{
+        if(!equipmentDetails.open)readEquipment();
+    });
+    equipmentForm?.addEventListener('submit',event=>{
+        event.preventDefault();
+        if(!equipmentForm.reportValidity())return;
+        const status=document.getElementById('homegym-equipment-status');
+        const stepNames=['barbell','dumbbell','machine'];
+        const loadingSteps={};
+        for(const key of stepNames){
+            const value=Number(document.getElementById('equipment-step-'+key)?.value);
+            if(!Number.isFinite(value)||value<.25||value>25){
+                if(status)status.textContent='Incremento non valido: usa 0,25–25 kg.';
+                return;
+            }
+            loadingSteps[key]=value;
+        }
+        const platePairs={};
+        for(const field of equipmentForm.querySelectorAll('.equipment-plate-pairs')){
+            const n=Number(field.value);
+            if(!Number.isInteger(n)||n<0||n>24){
+                if(status)status.textContent='Inserisci da 0 a 24 coppie per ciascun disco.';
+                return;
+            }
+            platePairs[field.dataset.plate]=n;
+        }
+        state.workoutData.athlete ||= {};
+        const barWeight=Number(document.getElementById('equipment-bar-weight')?.value);
+        if(!Number.isFinite(barWeight)||barWeight<0||barWeight>30){
+            if(status)status.textContent='Peso bilanciere non valido.';
+            return;
+        }
+        state.workoutData.athlete.barbellWeight=barWeight;
+        state.workoutData.athlete.loadingSteps=loadingSteps;
+        state.workoutData.athlete.platePairs=platePairs;
+        saveAndSync(state.workoutData,'SET_EQUIPMENT');
+        if(status)status.textContent='Attrezzatura salvata nel diario. La sincronizzazione seguirà lo stato Cloud.';
+        renderWorkoutList();
     });
 
     // LISTENER PER MODALE IMPORTAZIONE ED EVENTI FILE

@@ -56,7 +56,7 @@ export function reviewCalibrationWeek(week) {
         let daySets = 0;
         let dayValid = 0;
         for (const exercise of day.exercises || []) {
-            if (exercise?.isExcluded) continue;
+            if (exercise?.isWarmup || exercise?.isExcluded || exercise?.is_excluded) continue;
             const anchor = KNOWN_VARIANTS.get(canonicalExerciseKey(exercise.name));
             for (const set of exercise.loggedSets || exercise.sets || []) {
                 if (!isWorkingSet(set)) continue;

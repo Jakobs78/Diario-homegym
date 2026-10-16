@@ -151,6 +151,7 @@ function lastCompletedIndex(exercise) {
  * che dalla panoramica della seduta. Legge ESCLUSIVAMENTE serie confermate.
  */
 export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = null } = {}) {
+    if(isWarmupExercise(exercise))return null;
     const sets = Array.isArray(exercise?.loggedSets) ? exercise.loggedSets : [];
     const lastIndex = lastCompletedIndex(exercise);
     if (lastIndex < 0) return null;

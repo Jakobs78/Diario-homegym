@@ -3,6 +3,7 @@ import { calibrationContextForDay } from '../mycoatch/calibrationReview.js';
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
 import { createSessionCheckin } from '../mycoatch/sessionReadiness.js';
+import { recommendNextSessionLoad } from '../mycoatch/loadProposal.js';
 
 function element(tag, className, text) {
     const node = document.createElement(tag);
@@ -95,9 +96,25 @@ export function showLiveCoachToast(day, { exerciseIndex, setIndex } = {}) {
     if (!day) return null;
     const snapshot = buildLiveSessionSnapshot(day, { history: state.workoutData });
     if (snapshot.finished) {
+        const suggested=(day.exercises||[]).flatMap(ex=>{
+            const p=recommendNextSessionLoad(ex,{
+                readiness:snapshot.readiness,
+                equipmentSettings:{
+                    ...(state.workoutData?.athlete?.loadingSteps||{}),
+                    platePairs:state.workoutData?.athlete?.platePairs,
+                    barbellWeight:state.workoutData?.athlete?.barbellWeight
+                }
+            });
+            return p?.eligible&&p.suggestedWeight!==null?[{name:ex.name,...p}]:[];
+        });
+        const next=suggested.length
+            ? ' Proposte indicative per la prossima seduta: '+
+                suggested.map(x=>x.name+' '+x.previousWeight+' → '+x.suggestedWeight+' kg').join(' · ')+
+                '. Verifica le card e conferma tu eventuali modifiche.'
+            : '';
         return displayLiveCoachToast({
             title: '✅ MyCoatch · Seduta completata',
-            message: 'Tutte le serie di lavoro sono state confermate. Le prestazioni registrate alimentano il prossimo piano.',
+            message: 'Tutte le serie di lavoro sono state confermate.'+next,
             severity: 'ok'
         });
     }
@@ -261,6 +278,38 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
     // Il toast annuncia i nuovi consigli: evita letture doppie a ogni digitazione.
     liveMessage.setAttribute('aria-live', 'off');
 
+    // Visibile anche a seduta finita: i consigli sono provvisori finché
+    // non sono sostenuti da due settimane comparabili. Nessuna scrittura.
+    const nextLoads=(day.exercises||[]).flatMap(ex=>{
+        const proposal=recommendNextSessionLoad(ex,{
+            readiness:snapshot.readiness,
+            equipmentSettings:{
+                ...(state.workoutData?.athlete?.loadingSteps||{}),
+                platePairs:state.workoutData?.athlete?.platePairs,
+                barbellWeight:state.workoutData?.athlete?.barbellWeight
+            }
+        });
+        return proposal?.eligible?[{ex,proposal}]:[];
+    });
+    if(nextLoads.length){
+        const heading=element('h4','mycoatch-next-title','📈 Prossima seduta · possibili progressioni');
+        const section=element('section','mycoatch-next-loads');
+        section.append(heading);
+        for(const {ex,proposal} of nextLoads){
+            const item=element('p','mycoatch-next-load');
+            const stepText=proposal.suggestedWeight!==null
+                ? proposal.previousWeight+' → '+proposal.suggestedWeight+' kg'
+                : 'Carico da mantenere · servono microcarichi';
+            item.append(element('strong','',ex.name+' · '+stepText));
+            item.append(element('small','',proposal.reason+' '+(proposal.configured
+                ? 'Incremento conforme alle impostazioni dell’attrezzatura.'
+                : 'Incremento indicativo: controlla i pesi realmente disponibili.')));
+            section.append(item);
+        }
+        section.append(element('small','',
+            'Suggerimenti basati solo su tutte le serie ✓. Non cambiano la scheda: una progressione consolidata richiede due settimane comparabili.'));
+        liveMessage.append(section);
+    }
     if (!snapshot.checkedSets) {
         liveMessage.append(element('p', '', 'Inizia confermando una serie reale con kg e ripetizioni. L’RPE è facoltativo, ma migliora la qualità dei suggerimenti.'));
     } else if (snapshot.invalidSets) {
@@ -321,6 +370,36 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
     }
 
     panel.append(liveMessage);
+
+    if(snapshot.finished){
+        const done=element('section','mycoatch-session-summary');
+        done.setAttribute('aria-label','Riepilogo conclusivo seduta');
+        done.append(element('h4','','✅ Riepilogo fine seduta'));
+        done.append(element('p','',
+            snapshot.validSets+' serie allenanti valide · volume '+
+            snapshot.tonnageKg.toLocaleString('it-IT')+' kg·rep · RPE dichiarato su '+
+            snapshot.rpeRecordedSets+'/'+snapshot.validSets+' serie.'));
+        const scored=(day.exercises||[]).flatMap(ex=>{
+            if(ex.isWarmup||ex.isExcluded)return [];
+            const sets=(ex.loggedSets||[]).filter(s=>
+                !s.isWarmup&&!s.warmup&&!s.is_warmup&&
+                (s.isLocked===true||s.completed===true)&&
+                Number.isFinite(Number(s.rpe))&&String(s.rpe??'').trim()!=='');
+            if(!sets.length)return [];
+            const target=Number(String(ex.targetRpe??ex.rpeTarget??ex.rpe??'')
+                .replace('@','').replace(',','.'));
+            if(!Number.isFinite(target)||target<6||target>10)return [];
+            const avg=sets.reduce((sum,s)=>sum+Number(s.rpe),0)/sets.length;
+            return [ex.name+': RPE '+(Math.round(avg*10)/10)+
+                ' percepito / '+target+' previsto'];
+        });
+        for(const line of scored)done.append(element('p','mycoatch-session-summary-exercise',line));
+        if(!scored.length)done.append(element('p','',
+            'Nessun confronto RPE attendibile: le serie non spuntate non vengono considerate.'));
+        done.append(element('small','',
+            'Il prossimo piano usa soltanto prestazioni confermate. I suggerimenti non cambiano automaticamente il programma.'));
+        panel.append(done);
+    }
 
     const calibration = calibrationContextForDay(state.workoutData, day);
     if (calibration) {

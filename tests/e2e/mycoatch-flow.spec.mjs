@@ -1904,3 +1904,146 @@ test('warm-up marked by deliberate gesture stays in history but never blocks ses
   assert.deepEqual(monitor.remoteRequests,[]);
   assert.deepEqual(monitor.pageErrors,[]);
 });
+
+
+test('all confirmed sets at RPE 6 versus target 8 give a real next-session load proposal, not an automatic edit',async({page})=>{
+  const monitor=await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    state.workoutData.athlete.loadingSteps={barbell:2.5,dumbbell:1,machine:2.5};
+    const ex=state.workoutData.history.years[new Date().getFullYear()]
+      .mesocycles[0].weeks[0].days[0].exercises[0];
+    ex.targetRpe='@8';
+    renderWorkoutList();
+  });
+  for(let i=0;i<3;i++){
+    await page.locator('.set-kg[data-set="'+i+'"]').fill('80');
+    await page.locator('.set-reps[data-set="'+i+'"]').fill('6');
+    await page.locator('.set-rpe[data-set="'+i+'"]').fill('6');
+    await page.locator('.set-lock-check[data-set="'+i+'"]').check();
+  }
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Prossima seduta');
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('80 → 82.5 kg');
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Riepilogo fine seduta');
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('RPE 6 percepito / 8 previsto');
+  await expect(page.locator('#mycoatch-live-toast')).toContainText('80 → 82.5 kg');
+  const state=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const ex=state.workoutData.history.years[new Date().getFullYear()]
+      .mesocycles[0].weeks[0].days[0].exercises[0];
+    return {actual:ex.loggedSets.map(s=>[s.weight,s.reps,s.rpe,s.isLocked]),
+      prescription:ex.sets,loadingSteps:state.workoutData.athlete.loadingSteps};
+  });
+  assert.equal(state.actual.length,3);
+  assert.ok(state.actual.every(s=>s[0]===80&&s[1]==='6'&&s[2]===6&&s[3]));
+  assert.deepEqual(state.loadingSteps,{barbell:2.5,dumbbell:1,machine:2.5});
+  assert.ok(!JSON.stringify(state.prescription||[]).includes('82.5'));
+  assert.deepEqual(monitor.remoteRequests,[]);
+  assert.deepEqual(monitor.pageErrors,[]);
+});
+
+test('W on a single row removes only that row from MyCoatch effective volume, not the journal',async({page})=>{
+  const monitor=await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+  const button=page.locator('.ex-card[data-ex="0"] .set-warmup-toggle[data-set="0"]');
+  await expect(button).toHaveAttribute('aria-pressed','false');
+  await button.click();
+  await expect(page.locator('.ex-card[data-ex="0"] .set-warmup-toggle[data-set="0"]'))
+    .toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/2');
+  await page.locator('.set-lock-check[data-set="0"]').check();
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 0/2');
+  const saved=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const ex=state.workoutData.history.years[new Date().getFullYear()]
+      .mesocycles[0].weeks[0].days[0].exercises[0];
+    return ex.loggedSets[0];
+  });
+  assert.equal(saved.isWarmup,true);
+  assert.equal(saved.isLocked,true);
+  await page.locator('.ex-card[data-ex="0"] .set-warmup-toggle[data-set="0"]').click();
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 1/3');
+  assert.deepEqual(monitor.remoteRequests,[]);
+  assert.deepEqual(monitor.pageErrors,[]);
+});
+
+test('year selector switches historical mesocycles and lock to the selected year without modifying other years',async({page})=>{
+  const monitor=await openIsolatedApp(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    const copy=structuredClone(state.workoutData.history.years['2026']);
+    copy.mesocycles[0].weeks[0].days[0].exercises[0].name='Panca anno 2025';
+    state.workoutData.history.years['2025']=copy;
+    state.currentYear='2026';
+    renderWorkoutList();
+  });
+  await expect(page.locator('#workout-year-select')).toBeVisible();
+  await page.locator('#workout-year-select').selectOption('2025');
+  await expect(page.locator('.ex-card[data-ex="0"]')).toContainText('Panca anno 2025');
+  await expect(page.locator('#toggle-lock-meso-btn')).toBeVisible();
+  const info=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {getActiveMesocycleObject}=await import('/js/mesocycle.js');
+    return {year:state.currentYear,meso:getActiveMesocycleObject(),
+      selected:localStorage.getItem('ui_active_year')};
+  });
+  assert.equal(info.year,'2025');
+  assert.equal(info.selected,'2025');
+  assert.ok(info.meso?.weeks?.length>0);
+  await page.locator('#workout-year-select').selectOption('2026');
+  await expect(page.locator('.ex-card[data-ex="0"]')).not.toContainText('Panca anno 2025');
+  assert.deepEqual(monitor.remoteRequests,[]);
+  assert.deepEqual(monitor.pageErrors,[]);
+});
+
+test('personal equipment stock and minimum increments are saved into full workout data',async({page})=>{
+  const monitor=await openIsolatedApp(page);
+  await page.locator('#open-tools-btn').click();
+  const details=page.locator('.equipment-settings');
+  await expect(details.locator('summary')).toBeVisible();
+  await details.locator('summary').click();
+  await page.locator('#equipment-step-barbell').fill('1.25');
+  await page.locator('#equipment-step-dumbbell').fill('0.5');
+  await page.locator('#equipment-step-machine').fill('2.5');
+  await page.locator('#equipment-bar-weight').fill('15');
+  await page.locator('.equipment-plate-pairs[data-plate="20"]').fill('0');
+  await page.locator('#homegym-equipment-form button[type="submit"]').click();
+  const values=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    return {loadingSteps:state.workoutData.athlete.loadingSteps,
+      platePairs:state.workoutData.athlete.platePairs,
+      barbellWeight:state.workoutData.athlete.barbellWeight};
+  });
+  assert.equal(values.loadingSteps.barbell,1.25);
+  assert.equal(values.loadingSteps.dumbbell,.5);
+  assert.equal(values.barbellWeight,15);
+  assert.equal(values.platePairs['20'],0);
+  assert.deepEqual(monitor.remoteRequests,[]);
+  assert.deepEqual(monitor.pageErrors,[]);
+});
+
+test('offline save queue coalesces newer full snapshots for the same athlete',async({page})=>{
+  const monitor=await openIsolatedApp(page);
+  const observed=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {CONFIG}=await import('/js/config.js');
+    const {saveAndSync,hasPendingSync}=await import('/js/storage.js');
+    state.currentUser=null;
+    localStorage.removeItem(CONFIG.STORAGE_KEY+'_sync_queue');
+    for(let i=1;i<=4;i++){
+      state.workoutData.athlete.email='iteration-'+i+'@invalid.example';
+      await saveAndSync(state.workoutData);
+    }
+    const queue=JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY+'_sync_queue'));
+    return {count:queue.length,payload:queue[0].payload.athlete.email,
+      pending:hasPendingSync()};
+  });
+  assert.equal(observed.count,1);
+  assert.equal(observed.payload,'iteration-4@invalid.example');
+  assert.equal(observed.pending,true);
+  assert.deepEqual(monitor.remoteRequests,[]);
+  assert.deepEqual(monitor.pageErrors,[]);
+});

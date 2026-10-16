@@ -246,28 +246,45 @@ export function findPreviousExercise(workoutData, currentMesoIdx, currentWeekNum
 /**
  * Calcola la combinazione di dischi da caricare per lato sul bilanciere
  */
-export function getPlateBreakdown(totalWeight, barWeight = 20) {
-    if (!totalWeight || totalWeight <= barWeight) {
-        return null;
+export function getPlateBreakdown(totalWeight, barWeight = 20, inventory = null) {
+    if(!Number.isFinite(totalWeight)||totalWeight<=barWeight)return null;
+    const target=Math.floor(((totalWeight-barWeight)/2)*4+1e-9); // never exceed requested load
+    const targetKg=Math.round(((totalWeight-barWeight)/2)*100)/100;
+    const weights=[20,15,10,5,2.5,2,1.25,1,0.5];
+    // Legacy default: catalogue list, not an assertion about owned plates.
+    if(!inventory || typeof inventory!=='object'){
+        let left=targetKg;
+        const plates=[];
+        for(const w of weights){
+            while(left+0.0001>=w){plates.push(w);left=Math.round((left-w)*100)/100;}
+        }
+        return {sideWeight:targetKg,plates,
+            str:plates.length?plates.join(' + '):'Nessun disco',
+            exact:Math.abs(left)<0.001};
     }
-
-    let sideWeight = Math.round(((totalWeight - barWeight) / 2) * 100) / 100;
-    const availablePlates = [20, 15, 10, 5, 2.5, 2, 1.25, 1, 0.5];
-    const combination = [];
-
-    for (const plate of availablePlates) {
-        while (sideWeight >= plate) {
-            combination.push(plate);
-            sideWeight = Math.round((sideWeight - plate) * 100) / 100;
+    // Bounded knapsack: each count describes PAIRS available (one per side).
+    // Prefer an exact solution when possible; otherwise the closest
+    // achievable load below the target and a visible warning.
+    const dp=Array(target+1).fill(null);
+    dp[0]=[];
+    for(const weight of weights){
+        const quantity=Math.max(0,Math.min(24,Math.trunc(Number(inventory[String(weight)]??0))||0));
+        const units=Math.round(weight*4);
+        for(let j=0;j<quantity;j++){
+            for(let k=target;k>=units;k--){
+                const old=dp[k-units];
+                if(!old)continue;
+                const next=[...old,weight];
+                if(!dp[k]||next.length<dp[k].length)dp[k]=next;
+            }
         }
     }
-
-    const sideTotal = Math.round(((totalWeight - barWeight) / 2) * 100) / 100;
-    return {
-        sideWeight: sideTotal,
-        plates: combination,
-        str: combination.length > 0 ? combination.join(' + ') : 'Nessun disco'
-    };
+    let best=target;
+    while(best>0&&!dp[best])best--;
+    const plates=dp[best]||[];
+    return {sideWeight:targetKg,plates,
+        str:plates.length?plates.join(' + '):'Nessun disco',
+        exact:best===target && Math.abs(targetKg-best/4)<0.001};
 }
 
 /**
