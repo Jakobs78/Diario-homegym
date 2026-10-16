@@ -1179,7 +1179,7 @@ test('CSV precompila davvero gli input, il check copia alle serie dopo senza inv
 
   await expect(kg(2)).toHaveValue('72.5');
   await expect(reps(2)).toHaveValue('9');
-  await expect(rpe(2)).toHaveValue('9');
+  await expect(rpe(2)).toHaveValue('8'); // priorità al target RPE attuale, non al valore percepito nella serie precedente
   const second = await page.evaluate(async () => {
     const { state } = await import('/js/state.js');
     const current = state.workoutData.history.years[String(new Date().getFullYear())].mesocycles.at(-1);
