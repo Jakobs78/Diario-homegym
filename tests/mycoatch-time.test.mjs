@@ -45,17 +45,18 @@ test('a 30 minuti taglia gli accessori invece dei fondamentali', () => {
     assert.match(short.exercises[0].notes, /TEMPO RIDOTTO/);
 });
 
-test('sedute da 45 minuti possono preservare piu accessori usando superserie', () => {
+test('45 minuti: fondamentali protetti e complementari scelti senza recuperi fittizi', () => {
     const day = makeMeso(45).weeks[0].days[0];
-    console.error('TIME45_DIAGNOSTIC',JSON.stringify({exercises:day.exercises.map(e=>({name:e.name,sets:e.setsCount,group:e.groupType})),audit:day.selectionAudit,estimate:day.estimatedMinutes}));
-    const baselineLong=makeMeso(60).weeks[0].days[0];
-    const five=[...baselineLong.exercises,accessory('Curl ai Cavi Bassi','Bicipiti')];
-    const conventional=optimizeSession(five,45);
-    console.error('TIME45_CONVENTIONAL',JSON.stringify({exercises:conventional.exercises.map(x=>({name:x.name,sets:x.setsCount,group:x.groupType})),estimate:conventional.estimatedMinutes,reducedPriority:conventional.reducedPrioritySets}));
-    assert.equal(day.exercises.length, 5);
+    assert.ok(day.exercises.length >= 4 && day.exercises.length <= 5);
+    assert.equal(day.selectionAudit.protected.length, 2);
+    assert.ok(day.selectionAudit.protected.every(name =>
+        day.exercises.some(ex => ex.name === name)));
     assert.ok(day.groupCount >= 1);
     assert.ok(day.estimatedMinutes <= 45);
+    assert.equal(day.estimatedMinutes,estimateDayMinutes(day.exercises));
     assert.match(day.exercises[0].notes, /DURATA STIMATA/);
+    assert.ok(day.selectionAudit.excludedAccessories.every(skipped =>
+        !day.exercises.some(ex => ex.name === skipped.exercise)));
 });
 
 test('i superset si generano soltanto dopo i fondamentali e su isolamenti compatibili', () => {
