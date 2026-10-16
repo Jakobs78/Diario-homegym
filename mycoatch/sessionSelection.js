@@ -87,7 +87,8 @@ export function selectExercisesForTime(exercises, maxSessionMinutes, options = {
 
     // Il nucleo obbligatorio viene programmato per primo. Se non basta il
     // tempo, l'ottimizzatore può ridurne le serie, MA non cancellarlo.
-    const basePlan=optimizeSession(protectedExercises,maxSessionMinutes);
+    const optimizerOptions={allowGrouping:options.allowGrouping!==false};
+    const basePlan=optimizeSession(protectedExercises,maxSessionMinutes,optimizerOptions);
     const ranking=exercises.map((ex,index)=>({ex,index}))
         .filter(({ex,index})=>!isProtected(ex,index))
         .map(({ex,index})=>scoreAccessory(ex,index,options))
@@ -106,7 +107,7 @@ export function selectExercisesForTime(exercises, maxSessionMinutes, options = {
             .sort((a,b)=>positions.get(canonicalExerciseKey(a.name))-
                 positions.get(canonicalExerciseKey(b.name)));
         let trial;
-        try { trial=optimizeSession(proposal,maxSessionMinutes); }
+        try { trial=optimizeSession(proposal,maxSessionMinutes,optimizerOptions); }
         catch { continue; }
         // Escludi le combinazioni che perderebbero un accessorio intero
         // oppure richiederebbero di sacrificare ancora il lavoro cardine.
