@@ -196,6 +196,7 @@ export function restoreActiveRestTimer(){
     const remaining=Math.ceil((saved-Date.now())/1000);
     startTimer(String(remaining)+'s');
     endTime=saved; // keep exact original deadline, not rounded new start
+    try{sessionStorage.setItem(REST_TIMER_KEY,String(saved));}catch{}
     return true;
 }
 

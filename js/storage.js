@@ -241,7 +241,7 @@ export function updateSyncStatusUI() {
         : pending
             ? 'Modifiche non sincronizzate: non cambiare dispositivo prima della sincronizzazione.'
             : 'Sincronizzato: tutti i dati sono allineati con il cloud.';
-    const unverified=Boolean(state.currentUser) && !getCloudRevision(state.currentUser);
+    const unverified=!state.currentUser || !getCloudRevision(state.currentUser);
     syncBadge.textContent = storageFailure ? '⚠ Salvataggio'
         : conflict ? '⚠ Conflitto' : offline ? '● Offline'
         : pending ? '⚠ In coda' : unverified ? '○ Cloud?' : '✓ Cloud';

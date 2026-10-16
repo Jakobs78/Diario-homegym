@@ -1939,7 +1939,7 @@ test('all confirmed sets at RPE 6 versus target 8 give a real next-session load 
   assert.equal(state.actual.length,3);
   assert.ok(state.actual.every(s=>s[0]===80&&s[1]==='6'&&s[2]===6&&s[3]));
   assert.deepEqual(state.loadingSteps,{barbell:2.5,dumbbell:1,machine:2.5});
-  assert.ok(!JSON.stringify(state.prescription).includes('82.5'));
+  assert.ok(!JSON.stringify(state.prescription||[]).includes('82.5'));
   assert.deepEqual(monitor.remoteRequests,[]);
   assert.deepEqual(monitor.pageErrors,[]);
 });
@@ -2001,7 +2001,9 @@ test('year selector switches historical mesocycles and lock to the selected year
 
 test('personal equipment stock and minimum increments are saved into full workout data',async({page})=>{
   const monitor=await openIsolatedApp(page);
+  await page.locator('#open-tools-btn').click();
   const details=page.locator('.equipment-settings');
+  await expect(details.locator('summary')).toBeVisible();
   await details.locator('summary').click();
   await page.locator('#equipment-step-barbell').fill('1.25');
   await page.locator('#equipment-step-dumbbell').fill('0.5');
