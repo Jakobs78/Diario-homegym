@@ -422,8 +422,12 @@ function setupEventListeners() {
             field.value=athlete.platePairs?.[weight]??2;
         }
     };
-    document.querySelector('.equipment-settings')?.addEventListener('toggle',event=>{
-        if(event.target.open)readEquipment();
+    // The native <details> "toggle" event is asynchronous and could fire
+    // after the athlete starts editing, reverting their input unexpectedly.
+    // Populate synchronously on the opening click instead.
+    const equipmentDetails=document.querySelector('.equipment-settings');
+    equipmentDetails?.querySelector('summary')?.addEventListener('click',()=>{
+        if(!equipmentDetails.open)readEquipment();
     });
     equipmentForm?.addEventListener('submit',event=>{
         event.preventDefault();
