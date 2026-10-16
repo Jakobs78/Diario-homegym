@@ -78,6 +78,7 @@ test('same-week repetition chooses the last archived confirmed session, never a 
 test('new mesocycle may show history but prefill only when current programme is compatible',()=>{
     const previous=ex('Panca',[done(85,9,9)]);
     previous.kgMin='85';previous.kgMax='85';
+    previous.sets[0].targetKg='85'; // prescription really changed vs current 70kg
     const current=ex('Panca',[empty()]);
     current.kgMin='70';current.kgMax='70';
     assert.deepEqual(
