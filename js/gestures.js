@@ -1,73 +1,54 @@
-// ==========================================
-// MODULI: gestures.js - Gestione dei gesti touch (swipe) orizzontali per le card degli esercizi
-// ==========================================
-
+// Esclusione dai massimali con gesto deliberato: almeno 300px orizzontali.
+// Un gesto verticale o iniziato su controlli non può mai escludere esercizi.
 export function enableCardSwipeGesture(cardElement, onSwipeLeft, onSwipeRight) {
     if (!cardElement) return;
+    const MIN_SWIPE_DISTANCE=300;
+    let startX=0,startY=0,currentX=0,currentY=0,tracking=false,swiping=false;
 
-    let startX = 0;
-    let startY = 0;
-    let currentX = 0;
-    let currentY = 0;
-    let isSwiping = false;
-
-    const MIN_SWIPE_DISTANCE = 300; 
-
-    cardElement.addEventListener('touchstart', (e) => {
-        const touch = e.touches[0];
-        startX = touch.clientX;
-        startY = touch.clientY;
-        currentX = startX;
-        currentY = startY;
-        isSwiping = false;
-        
-        cardElement.style.transition = 'none';
-    }, { passive: true });
-
-    cardElement.addEventListener('touchmove', (e) => {
-        const touch = e.touches[0];
-        currentX = touch.clientX;
-        currentY = touch.clientY;
-
-        const deltaX = currentX - startX;
-        const deltaY = currentY - startY;
-
-        const absX = Math.abs(deltaX);
-        const absY = Math.abs(deltaY);
-
-        if (!isSwiping && absY > absX) return;
-
-        if (absX > 30 && absX > absY * 2) {
-            if (deltaX < 0) {
-                isSwiping = true;
-                cardElement.style.transform = `translateX(${deltaX}px)`;
-                cardElement.style.opacity = `${1 - Math.min(absX / 300, 0.5)}`;
-            }
+    const interactive='input, select, button, textarea, a, label, summary, details';
+    const reset=()=>{
+        cardElement.style.transition='';
+        cardElement.style.transform='';
+        cardElement.style.opacity='';
+        tracking=false;
+        swiping=false;
+    };
+    cardElement.addEventListener('touchstart', event=>{
+        const touch=event.touches?.[0];
+        if (!touch || event.touches.length!==1 || event.target.closest?.(interactive)) {
+            tracking=false;
+            return;
         }
-    }, { passive: true });
-
-    cardElement.addEventListener('touchend', () => {
-        cardElement.style.transition = ''; // Ripristina la transizione CSS di default
-        const deltaX = currentX - startX;
-        const deltaY = currentY - startY;
-        const absX = Math.abs(deltaX);
-        const absY = Math.abs(deltaY);
-
-        if (isSwiping && absX >= MIN_SWIPE_DISTANCE && absX > absY * 1.5) {
-            if (deltaX < 0 && typeof onSwipeLeft === 'function') {
-                cardElement.style.transform = 'translateX(-100%)';
-                cardElement.style.opacity = '0';
-                setTimeout(() => onSwipeLeft(cardElement), 250);
-                return;
-            } else if (deltaX > 0 && typeof onSwipeRight === 'function') {
-                cardElement.style.transform = 'translateX(100%)';
-                cardElement.style.opacity = '0';
-                setTimeout(() => onSwipeRight(cardElement), 250);
-                return;
-            }
+        startX=currentX=touch.clientX;
+        startY=currentY=touch.clientY;
+        tracking=true;
+        swiping=false;
+    },{passive:true});
+    cardElement.addEventListener('touchmove',event=>{
+        if(!tracking)return;
+        const touch=event.touches?.[0];
+        if(!touch || event.touches.length!==1){reset();return;}
+        currentX=touch.clientX;currentY=touch.clientY;
+        const dx=currentX-startX,dy=currentY-startY;
+        const absX=Math.abs(dx),absY=Math.abs(dy);
+        if(absY>absX && !swiping)return;
+        if(absX>30 && absX>absY*2){
+            swiping=true;
+            // Prevent exaggerated visual displacement; the 300px threshold is still strict.
+            cardElement.style.transition='none';
+            cardElement.style.transform='translateX('+Math.max(-300,Math.min(300,dx))+'px)';
+            cardElement.style.opacity=String(1-Math.min(absX/300,.5));
         }
-
-        cardElement.style.transform = 'translateX(0px)';
-        cardElement.style.opacity = '1';
-    });
+    },{passive:true});
+    cardElement.addEventListener('touchend',event=>{
+        if(!tracking)return;
+        const point=event.changedTouches?.[0];
+        if(point){currentX=point.clientX;currentY=point.clientY;}
+        const dx=currentX-startX,dy=currentY-startY;
+        const qualifies=swiping && Math.abs(dx)>=MIN_SWIPE_DISTANCE && Math.abs(dx)>Math.abs(dy)*1.5;
+        const handler=dx<0?onSwipeLeft:onSwipeRight;
+        reset();
+        if(qualifies && typeof handler==='function') handler(cardElement);
+    },{passive:true});
+    cardElement.addEventListener('touchcancel',reset,{passive:true});
 }
