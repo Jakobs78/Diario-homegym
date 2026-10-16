@@ -7,7 +7,7 @@
 // 1. IMPORT & CONFIGURAZIONE
 // ==========================================
 import { supabase } from './config.js';
-import { getFromLocalStorage, saveToLocalStorage, hasPendingSync, processSyncQueue, updateSyncStatusUI } from './storage.js';
+import { getFromLocalStorageForUser, saveToLocalStorage, hasPendingSync, processSyncQueue, updateSyncStatusUI } from './storage.js';
 import { renderWorkoutList } from './ui.js';
 
 /**
@@ -189,7 +189,7 @@ export function initBackgroundSync(state) {
 
             const remoteData = await pullDataFromSupabase(user);
                 if (remoteData) {
-                    const localData = getFromLocalStorage();
+                    const localData = getFromLocalStorageForUser(user);
                     const localTime = new Date(localData.updatedAt || 0).getTime();
                     const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
 

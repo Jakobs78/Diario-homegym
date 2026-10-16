@@ -7,7 +7,8 @@
 // ==========================================
 import { CONFIG, supabase } from './config.js';
 import { state } from './state.js';
-import { getFromLocalStorage, saveToLocalStorage, saveAndSync, hasPendingSync, processSyncQueue, clearLocalData, updateSyncStatusUI } from './storage.js';
+import { getFromLocalStorage, getFromLocalStorageForUser, getStoredLocalOwner,
+    saveToLocalStorage, saveAndSync, hasPendingSync, processSyncQueue, clearLocalData, updateSyncStatusUI } from './storage.js';
 import { pullDataFromSupabase, initBackgroundSync } from './sync.js';
 import { renderWorkoutList } from './ui.js';
 import { handlePdfExportFromState } from './pdfExport.js';
@@ -42,7 +43,12 @@ window.switchAnalyticsTab = switchAnalyticsTab;
 // ==========================================
 supabase.auth.onAuthStateChange(async (event, session) => {
     if (session?.user) {
+        const owner=getStoredLocalOwner();
         state.currentUser = session.user;
+        if(owner && owner!==String(session.user.id)){
+            state.workoutData=getFromLocalStorageForUser(session.user);
+            renderWorkoutList();
+        }
         applyUserToUI(session.user);
 
         try {
@@ -77,7 +83,7 @@ async function initApp() {
     initDevBanner();
     initBackgroundSync(state);
     
-    const localData = getFromLocalStorage();
+    let localData = getFromLocalStorage();
     state.workoutData = localData;
     updateSyncStatusUI();
     
@@ -86,6 +92,8 @@ async function initApp() {
 
         if (user) {
             state.currentUser = user;
+            localData=getFromLocalStorageForUser(user);
+            state.workoutData=localData;
             const authOverlay = document.getElementById('auth-overlay');
             if (authOverlay) authOverlay.classList.add('d-none');
 
