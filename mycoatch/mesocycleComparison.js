@@ -87,6 +87,13 @@ export function compareMesocyclePlans(previous, generated, analysis) {
         // programmato. Sono conteggi per categoria primaria dell'esercizio.
         weeklyVolume: generated?.weeks?.[0]?.volumeBalance || null,
         weeklyCoverage: generated?.weeks?.[0]?.weeklyCoverage || null,
+        timeAwareSelections: after.map(day=>({
+            day:day.dayNumber,
+            protected:day.selectionAudit?.protected || [],
+            selected:day.selectionAudit?.selectedAccessories || [],
+            excluded:day.selectionAudit?.excludedAccessories || [],
+            minutes:day.estimatedMinutes
+        })),
         unavailableOptionalSlots: generated?.weeks?.[0]?.optionalSlotsNotAvailable || [],
         warnings: after.flatMap(day => {
             const warnings = [];
@@ -231,6 +238,20 @@ export function formatCoachReview(comparison, report) {
     lines.push('Durate previste (stime): ' + comparison.estimatedMinutesByDay
         .map(d => `G${d.day} ${d.minutes} min`).join(' · '));
 
+    if (comparison.timeAwareSelections?.length) {
+        lines.push('SCELTA INIZIALE ESERCIZI IN BASE AL TEMPO (stime, prima dell’eventuale recupero settimanale degli accessori):');
+        for (const plan of comparison.timeAwareSelections) {
+            const chosen=plan.selected.slice(0, 4)
+                .map(item=>item.exercise+' ('+item.reason+')').join(' · ');
+            const excluded=plan.excluded.slice(0,3).map(item=>item.exercise);
+            lines.push('G'+plan.day+': '+plan.protected.length+
+                ' movimenti prioritari protetti; '+
+                (chosen || 'nessun accessorio aggiunto oltre i fondamentali')+
+                (excluded.length ? '; non inseriti: '+excluded.join(', ')+
+                    (plan.excluded.length>excluded.length ? ' e altri' : '')+
+                    ' (priorità e minuti disponibili)' : '')+'.');
+        }
+    }
     for (const a of comparison.adaptations.slice(0, 5)) {
         lines.push(`• ${a.target}: ${a.reason}`);
     }

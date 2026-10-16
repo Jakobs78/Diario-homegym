@@ -45,12 +45,18 @@ test('a 30 minuti taglia gli accessori invece dei fondamentali', () => {
     assert.match(short.exercises[0].notes, /TEMPO RIDOTTO/);
 });
 
-test('sedute da 45 minuti possono preservare piu accessori usando superserie', () => {
+test('45 minuti: fondamentali protetti e complementari scelti senza recuperi fittizi', () => {
     const day = makeMeso(45).weeks[0].days[0];
-    assert.equal(day.exercises.length, 5);
+    assert.ok(day.exercises.length >= 4 && day.exercises.length <= 5);
+    assert.equal(day.selectionAudit.protected.length, 2);
+    assert.ok(day.selectionAudit.protected.every(name =>
+        day.exercises.some(ex => ex.name === name)));
     assert.ok(day.groupCount >= 1);
     assert.ok(day.estimatedMinutes <= 45);
+    assert.equal(day.estimatedMinutes,estimateDayMinutes(day.exercises));
     assert.match(day.exercises[0].notes, /DURATA STIMATA/);
+    assert.ok(day.selectionAudit.excludedAccessories.every(skipped =>
+        !day.exercises.some(ex => ex.name === skipped.exercise)));
 });
 
 test('i superset si generano soltanto dopo i fondamentali e su isolamenti compatibili', () => {

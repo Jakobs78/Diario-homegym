@@ -2,7 +2,6 @@
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { analyzeCompletedMesocycle } from './historyAnalysis.js';
 import { canonicalExerciseKey } from './exerciseIdentity.js';
-import { optimizeSession } from './groupOptimizer.js';
 import { rebalanceWeeklyAccessories } from './weeklyVolumeBalancer.js';
 import { normalizeSelectionPreferences, selectExerciseForSlot, defaultFundamentalName } from './exerciseSelection.js';
 import { auditWeeklyCoverage } from './weeklyCoverage.js';
@@ -10,6 +9,7 @@ import { normalizeAthleteProfile, onboardingPlan, eligibleReferenceLoad, profile
 import { deriveMesocyclePolicy } from './periodizationPolicy.js';
 import { prescribeExerciseReps, prescribeExerciseRpe, HIGH_REP_EXERCISES } from './prescriptionPolicy.js';
 import { suggestDropset } from './intensityTechniquePolicy.js';
+import { addFocusAccessorySlot, selectExercisesForTime, registerSelectedWeeklySets } from './sessionSelection.js';
 
 /**
  * Intervalli iniziali orientativi, NON valori MEV/MAV/MRV universali validati.
@@ -87,6 +87,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
         const intendedDays = [];
         const volumeAdjustmentsApplied = new Set();
         const weeklySelectionCounts = new Map();
+        const scheduledWeeklySets = Object.create(null);
         const excludedOptionalSlots = [];
         const weekPolicy = periodization.weeks[w - 1];
         const isDeloadWeek = weekPolicy.isDeload;
@@ -96,9 +97,13 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
         // settimanale soltanto come baseline conservativa.
 
         templateDays.forEach((dayTemplate, dayIndex) => {
-            const activeSlots = dayTemplate.slots;
+            const activeSlots = addFocusAccessorySlot(dayTemplate.slots, {
+                dayName:dayTemplate.name, focusMuscleGroup:effectiveFocusMuscle,
+                maxSessionMinutes
+            });
             
             const exercisesSelectedToday = [];
+            const daySelectionCounts = new Map(weeklySelectionCounts);
             const previousDay = rawLastMesocycle?.weeks?.[0]?.days
                 ?.find(d => Number(d.dayNumber) === dayIndex + 1);
             // Il selettore non confonde una preferenza storica con uno schema
@@ -106,13 +111,25 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             // protette contro i tagli per il tempo, ma possono essere sostituite
             // esplicitamente dall'atleta con varianti dello stesso pattern.
             let rawExercises = activeSlots.flatMap((slot, slotIndex) => {
-                const previousName = previousDay?.exercises?.[slotIndex]?.name || null;
+                // L'indice puro non basta quando un piano precedente aveva
+                // accessori aggiunti/rimossi. Riusa solo la variante del medesimo
+                // schema motorio e distretto, altrimenti cerca nella giornata.
+                const priorExercises = previousDay?.exercises || [];
+                const priorAtIndex = priorExercises[slotIndex];
+                const catalogFor = name => EXERCISE_DATABASE.find(x =>
+                    canonicalExerciseKey(x.name) === canonicalExerciseKey(name));
+                const matchesSlot = ex => {
+                    const meta = catalogFor(ex?.name);
+                    return meta?.category === slot.muscle && meta?.pattern === slot.pattern;
+                };
+                const previousName = matchesSlot(priorAtIndex) ? priorAtIndex.name :
+                    priorExercises.find(matchesSlot)?.name || null;
                 const selected = selectExerciseForSlot(slot, {
                     preferences: selectionPreferences,
                     focus,
                     previousName,
                     selectedToday: exercisesSelectedToday,
-                    weeklyCounts: weeklySelectionCounts
+                    weeklyCounts: daySelectionCounts
                 });
                 if (!selected.exercise) {
                     excludedOptionalSlots.push({
@@ -125,11 +142,15 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 }
                 const exercise = selected.exercise;
                 exercisesSelectedToday.push(exercise.name);
-                weeklySelectionCounts.set(exercise.id,
-                    (weeklySelectionCounts.get(exercise.id) || 0) + 1);
+                daySelectionCounts.set(exercise.id,
+                    (daySelectionCounts.get(exercise.id) || 0) + 1);
                 return [{ ...exercise, anchorKey: slot.anchor || null,
                     priorityProtected: Boolean(slot.priorityProtected),
-                    isOptional: Boolean(slot.optional), selectionReason: selected.reason }];
+                    isOptional: Boolean(slot.optional),
+                    selectionReason:slot.addedForFocus
+                        ? 'Accessorio opzionale per il distretto prioritario ' +
+                            slot.muscle + '; inserito soltanto se resta tempo.'
+                        : selected.reason }];
             });
 
             // Integrazione della funzione di specializzazione originale
@@ -332,7 +353,20 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             });
 
             intendedDays.push(processedExercises);
-            const timedPlan = optimizeSession(processedExercises, maxSessionMinutes);
+            const timedPlan = selectExercisesForTime(processedExercises,
+                maxSessionMinutes, {
+                    focusMuscleGroup:effectiveFocusMuscle,
+                    scheduledWeeklySets,history:analysis
+                });
+            registerSelectedWeeklySets(scheduledWeeklySets,timedPlan.exercises);
+            // Le varianti scartate per il tempo NON vanno considerate come
+            // gia' programmate quando si scelgono quelle del giorno seguente.
+            for(const programmed of timedPlan.exercises) {
+                const meta=EXERCISE_DATABASE.find(item =>
+                    canonicalExerciseKey(item.name) === canonicalExerciseKey(programmed.name));
+                if(meta) weeklySelectionCounts.set(meta.id,
+                    (weeklySelectionCounts.get(meta.id)||0)+1);
+            }
             weekDays.push({
                 dayNumber: dayIndex + 1,
                 dayName: dayTemplate.name,
