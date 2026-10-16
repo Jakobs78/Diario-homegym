@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v36-rpe-check-confirmation';
+const CACHE_NAME = 'workout-app-v37-smart-prefill-visible-notes';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [

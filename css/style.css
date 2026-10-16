@@ -2810,3 +2810,57 @@ body.dark-mode .group-title-badge {
     .unified-header-box .meso-direct-lock {min-width:128px;padding:6px 8px;font-size:.73rem;}
     .ex-card .exercise-exclude-hint {font-size:.67rem;}
 }
+
+
+/* Note di coaching e note personali sempre visibili in tutte le card */
+.ex-card .exercise-coach-notes { overflow: visible; }
+.ex-card .exercise-coach-notes-body { padding: 11px 12px 12px; gap: 6px; }
+.ex-card .exercise-coach-notes .note-allenatore-text {
+    min-height: 18px; line-height: 1.5; overflow-wrap: anywhere;
+}
+.ex-card .exercise-coach-notes .workout-notes-label { margin-top: 5px; }
+.workout-confirmation-help {
+    margin: 0 0 12px;
+    padding: 9px 11px;
+    color: var(--text-muted);
+    font-size: .77rem;
+    line-height: 1.45;
+    background: var(--block-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 9px;
+}
+
+/* Toast di conferma MyCoatch: si apre in alto al centro, non sotto la piega. */
+.mycoatch-live-toast {
+    top: clamp(86px, 14dvh, 148px);
+    bottom: auto;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(510px, calc(100vw - 24px));
+    max-height: min(55dvh, 430px);
+    padding: 16px 18px;
+    border: 2px solid var(--accent-color);
+    border-left-width: 7px;
+    border-radius: 16px;
+    box-shadow: 0 16px 42px rgba(0,0,0,.45), 0 0 0 9999px rgba(0,0,0,.08);
+    animation: mycoatch-toast-appear .22s ease-out;
+}
+.mycoatch-live-toast.is-caution {border:2px solid #d97706;border-left-width:7px;}
+.mycoatch-live-toast-header {font-size:1.02rem;line-height:1.4;}
+.mycoatch-live-toast-message {font-size:.94rem;line-height:1.5;}
+@keyframes mycoatch-toast-appear {
+    from {transform:translate(-50%,-14px);opacity:.65;}
+    to {transform:translate(-50%,0);opacity:1;}
+}
+@media(max-width:480px) {
+    .mycoatch-live-toast {
+        top: max(84px, calc(env(safe-area-inset-top,0px) + 74px));
+        bottom:auto;left:50%;right:auto;
+        max-height:min(56dvh,420px);
+        padding:14px 15px;
+    }
+}
+@media(prefers-reduced-motion:reduce) {
+    .mycoatch-live-toast {animation:none;}
+}

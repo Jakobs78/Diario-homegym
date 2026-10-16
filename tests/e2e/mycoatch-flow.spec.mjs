@@ -361,7 +361,7 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   await expect(page.locator('.mycoatch-live-advice-history')).not.toHaveAttribute('open', '');
   await expect(page.locator('.set-kg[data-set="1"]')).toHaveValue('80');
   await expect(page.locator('.set-reps[data-set="1"]')).toHaveValue('8');
-  await expect(page.locator('.set-rpe[data-set="1"]')).toHaveValue('9.5');
+  await expect(page.locator('.set-rpe[data-set="1"]')).toHaveValue('8');
   await expect(page.locator('#live-session-timer')).not.toHaveText('0:00');
 
   await page.locator('.mycoatch-live-toast .mycoatch-live-apply').click();
@@ -1179,7 +1179,7 @@ test('CSV precompila davvero gli input, il check copia alle serie dopo senza inv
 
   await expect(kg(2)).toHaveValue('72.5');
   await expect(reps(2)).toHaveValue('9');
-  await expect(rpe(2)).toHaveValue('9');
+  await expect(rpe(2)).toHaveValue('8'); // priorità al target RPE attuale, non al valore percepito nella serie precedente
   const second = await page.evaluate(async () => {
     const { state } = await import('/js/state.js');
     const current = state.workoutData.history.years[String(new Date().getFullYear())].mesocycles.at(-1);
@@ -1329,7 +1329,8 @@ test('feedback MyCoatch flottante: 15 secondi, chiusura manuale e consiglio recu
   await expect(toast).toContainText('RPE molto alto');
   const coords = await toast.boundingBox();
   assert.ok(coords && coords.x >= 0 && coords.y >= 0 &&
-    coords.y + coords.height <= 844, 'toast is visible in mobile viewport');
+    coords.y + coords.height <= 844 && coords.y < 260,
+    'MyCoatch toast is centered near the top of the mobile viewport, not below the fold');
   await expect(page.locator('.mycoatch-live-advice-history')).not.toHaveAttribute('open', '');
 
   // Il coach continua a offrire il dettaglio dopo la scadenza.
@@ -1539,7 +1540,9 @@ test('punto 3: mobile card keeps previous performance, per-set plates, coach not
   });
   const card=page.locator('.ex-card[data-ex="0"]');
   await expect(card.locator('.history-content')).toContainText('72.5kg');
-  await expect(card.locator('.exercise-coach-notes')).not.toHaveAttribute('open');
+  await expect(card.locator('.exercise-coach-notes')).toBeVisible();
+  await expect(card.locator('.exercise-coach-notes .note-allenatore-text')).toContainText('Scapole stabili');
+  await expect(card.locator('.ex-user-notes')).toBeVisible();
   await expect(card.locator('.workout-set-row.is-active-set')).toHaveAttribute('data-set-index','0');
   await expect(page.locator('.workout-exercise-nav')).toHaveCount(0);
   await expect(card.locator('.workout-confirm-set')).toHaveCount(0);
@@ -1555,8 +1558,7 @@ test('punto 3: mobile card keeps previous performance, per-set plates, coach not
   await card.locator('.set-kg[data-set="0"]').fill('80');
   await card.locator('.set-reps[data-set="0"]').fill('8');
   await card.locator('.set-rpe[data-set="0"]').fill('8');
-  await card.locator('.exercise-coach-notes summary').click();
-  await expect(card.locator('.exercise-coach-notes')).toHaveAttribute('open');
+  await card.locator('.ex-user-notes').fill('Ricordare fermo al petto');
   await card.locator('.set-lock-check[data-set="0"]').check();
   const first=await page.evaluate(async()=>{
     const {state}=await import('/js/state.js');
@@ -1571,7 +1573,8 @@ test('punto 3: mobile card keeps previous performance, per-set plates, coach not
   assert.equal(first.sets[1].locked,false);
   assert.equal(first.prev,'72.5'); // preceding synthetic week is unchanged
   await expect(card.locator('.workout-set-row.is-active-set')).toHaveAttribute('data-set-index','1');
-  await expect(card.locator('.exercise-coach-notes')).toHaveAttribute('open');
+  await expect(card.locator('.exercise-coach-notes')).toBeVisible();
+  await expect(card.locator('.ex-user-notes')).toHaveValue('Ricordare fermo al petto');
   await expect(card.locator('.history-content')).toContainText('72.5kg');
   assert.deepEqual(monitoring.remoteRequests,[]);
   assert.deepEqual(monitoring.pageErrors,[]);
@@ -1671,6 +1674,83 @@ test('checkbox explicitly accepts kg, reps and prefilled RPE and recheck edits f
     return {weight:s.weight,reps:s.reps,rpe:s.rpe,isLocked:s.isLocked};
   });
   assert.deepEqual(result,{weight:85,reps:'8',rpe:9,isLocked:true});
+  assert.deepEqual(monitoring.remoteRequests,[]);
+  assert.deepEqual(monitoring.pageErrors,[]);
+});
+
+
+test('all six exercise cards prefill by current prescription or comparable confirmed history only',async({page})=>{
+  await page.setViewportSize({width:375,height:812});
+  const monitoring=await openIsolatedApp(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    const meso=state.workoutData.history.years['2026'].mesocycles[0];
+    const done=(weight,reps,rpe,more={})=>({weight:String(weight),reps:String(reps),
+      rpe:String(rpe),isLocked:true,completed:true,...more});
+    const empty=(extra={})=>({weight:'',reps:'',rpe:'',isLocked:false,completed:false,...extra});
+    const ex=(name,kg,reps='8-12',rpe='@8',opts={})=>({
+      name,block:1,kgMin:String(kg),kgMax:String(kg),reps,targetRpe:rpe,rpe,
+      notes:'Obiettivo tecnico: movimento controllato.',userNotes:'',
+      loggedSets:[empty(),empty()],...opts
+    });
+    meso.weeks[0].days[0].exercises=[
+      ex('Panca Bilanciere',70,'8-12','@8',{loggedSets:[done(72.5,9,9),done(72.5,8,9)]}),
+      ex('Rematore Bilanciere',80,'8-12','@8',{loggedSets:[done(80,10,9)]}),
+      ex('Curl manubri',12.5,'10-12','@8',{loggedSets:[done(12.5,12,9)]}),
+      ex('Panca topset',70,'8-10','@8',{topset:'1x5 @90kg',
+        loggedSets:[done(90,5,9),done(70,8,8)]}),
+      ex('Curl drop set',12,'10-12','@8',{isDropset:true,groupType:'dropset',groupBase:5,
+        loggedSets:[done(12,'10+8+6',8,{intensityTechnique:'DROP_SET'})]})
+    ];
+    meso.weeks[1].days[0].exercises=[
+      ex('Panca Bilanciere',70),
+      ex('Rematore Bilanciere',85),
+      ex('Curl manubri',12.5,'10-12','@7'),
+      ex('Panca topset',70,'8-10','@8',{topset:'1x5 @90kg',
+        loggedSets:[done(90,5,9),empty()]}),
+      ex('Curl drop set',12,'10-12','@8',{isDropset:true,groupType:'dropset',groupBase:5,
+        loggedSets:[empty({intensityTechnique:'DROP_SET'})]}),
+      ex('Croci macchina',20,'12-15','@8',{userNotes:'Tieni gomiti morbidi'})
+    ];
+    state.activeWeek=2;state.activeDay=1;
+    renderWorkoutList();
+  });
+  const expected=[
+    {kg:'72.5',reps:'9',rpe:'8',source:'confirmed_previous_week'},
+    {kg:'85',reps:'8',rpe:'8',source:'csv_target'},
+    {kg:'12.5',reps:'10',rpe:'7',source:'csv_target'},
+    {kg:'90',reps:'5',rpe:'9',source:'current_entry'},
+    {kg:'12',reps:'10+8+6',rpe:'8',source:'confirmed_previous_week'},
+    {kg:'20',reps:'12',rpe:'8',source:'csv_target'}
+  ];
+  await expect(page.locator('.ex-card')).toHaveCount(expected.length);
+  await expect(page.locator('.workout-confirmation-help')).toHaveCount(1);
+  await expect(page.locator('.ex-card .workout-rpe-hint')).toHaveCount(0);
+  for(let i=0;i<expected.length;i++){
+    const card=page.locator('.ex-card[data-ex="'+i+'"]');
+    const setIndex=i===3?0:0;
+    const row=card.locator('.workout-set-row[data-set-index="'+setIndex+'"]');
+    await expect(row.locator('.set-kg')).toHaveValue(expected[i].kg);
+    await expect(row.locator('.set-reps')).toHaveValue(expected[i].reps);
+    await expect(row.locator('.set-rpe')).toHaveValue(expected[i].rpe);
+    await expect(row).toHaveAttribute('data-prefill-source',expected[i].source);
+    await expect(card.locator('.exercise-coach-notes .note-allenatore-text')).toBeVisible();
+    await expect(card.locator('.ex-user-notes')).toBeVisible();
+  }
+  // A heavy top set never preloads its weight into a back-off.
+  const backoff=page.locator('.ex-card[data-ex="3"] .workout-set-row[data-set-index="1"]');
+  await expect(backoff.locator('.set-kg')).toHaveValue('70');
+  await expect(backoff.locator('.set-reps')).toHaveValue('8');
+  await expect(backoff.locator('.set-rpe')).toHaveValue('8');
+  // Every draft is still absent from the actual workout history.
+  const before=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    return state.workoutData.history.years['2026'].mesocycles[0].weeks[1].days[0].exercises
+      .map(ex=>({name:ex.name,sets:ex.loggedSets.map(s=>({checked:!!(s.isLocked||s.completed),
+        kg:s.weight,reps:s.reps,rpe:s.rpe}))}));
+  });
+  assert.ok(before.every((ex,i)=>i===3 || ex.sets.every(s=>!s.checked && s.kg==='' && s.reps==='' && s.rpe==='')));
   assert.deepEqual(monitoring.remoteRequests,[]);
   assert.deepEqual(monitoring.pageErrors,[]);
 });
