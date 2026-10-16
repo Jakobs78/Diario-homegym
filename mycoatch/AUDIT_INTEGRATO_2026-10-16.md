@@ -40,6 +40,10 @@ Audit del percorso **storico confermato → decisioni progressive → mesociclo 
 - Zhang e coll., *Sports Medicine* (2025), DOI **10.1007/s40279-025-02176-8**: superserie come strumento di efficienza, senza superiorità sistematica nell'ipertrofia.
 - Sødal e coll., *Sports Medicine - Open* (2023), DOI **10.1186/s40798-023-00620-5**: dropset a volte più veloci, senza chiaro vantaggio ipertrofico rispetto a serie tradizionali.
 
+## Distribuzione PWA (correzione dopo audit)
+
+L'app usa cache statiche versionate che includono `mycoatch/engine.js`, `mycoatch/weeklyReview.js` e i relativi moduli. La loro modifica richiede una nuova chiave per invalidare le vecchie copie dei file: aggiornata la cache da **v19 a v20**. Si tratta di propagazione del codice, non di una modifica ai dati di allenamento. Il deploy Vercel e l'aggiornamento effettivo sul dispositivo restano verifiche distinte dai test GitHub.
+
 ## Criterio di approvazione
 
 **Blocco della PR finché non passano tutti i test funzionali ed E2E.** Nessuna modifica di dati privati, log completati, password, database o formato CSV; le correzioni operate dal coach restano condizionate alla qualità dell'evidenza e alla conferma esplicita. Dopo il merge, distinguere sempre stato GitHub da stato di deployment Vercel (non verificato).
