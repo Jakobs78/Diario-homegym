@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v19-compact-mobile-shell';
+const CACHE_NAME = 'workout-app-v20-compact-mobile-shell';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
