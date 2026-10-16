@@ -15,6 +15,7 @@ import { parseCoachPDF } from './pdfParser.js';
 import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
 import { createLiveCoachPanel, updateLiveCoachPanel, refreshLiveCoachClock, dismissLiveCoachToast } from './liveCoachUI.js';
 import { toggleCurrentMesocycleLock } from './mesocycle.js';
+import { createWeeklyReviewPanel } from './weeklyReviewUI.js';
 
 export const DOM = {
     appContainer: document.getElementById('app-container'),
@@ -166,6 +167,7 @@ export function renderWorkoutList() {
     dismissLiveCoachToast();
     if (!DOM.workoutListContainer) return;
     const coachWasOpen = Boolean(document.getElementById('mycoatch-live-disclosure')?.open);
+    const reviewWasOpen = Boolean(document.getElementById('mycoatch-weekly-review')?.open);
     DOM.workoutListContainer.innerHTML = '';
 
     if (!state.activeView) state.activeView = 'workout';
@@ -311,6 +313,10 @@ export function renderWorkoutList() {
     coachSummary.append(coachName, coachCount);
     coachDisclosure.append(coachSummary, createLiveCoachPanel(currentDay, { readOnly: isPastMeso }));
     DOM.workoutListContainer.appendChild(coachDisclosure);
+    const weeklyReview = createWeeklyReviewPanel(meso, targetWeek.weekNumber, {
+        readOnly:isPastMeso,wasOpen:reviewWasOpen,render:renderWorkoutList
+    });
+    if(weeklyReview)DOM.workoutListContainer.appendChild(weeklyReview);
 
     if (currentDay.sessionStart) {
         const startDate = new Date(currentDay.sessionStart).toDateString();

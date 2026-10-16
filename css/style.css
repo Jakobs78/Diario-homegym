@@ -2536,3 +2536,39 @@ body.dark-mode .group-title-badge {
     color: var(--text-muted);
 }
 .mycoatch-session-adjustment { font-weight: 650; }
+
+/* Revisione del blocco successivo: una sola voce compatta tra header e serie. */
+.mycoatch-weekly-review {
+    margin: 8px 0 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+}
+.mycoatch-weekly-review > summary {
+    cursor: pointer;
+    font-size: .82rem;
+    font-weight: 750;
+    line-height: 1.45;
+}
+.mycoatch-weekly-review-content {
+    display: grid;
+    gap: 10px;
+    padding-top: 8px;
+    font-size: .79rem;
+    line-height: 1.45;
+}
+.mycoatch-weekly-review-content p,
+.mycoatch-weekly-review-content ul { margin: 0; }
+.mycoatch-weekly-review-changes {
+    padding: 8px;
+    border-radius: 8px;
+    background: var(--surface-secondary, var(--card-bg, transparent));
+}
+.mycoatch-weekly-review-changes ul { padding-left: 18px; margin-top: 4px; }
+.mycoatch-weekly-review-content small { color: var(--text-muted); }
+.mycoatch-weekly-review-content button { justify-self: start; }
+.mycoatch-weekly-error {
+    color: var(--danger-color, #af3434);
+    font-weight: 650;
+}
+.mycoatch-weekly-error:empty { display:none; }

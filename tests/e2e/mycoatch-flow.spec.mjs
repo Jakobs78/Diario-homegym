@@ -483,6 +483,101 @@ test('MyCoatch autoregolazione: due serie difficili suggeriscono prudenza senza 
   assert.deepEqual(monitoring.pageErrors,[]);
 });
 
+async function prepareWeeklyReviewFixture(page, { pain=false }={}) {
+  await page.evaluate(async (painFlag) => {
+    const { state }=await import('/js/state.js');
+    const { renderWorkoutList }=await import('/js/ui.js');
+    const year=state.workoutData.history.years[new Date().getFullYear()];
+    const meso=year.mesocycles[0];
+    const completedDay=(number,date)=>({
+      dayNumber:number,dayName:'Giorno '+number,
+      date,completed:true,
+      coachCheckin:{
+        checkedAt:date+'T10:00:00Z',
+        sleep:'ok',energy:'ok',soreness:'ok',pain:number===1&&painFlag?'present':'none'
+      },
+      exercises:[{
+        name:'Panca Piana con Bilanciere',targetRpe:'@8',
+        rpe:'@8',reps:'6-8',kgMin:'80',kgMax:'80',
+        loggedSets:[0,1,2].map(()=>({
+          weight:'80',reps:'6',rpe:'9.5',
+          completed:true,isLocked:true
+        }))
+      }]
+    });
+    const newExercise=()=>({
+      name:'Panca Piana con Bilanciere',set:'3 set',
+      kgMin:'82.5',kgMax:'82.5',reps:'6-8',rpe:'@8',targetRpe:'@8',
+      recupero:'180s',
+      sets:[0,1,2].map(()=>({
+        targetRpe:'@8',weight:'',reps:'',rpe:''
+      })),
+      loggedSets:[0,1,2].map(()=>({
+        weight:'',reps:'',rpe:'',isLocked:false,completed:false
+      }))
+    });
+    meso.weeks=[
+      {weekNumber:1,days:[completedDay(1,'2026-10-12'),completedDay(2,'2026-10-14')]},
+      {weekNumber:2,days:[{dayNumber:1,dayName:'Giorno 1',
+        exercises:[newExercise()]}]}
+    ];
+    state.activeMesocycleIndex=0;
+    state.activeWeek=2;
+    state.activeDay=1;
+    renderWorkoutList();
+  },pain);
+}
+
+test('MyCoatch suggerisce la revisione della settimana seguente e applica solo dopo conferma, con undo',async({page})=>{
+  const monitoring=await openIsolatedApp(page);
+  await prepareWeeklyReviewFixture(page);
+  const panel=page.locator('#mycoatch-weekly-review');
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText('Revisione settimana 2 da valutare');
+  await panel.locator('summary').click();
+  await expect(panel).toContainText('2/2 giornate');
+  await expect(panel).toContainText('RPE @8 → @7.5');
+  await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('82.5');
+  await expect(page.locator('.set-lock-check[data-set="0"]')).not.toBeChecked();
+  await panel.locator('.mycoatch-weekly-apply').click();
+  await expect(page.locator('#mycoatch-weekly-review')).toContainText('Settimana 2 rivista');
+  await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('');
+  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('7.5');
+  let saved=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const m=state.workoutData.history.years[new Date().getFullYear()].mesocycles[0];
+    const disk=JSON.parse(localStorage.getItem('workoutApp_data'));
+    const persisted=disk.history.years[new Date().getFullYear()].mesocycles[0];
+    return {source:m.weeks[0].days[0].exercises[0].loggedSets,
+      next:m.weeks[1].days[0].exercises[0],
+      persistedReview:!!persisted.weeks[1].coachWeeklyReview};
+  });
+  assert.equal(saved.source[0].weight,'80');
+  assert.equal(saved.next.targetRpe,'@7.5');
+  assert.equal(saved.next.loggedSets[0].completed,false);
+  assert.equal(saved.persistedReview,true);
+  await page.locator('.mycoatch-weekly-undo').click();
+  await expect(page.locator('#mycoatch-weekly-review')).toContainText('Revisione settimana 2 da valutare');
+  await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('82.5');
+  await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('8');
+  assert.deepEqual(monitoring.remoteRequests,[]);
+  assert.deepEqual(monitoring.pageErrors,[]);
+});
+
+test('MyCoatch non riduce automaticamente l’RPE quando lo storico segnala dolore',async({page})=>{
+  const monitoring=await openIsolatedApp(page);
+  await prepareWeeklyReviewFixture(page,{pain:true});
+  const panel=page.locator('#mycoatch-weekly-review');
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText('Dolore segnalato');
+  await panel.locator('summary').click();
+  await expect(panel).toContainText('valutazione professionale');
+  await expect(panel.locator('.mycoatch-weekly-apply')).toHaveCount(0);
+  await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('82.5');
+  assert.deepEqual(monitoring.remoteRequests,[]);
+  assert.deepEqual(monitoring.pageErrors,[]);
+});
+
 test('MyCoatch LIVE con RPE mancante non inventa massimale o suggerimenti', async ({ page }) => {
   const monitoring = await openIsolatedApp(page);
   await prepareLiveWorkout(page);
