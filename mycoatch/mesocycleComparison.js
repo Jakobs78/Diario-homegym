@@ -83,6 +83,7 @@ export function compareMesocyclePlans(previous, generated, analysis) {
         })),
         changes,
         adaptations: analysis?.decisions?.summary || [],
+        coachGuardrails:generated?.coachGuardrails || null,
         // Non confondere il volume originale stimato con il volume davvero
         // programmato. Sono conteggi per categoria primaria dell'esercizio.
         weeklyVolume: generated?.weeks?.[0]?.volumeBalance || null,
@@ -117,6 +118,17 @@ export function compareMesocyclePlans(previous, generated, analysis) {
 export function formatCoachReview(comparison, report) {
     const lines = ['MYCOATCH — ANTEPRIMA DELLA PROPOSTA'];
     lines.push(`Storico analizzato: ${report.inspectedMesocycles} mesocicli, ${report.sessionsAnalyzed} sedute con serie confermate.`);
+    if (comparison.coachGuardrails) {
+        const guard = comparison.coachGuardrails;
+        lines.push('AUTONOMIA DEL COACH: priorità all’evidenza osservata, non alle richieste di maggiore intensità.');
+        for (const decision of guard.reasons || []) {
+            lines.push('[' + decision.decision + '] ' + decision.reason +
+                (decision.exercises?.length ? ' Esercizi: ' +
+                    decision.exercises.slice(0,4).join(', ') + '.' : ''));
+        }
+        lines.push('Evidenze riesaminate il ' +
+            guard.evidenceSnapshot + ': fonti peer reviewed, non aggiornamento automatico in tempo reale.');
+    }
     if (!comparison.basedOnPrevious) {
         lines.push('Nessun mesociclo precedente disponibile: non sono possibili adattamenti personali dallo storico.');
     }
