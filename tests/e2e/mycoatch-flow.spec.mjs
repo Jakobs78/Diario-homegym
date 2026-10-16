@@ -408,6 +408,81 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   assert.deepEqual(monitoring.pageErrors, []);
 });
 
+test('MyCoatch check-in reale: sonno/energia limitano aumenti, dolore impone cautela senza modificare set', async ({ page }) => {
+  const monitoring = await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+  await page.locator('#mycoatch-live-disclosure > summary').click();
+  const checkin=page.locator('#mycoatch-session-checkin');
+  await expect(checkin).toBeVisible();
+  await expect(checkin).toHaveAttribute('open','');
+  await page.locator('#mycoatch-checkin-form select[name="sleep"]').selectOption('poor');
+  await page.locator('#mycoatch-checkin-form select[name="energy"]').selectOption('low');
+  await page.locator('#mycoatch-checkin-form select[name="soreness"]').selectOption('ok');
+  await page.locator('#mycoatch-checkin-form select[name="pain"]').selectOption('none');
+  await page.locator('#mycoatch-checkin-form button[type="submit"]').click();
+  await expect(checkin).toContainText('evita incrementi');
+  const saved = await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const day=state.workoutData.history.years[new Date().getFullYear()]
+      .mesocycles[0].weeks[0].days[0];
+    const disk=JSON.parse(localStorage.getItem('workoutApp_data'));
+    return {memory:day.coachCheckin,disk:disk.history.years[new Date().getFullYear()]
+      .mesocycles[0].weeks[0].days[0].coachCheckin};
+  });
+  assert.equal(saved.memory.sleep,'poor');
+  assert.equal(saved.memory.energy,'low');
+  assert.deepEqual(saved.memory,saved.disk);
+
+  for(const i of [0,1]){
+    await page.locator('.set-kg[data-set="'+i+'"]').fill('80');
+    await page.locator('.set-reps[data-set="'+i+'"]').fill('8');
+    await page.locator('.set-rpe[data-set="'+i+'"]').fill('7');
+    await page.locator('.set-lock-check[data-set="'+i+'"]').check();
+  }
+  await expect(page.locator('#mycoatch-live-guidance')).toContainText('oggi mantieni il carico');
+  await expect(page.locator('.mycoatch-live-apply')).toHaveCount(0);
+  await expect(page.locator('.set-kg[data-set="2"]')).toHaveValue('80');
+  // Modificare il check-in non trasforma serie future in completate.
+  await checkin.locator('select[name="pain"]').selectOption('present');
+  await checkin.locator('button[type="submit"]').click();
+  await expect(checkin).toContainText('interrompi il movimento');
+  await expect(page.locator('#mycoatch-live-guidance')).toContainText('Dolore segnalato');
+  await expect(page.locator('.mycoatch-live-apply')).toHaveCount(0);
+  const future=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const day=state.workoutData.history.years[new Date().getFullYear()]
+      .mesocycles[0].weeks[0].days[0];
+    return day.exercises[0].loggedSets[2];
+  });
+  assert.equal(future.completed,false);
+  assert.deepEqual(monitoring.remoteRequests,[]);
+  assert.deepEqual(monitoring.pageErrors,[]);
+});
+
+test('MyCoatch autoregolazione: due serie difficili suggeriscono prudenza senza cancellare il piano', async ({page})=>{
+  const monitoring=await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+  for(const i of [0,1]){
+    await page.locator('.set-kg[data-set="'+i+'"]').fill('80');
+    await page.locator('.set-reps[data-set="'+i+'"]').fill(i===0?'6':'7');
+    await page.locator('.set-rpe[data-set="'+i+'"]').fill('9.5');
+    await page.locator('.set-lock-check[data-set="'+i+'"]').check();
+  }
+  await expect(page.locator('#mycoatch-live-guidance')).toContainText('Più serie confermate con RPE');
+  await expect(page.locator('#mycoatch-live-guidance')).toContainText('Nessuna serie viene modificata');
+  await expect(page.locator('.set-lock-check[data-set="2"]')).not.toBeChecked();
+  const result=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const day=state.workoutData.history.years[new Date().getFullYear()]
+      .mesocycles[0].weeks[0].days[0];
+    return {total:day.exercises[0].loggedSets.length,
+      valid:day.exercises[0].loggedSets.filter(x=>x.completed).length};
+  });
+  assert.deepEqual(result,{total:3,valid:2});
+  assert.deepEqual(monitoring.remoteRequests,[]);
+  assert.deepEqual(monitoring.pageErrors,[]);
+});
+
 test('MyCoatch LIVE con RPE mancante non inventa massimale o suggerimenti', async ({ page }) => {
   const monitoring = await openIsolatedApp(page);
   await prepareLiveWorkout(page);
