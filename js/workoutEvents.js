@@ -175,8 +175,8 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
 
             setObj.isLocked = isChecked;
             setObj.completed = isChecked;
-            if (!ex.sets) ex.sets = [];
-            ex.sets[setIdx] = { ...setObj };
+            // ex.sets is the original prescription; performed sets are held
+            // only in loggedSets. Never overwrite MyCoatch's plan on check.
 
             // 2. Aggiornamento dinamico delle classi e dei trend per ogni riga
             if (rowCard) {

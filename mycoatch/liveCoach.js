@@ -1,5 +1,6 @@
 import { estimateE1rm } from './historyAnalysis.js';
 import { previousExercisePerformance, historicalSessionPace } from './liveHistory.js';
+import { isWarmupExercise } from '../js/workoutSemantics.js';
 import { assessSessionReadiness } from './sessionReadiness.js';
 
 function decimal(value) {
@@ -283,7 +284,7 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
 export function assessSessionAdjustment(day, readiness = null) {
     const hard = [];
     for (const exercise of day?.exercises || []) {
-        if (exercise?.isExcluded) continue;
+        if (isWarmupExercise(exercise)) continue;
         const goal = plannedRpe(exercise);
         for (const set of exercise?.loggedSets || []) {
             const real = normalizedConfirmedSet(set, exercise);
@@ -302,7 +303,7 @@ export function assessSessionAdjustment(day, readiness = null) {
     if (hard.length < 2) return null;
 
     const optional = (day?.exercises || []).filter(ex =>
-        !ex.isExcluded && (ex.pattern === 'isolation' || ex.isOptional) &&
+        !isWarmupExercise(ex) && (ex.pattern === 'isolation' || ex.isOptional) &&
         !ex.anchorKey && !ex.priorityProtected &&
         (ex.loggedSets || []).length > 0 &&
         (ex.loggedSets || []).every(set => !isConfirmed(set) || isWarmup(set))
@@ -347,7 +348,7 @@ function timeRemainingSeconds(day) {
     let result = 0;
     let unstarted = 0;
     for (const ex of day?.exercises || []) {
-        if (ex.isExcluded) continue;
+        if (isWarmupExercise(ex)) continue;
         const sets = (ex.loggedSets || []).filter(set => !isWarmup(set));
         const remaining = sets.filter(set => !isConfirmed(set)).length;
         if (!remaining) continue;
@@ -377,7 +378,7 @@ export function buildLiveSessionSnapshot(day, { now = Date.now(), history = null
     let warnedInvalid = false;
 
     exercises.forEach((exercise, exerciseIndex) => {
-        if (exercise.isExcluded) return;
+        if (isWarmupExercise(exercise)) return;
         (exercise.loggedSets || []).forEach(set => {
             if (isWarmup(set)) return;
             total++;

@@ -3,6 +3,8 @@
  * No Supabase API, localStorage, timers or coach state in this module.
  */
 
+import { isWarmupExercise, isWarmupSet } from './workoutSemantics.js';
+
 function confirmed(set) {
     return set?.isLocked === true || set?.completed === true;
 }
@@ -24,12 +26,12 @@ export function isMesocycleCompleted(mesocycle) {
     for (const week of mesocycle.weeks) {
         for (const day of week.days || []) {
             for (const exercise of day.exercises || []) {
-                if (exercise.isExcluded) continue;
+                if (isWarmupExercise(exercise)) continue;
                 const sets = Array.isArray(exercise.loggedSets) && exercise.loggedSets.length
                     ? exercise.loggedSets : (exercise.sets || []);
                 if (!sets.length) return false;
                 for (const set of sets) {
-                    if (set?.isWarmup || set?.is_warmup || set?.warmup) continue;
+                    if (isWarmupSet(set)) continue;
                     scheduledSets++;
                     if (!confirmed(set) || !validLoggedPerformance(set)) return false;
                 }
@@ -53,9 +55,8 @@ function jsonClone(data) {
 export function repeatCompletedSessionPreservingHistory(day, { capturedAt = new Date().toISOString() } = {}) {
     if (!day || !Array.isArray(day.exercises) || !day.exercises.length)
         throw new Error('Sessione assente: nessun dato modificato.');
-    const working = day.exercises.flatMap(ex => ex.isExcluded ? [] :
-        (ex.loggedSets || []).filter(set =>
-            !set?.isWarmup && !set?.warmup && !set?.is_warmup));
+    const working = day.exercises.flatMap(ex => isWarmupExercise(ex) ? [] :
+        (ex.loggedSets || []).filter(set => !isWarmupSet(set)));
     if (!working.length || working.some(set => !confirmed(set) || !validLoggedPerformance(set)))
         throw new Error('La sessione non risulta completata con dati reali: nessun dato modificato.');
 
@@ -93,15 +94,8 @@ export function repeatCompletedSessionPreservingHistory(day, { capturedAt = new 
             set.reps = '';
             set.rpe = '';
             delete set.completedAt;
-            if (Array.isArray(ex.sets) && ex.sets[index]) {
-                const planned = ex.sets[index];
-                planned.isLocked = false;
-                planned.completed = false;
-                planned.weight = '';
-                planned.reps = '';
-                planned.rpe = '';
-                delete planned.completedAt;
-            }
+            // ex.sets is the original prescription and must not be cleared
+            // when a performed workout is archived for another repetition.
         }
     }
     return archive;

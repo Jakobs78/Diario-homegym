@@ -41,12 +41,12 @@ export function readFullBackup(text) {
     }
     return JSON.parse(JSON.stringify(data));
 }
-export function downloadFullBackup(data) {
+export function downloadFullBackup(data,{suffix=''}={}) {
     const backup=buildFullBackup(data);
     const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
-    a.href=url;a.download='homegym-backup-'+backup.exportedAt.slice(0,10)+'.json';
+    a.href=url;a.download='homegym-backup-'+(suffix ? String(suffix).replace(/[^a-z0-9_-]/gi,'')+'-' : '')+backup.exportedAt.slice(0,10)+'.json';
     document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
