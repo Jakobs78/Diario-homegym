@@ -344,6 +344,70 @@ export function extractExercisePRs(exerciseLogs) {
     return { maxWeight, maxSetVolume, maxRepsAtTarget };
 }
 
+/**
+ * One entry per real completed session, including safely archived repeats.
+ * A planned day without a performance date is not a completed session.
+ */
+export function getTrainingCalendarEntries(workoutData) {
+    const sessions=[];
+    for(const day of extractAllDays(workoutData)){
+        const name=day.dayName || 'Allenamento';
+        const push=(date,duration,source)=>{
+            const text=String(date||'').slice(0,10);
+            if(!/^\d{4}-\d{2}-\d{2}$/.test(text) ||
+               Number.isNaN(Date.parse(text)))return;
+            sessions.push({date:text,name,duration:Number.isFinite(Number(duration)) &&
+                Number(duration)>0?Number(duration):null,source});
+        };
+        if(day.completed===true || day.is_completed===true)
+            push(day.date || day.sessionCompletedAt,day.totalDurationMinutes,'current');
+        for(const old of day.sessionArchives || [])
+            push(old.sessionDate || old.sessionCompletedAt || old.capturedAt,
+                old.totalDurationMinutes,'archive');
+    }
+    return sessions.sort((a,b)=>b.date.localeCompare(a.date));
+}
+export function renderTrainingCalendar(workoutData,range=currentRange){
+    const root=document.getElementById('analytics-session-calendar');
+    if(!root)return;
+    root.replaceChildren();
+    const data=range==='meso' ? getSelectedMesoData(workoutData) : workoutData;
+    const sessions=getTrainingCalendarEntries(data).filter(item=>{
+        if(range==='meso'||range==='all')return true;
+        return filterDaysByRange([{date:item.date}],range).length>0;
+    });
+    if(!sessions.length){
+        const p=document.createElement('p');
+        p.textContent='Nessuna seduta completata con una data valida nel periodo.';
+        root.append(p);return;
+    }
+    const groups=new Map();
+    for(const session of sessions){
+        const month=session.date.slice(0,7);
+        if(!groups.has(month))groups.set(month,[]);
+        groups.get(month).push(session);
+    }
+    for(const [month,items] of groups){
+        const detail=document.createElement('details');
+        detail.className='training-calendar-month';
+        detail.open=groups.size===1 || month===groups.keys().next().value;
+        const label=new Date(month+'-01T12:00:00');
+        const summary=document.createElement('summary');
+        summary.textContent=label.toLocaleDateString('it-IT',{month:'long',year:'numeric'})+
+            ' · '+items.length+' sedute';
+        detail.append(summary);
+        const list=document.createElement('ul');
+        for(const item of items){
+            const row=document.createElement('li');
+            row.textContent=new Date(item.date+'T12:00:00').toLocaleDateString('it-IT')+
+                ' · '+item.name+(item.duration?' · '+item.duration+' min':' · durata non registrata')+
+                (item.source==='archive'?' · seduta ripetuta':'');
+            list.append(row);
+        }
+        detail.append(list);root.append(detail);
+    }
+}
+
 export function renderMacroKPIs(workoutData, range = currentRange) {
     let targetData = workoutData;
     if (range === 'meso') {
@@ -797,6 +861,7 @@ export function refreshCurrentAnalyticsView(range = currentRange) {
         initMacroMesoSelector(data);
         renderMacroKPIs(data, currentRange);
         renderMuscleVolumeChart('chart-muscle-volume', data, currentRange);
+        renderTrainingCalendar(data,currentRange);
     } else if (activeSubtab === 'subtab-micro') {
         initAnalyticsEvents(data, currentRange);
     } else if (activeSubtab === 'subtab-compare') {

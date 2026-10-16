@@ -2603,3 +2603,8 @@ body.dark-mode .group-title-badge {
 
 /* Long management menus remain scrollable on phones; workout cards unchanged. */
 #tools-modal .bottom-sheet-content {max-height:88dvh;overflow-y:auto;overscroll-behavior:contain;}
+
+.training-calendar-month {border:1px solid var(--border-color);border-radius:9px;margin:7px 0;padding:8px 12px;}
+.training-calendar-month summary {cursor:pointer;font-weight:700;text-transform:capitalize;}
+.training-calendar-month ul {padding-left:18px;margin:10px 0;}
+.training-calendar-month li {margin:6px 0;font-size:.86rem;line-height:1.45;}
