@@ -27,8 +27,9 @@ function resetGroups(exercises) {
     });
 }
 
-function compatible(group) {
+function compatible(group, excludedMuscles=new Set()) {
     const category = group.map(exercise => exercise.category);
+    if(category.some(muscle=>excludedMuscles.has(muscle)))return false;
     if (new Set(category).size !== group.length) return false;
     if (!group.every(exercise => exercise.pattern === 'isolation' &&
         Number.isInteger(exercise.setsCount) && exercise.setsCount === group[0].setsCount)) {
@@ -44,16 +45,17 @@ function compatible(group) {
     return true;
 }
 
-export function groupAccessories(exercises, size = 2) {
+export function groupAccessories(exercises, size = 2, options = {}) {
     if (![2, 3].includes(size)) throw new Error('I gruppi devono essere superset o triset.');
     const result = resetGroups(exercises);
+    const excludedMuscles=new Set(options.excludedMuscles || []);
     const kind = size === 2 ? 'superset' : 'triset';
 
     // Mantieni i primi due movimenti senza raggruppamenti che possano penalizzare
     // forza, tecnica e recuperi. Preferisci gli ultimi accessori contigui.
     for (let start = result.length - size; start >= 2; start--) {
         const candidates = result.slice(start, start + size);
-        if (!compatible(candidates)) continue;
+        if (!compatible(candidates,excludedMuscles)) continue;
 
         const base = String(start + 1);
         candidates.forEach((exercise, i) => {
@@ -74,14 +76,14 @@ export function groupAccessories(exercises, size = 2) {
     return result;
 }
 
-function optionsFor(exercises, availableMinutes, allowGrouping = true) {
+function optionsFor(exercises, availableMinutes, allowGrouping = true, excludedMuscles=[]) {
     const solo = resetGroups(exercises);
     const variants = [{ label: 'singole', exercises: solo }];
     if (allowGrouping && availableMinutes <= 60) {
-        variants.push({ label: 'superset', exercises: groupAccessories(solo, 2) });
+        variants.push({ label: 'superset', exercises: groupAccessories(solo, 2, {excludedMuscles}) });
     }
     if (allowGrouping && availableMinutes <= 50) {
-        variants.push({ label: 'triset', exercises: groupAccessories(solo, 3) });
+        variants.push({ label: 'triset', exercises: groupAccessories(solo, 3, {excludedMuscles}) });
     }
     return variants.map(option => ({
         ...option,
@@ -90,8 +92,8 @@ function optionsFor(exercises, availableMinutes, allowGrouping = true) {
     }));
 }
 
-function choosePlan(exercises, maxSeconds, maxSessionMinutes, allowGrouping = true) {
-    const candidates = optionsFor(exercises, maxSessionMinutes, allowGrouping);
+function choosePlan(exercises, maxSeconds, maxSessionMinutes, allowGrouping = true, excludedMuscles=[]) {
+    const candidates = optionsFor(exercises, maxSessionMinutes, allowGrouping, excludedMuscles);
     const fitting = candidates.filter(plan => plan.seconds <= maxSeconds);
     if (fitting.length) {
         // Se la seduta sta nel tempo, evitare raggruppamenti non necessari.
@@ -150,6 +152,7 @@ function selectLeastEssential(exercises) {
  */
 export function optimizeSession(exercises, maxSessionMinutes, options = {}) {
     const allowGrouping = options.allowGrouping !== false;
+    const excludedMuscles=options.excludedGroupingMuscles || [];
     const minutes = Number(maxSessionMinutes);
     if (!Number.isInteger(minutes) || minutes < 25 || minutes > 180) {
         throw new Error('Seleziona un tempo disponibile valido da 25 a 180 minuti.');
@@ -160,7 +163,7 @@ export function optimizeSession(exercises, maxSessionMinutes, options = {}) {
 
     const secondsBudget = minutes * 60;
     const base = resetGroups(exercises);
-    let candidate = choosePlan(base, secondsBudget, minutes, allowGrouping);
+    let candidate = choosePlan(base, secondsBudget, minutes, allowGrouping, excludedMuscles);
     let reducedSets = 0;
     let reducedPrioritySets = 0;
     let removedExercises = 0;
@@ -204,7 +207,7 @@ export function optimizeSession(exercises, maxSessionMinutes, options = {}) {
             priority.sets = priority.sets.slice(0, priority.setsCount);
             reducedPrioritySets++;
         }
-        candidate = choosePlan(base, secondsBudget, minutes, allowGrouping);
+        candidate = choosePlan(base, secondsBudget, minutes, allowGrouping, excludedMuscles);
     }
     if (candidate.seconds > secondsBudget) {
         throw new Error('Impossibile rispettare il limite di tempo richiesto.');

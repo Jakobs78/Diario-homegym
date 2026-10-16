@@ -124,7 +124,7 @@ function fitsWithoutSacrifice(oldExercises, plannedExercises, optimized) {
     });
 }
 
-function findReceiver(days, deficit, maxSessionMinutes, crossFocusCount, maxAccessorySets) {
+function findReceiver(days, deficit, maxSessionMinutes, crossFocusCount, maxAccessorySets, excludedGroupingMuscles=[]) {
     const from = days[deficit.fromIndex];
     const options = [];
 
@@ -137,7 +137,8 @@ function findReceiver(days, deficit, maxSessionMinutes, crossFocusCount, maxAcce
             if (!proposed) continue;
             let optimized;
             try {
-                optimized = optimizeSession(proposed.exercises, maxSessionMinutes);
+                optimized = optimizeSession(proposed.exercises, maxSessionMinutes,
+                    {excludedGroupingMuscles});
             } catch {
                 continue;
             }
@@ -225,6 +226,8 @@ export function rebalanceWeeklyAccessories(days, requestedDays, maxSessionMinute
     }
     const isDeloadWeek = Boolean(options.isDeloadWeek);
     const preventTransfers = isDeloadWeek || options.preventTransfers === true;
+    const blockedTransfers=new Set(options.blockedTransferMuscles || []);
+    const excludedGroupingMuscles=options.excludedGroupingMuscles || [];
     const maxAccessorySets = Number.isInteger(options.maxAccessorySets) &&
         options.maxAccessorySets >= 1 && options.maxAccessorySets <= MAX_ACCESSORY_SETS_PER_EXERCISE
         ? options.maxAccessorySets : MAX_ACCESSORY_SETS_PER_EXERCISE;
@@ -245,9 +248,11 @@ export function rebalanceWeeklyAccessories(days, requestedDays, maxSessionMinute
         while (madeProgress) {
             madeProgress = false;
             for (const deficit of deficits) {
-                if (deficit.missingSets <= 0) continue;
+                if (deficit.missingSets <= 0 ||
+                    blockedTransfers.has(deficit.source.category)) continue;
                 const choice = findReceiver(
-                    updatedDays, deficit, maxSessionMinutes, crossFocusCount, maxAccessorySets
+                    updatedDays, deficit, maxSessionMinutes, crossFocusCount,
+                    maxAccessorySets, excludedGroupingMuscles
                 );
                 if (!choice) continue;
 
