@@ -167,6 +167,12 @@ test('undo refuses started training and conflicting manual changes',()=>{
     future.targetRpe='@7';
     assert.throws(()=>undoUpcomingWeekReview(meso,2),/modificato/i);
     future.targetRpe='@7.5';
+    future.sets[0].targetRpe='@8';
+    assert.throws(()=>undoUpcomingWeekReview(meso,2),/target per serie/i);
+    future.sets[0].targetRpe='@7.5';
+    future.rpe='@8';
+    assert.throws(()=>undoUpcomingWeekReview(meso,2),/modificato/i);
+    future.rpe='@7.5';
     future.loggedSets[0]=performed(77,6,8);
     assert.throws(()=>undoUpcomingWeekReview(meso,2),/iniziata/i);
     assert.equal(meso.weeks[1].coachWeeklyReview.changes.length,3);
