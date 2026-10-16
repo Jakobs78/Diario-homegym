@@ -62,15 +62,12 @@ export function filterValidSets(rawWorkoutData) {
                 const rawWeight = String(set.weight || set.kg || set.peso || '').replace(',', '.').trim();
                 const weightVal = parseFloat(rawWeight) || 0;
                 
-                // 🛠️ RISOLTO: Gestisce le stringhe delle tecniche (es. "10+8+6") estraendo solo il set base ed evitando numeri giganti
-                const cleanRepsStr = set.reps && String(set.reps).includes('+') 
-                    ? String(set.reps).split('+')[0] 
-                    : String(set.reps || '');
-                const repsVal = parseInt(cleanRepsStr.replace(/\D+/g, ''), 10) || 0;
-
-                const hasValidWeightReps = weightVal > 0 && repsVal > 0;
-
-                return !isWarmup && (set.completed === true || set.isLocked === true || hasValidWeightReps);
+                const reps = String(set.reps ?? '').trim();
+                const repsValid = /^[1-9]\d{0,2}(?:\+[1-9]\d{0,2})*$/.test(reps);
+                // Only athlete-confirmed performed sets enter statistics. A draft with
+                // weight/reps typed is NOT proof of performance.
+                return !isWarmup && repsValid && weightVal > 0 &&
+                    (set.completed === true || set.isLocked === true);
             });
 
             return {
@@ -87,8 +84,11 @@ export function calculateNetVolume(sets) {
     
     return setsArray.reduce((sum, s) => {
         const w = parseFloat(String(s.weight || s.kg || s.peso || '0').replace(',', '.')) || 0;
-        const r = parseInt(String(s.reps || s.repetition || s.ripetizioni || '0').replace(/\D+/g, ''), 10) || 0;
-        return sum + (w * r);
+        const repsText=String(s.reps ?? s.repetition ?? s.ripetizioni ?? '').trim();
+        // Drops/rest-pause have different loads across phases; only the
+        // first measured stage can be valued without inventing extra kg.
+        const match=/^([1-9]\d{0,2})(?:\+[1-9]\d{0,2})*$/.exec(repsText);
+        return sum + (match && w > 0 ? w * Number(match[1]) : 0);
     }, 0);
 }
 
@@ -180,21 +180,19 @@ export function extractAllMesocycles(data) {
  */
 export function getAllMesocyclesList(data) {
     if (!data) return [];
-    
-    const rawHistory = data.history || data.mesocycles || data;
-    let mesoArray = [];
-
-    if (Array.isArray(rawHistory)) {
-        mesoArray = rawHistory;
-    } else if (typeof rawHistory === 'object' && rawHistory !== null) {
-        mesoArray = Object.entries(rawHistory).map(([key, val]) => ({
-            id: key,
-            ...(typeof val === 'object' ? val : {}),
-            name: val?.name || val?.title || `Mesociclo (${key.substring(0, 8)})`
-        }));
+    const years=data?.history?.years;
+    if (years && typeof years==='object') {
+        return Object.entries(years).flatMap(([year, record])=>
+            (record?.mesocycles || []).map((meso,index)=>({
+                ...meso,
+                id:year+'/'+(meso.id ?? index),
+                sourceYear:year,
+                sourceIndex:index
+            })));
     }
-
-    return mesoArray.filter(m => m && typeof m === 'object' && (m.weeks || m.days));
+    return extractAllMesocycles(data).map((meso,index)=>({
+        ...meso,id:String(meso.id ?? index)
+    }));
 }
 
 /**
@@ -239,7 +237,10 @@ export function getSelectedMesoData(workoutData) {
         const found = mesos.find(m => String(m.id) === String(mesoSelect.value));
         if (found) return found;
     }
-    return mesos[0] || workoutData;
+    const currentYear=String(state.currentYear || new Date().getFullYear());
+    return mesos.find(m=>m.sourceYear===currentYear &&
+        m.sourceIndex===(state.activeMesocycleIndex || 0)) ||
+        mesos[mesos.length-1] || workoutData;
 }
 
 /**
@@ -291,11 +292,13 @@ export function filterDaysByRange(days, range = 'meso') {
             return true;
         }
 
-        const dateStr = day.date || day.completedAt || day.timestamp || day.created_at;
-        if (!dateStr) return true;
-
+        const dateStr = day.sessionCompletedAt || day.date ||
+            day.completedAt || day.timestamp || day.created_at;
+        // Undated or future scheduled sessions must not inflate a
+        // historical 3-month/1-year report.
+        if (!dateStr) return false;
         const sessionDate = new Date(dateStr);
-        if (isNaN(sessionDate.getTime())) return true;
+        if (isNaN(sessionDate.getTime()) || sessionDate>now) return false;
 
         if (range === '3m') {
             const limit = new Date();
@@ -327,12 +330,14 @@ export function extractExercisePRs(exerciseLogs) {
     exerciseLogs.forEach(log => {
         (log.sets || []).forEach(s => {
             const w = parseFloat(String(s.weight || s.kg || s.peso || '0').replace(',', '.')) || 0;
-            const r = parseInt(String(s.reps || s.repetition || s.ripetizioni || '0').replace(/\D+/g, ''), 10) || 0;
+            const repsText=String(s.reps ?? s.repetition ?? s.ripetizioni ?? '').trim();
+            const match=/^([1-9]\d{0,2})(?:\+[1-9]\d{0,2})*$/.exec(repsText);
+            const r=match?Number(match[1]):0;
             const setVol = w * r;
 
             if (w > maxWeight) maxWeight = w;
             if (setVol > maxSetVolume) maxSetVolume = setVol;
-            if (r > maxRepsAtTarget.reps) maxRepsAtTarget = { weight: w, reps: r };
+            if (w > 0 && r > maxRepsAtTarget.reps) maxRepsAtTarget = { weight: w, reps: r };
         });
     });
 
@@ -384,13 +389,13 @@ export function renderMacroKPIs(workoutData, range = currentRange) {
         if (badge) {
             if (avgRPE !== 'N/D' && parseFloat(avgRPE) >= 8.8) {
                 badge.className = 'status-badge badge-danger';
-                badge.innerText = '⚠️ Consigliato Deload';
+                badge.innerText = '⚠️ RPE medio elevato: valuta il contesto';
             } else if (avgRPE !== 'N/D') {
                 badge.className = 'status-badge badge-success';
-                badge.innerText = '🟢 Fatica Ottimale';
+                badge.innerText = 'RPE medio misurato · ' + rpeCount + ' serie';
             } else {
                 badge.className = 'status-badge';
-                badge.innerText = '⚪ Nessun dato RPE';
+                badge.innerText = '⚪ Nessun RPE reale misurato';
             }
         }
     }
@@ -413,9 +418,17 @@ export function renderMuscleVolumeChart(canvasId, workoutData, range = currentRa
     
     const uniqueWeeks = new Set();
     days.forEach(d => {
-        if (d.weekNumber || d.week) uniqueWeeks.add(d.weekNumber || d.week);
+        const date=d.sessionCompletedAt || d.date;
+        if(date && !Number.isNaN(Date.parse(date))) {
+            const current=new Date(date);
+            // Calendar week per year, not simply "week 1" across multiple mesocycles.
+            const first=new Date(Date.UTC(current.getUTCFullYear(),0,1));
+            const ordinal=Math.floor((current-first)/86400000);
+            uniqueWeeks.add(current.getUTCFullYear()+'-'+Math.floor((ordinal+first.getUTCDay())/7));
+        } else if (d.weekNumber || d.week) {
+            uniqueWeeks.add(String(d.mesoNumber || 'meso')+'/'+(d.weekNumber || d.week));
+        }
     });
-    
     const totalWeeks = uniqueWeeks.size || 1;
 
     days.forEach(day => {
