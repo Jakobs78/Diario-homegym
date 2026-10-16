@@ -117,8 +117,10 @@ export function showLiveCoachToast(day, { exerciseIndex, setIndex } = {}) {
         severity: advice.severity,
         advice,
         day,
-        extra: advice.e1rm === null ? null :
-            'e1RM stimato: ' + advice.e1rm + ' kg (solo dati registrati)'
+        extra: snapshot.sessionAdjustment?.action === 'reduce'
+            ? snapshot.sessionAdjustment.message
+            : advice.e1rm === null ? null :
+                'e1RM stimato: ' + advice.e1rm + ' kg (solo dati registrati)'
     });
 }
 
@@ -273,6 +275,12 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
         liveMessage.classList.add('mycoatch-live-warning');
         liveMessage.append(element('p', '',
             'Il ritmo corrente potrebbe superare il tempo disponibile. Non comprimere i recuperi dei fondamentali: valuta gli accessori rimasti.'));
+    }
+
+    if (snapshot.sessionAdjustment?.action === 'reduce' && !snapshot.finished) {
+        liveMessage.classList.add('mycoatch-live-warning');
+        liveMessage.append(element('p', 'mycoatch-session-adjustment',
+            '🛡️ ' + snapshot.sessionAdjustment.message));
     }
 
     const advice = snapshot.lastAdvice;
