@@ -7,7 +7,7 @@
 // ==========================================
 import { CONFIG, supabase } from './config.js';
 import { state } from './state.js';
-import { getFromLocalStorage, saveToLocalStorage, hasPendingSync, processSyncQueue, clearLocalData, updateSyncStatusUI } from './storage.js';
+import { getFromLocalStorage, saveToLocalStorage, saveAndSync, hasPendingSync, processSyncQueue, clearLocalData, updateSyncStatusUI } from './storage.js';
 import { pullDataFromSupabase, initBackgroundSync } from './sync.js';
 import { renderWorkoutList } from './ui.js';
 import { handlePdfExportFromState } from './pdfExport.js';
