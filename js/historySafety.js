@@ -66,6 +66,9 @@ export function repeatCompletedSessionPreservingHistory(day, { capturedAt = new 
         totalDurationMinutes: day.totalDurationMinutes ?? null,
         accumulatedSeconds: day.accumulatedSeconds ?? 0,
         dayName: day.dayName || null,
+        // Il check-in appartiene a QUESTA esecuzione della seduta, non alla
+        // scheda che verrà riutilizzata. Archivialo con la sessione vecchia.
+        coachCheckin: day.coachCheckin || null,
         exercises: day.exercises
     });
     const archiveList = Array.isArray(day.sessionArchives) ? [...day.sessionArchives] : [];
@@ -80,6 +83,7 @@ export function repeatCompletedSessionPreservingHistory(day, { capturedAt = new 
     day.totalDurationMinutes = undefined;
     delete day.sessionCompletedAt;
     delete day.date;
+    delete day.coachCheckin;
 
     for (const ex of day.exercises) {
         for (const [index, set] of (ex.loggedSets || []).entries()) {

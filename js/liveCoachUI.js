@@ -1,6 +1,8 @@
 import { buildLiveSessionSnapshot, assessExerciseLive } from '../mycoatch/liveCoach.js';
 import { calibrationContextForDay } from '../mycoatch/calibrationReview.js';
 import { state } from './state.js';
+import { saveAndSync } from './storage.js';
+import { createSessionCheckin } from '../mycoatch/sessionReadiness.js';
 
 function element(tag, className, text) {
     const node = document.createElement(tag);
@@ -28,7 +30,7 @@ export function dismissLiveCoachToast() {
 
 // Recupera il campo all'istante del click, non quello della renderizzazione:
 // ogni check ricrea le card, dunque un riferimento precedente puo' diventare stantio.
-function createAdviceApplyButton(advice) {
+function createAdviceApplyButton(advice, day = null) {
     if (advice?.suggestedWeight === null || advice?.suggestedWeight === undefined ||
         advice.nextSetIndex < 0) return null;
     const selector = '.set-kg[data-ex="' + advice.exerciseIndex +
@@ -41,6 +43,11 @@ function createAdviceApplyButton(advice) {
     button.dataset.ex = String(advice.exerciseIndex);
     button.dataset.set = String(advice.nextSetIndex);
     button.addEventListener('click', () => {
+        // Un check-in aggiornato deve impedire anche l'uso di un popup vecchio.
+        const latest = day && buildLiveSessionSnapshot(day).readiness;
+        if (latest?.level === 'stop' ||
+            (latest?.allowIncrease === false &&
+                advice.suggestedWeight > advice.weight)) return;
         const currentInput = document.querySelector(selector);
         if (!currentInput || currentInput.disabled) return;
         currentInput.value = String(advice.suggestedWeight);
@@ -52,7 +59,7 @@ function createAdviceApplyButton(advice) {
 }
 
 function displayLiveCoachToast({ title, message, severity = 'info', advice = null,
-    extra = null, urgent = false }) {
+    day = null, extra = null, urgent = false }) {
     dismissLiveCoachToast();
     const toast = element('aside', 'mycoatch-live-toast');
     toast.id = 'mycoatch-live-toast';
@@ -71,7 +78,7 @@ function displayLiveCoachToast({ title, message, severity = 'info', advice = nul
     toast.append(header, element('p', 'mycoatch-live-toast-message', message));
     if (extra) toast.append(element('small', '', extra));
     if (advice) {
-        const button = createAdviceApplyButton(advice);
+        const button = createAdviceApplyButton(advice, day);
         if (button) toast.append(button);
     }
     document.body.append(toast);
@@ -99,7 +106,8 @@ export function showLiveCoachToast(day, { exerciseIndex, setIndex } = {}) {
     // ancora precedente nel diario o presente in una card diversa.
     if (Number.isInteger(exerciseIndex) && Number.isInteger(setIndex) &&
         (advice?.exerciseIndex !== exerciseIndex || advice?.setIndex !== setIndex)) {
-        advice = assessExerciseLive(day.exercises?.[exerciseIndex], exerciseIndex);
+        advice = assessExerciseLive(day.exercises?.[exerciseIndex], exerciseIndex,
+            { readiness: snapshot.readiness });
     }
     if (!advice) return null;
     const name = day.exercises?.[advice.exerciseIndex]?.name || 'Esercizio';
@@ -108,9 +116,84 @@ export function showLiveCoachToast(day, { exerciseIndex, setIndex } = {}) {
         message: advice.message,
         severity: advice.severity,
         advice,
-        extra: advice.e1rm === null ? null :
-            'e1RM stimato: ' + advice.e1rm + ' kg (solo dati registrati)'
+        day,
+        extra: snapshot.sessionAdjustment?.action === 'reduce'
+            ? snapshot.sessionAdjustment.message
+            : advice.e1rm === null ? null :
+                'e1RM stimato: ' + advice.e1rm + ' kg (solo dati registrati)'
     });
+}
+
+
+const CHECKIN_FIELDS = [
+    { key: 'sleep', label: 'Sonno', options: [['ok', 'Adeguato'], ['poor', 'Scarso']] },
+    { key: 'energy', label: 'Energia', options: [['ok', 'Buona'], ['low', 'Bassa']] },
+    { key: 'soreness', label: 'Muscoli', options: [['ok', 'Nella norma'], ['high', 'Molto affaticati']] },
+    { key: 'pain', label: 'Dolore', options: [['none', 'Nessuno'], ['present', 'Presente']] }
+];
+
+function createSessionCheckinPanel(day, readiness, locked, panel) {
+    const section = element('details', 'mycoatch-session-checkin');
+    section.id = 'mycoatch-session-checkin';
+    section.open = !locked && (readiness.level === 'unknown' ||
+        readiness.level === 'stop' || readiness.level === 'caution');
+    const status = readiness.level === 'unknown' ? 'da compilare' :
+        readiness.level === 'normal' ? 'regolare' :
+        readiness.level === 'stop' ? 'dolore segnalato' : 'prudenza';
+    section.append(element('summary', '',
+        '🧭 Prima della seduta · ' + status));
+    const body = element('div', 'mycoatch-checkin-body');
+    const info = element('p', 'mycoatch-checkin-message', readiness.message);
+    if (readiness.level !== 'normal' && readiness.level !== 'unknown')
+        info.classList.add('mycoatch-checkin-warning');
+    body.append(info);
+
+    if (!locked && !day.completed) {
+        const form = element('form', 'mycoatch-checkin-form');
+        form.id = 'mycoatch-checkin-form';
+        const fields = element('div', 'mycoatch-checkin-fields');
+        for (const field of CHECKIN_FIELDS) {
+            const label = element('label', '', field.label);
+            const select = element('select');
+            select.name = field.key;
+            select.required = true;
+            select.setAttribute('aria-label', field.label + ' prima dell’allenamento');
+            const placeholder = element('option', '', 'Seleziona');
+            placeholder.value = '';
+            select.append(placeholder);
+            for (const [value, title] of field.options) {
+                const option = element('option', '', title);
+                option.value = value;
+                select.append(option);
+            }
+            const stored = day.coachCheckin?.[field.key];
+            if (field.options.some(([value]) => value === stored))
+                select.value = stored;
+            label.append(select);
+            fields.append(label);
+        }
+        form.append(fields);
+        const submit = element('button', 'btn btn-secondary btn-sm',
+            readiness.level === 'unknown' ? 'Salva check-in' : 'Aggiorna check-in');
+        submit.type = 'submit';
+        form.append(submit);
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+            if (locked || day.completed) return;
+            const values = Object.fromEntries(new FormData(form));
+            try {
+                day.coachCheckin = createSessionCheckin(values);
+                saveAndSync(state.workoutData);
+                updateLiveCoachPanel(day, { readOnly: false }, panel);
+            } catch (error) {
+                info.textContent = error.message || 'Controlla i dati del check-in.';
+            }
+        });
+        body.append(form, element('small', 'mycoatch-checkin-disclaimer',
+            'Autovalutazione, non diagnosi. Le risposte restano nel diario e vengono sincronizzate se connesso. I set completati non cambiano.'));
+    }
+    section.append(body);
+    return section;
 }
 
 export function createLiveCoachPanel(day, { readOnly = false } = {}) {
@@ -141,6 +224,7 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
         locked ? 'Sola lettura: analisi dello storico confermato.' :
             'Indicazioni durante l’allenamento. I carichi non cambiano senza una tua azione.');
     panel.append(sub);
+    panel.append(createSessionCheckinPanel(day, snapshot.readiness, locked, panel));
 
     const meter = element('div', 'mycoatch-live-progress');
     const textProgress = element('span', '', `Serie confermate: ${snapshot.checkedSets}/${snapshot.totalSets} (${snapshot.percent}%)`);
@@ -193,6 +277,12 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
             'Il ritmo corrente potrebbe superare il tempo disponibile. Non comprimere i recuperi dei fondamentali: valuta gli accessori rimasti.'));
     }
 
+    if (snapshot.sessionAdjustment?.action === 'reduce' && !snapshot.finished) {
+        liveMessage.classList.add('mycoatch-live-warning');
+        liveMessage.append(element('p', 'mycoatch-session-adjustment',
+            '🛡️ ' + snapshot.sessionAdjustment.message));
+    }
+
     const advice = snapshot.lastAdvice;
     if (advice && !snapshot.finished) {
         const exercise = day.exercises[advice.exerciseIndex];
@@ -217,7 +307,7 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
             }
         }
         if (!locked) {
-            const button = createAdviceApplyButton(advice);
+            const button = createAdviceApplyButton(advice, day);
             if (button) detail.append(button);
         }
         adviceHistory.append(detail);

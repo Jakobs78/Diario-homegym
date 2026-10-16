@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v17-compact-mobile-shell';
+const CACHE_NAME = 'workout-app-v18-compact-mobile-shell';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -36,6 +36,7 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/periodizationPolicy.js',
   '/mycoatch/mycoatch-adapter.js',
   '/mycoatch/liveCoach.js',
+  '/mycoatch/sessionReadiness.js',
   '/mycoatch/liveHistory.js',
   '/mycoatch/historyAnalysis.js',
   '/mycoatch/historyInsights.js',

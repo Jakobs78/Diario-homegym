@@ -1,5 +1,6 @@
 import { estimateE1rm } from './historyAnalysis.js';
 import { previousExercisePerformance, historicalSessionPace } from './liveHistory.js';
+import { assessSessionReadiness } from './sessionReadiness.js';
 
 function decimal(value) {
     if (value === null || value === undefined || value === '') return null;
@@ -148,7 +149,7 @@ function lastCompletedIndex(exercise) {
  * Unica fonte per il coaching della singola serie, usata sia dalla card
  * che dalla panoramica della seduta. Legge ESCLUSIVAMENTE serie confermate.
  */
-export function assessExerciseLive(exercise, exerciseIndex = 0) {
+export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = null } = {}) {
     const sets = Array.isArray(exercise?.loggedSets) ? exercise.loggedSets : [];
     const lastIndex = lastCompletedIndex(exercise);
     if (lastIndex < 0) return null;
@@ -234,6 +235,28 @@ export function assessExerciseLive(exercise, exerciseIndex = 0) {
         }
     }
 
+    // Il check-in è una limitazione ulteriore rispetto alla singola serie:
+    // mai premiare due set facili con kg aggiuntivi se oggi l'atleta ha
+    // riferito fatica, scarso sonno o dolore. Senza check-in il comportamento
+    // preesistente rimane immutato e l'incertezza è dichiarata nella UI.
+    if (readiness?.level === 'stop') {
+        suggestedWeight = null;
+        code = 'pain_caution';
+        severity = 'caution';
+        message = readiness.message;
+    } else if (readiness?.allowIncrease === false && code === 'optional_increment') {
+        suggestedWeight = null;
+        code = 'readiness_hold';
+        severity = 'caution';
+        message = 'Serie ben riuscite, ma ' + readiness.reasons.join(' e ') +
+            ': oggi mantieni il carico, senza aumentarlo.';
+    } else if (readiness?.level === 'caution' && remainingIndex >= 0 &&
+        (code === 'on_track' || code === 'strong_set')) {
+        severity = 'caution';
+        message += ' Check-in prudente: evita di rincorrere l’intensità, ' +
+            'mantieni i recuperi e rivaluta il prossimo set.';
+    }
+
     if (remainingIndex < 0) {
         message += ' Esercizio completato; registra il risultato e valuta il prossimo.';
         suggestedWeight = null;
@@ -249,6 +272,51 @@ export function assessExerciseLive(exercise, exerciseIndex = 0) {
         reps: result.reps, rpe: result.rpe,
         e1rm: actualE1rm === null ? null : Math.round(actualE1rm * 10) / 10,
         confidence: knownRpe ? 'rpe_measured' : 'performance_only'
+    };
+}
+
+/**
+ * Adattamento intra-seduta solo su serie REALMENTE confermate.
+ * Non dedurre stanchezza clinica, non modificare automaticamente serie,
+ * recuperi o peso e non togliere movimenti fondamentali.
+ */
+export function assessSessionAdjustment(day, readiness = null) {
+    const hard = [];
+    for (const exercise of day?.exercises || []) {
+        if (exercise?.isExcluded) continue;
+        const goal = plannedRpe(exercise);
+        for (const set of exercise?.loggedSets || []) {
+            const real = normalizedConfirmedSet(set, exercise);
+            if (!real || real.technique || real.rpe === null) continue;
+            if (real.rpe >= 9.5 ||
+                (goal !== null && real.rpe >= goal + 1)) {
+                hard.push({ name: exercise.name, rpe: real.rpe });
+            }
+        }
+    }
+    if (readiness?.level === 'stop') return {
+        action: 'stop', hardSets: hard.length, accessoryCandidates: [],
+        message: 'Dolore presente: evita l’esercizio doloroso e non forzare la seduta. ' +
+            'MyCoatch non modifica le serie già registrate.'
+    };
+    if (hard.length < 2) return null;
+
+    const optional = (day?.exercises || []).filter(ex =>
+        !ex.isExcluded && (ex.pattern === 'isolation' || ex.isOptional) &&
+        !ex.anchorKey && !ex.priorityProtected &&
+        (ex.loggedSets || []).length > 0 &&
+        (ex.loggedSets || []).every(set => !isConfirmed(set) || isWarmup(set))
+    ).map(ex => ex.name);
+    return {
+        action: 'reduce', hardSets: hard.length,
+        accessoryCandidates: optional,
+        message: 'Più serie confermate con RPE oltre il previsto: ' +
+            'rispetta pause complete, non aumentare i kg e valuta di ' +
+            (optional.length ?
+                'ridurre o saltare solo gli accessori non iniziati (' +
+                optional.slice(0,2).join(', ') + ').' :
+                'ridurre il carico del prossimo set se la tecnica peggiora.') +
+            ' Nessuna serie viene modificata automaticamente.'
     };
 }
 
@@ -302,6 +370,7 @@ function timeRemainingSeconds(day) {
  */
 export function buildLiveSessionSnapshot(day, { now = Date.now(), history = null } = {}) {
     const exercises = Array.isArray(day?.exercises) ? day.exercises : [];
+    const readiness = assessSessionReadiness(day?.coachCheckin, { now });
     let total = 0, checked = 0, valid = 0, tonnage = 0, rpeCount = 0;
     let lastAdvice = null;
     let latestTimestamp = -1;
@@ -325,7 +394,7 @@ export function buildLiveSessionSnapshot(day, { now = Date.now(), history = null
             if (!result.technique) tonnage += result.weight * result.reps;
             if (result.rpe !== null) rpeCount++;
         });
-        const advice = assessExerciseLive(exercise, exerciseIndex);
+        const advice = assessExerciseLive(exercise, exerciseIndex, { readiness });
         if (advice) {
             const timestamp = Date.parse(exercise.loggedSets[advice.setIndex]?.completedAt ?? '') || 0;
             // Usa il timestamp disponibile; nei dati legacy preferisce l'ordine
@@ -351,6 +420,7 @@ export function buildLiveSessionSnapshot(day, { now = Date.now(), history = null
     const e1rmChangePercent = previous?.e1rm !== null && previous?.e1rm > 0 &&
         lastAdvice?.e1rm !== null && lastAdvice?.e1rm !== undefined
         ? Math.round(1000 * (lastAdvice.e1rm / previous.e1rm - 1)) / 10 : null;
+    const sessionAdjustment = assessSessionAdjustment(day, readiness);
     const time = plannedTimeMinutes(day);
     const projected = remaining === null ? null
         : Math.ceil((seconds + remaining) / 60);
@@ -372,6 +442,8 @@ export function buildLiveSessionSnapshot(day, { now = Date.now(), history = null
         remainingSeconds: remaining,
         possibleOverrun,
         lastAdvice,
+        readiness,
+        sessionAdjustment,
         previousExercise: previous,
         e1rmChangePercent,
         paceCalibration: pace,
