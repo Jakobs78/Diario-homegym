@@ -103,6 +103,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             });
             
             const exercisesSelectedToday = [];
+            const daySelectionCounts = new Map(weeklySelectionCounts);
             const previousDay = rawLastMesocycle?.weeks?.[0]?.days
                 ?.find(d => Number(d.dayNumber) === dayIndex + 1);
             // Il selettore non confonde una preferenza storica con uno schema
@@ -128,7 +129,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     focus,
                     previousName,
                     selectedToday: exercisesSelectedToday,
-                    weeklyCounts: weeklySelectionCounts
+                    weeklyCounts: daySelectionCounts
                 });
                 if (!selected.exercise) {
                     excludedOptionalSlots.push({
@@ -141,11 +142,15 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 }
                 const exercise = selected.exercise;
                 exercisesSelectedToday.push(exercise.name);
-                weeklySelectionCounts.set(exercise.id,
-                    (weeklySelectionCounts.get(exercise.id) || 0) + 1);
+                daySelectionCounts.set(exercise.id,
+                    (daySelectionCounts.get(exercise.id) || 0) + 1);
                 return [{ ...exercise, anchorKey: slot.anchor || null,
                     priorityProtected: Boolean(slot.priorityProtected),
-                    isOptional: Boolean(slot.optional), selectionReason: selected.reason }];
+                    isOptional: Boolean(slot.optional),
+                    selectionReason:slot.addedForFocus
+                        ? 'Accessorio opzionale per il distretto prioritario ' +
+                            slot.muscle + '; inserito soltanto se resta tempo.'
+                        : selected.reason }];
             });
 
             // Integrazione della funzione di specializzazione originale
@@ -354,6 +359,14 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     scheduledWeeklySets,history:analysis
                 });
             registerSelectedWeeklySets(scheduledWeeklySets,timedPlan.exercises);
+            // Le varianti scartate per il tempo NON vanno considerate come
+            // gia' programmate quando si scelgono quelle del giorno seguente.
+            for(const programmed of timedPlan.exercises) {
+                const meta=EXERCISE_DATABASE.find(item =>
+                    canonicalExerciseKey(item.name) === canonicalExerciseKey(programmed.name));
+                if(meta) weeklySelectionCounts.set(meta.id,
+                    (weeklySelectionCounts.get(meta.id)||0)+1);
+            }
             weekDays.push({
                 dayNumber: dayIndex + 1,
                 dayName: dayTemplate.name,
