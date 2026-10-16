@@ -7,10 +7,14 @@ export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}
     ex.fatigueConcern && ex.progressionEvidence?.distinctWeeks >= 2
   ).map(ex => ex.name);
   const recoveryFirst = signals.length > 0;
-  let deloadWeek = config.deloadWeek === false ? null :
+  // La preferenza dell'atleta puo' spostare o rimuovere lo scarico
+  // soltanto in assenza di fatica ripetuta e attendibile. Se il recupero
+  // e' prioritario, nessuna opzione puo' posticiparlo.
+  let deloadWeek = recoveryFirst ? 1 :
+    config.deloadWeek === false ? null :
     Number.isInteger(config.deloadWeek) ? config.deloadWeek :
     config.deloadWeek === true ? count :
-    recoveryFirst ? 1 : count >= 4 ? count : null;
+    count >= 4 ? count : null;
   if (deloadWeek !== null && (deloadWeek < 1 || deloadWeek > count))
     throw Error('Settimana di scarico non valida');
   const weeks = Array.from({length: count}, (_, i) => {
