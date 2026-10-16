@@ -91,10 +91,12 @@ export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
             .map(key => report.byExercise[key]).filter(Boolean);
         const highFatigue = relevant.some(ex => ex.fatigueConcern);
         const plateau = relevant.some(ex =>
-            ex.status === 'possible_stall' && !ex.readyForLoad);
-        // When all confirmed sets were objectively easier across distinct
-        // weeks, choose the small load progression first. Do not add sets
-        // simultaneously just because the estimated e1RM stayed flat.
+            ex.status === 'possible_stall' &&
+            ex.progressionEvidence?.progressionTrigger !== 'low_rpe');
+        // When all working sets have at least 1 RPE in reserve over two
+        // comparable weeks, prioritize the minimum load step instead of
+        // adding accessory volume for the same "stall". Other plateau
+        // scenarios keep their existing volume policy.
         const enoughWeeks = metrics.weeksObserved >= 3;
         const adherence = metrics.recentAdherence;
         const fractional = metrics.avgWeeklyFractionalSets;
