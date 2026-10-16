@@ -198,10 +198,30 @@ export function undoUpcomingWeekReview(mesocycle,weekNumber) {
         throw new Error('La settimana è bloccata o iniziata: non posso sovrascrivere gli obiettivi.');
     for(const c of record.changes){
         const ex=week.days?.[c.dayIndex]?.exercises?.[c.exerciseIndex];
-        if(!ex || ex.name!==c.name ||
-            numericRpe(ex.targetRpe??ex.rpeTarget??ex.rpe)!==numericRpe(c.to) ||
-            ex.coachWeeklyLoadReview!==true)
+        if(!ex || ex.name!==c.name || ex.coachWeeklyLoadReview!==true)
             throw new Error('Un obiettivo è stato modificato dopo la revisione: ripristino bloccato.');
+        // Non basta confrontare il RPE complessivo: un atleta potrebbe
+        // aver corretto un target per-set o uno dei limiti min/max.
+        // In quel caso il rollback DEVE rifiutare senza mutare nulla.
+        for(const key of ['targetRpe','rpe','minRpe','maxRpe']){
+            const saved=c.original.values[key];
+            if(key==='targetRpe'||key==='rpe'||saved?.present){
+                if(!owned(ex,key) || numericRpe(ex[key])!==numericRpe(c.to))
+                    throw new Error('Un obiettivo è stato modificato dopo la revisione: ripristino bloccato.');
+            } else if(owned(ex,key)){
+                throw new Error('Un obiettivo è stato modificato dopo la revisione: ripristino bloccato.');
+            }
+        }
+        if((ex.sets||[]).length!==c.original.sets.length)
+            throw new Error('Le serie previste sono cambiate: ripristino bloccato.');
+        for(const [index,saved] of c.original.sets.entries()){
+            const set=ex.sets?.[index];
+            if(!set || (saved.present
+                ? !owned(set,'targetRpe') ||
+                    numericRpe(set.targetRpe)!==numericRpe(c.to)
+                : owned(set,'targetRpe')))
+                throw new Error('Un target per serie è cambiato: ripristino bloccato.');
+        }
     }
     for(const c of record.changes){
         const ex=week.days[c.dayIndex].exercises[c.exerciseIndex];
