@@ -312,13 +312,24 @@ function showFinalConfirmationStep(overlay) {
         deleteBtn.innerText = "Eliminazione in corso...";
 
         try {
-            if (typeof deleteCloudData === 'function') {
-                await deleteCloudData(state.currentUser);
+            // Never claim cloud deletion if the remote operation was not
+            // confirmed. No local loss when offline or unauthenticated.
+            const id=state.currentUser?.id ? String(state.currentUser.id) : null;
+            if(!id || typeof deleteCloudData!=='function' ||
+                await deleteCloudData(state.currentUser)!==true){
+                throw Error('Eliminazione cloud non confermata: nessun dato cancellato. Accedi online e riprova.');
             }
-
-            localStorage.clear();
+            localStorage.removeItem(scopedKey(id));
+            if(getStoredLocalOwner()===id){
+                localStorage.removeItem(CONFIG.STORAGE_KEY);
+                localStorage.removeItem(OWNER_KEY);
+                localStorage.removeItem('cached_athlete_name');
+            }
+            // Keep OTHER accounts' pending offline edits intact.
+            const otherActions=getQueue().filter(a=>a.ownerId && String(a.ownerId)!==id);
+            if(otherActions.length)localStorage.setItem(QUEUE_KEY,JSON.stringify(otherActions));
+            else clearQueue();
             sessionStorage.clear();
-            clearQueue();
             
             if (typeof resetState === 'function') {
                 resetState();
