@@ -6,6 +6,14 @@
  */
 import { validateCompletedSet } from './liveCoach.js';
 import { validateSessionCheckin } from './sessionReadiness.js';
+import { EXERCISE_DATABASE } from './exercisesDB.js';
+import { canonicalExerciseKey } from './exerciseIdentity.js';
+
+const muscleCatalog = new Map(EXERCISE_DATABASE.map(ex => [canonicalExerciseKey(ex.name), ex.category]));
+function muscleKey(exercise) {
+    const key = canonicalExerciseKey(exercise?.name);
+    return muscleCatalog.get(key) || exercise?.category || (key ? 'exercise:' + key : null);
+}
 
 const TARGET_FIELDS = ['targetRpe','rpe','minRpe','maxRpe','coachWeeklyLoadReview'];
 const owned = (object,key) => Object.prototype.hasOwnProperty.call(object,key);
@@ -43,14 +51,20 @@ function matchesSourceDay(day) {
 function attributedCheckin(day) {
     const check=day?.coachCheckin;
     if(!validateSessionCheckin(check).ok || !Number.isFinite(Date.parse(check?.checkedAt||'')))return null;
-    const when=String(day?.date||day?.sessionCompletedAt||'').slice(0,10);
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(when) ||
-       String(check.checkedAt).slice(0,10)!==when)return null;
+    const raw=String(day?.date || day?.sessionCompletedAt || '');
+    // La data della seduta è locale, checkedAt è ISO/UTC: confrontare
+    // le prime 10 cifre UTC scarta i check-in vicino a mezzanotte.
+    const performed = /^\d{4}-\d{2}-\d{2}$/.test(raw)
+        ? new Date(raw + 'T12:00:00') : new Date(raw);
+    const checked = new Date(check.checkedAt);
+    if(!Number.isFinite(performed.getTime()) ||
+       checked.toDateString() !== performed.toDateString())return null;
     return check;
 }
 function evaluateCompletedDay(day) {
     if(!matchesSourceDay(day))return null;
     let measured=0,hard=0,working=0;
+    const byMuscle=new Map();
     for(const ex of day.exercises){
         if(ex.isExcluded)continue;
         const sets=ex.loggedSets;
@@ -66,7 +80,16 @@ function evaluateCompletedDay(day) {
             if(result.technique||result.rpe===null)continue;
             measured++;
             const target=numericRpe(ex.targetRpe??ex.rpeTarget??ex.rpe);
-            if(result.rpe>=9.5 || (target!==null && result.rpe>=target+1))hard++;
+            const difficult=result.rpe>=9.5 ||
+                (target!==null && result.rpe>=target+1);
+            if(difficult)hard++;
+            const muscle=muscleKey(ex);
+            if(muscle){
+                const current=byMuscle.get(muscle) || {measured:0,hard:0};
+                current.measured++;
+                if(difficult)current.hard++;
+                byMuscle.set(muscle,current);
+            }
         }
         if(!valid)return null;
     }
@@ -79,6 +102,10 @@ function evaluateCompletedDay(day) {
         measured,hard,working,
         pain:Boolean(check?.pain==='present'),
         strain:Boolean(hard>=2 || (hard>=1 && strainCheckin)),
+        byMuscle:Object.fromEntries([...byMuscle].map(([muscle,values])=>[
+            muscle,{...values,strain:values.hard>=2 ||
+                (values.hard>=1 && strainCheckin)}
+        ])),
         hasCheckin:Boolean(check)
     };
 }
@@ -90,11 +117,11 @@ function targetWeekStarted(week) {
         (day.exercises||[]).some(ex=>
             (ex.loggedSets||[]).some(confirmed)));
 }
-function candidateTargets(week) {
+function candidateTargets(week, affectedMuscles) {
     const result=[];
     for(const [dayIndex,day] of (week?.days||[]).entries()){
         for(const [exerciseIndex,ex] of (day.exercises||[]).entries()){
-            if(ex.isExcluded)continue;
+            if(ex.isExcluded || !affectedMuscles.has(muscleKey(ex)))continue;
             const original=ex.targetRpe??ex.rpeTarget??ex.rpe;
             const n=numericRpe(original);
             if(n===null || n<=6.5)continue; // Scarico già conservativo
@@ -137,18 +164,29 @@ export function reviewUpcomingWeek(mesocycle,weekNumber) {
         message:'RPE realmente misurati insufficienti su giornate distinte: nessuna modifica proposta.'};
     if(strainDays.length<2)return {status:'steady',
         message:'Nessun segnale ripetuto sufficiente per modificare la prossima settimana.'};
-    const changes=candidateTargets(target);
+    // Le due giornate devono riguardare LO STESSO distretto. Un giorno
+    // difficile di petto e uno di gambe non giustificano ridurre ogni RPE.
+    const allMuscles=new Set(results.flatMap(r=>Object.keys(r.byMuscle)));
+    const repeatedMuscles=[...allMuscles].filter(muscle=>
+        results.filter(r=>r.byMuscle[muscle]?.measured>=2 &&
+            r.byMuscle[muscle]?.strain).length>=2);
+    if(!repeatedMuscles.length)return {status:'steady',
+        message:'Difficoltà rilevate in distretti diversi: mancano due sedute attendibili per lo stesso gruppo muscolare. Nessun target modificato.'};
+    const changes=candidateTargets(target,new Set(repeatedMuscles));
     if(!changes.length)return {status:'steady',
-        message:'La settimana successiva ha già target di recupero conservativi.'};
+        message:'Nessun esercizio pertinente da alleggerire nella prossima settimana oppure target già conservativi.'};
     return {
         status:'ready',weekNumber:Number(weekNumber),
         sourceWeek:Number(source.weekNumber),
-        affectedDays:strainDays.length,
+        affectedDays:results.filter(r=>repeatedMuscles.some(muscle=>
+            r.byMuscle[muscle]?.measured>=2 && r.byMuscle[muscle]?.strain)).length,
+        affectedMuscles:repeatedMuscles,
         confirmedDays:results.length,
         measuredSets:results.reduce((sum,r)=>sum+r.measured,0),
+        sourceSignature:JSON.stringify(source.days),
         changes,
-        message:'In '+strainDays.length+' giornate concluse sono emersi RPE misurati ripetutamente oltre target. '+
-            'Propongo di ridurre di 0,5 punti il target RPE negli esercizi della settimana '+
+        message:'In almeno due giornate concluse gli stessi distretti hanno RPE ripetutamente oltre target. '+
+            'Propongo di ridurre di 0,5 punti il target RPE SOLO sugli esercizi pertinenti della settimana '+
             weekNumber+'. Le ripetizioni e le serie restano uguali; il carico andrà ricalibrato '+
             'sul nuovo sforzo invece di riutilizzare automaticamente i kg precedenti. '+
             'Nessuna modifica sarà applicata senza conferma.'
@@ -160,7 +198,8 @@ export function applyUpcomingWeekReview(mesocycle,weekNumber,expectedReview) {
        expectedReview?.status!=='ready' ||
        JSON.stringify(latest.changes)!==JSON.stringify(expectedReview.changes) ||
        latest.affectedDays!==expectedReview.affectedDays ||
-       latest.measuredSets!==expectedReview.measuredSets) {
+       latest.measuredSets!==expectedReview.measuredSets ||
+       latest.sourceSignature!==expectedReview.sourceSignature) {
         throw new Error('Revisione non più valida: aggiorna la scheda prima di confermare.');
     }
     const week=mesocycle.weeks.find(w=>Number(w.weekNumber)===Number(weekNumber));
