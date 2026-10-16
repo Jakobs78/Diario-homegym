@@ -394,7 +394,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
         // compatibili con margine sufficiente. Non modificare il deload.
         const balanced = rebalanceWeeklyAccessories(
             weekDays, intendedDays, maxSessionMinutes, {
-                isDeloadWeek:isDeloadWeek || guardrails.recoveryRequired,
+                isDeloadWeek,
+                preventTransfers:guardrails.recoveryRequired,
                 maxAccessorySets: onboarding.volumeCap ?? 4
             }
         );
