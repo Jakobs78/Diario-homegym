@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v30-offline-runtime';
+const CACHE_NAME = 'workout-app-v31-offline-dependency-graph';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -45,6 +45,8 @@ const ASSETS_TO_CACHE = [
   '/js/restPolicy.js',
   '/mycoatch/userPreferences.js',
   '/mycoatch/index.js',
+  '/mycoatch/state.js',
+  '/mycoatch/autoregulation.js',
   '/mycoatch/engine.js',
   '/mycoatch/sessionSelection.js',
   '/mycoatch/coachGuardrails.js',
