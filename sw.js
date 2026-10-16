@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v23-coach-preview';
+const CACHE_NAME = 'workout-app-v24-accurate-dashboards';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [

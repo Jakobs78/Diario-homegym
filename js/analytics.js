@@ -415,6 +415,7 @@ export function renderMuscleVolumeChart(canvasId, workoutData, range = currentRa
     const allDays = extractAllDays(targetData);
     const days = range === 'meso' ? allDays : filterDaysByRange(allDays, range);
     const muscleGroups = {};
+    const plannedGroups = {};
     
     const uniqueWeeks = new Set();
     days.forEach(d => {
@@ -431,44 +432,52 @@ export function renderMuscleVolumeChart(canvasId, workoutData, range = currentRa
     });
     const totalWeeks = uniqueWeeks.size || 1;
 
-    days.forEach(day => {
-        const validExs = filterValidSets(day.exercises || day.esercizi || []);
-        validExs.forEach(ex => {
-            let muscle = ex.muscle_group || ex.target_muscle || ex.category || 'Generico';
-            
-            // 🛠️ RISOLTO: Mappa i tag specialistici di MyCoatch ("Back_Lats", "Back_Thickness") sull'etichetta "Dorso" della UI
-            if (muscle.toLowerCase().includes('back_') || muscle.toLowerCase() === 'schiena') {
-                muscle = 'Dorso';
-            }
-
-            if (!muscleGroups[muscle]) muscleGroups[muscle] = 0;
-            muscleGroups[muscle] += ex.sets.length;
-        });
+    const muscleFor = ex=>{
+        let muscle=String(ex.muscle_group || ex.target_muscle || ex.category || 'Generico');
+        if (muscle.toLowerCase().includes('back_') || muscle.toLowerCase()==='schiena')
+            muscle='Dorso';
+        return muscle;
+    };
+    days.forEach(day=>{
+        for(const ex of day.exercises || day.esercizi || []){
+            if(ex.isExcluded || ex.is_excluded)continue;
+            const muscle=muscleFor(ex);
+            const planned=Array.isArray(ex.sets)?ex.sets.length:
+                Array.isArray(ex.loggedSets)?ex.loggedSets.length:0;
+            plannedGroups[muscle]=(plannedGroups[muscle]||0)+planned;
+        }
+        const validExs=filterValidSets(day.exercises || day.esercizi || []);
+        for(const ex of validExs){
+            const muscle=muscleFor(ex);
+            muscleGroups[muscle]=(muscleGroups[muscle]||0)+ex.sets.length;
+        }
     });
-
-    const labels = Object.keys(muscleGroups);
-    const dataValues = Object.values(muscleGroups).map(totalSets => 
-        Math.round((totalSets / totalWeeks) * 10) / 10
-    );
+    const labels=[...new Set([...Object.keys(plannedGroups),...Object.keys(muscleGroups)])];
+    const round=x=>Math.round(x*10)/10;
+    const dataValues=labels.map(muscle=>round((muscleGroups[muscle]||0)/totalWeeks));
+    const plannedValues=labels.map(muscle=>round((plannedGroups[muscle]||0)/totalWeeks));
 
     activeCharts[canvasId] = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels.length ? labels : ['Petto', 'Dorso', 'Gambe', 'Spalle', 'Braccia'],
             datasets: [{
-                label: 'Hard Sets Medie / Settimana',
+                label: 'Confermate / settimana',
                 data: dataValues.length ? dataValues: [0, 0, 0, 0, 0],
                 backgroundColor: 'rgba(59, 130, 246, 0.75)',
-                borderColor: '#2563eb',
-                borderWidth: 1,
-                borderRadius: 6
+                borderWidth: 1,borderRadius: 6
+            },{
+                label: 'Previste / settimana',
+                data: plannedValues.length ? plannedValues: [0, 0, 0, 0, 0],
+                backgroundColor: 'rgba(148, 163, 184, 0.65)',
+                borderWidth: 1,borderRadius: 6
             }]
         },
         options: {
             indexAxis: 'y',
             responsive: true,
-            plugins: { legend: { display: false } },
-            scales: { x: { beginAtZero: true, title: { display: true, text: 'Media Serie Effettive / Settimana' } } }
+            plugins: { legend: { display: true } },
+            scales: { x: { beginAtZero: true, title: { display: true, text: 'Serie per settimana (piano e completamento)' } } }
         }
     });
 }
@@ -698,86 +707,82 @@ export function initMesoCompareSelectors(data) {
 }
 
 export function extractMesoMetrics(mesoData) {
-    if (!mesoData) return [0, 0, 0, 0, 0];
-
-    const weeksCount = mesoData.weeks?.length || 1;
-    const totalPrescribed = mesoData.total_prescribed_sessions || 1;
-    const completedSessions = mesoData.completed_sessions || 0;
-    const adherence = Math.min(100, Math.round((completedSessions / totalPrescribed) * 100));
-
-    let totalVolume = 0;
-    let strengthTonnage = 0;
-    let hardSetsCount = 0;
-    let rpeSum = 0;
-    let rpeCount = 0;
-
-    const days = extractAllDays(mesoData);
-    days.forEach(day => {
-        const validExs = filterValidSets(day.exercises || day.esercizi || []);
-        validExs.forEach(ex => {
-            const netVol = calculateNetVolume(ex.sets);
-            totalVolume += netVol;
-            
-            if (ex.category === 'Forza') {
-                strengthTonnage += netVol;
+    const days=extractAllDays(mesoData);
+    const weeks=Math.max(1,mesoData?.weeks?.length || 1);
+    const plannedSessions=days.length;
+    const completedSessions=days.filter(day=>day.completed === true || day.is_completed===true).length;
+    const adherence=plannedSessions ? Math.round(100*completedSessions/plannedSessions) : 0;
+    let tonnage=0,sets=0,rpeSum=0,rpeCount=0;
+    for(const day of days){
+        const exercises=filterValidSets(day.exercises || day.esercizi || []);
+        for(const ex of exercises){
+            sets+=ex.sets.length;
+            tonnage+=calculateNetVolume(ex.sets);
+            for(const set of ex.sets){
+                const rpe=parseRPE(set.rpe);
+                if(rpe>0){rpeSum+=rpe;rpeCount++;}
             }
-
-            hardSetsCount += ex.sets.length;
-            ex.sets.forEach(s => {
-                const rpeVal = parseRPE(s.rpe);
-                if (rpeVal > 0) {
-                    rpeSum += rpeVal;
-                    rpeCount++;
-                }
-            });
-        });
-    });
-
-    const avgRPE = rpeCount > 0 ? (rpeSum / rpeCount) : 0;
-    const weeklyHardSets = hardSetsCount / weeksCount;
-
-    const normVolume = Math.min(100, Math.round((totalVolume / 50000) * 100));
-    const normRPE = Math.min(100, Math.round((avgRPE / 10) * 100));
-    const normAdherence = adherence;
-    const normStrength = Math.min(100, Math.round((strengthTonnage / 20000) * 100));
-    const normSets = Math.min(100, Math.round((weeklyHardSets / 25) * 100));
-
-    return [normVolume, normRPE, normAdherence, normStrength, normSets];
+        }
+    }
+    return {
+        plannedSessions,completedSessions,adherence,
+        tonnageKg:Math.round(tonnage),
+        confirmedSets:sets,
+        setsPerWeek:Math.round(sets/weeks*10)/10,
+        averageRpe:rpeCount?Math.round(rpeSum/rpeCount*10)/10:null,
+        rpeMeasurements:rpeCount
+    };
 }
 
 export function renderMesoComparisonChart(canvasId, rawMesoA, rawMesoB) {
-    const ctx = document.getElementById(canvasId);
-    if (!ctx) return;
-
-    if (activeCharts[canvasId]) activeCharts[canvasId].destroy();
-
-    const dataA = rawMesoA ? extractMesoMetrics(rawMesoA) : [0, 0, 0, 0, 0];
-    const dataB = rawMesoB ? extractMesoMetrics(rawMesoB) : [0, 0, 0, 0, 0];
-
-    activeCharts[canvasId] = new Chart(ctx, {
-        type: 'radar',
-        data: {
-            labels: ['Volume Totale', 'Intensità (RPE)', 'Aderenza %', 'Tonnellaggio Forza', 'Hard Sets / Wk'],
-            datasets: [
-                {
-                    label: rawMesoA?.name || 'Mesociclo A',
-                    data: dataA,
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                },
-                {
-                    label: rawMesoB?.name || 'Mesociclo B',
-                    data: dataB,
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            scales: { r: { angleLines: { display: true }, suggestedMin: 0, suggestedMax: 100 } }
+    const canvas=document.getElementById(canvasId);
+    if(!canvas)return;
+    if(activeCharts[canvasId]) {
+        activeCharts[canvasId].destroy();
+        delete activeCharts[canvasId];
+    }
+    // Do not compare arbitrarily normalized values as if they were
+    // athlete-performance outcomes. Show raw units side by side instead.
+    canvas.hidden=true;
+    const existing=document.getElementById(canvasId+'-actual-values');
+    existing?.remove();
+    const a=extractMesoMetrics(rawMesoA);
+    const b=extractMesoMetrics(rawMesoB);
+    const table=document.createElement('table');
+    table.id=canvasId+'-actual-values';
+    table.className='meso-comparison-table';
+    const header=document.createElement('thead');
+    const body=document.createElement('tbody');
+    const row=(cells,tag='td')=>{
+        const tr=document.createElement('tr');
+        for(const content of cells){
+            const node=document.createElement(tag);
+            node.textContent=String(content);tr.append(node);
         }
-    });
+        return tr;
+    };
+    header.append(row(['Indicatore',rawMesoA?.name||'A',rawMesoB?.name||'B'],'th'));
+    const values=[
+        ['Sedute concluse',a.completedSessions+' / '+a.plannedSessions,
+            b.completedSessions+' / '+b.plannedSessions],
+        ['Aderenza',a.adherence+'%',b.adherence+'%'],
+        ['Tonnellaggio misurato',a.tonnageKg+' kg',b.tonnageKg+' kg'],
+        ['Serie confermate',a.confirmedSets,b.confirmedSets],
+        ['Serie confermate/settimana',a.setsPerWeek,b.setsPerWeek],
+        ['RPE medio registrato',a.averageRpe??'N/D',b.averageRpe??'N/D'],
+        ['Serie con RPE misurato',a.rpeMeasurements,b.rpeMeasurements]
+    ];
+    for(const cells of values)body.append(row(cells));
+    table.append(header,body);
+    const note=document.createElement('p');
+    note.className='text-xs text-muted';
+    note.textContent='Solo serie confermate. Il tonnellaggio non misura direttamente lo stimolo ipertrofico; il primo blocco delle tecniche a carico variabile viene contato senza inventare i carichi delle fasi successive.';
+    canvas.parentElement?.insertBefore(table,canvas);
+    table.after(note);
+    // Clear any previous explanatory paragraph from an earlier redraw.
+    for(const previous of canvas.parentElement?.querySelectorAll('p.meso-comparison-description')||[])
+        previous.remove();
+    note.classList.add('meso-comparison-description');
 }
 
 export function refreshCurrentAnalyticsView(range = currentRange) {
