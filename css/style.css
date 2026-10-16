@@ -2600,3 +2600,6 @@ body.dark-mode .group-title-badge {
 }
 .meso-comparison-table th {background:var(--block-bg);}
 .meso-comparison-table tr td:first-child {font-weight:650;}
+
+/* Long management menus remain scrollable on phones; workout cards unchanged. */
+#tools-modal .bottom-sheet-content {max-height:88dvh;overflow-y:auto;overscroll-behavior:contain;}

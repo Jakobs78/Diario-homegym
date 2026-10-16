@@ -439,7 +439,8 @@ export function renderMuscleVolumeChart(canvasId, workoutData, range = currentRa
         return muscle;
     };
     days.forEach(day=>{
-        for(const ex of day.exercises || day.esercizi || []){
+        const raw=day.exercises || day.esercizi || [];
+        for(const ex of Array.isArray(raw)?raw:Object.values(raw)){
             if(ex.isExcluded || ex.is_excluded)continue;
             const muscle=muscleFor(ex);
             const planned=Array.isArray(ex.sets)?ex.sets.length:

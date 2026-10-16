@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v26-account-scope';
+const CACHE_NAME = 'workout-app-v27-privacy-and-menus';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
