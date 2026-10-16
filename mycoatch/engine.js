@@ -2,7 +2,6 @@
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { analyzeCompletedMesocycle } from './historyAnalysis.js';
 import { canonicalExerciseKey } from './exerciseIdentity.js';
-import { optimizeSession } from './groupOptimizer.js';
 import { rebalanceWeeklyAccessories } from './weeklyVolumeBalancer.js';
 import { normalizeSelectionPreferences, selectExerciseForSlot, defaultFundamentalName } from './exerciseSelection.js';
 import { auditWeeklyCoverage } from './weeklyCoverage.js';
