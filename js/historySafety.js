@@ -94,8 +94,21 @@ export function repeatCompletedSessionPreservingHistory(day, { capturedAt = new 
             set.reps = '';
             set.rpe = '';
             delete set.completedAt;
-            // ex.sets is the original prescription and must not be cleared
-            // when a performed workout is archived for another repetition.
+            // Older diaries mirrored performed sets in ex.sets. Clear only
+            // that legacy duplicate, never a row carrying prescription fields.
+            const legacy=Array.isArray(ex.sets) ? ex.sets[index] : null;
+            const hasPrescription=legacy && [
+                'targetKg','targetReps','targetRpe','kg','plannedKg','plannedReps',
+                'targetWeight','topsetKg'
+            ].some(key=>legacy[key]!==undefined && legacy[key]!==null);
+            if(legacy && !hasPrescription && (legacy.isLocked || legacy.completed)){
+                legacy.isLocked=false;
+                legacy.completed=false;
+                legacy.weight='';
+                legacy.reps='';
+                legacy.rpe='';
+                delete legacy.completedAt;
+            }
         }
     }
     return archive;
