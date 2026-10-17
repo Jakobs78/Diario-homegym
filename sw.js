@@ -1,9 +1,13 @@
-const CACHE_NAME = 'workout-app-v50-full-mesocycle-pdf';
+const CACHE_NAME = 'workout-app-v50-pwa-mobile-install-20261017';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
+  '/manifest.webmanifest',
+  '/icons/apple-touch-icon.png',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
   '/css/style.css',
   '/js/main.js',
   '/js/analytics.js',
@@ -109,7 +113,8 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
+          // Only remove old HomeGym caches; never touch other origin caches.
+          if (key.startsWith('workout-app-') && key !== CACHE_NAME) {
             return caches.delete(key);
           }
         })
