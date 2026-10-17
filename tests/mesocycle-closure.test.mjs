@@ -147,6 +147,46 @@ test('report per ChatGPT non include email, note private né ID atleta',()=>{
     assert.doesNotMatch(report,/private@example|private-athlete|PRIVATE NOTE/);
 });
 
+test('il richiamo parte con l’ultima spunta dell’ultimo giorno anche se altre serie mancano',()=>{
+    const meso=plan(makeWeek(1,[performed(),performed(80,8,8,false)]),
+        makeWeek(2,[performed(80,8,8,false),performed(80,8,8,false)]));
+    const lastDay=meso.weeks[1].days[0];
+    lastDay.exercises.unshift(exercise([performed(70,8,8,false)]));
+    assert.equal(shouldHighlightMesocycleClosure(meso),false);
+    // Un set precedente confermato non è l'ultima casella.
+    lastDay.exercises[1].loggedSets[0].isLocked=true;
+    lastDay.exercises[1].loggedSets[0].completed=true;
+    assert.equal(shouldHighlightMesocycleClosure(meso),false);
+    // Nessuna pretesa di completamento: lo storico e il giorno finale sono parziali.
+    const last=lastDay.exercises[1].loggedSets[1];
+    last.isLocked=true;
+    last.completed=true;
+    assert.equal(summarizeMesocycleClosure(meso).status,'partial');
+    assert.equal(shouldHighlightMesocycleClosure(meso),true);
+    assert.equal(acknowledgeMesocycleClosurePrompt(meso),true);
+    assert.equal(shouldHighlightMesocycleClosure(meso),false);
+    // Cambiare righe precedenti non ripropone il richiamo già letto.
+    lastDay.exercises[0].loggedSets[0].isLocked=true;
+    lastDay.exercises[0].loggedSets[0].completed=true;
+    assert.equal(shouldHighlightMesocycleClosure(meso),false);
+    // Si riattiva solo quando l'ultima spunta viene tolta e rimessa.
+    last.isLocked=false;last.completed=false;
+    assert.equal(shouldHighlightMesocycleClosure(meso),false);
+    last.isLocked=true;last.completed=true;
+    assert.equal(shouldHighlightMesocycleClosure(meso),true);
+});
+
+test('non si accende se l’ultima spunta del giorno finale è vuota, anche con settimane ordinate male',()=>{
+    const meso=plan(makeWeek(3,[performed(60,8,8,false),performed(60,8,8,false)]),
+        makeWeek(1,[performed(),performed()]));
+    assert.equal(shouldHighlightMesocycleClosure(meso),false);
+    const final=meso.weeks[0].days[0].exercises[0].loggedSets[1];
+    final.isLocked=true;final.completed=true;
+    assert.equal(shouldHighlightMesocycleClosure(meso),true);
+    meso.coachClosure={status:'closed'};
+    assert.equal(shouldHighlightMesocycleClosure(meso),false);
+});
+
 test('ultimo check valido accende il richiamo; click lo ferma senza chiudere il ciclo',()=>{
     const meso=plan(makeWeek(1,[performed(),performed(80,8,8,false)]));
     const original=JSON.stringify(meso);
