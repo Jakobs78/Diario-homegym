@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v50-final-day-mycoatch-reminder';
+const CACHE_NAME = 'workout-app-v50-notes-sets-spacing';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
