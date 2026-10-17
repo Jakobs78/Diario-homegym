@@ -11,6 +11,7 @@ import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { calibrationHandoffForMesocycle } from './calibrationReview.js';
 import { planMacrocycle } from './macrocyclePlanner.js';
 import { prepareRecentEvidence } from './recentEvidence.js';
+import { resolveClosedMesocycle } from './closureHandoff.js';
 
 export const MyCoatch = {
     /**
@@ -18,27 +19,33 @@ export const MyCoatch = {
      */
     generateNextFromHistory(userHistory, goalSettings = {}) {
         // Analisi longitudinale: tutti gli anni e i mesocicli, soltanto serie confermate.
+        const { closureSource, ...coachingGoals } = goalSettings;
+        // The closure button supplies a locator, not a cached mesocycle.
+        // Reject a reopened or replaced source rather than silently using a
+        // different block after asynchronous sync/import operations.
+        const handoff = resolveClosedMesocycle(userHistory, closureSource);
         const {history:recentHistory,audit:recency,originalHistory}=prepareRecentEvidence(userHistory);
         const report = analyzeTrainingHistory(recentHistory,{calendarWeeks:true});
         const originalReport=analyzeTrainingHistory(originalHistory);
-        const calibrationHandoff = calibrationHandoffForMesocycle(originalReport.lastMesocycle);
-        const loadingSteps=goalSettings.loadingSteps ??
+        const previousMesocycle = handoff?.mesocycle || report.lastMesocycle;
+        const calibrationHandoff = calibrationHandoffForMesocycle(previousMesocycle);
+        const loadingSteps=coachingGoals.loadingSteps ??
             userHistory?.athlete?.loadingSteps ?? {};
-        const equipmentSettings={...userHistory?.athlete,...goalSettings,...loadingSteps,
-            platePairs:goalSettings.platePairs ?? userHistory?.athlete?.platePairs,
-            barbellWeight:goalSettings.barbellWeight ?? userHistory?.athlete?.barbellWeight};
+        const equipmentSettings={...userHistory?.athlete,...coachingGoals,...loadingSteps,
+            platePairs:coachingGoals.platePairs ?? userHistory?.athlete?.platePairs,
+            barbellWeight:coachingGoals.barbellWeight ?? userHistory?.athlete?.barbellWeight};
         const decisions = planAdaptiveDecisions(report,{loadingSteps:equipmentSettings});
         const analysis = { ...report, decisions };
 
-        if (Object.keys(goalSettings).length > 0) {
+        if (Object.keys(coachingGoals).length > 0) {
             // Ogni nuova proposta riceve un profilo esplicito o null: non
             // riutilizzare quello di un'altra persona/sessione dalla memoria JS.
             coachState.updateConfig({
-                ...goalSettings, loadingSteps,
+                ...coachingGoals, loadingSteps,
                 athleteProfile: recency.reentry ? {
-                    ...(goalSettings.athleteProfile || {experience:'intermediate'}),
+                    ...(coachingGoals.athleteProfile || {experience:'intermediate'}),
                     calibration:'guided',referenceLoads:{}
-                } : goalSettings.athleteProfile ?? null
+                } : coachingGoals.athleteProfile ?? null
             });
         }
         const config = structuredClone(coachState.getConfig());
@@ -50,12 +57,12 @@ export const MyCoatch = {
             ...(config.athleteProfile || {experience:'intermediate'}),
             calibration:'guided',referenceLoads:{}
         };
-        const macrocycle = planMacrocycle(report, config, userHistory);
+        const macrocycle = planMacrocycle({ ...report, lastMesocycle: previousMesocycle }, config, userHistory);
 
         // I dati storici non vengono modificati: proponiamo un mesociclo separato.
-        const newMesocycle = generateSmartMesocycle(config, analysis, report.lastMesocycle);
+        const newMesocycle = generateSmartMesocycle(config, analysis, previousMesocycle);
         newMesocycle.macrocycle = macrocycle;
-        const comparison = compareMesocyclePlans(report.lastMesocycle, newMesocycle, analysis);
+        const comparison = compareMesocyclePlans(previousMesocycle, newMesocycle, analysis);
         const progressionValues = Object.values(decisions.byExercise);
         const progressionQuality = {
             proposedLoadIncreases: progressionValues.filter(x => x.action === 'increase_load').length,
@@ -67,6 +74,15 @@ export const MyCoatch = {
             basis: 'validated_completed_work_sets_across_distinct_weeks'
         };
         newMesocycle.coachReport = {
+            closureHandoff: handoff ? {
+                source: 'explicit_closed_mesocycle',
+                year: handoff.locator.year,
+                index: handoff.locator.index,
+                closedAt: handoff.locator.closedAt,
+                name: previousMesocycle.name || 'Mesociclo',
+                review: handoff.review,
+                notice: 'Origine scelta esplicitamente; le decisioni sui carichi usano solo serie recenti valide di tutto lo storico, non il solo report.'
+            } : null,
             recency,
             inspectedYears: originalReport.inspectedYears,
             inspectedMesocycles: originalReport.inspectedMesocycles,
