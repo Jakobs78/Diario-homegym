@@ -1,3 +1,4 @@
+import {compatiblePlates} from './barbellInventory.js';
 /**
  * Pure, non-writing suggestion for the NEXT workout, not an automatic
  * modification of the current workout. Every working set must be checked.
@@ -86,12 +87,12 @@ export function recommendNextSessionLoad(ex,{
         evidence:extraReps?'extra_reps':'lower_rpe',configured,type
     };
     const proposed=roundLoad(kg+step);
-    if(type==='barbell' && equipmentSettings?.platePairs){
-        const bar=number(equipmentSettings.barbellWeight)??20;
-        const plates=getPlateBreakdown(proposed,bar,equipmentSettings.platePairs);
+    if(type==='barbell' && (equipmentSettings?.plateInventories || equipmentSettings?.platePairs)){
+        const compatible=compatiblePlates(ex,equipmentSettings);
+        const plates=compatible && getPlateBreakdown(proposed,compatible.weight,compatible.inventory);
         if(!plates?.exact)return {
             eligible:true,suggestedWeight:null,previousWeight:kg,step,
-            reason:'I dischi configurati non permettono di comporre il nuovo carico. Mantieni il peso o aggiorna l’attrezzatura.',
+            reason:'Verifica il bilanciere, il diametro e i dischi compatibili: il nuovo carico non è confermato componibile. Mantieni il peso o completa l’attrezzatura.',
             evidence:extraReps?'extra_reps':'lower_rpe',configured,type
         };
     }
@@ -115,10 +116,12 @@ export function resolvePlannedLoad(ex, weight, settings={}) {
     const kg=number(weight);
     if(kg===null || kg<=0 || kg>700)return {weight:null,verified:false};
     const {step,type}=getAvailableLoadStep(ex,settings,kg);
-    if(type==='barbell' && settings.platePairs && typeof settings.platePairs==='object'){
-        const bar=number(settings.barbellWeight)??20;
-        const exact=bar>0 && (Math.abs(kg-bar)<0.001 ||
-            kg>bar && getPlateBreakdown(kg,bar,settings.platePairs)?.exact);
+    if(type==='barbell' && (settings.plateInventories || settings.platePairs)){
+        const compatible=compatiblePlates(ex,settings);
+        if(!compatible)return {weight:null,verified:true};
+        const {weight:bar,inventory}=compatible;
+        const exact=Math.abs(kg-bar)<0.001 ||
+            kg>bar && getPlateBreakdown(kg,bar,inventory)?.exact;
         return {weight:exact?kg:null,verified:true};
     }
     return {weight:Math.round(Math.round(kg/step)*step*100)/100,verified:false};

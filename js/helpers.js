@@ -250,7 +250,7 @@ export function getPlateBreakdown(totalWeight, barWeight = 20, inventory = null)
     if(!Number.isFinite(totalWeight)||totalWeight<=barWeight)return null;
     const target=Math.floor(((totalWeight-barWeight)/2)*4+1e-9); // never exceed requested load
     const targetKg=Math.round(((totalWeight-barWeight)/2)*100)/100;
-    const weights=[20,15,10,5,2.5,2,1.25,1,0.5];
+    const weights=[25,20,15,10,5,2.5,2,1.25,1,0.5];
     // Legacy default: catalogue list, not an assertion about owned plates.
     if(!inventory || typeof inventory!=='object'){
         let left=targetKg;

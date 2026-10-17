@@ -8,7 +8,7 @@ import {MyCoatch} from '../mycoatch/index.js';
 import {canonicalExerciseKey} from '../mycoatch/exerciseIdentity.js';
 const name='Panca Piana con Bilanciere';
 const lift={name,equipment:'barbell'};
-const stock={barbell:2.5,barbellWeight:20,platePairs:{'20':1,'5':1}};
+const stock={barbell:2.5,barbellWeight:20,plateInventories:{'50':{'20':1,'5':1},'29':{'1.25':1}},barbellAssignments:{[canonicalExerciseKey(name)]:{weight:20,diameter:'50'}}};
 const week=(id,extra={})=>({weekId:id,targetRpe:8,repRange:{min:6,max:8},completedSets:3,plannedSets:3,
  allStraightSets:true,uniformWeight:true,workingKg:70,topKg:70,
  rpeOvershoot:true,allRepsBelowMin:true,...extra});
@@ -17,8 +17,8 @@ test('inventario dichiarato vincola i carichi, anche quando è vuoto',()=>{
  assert.deepEqual(resolvePlannedLoad(lift,70,stock),{weight:70,verified:true});
  assert.equal(resolvePlannedLoad(lift,72.5,stock).weight,null);
  assert.equal(resolvePlannedLoad(lift,10,stock).weight,null);
- assert.equal(resolvePlannedLoad(lift,20,{...stock,platePairs:{}}).weight,20);
- assert.equal(resolvePlannedLoad(lift,25,{...stock,platePairs:{}}).weight,null);
+ assert.equal(resolvePlannedLoad(lift,20,{...stock,plateInventories:{'50':{}}}).weight,20);
+ assert.equal(resolvePlannedLoad(lift,25,{...stock,plateInventories:{'50':{}}}).weight,null);
  assert.equal(resolvePlannedLoad({equipment:'dumbbell'},12.5,stock).verified,false);
  assert.equal(resolvePlannedLoad(lift,70,{}).verified,false);
 });
@@ -66,7 +66,7 @@ test('generazione senza nuovi obiettivi usa l’inventario dell’atleta corrent
  }))}]}}}};
  const config={durationWeeks:4,daysPerWeek:3,maxSessionMinutes:75,focus:'hybrid',userAge:35};
  const first=MyCoatch.generateNextFromHistory({...history,athlete:{platePairs:{}}},config);
- const second=MyCoatch.generateNextFromHistory({...history,athlete:{platePairs:stock.platePairs}});
+ const second=MyCoatch.generateNextFromHistory({...history,athlete:stock});
  const benches=m=>m.weeks[0].days.flatMap(d=>d.exercises).filter(e=>e.name===name);
  assert.ok(benches(first).length);assert.ok(benches(second).length);
  assert.ok(benches(first).every(e=>e.kgMin===''));

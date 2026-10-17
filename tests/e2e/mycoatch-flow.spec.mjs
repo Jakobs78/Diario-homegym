@@ -1569,6 +1569,11 @@ test('punto 3: mobile card keeps previous performance, per-set plates, coach not
   const secondKg=card.locator('.set-kg[data-set="1"]');
   await secondKg.fill('85');
   await expect(card.locator('.workout-set-row.is-active-set')).toHaveAttribute('data-set-index','1');
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');state.workoutData.athlete ||= {};
+    state.workoutData.athlete.plateInventories={'50':{'20':2,'10':2,'5':2,'2.5':2}};
+  });
+  await card.locator('.bar-diameter').selectOption('50');
   await expect(card.locator('.plates-badge')).toContainText('32.5 kg/lato');
   await card.locator('.bar-select').selectOption('15');
   await expect(card.locator('.plates-badge')).toContainText('35 kg/lato');
@@ -2031,33 +2036,33 @@ test('personal equipment stock and minimum increments are saved into full workou
   for(const field of await fields.all())await expect(field).toHaveValue('');
   await page.locator('#homegym-equipment-form button[type="submit"]').click();
   assert.equal(await page.evaluate(async()=>{
-    const {state}=await import('/js/state.js');return state.workoutData.athlete.platePairs;
+    const {state}=await import('/js/state.js');return state.workoutData.athlete.plateInventories;
   }),undefined,'an incomplete inventory must not be saved as zero or default stock');
   for(const field of await fields.all())await field.fill('0');
-  await page.locator('.equipment-plate-pairs[data-plate="5"]').fill('2');
+  await page.locator('.equipment-plate-pairs[data-diameter="50"][data-plate="5"]').fill('2');
   await page.locator('#homegym-equipment-form button[type="submit"]').click();
   const values=await page.evaluate(async()=>{
     const {state}=await import('/js/state.js');
     return {loadingSteps:state.workoutData.athlete.loadingSteps,
-      platePairs:state.workoutData.athlete.platePairs,
+      plateInventories:state.workoutData.athlete.plateInventories,
       barbellWeight:state.workoutData.athlete.barbellWeight};
   });
   assert.equal(values.loadingSteps.barbell,1.25);
   assert.equal(values.loadingSteps.dumbbell,.5);
   assert.equal(values.barbellWeight,15);
-  assert.equal(values.platePairs['20'],0);
-  assert.equal(values.platePairs['5'],2);
+  assert.equal(values.plateInventories['50']['20'],0);
+  assert.equal(values.plateInventories['50']['5'],2);
   await details.locator('summary').click();
   await details.locator('summary').click();
   await expect(page.locator('#equipment-bar-weight')).toHaveValue('15');
-  await expect(page.locator('.equipment-plate-pairs[data-plate="5"]')).toHaveValue('2');
+  await expect(page.locator('.equipment-plate-pairs[data-diameter="50"][data-plate="5"]')).toHaveValue('2');
   await page.evaluate(async()=>{
-    const {state}=await import('/js/state.js');state.workoutData.athlete.platePairs={'5':1};
+    const {state}=await import('/js/state.js');state.workoutData.athlete.plateInventories={'50':{'5':1},'29':{}};
   });
   await details.locator('summary').click();
   await details.locator('summary').click();
-  await expect(page.locator('.equipment-plate-pairs[data-plate="20"]')).toHaveValue('0');
-  await expect(page.locator('.equipment-plate-pairs[data-plate="5"]')).toHaveValue('1');
+  await expect(page.locator('.equipment-plate-pairs[data-diameter="50"][data-plate="20"]')).toHaveValue('0');
+  await expect(page.locator('.equipment-plate-pairs[data-diameter="50"][data-plate="5"]')).toHaveValue('1');
   await expect(page.locator('#equipment-bar-weight')).toHaveValue('15');
   assert.deepEqual(monitor.remoteRequests,[]);
   assert.deepEqual(monitor.pageErrors,[]);

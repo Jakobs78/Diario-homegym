@@ -431,12 +431,16 @@ function setupEventListeners() {
                 barbell:2.5,dumbbell:1,machine:2.5
             })[name];
         }
+        const legacy=document.getElementById('equipment-legacy-stock');
+        if(legacy)legacy.textContent=athlete.platePairs && !athlete.plateInventories
+            ? 'Vecchio inventario da suddividere: '+Object.entries(athlete.platePairs).map(([kg,n])=>kg+' kg: '+n+' coppie').join('; ')
+            : '';
         for(const field of equipmentForm?.querySelectorAll('.equipment-plate-pairs')||[]){
             const weight=field.dataset.plate;
             // Missing stock is unknown; in an existing inventory an omitted
             // denomination means zero, consistently with the plate calculator.
-            field.value=athlete.platePairs
-                ? athlete.platePairs[weight]??0 : '';
+            const stock=athlete.plateInventories?.[field.dataset.diameter];
+            field.value=stock ? stock[weight]??0 : '';
         }
     };
     // The native <details> "toggle" event is asynchronous and could fire
@@ -460,14 +464,14 @@ function setupEventListeners() {
             }
             loadingSteps[key]=value;
         }
-        const platePairs={};
+        const plateInventories={'50':{},'29':{}};
         for(const field of equipmentForm.querySelectorAll('.equipment-plate-pairs')){
             const n=Number(field.value);
             if(field.value.trim()===''||!Number.isInteger(n)||n<0||n>24){
                 if(status)status.textContent='Inserisci da 0 a 24 coppie per ciascun disco.';
                 return;
             }
-            platePairs[field.dataset.plate]=n;
+            plateInventories[field.dataset.diameter][field.dataset.plate]=n;
         }
         state.workoutData.athlete ||= {};
         const barWeight=Number(document.getElementById('equipment-bar-weight')?.value);
@@ -477,7 +481,7 @@ function setupEventListeners() {
         }
         state.workoutData.athlete.barbellWeight=barWeight;
         state.workoutData.athlete.loadingSteps=loadingSteps;
-        state.workoutData.athlete.platePairs=platePairs;
+        state.workoutData.athlete.plateInventories=plateInventories;
         saveAndSync(state.workoutData,'SET_EQUIPMENT');
         if(status)status.textContent='Attrezzatura salvata nel diario. La sincronizzazione seguirà lo stato Cloud.';
         renderWorkoutList();

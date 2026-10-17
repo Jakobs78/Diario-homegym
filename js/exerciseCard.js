@@ -1,3 +1,5 @@
+import {barbellForExercise} from '../mycoatch/barbellInventory.js';
+import {canonicalExerciseKey} from '../mycoatch/exerciseIdentity.js';
 import {hasDropPrescription} from './trainingTechniques.js';
 import {dropFields,dropScopeControl} from './dropSetUI.js';
 import {equipmentKind,automaticallyShowPlates} from './equipmentUI.js';
@@ -241,6 +243,9 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                     <option value="6">Bil 6kg</option>
                     <option value="0">Manubri / Macchina</option>
                 </select>
+                <select class="bar-diameter" aria-label="Diametro bilanciere" ${isPastMeso ? 'disabled' : ''}>
+                    <option value="">Diametro…</option><option value="50">50 mm</option><option value="29">29 mm</option>
+                </select>
             </div>
     
             <div class="plates-badge flex-between gap-sm" data-ex="${exIdx}">
@@ -313,16 +318,28 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     });
     const barSelect=exCard.querySelector('.bar-select');
     if(barSelect){
-        const preferred=localStorage.getItem(barKey);
+        const binding=barbellForExercise(ex,state.workoutData?.athlete);
+        const preferred=binding ? String(binding.weight) : localStorage.getItem(barKey);
         const equipment=String(ex.equipment||'').toLowerCase();
         const dumbbell=/dumbbell|manubri|manubrio|machine|macchina|cable|cavi/.test(equipment)
             || /manubri|manubrio|macchina|cavi/.test(ex.name.toLowerCase());
         const fallback=dumbbell?'0':'20';
         barSelect.value=[...barSelect.options].some(opt=>opt.value===preferred)?preferred:fallback;
-        barSelect.addEventListener('change',()=>{
+        const diameter=exCard.querySelector('.bar-diameter');
+        diameter.value=binding?.diameter||'';
+        const remember=()=>{
+            if(isPastMeso)return;
             localStorage.setItem(barKey,barSelect.value);
+            state.workoutData.athlete ||= {};
+            state.workoutData.athlete.barbellAssignments ||= {};
+            state.workoutData.athlete.barbellAssignments[canonicalExerciseKey(ex.name)]={
+                weight:Number(barSelect.value),diameter:diameter.value};
+            saveAndSync(state.workoutData,'SET_EQUIPMENT');
             updatePlatesBadgeUI(exIdx,exCard);
-        });
+        };
+        barSelect.addEventListener('change',remember);
+        diameter.addEventListener('change',remember);
+
     }
     exCard.dataset.platesAutoEligible=String(equipment==='barbell');
     const disclosure=exCard.querySelector('.plates-disclosure');
@@ -366,8 +383,14 @@ export function updatePlatesBadgeUI(exIdx, cardNode=null) {
         badge.textContent='Solo bilanciere: 0 kg di dischi per lato.';
         return;
     }
-    const breakdown=getPlateBreakdown(total,barWeight,
-        state.workoutData?.athlete?.platePairs || null);
+    const diameter=card.querySelector('.bar-diameter')?.value;
+    const inventory=state.workoutData?.athlete?.plateInventories?.[diameter];
+    if(!inventory){
+        badge.className='plates-badge plates-badge-empty';
+        badge.textContent=diameter ? 'Configura i dischi da '+diameter+' mm in Attrezzatura personale.' : 'Scegli il diametro del bilanciere per usare soltanto dischi compatibili.';
+        return;
+    }
+    const breakdown=getPlateBreakdown(total,barWeight,inventory);
     if(!breakdown?.plates?.length){
         badge.className='plates-badge plates-badge-empty';
         badge.textContent='Nessuna combinazione disponibile per questo carico con i dischi configurati.';
@@ -393,10 +416,10 @@ export function updatePlatesBadgeUI(exIdx, cardNode=null) {
         note.textContent='Combinazione incompleta: mancano '+leftover+' kg/lato.';
         badge.append(note);
     }
-    if(state.workoutData?.athlete?.platePairs){
+    if(inventory){
         const hint=document.createElement('small');
         hint.className='plate-breakdown-hint';
-        hint.textContent='Calcolo sui dischi registrati nelle impostazioni.';
+        hint.textContent='Solo dischi da '+diameter+' mm registrati nelle impostazioni.';
         badge.append(hint);
     }
     if(kgField.classList.contains('text-placeholder-active')){

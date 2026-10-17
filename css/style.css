@@ -564,7 +564,7 @@ input[type="date"]:focus, select:focus {
     letter-spacing: 0.5px;
 }
 
-.bar-select {
+.bar-select, .bar-diameter {
     font-size: 0.95rem;
     padding: 6px 10px;
     border-radius: 6px;
@@ -2703,7 +2703,7 @@ body.dark-mode .group-title-badge {
     justify-content: space-between;
     gap: 6px;
 }
-.ex-card .bar-select { min-height: 44px; max-width: 190px; }
+.ex-card .bar-select, .ex-card .bar-diameter { min-height: 44px; max-width: 190px; }
 .ex-card .plates-badge {
     min-height: 44px;
     padding: 9px 10px;
