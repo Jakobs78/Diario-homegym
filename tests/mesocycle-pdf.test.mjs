@@ -49,7 +49,7 @@ test('mesocycle diary includes actual sets, both note types, confirmation and ar
      ['Ripetizione archiviata 1','Seduta attuale']);
  assert.equal(lines.filter(x=>x.kind==='week').length,1);
  assert.equal(lines.filter(x=>x.kind==='day').length,1);
- const ex=lines.find(x=>x.kind==='exercise' && x.title==='1. Squat');
+ const ex=lines.find(x=>x.kind==='exercise' && x.title==='1. Squat' && /RPE target 8/.test(x.prescription));
  assert.match(ex.prescription,/RPE target 8/);
  assert.match(ex.prescription,/92.5–97.5 kg/);
  assert.ok(lines.some(x=>x.kind==='note' && x.label==='NOTE ALLENATORE' &&
