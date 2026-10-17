@@ -13,7 +13,7 @@ const confirmed = set => set?.isLocked === true || set?.completed === true;
 function performance(ex, set) {
     if (!confirmed(set) || isWarmupSet(set)) return null;
     const record = validateCompletedSet(set, ex, set);
-    return record.ok ? record : null;
+    return record.ok ? {...record, performedAt: set.completedAt ?? null} : null;
 }
 
 function inspectDay(day, weekNumber) {
@@ -43,12 +43,24 @@ function inspectDay(day, weekNumber) {
         }
         confirmedSets += Math.min(expected, valid);
         if (valid >= expected && rows.length) {
+            const dates = rows.map(row => row.performedAt ||
+                day?.sessionCompletedAt || day?.date || null).map(value => {
+                if (!value) return null;
+                const d = new Date(value);
+                if (!Number.isFinite(d.getTime())) return null;
+                const monday = new Date(Date.UTC(d.getUTCFullYear(),
+                    d.getUTCMonth(), d.getUTCDate()));
+                monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+                return monday.toISOString().slice(0, 10);
+            });
+            const calendarWeek = dates.every(w => w && w === dates[0]) ? dates[0] : null;
             samples.push({
                 key: canonicalExerciseKey(ex.name),
                 name: ex.name, kg: Math.min(...rows.map(row => row.weight)),
                 minReps: Math.min(...rows.map(row => row.numericReps)),
-                comparable: rows.every(row => !row.technique) &&
+                comparable: Boolean(calendarWeek) && rows.every(row => !row.technique) &&
                     rows.every(row => row.weight === rows[0].weight),
+                calendarWeek,
                 weekNumber
             });
         }
@@ -72,14 +84,14 @@ function observedChanges(days) {
             if (!item.key || !item.comparable) continue;
             if (!byExercise.has(item.key)) byExercise.set(item.key, new Map());
             const weeks = byExercise.get(item.key);
-            const old = weeks.get(item.weekNumber);
-            if (!old || item.minReps < old.minReps) weeks.set(item.weekNumber, item);
+            const old = weeks.get(item.calendarWeek);
+            if (!old || item.minReps < old.minReps) weeks.set(item.calendarWeek, item);
         }
     }
     const changes = [];
     for (const weeks of byExercise.values()) {
         const values = [...weeks.values()].sort((a, b) =>
-            Number(a.weekNumber) - Number(b.weekNumber));
+            a.calendarWeek.localeCompare(b.calendarWeek));
         if (values.length < 2) continue;
         const first = values[0], last = values.at(-1);
         const sameKg = Math.abs(first.kg - last.kg) < 0.01;
