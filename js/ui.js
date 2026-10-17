@@ -20,6 +20,7 @@ import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
 import { createLiveCoachPanel, updateLiveCoachPanel, refreshLiveCoachClock, dismissLiveCoachToast } from './liveCoachUI.js';
 import { toggleCurrentMesocycleLock } from './mesocycle.js';
 import { createMesocycleClosurePanel } from './mesocycleClosureUI.js';
+import { shouldHighlightMesocycleClosure, acknowledgeMesocycleClosurePrompt } from './mesocycleReminder.js';
 import { createWeeklyReviewPanel } from './weeklyReviewUI.js';
 import { createFutureLoadReviewPanel } from './futureLoadReviewUI.js';
 
@@ -178,6 +179,9 @@ document.addEventListener('click', (e) => {
         toggleCurrentMesocycleLock();
     } else if (clickedBtn.id === 'review-close-meso-btn') {
         e.preventDefault();
+        const { meso } = getActiveYearAndMeso();
+        acknowledgeMesocycleClosurePrompt(meso);
+        clickedBtn.classList.remove('meso-closure-attention');
         const panel = document.getElementById('mesocycle-closure-panel');
         if (panel) {
             panel.hidden = false;
@@ -355,8 +359,14 @@ export function renderWorkoutList() {
     closureText.className = 'meso-guided-closure-text';
     closureText.textContent = closedMeso ? 'Report fine mesociclo' : 'Concludi mesociclo';
     closureButton.append(closureIcon, closureText);
-    closureButton.setAttribute('aria-label', closureText.textContent);
-    closureButton.title = 'Controlla il riepilogo prima di confermare la chiusura';
+    const highlightClosure = shouldHighlightMesocycleClosure(meso);
+    if (highlightClosure) closureButton.classList.add('meso-closure-attention');
+    closureButton.setAttribute('aria-label', highlightClosure
+        ? 'Concludi mesociclo: tutte le serie previste risultano confermate'
+        : closureText.textContent);
+    closureButton.title = highlightClosure
+        ? 'Tutte le serie previste sono complete. Apri la chiusura guidata.'
+        : 'Controlla il riepilogo prima di confermare la chiusura';
     quickRow.appendChild(closureButton);
     unifiedHeaderBox.appendChild(quickRow);
 
