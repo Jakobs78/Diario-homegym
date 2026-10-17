@@ -15,6 +15,20 @@ import { validateCompletedSet } from '../mycoatch/liveCoach.js';
 import { updateLiveCoachPanel, showLiveCoachInputError, showLiveCoachToast } from './liveCoachUI.js';
 
 
+// The regular input debounce reduces large IndexedDB snapshots while
+// typing. Commit on blur/background to avoid losing the last draft when the
+// app is suspended before the 2-second timer expires.
+function flushPendingWorkoutInput(){
+    if(!window._syncTimeout)return;
+    clearTimeout(window._syncTimeout);
+    window._syncTimeout=null;
+    void saveAndSync(state.workoutData);
+}
+document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='hidden')flushPendingWorkoutInput();
+});
+window.addEventListener('pagehide',flushPendingWorkoutInput);
+
 function updateInputStatusClasses(element, isOut, isImprovedOrExceeding) {
     element.classList.remove('input-out-of-range', 'input-improved', 'input-normal');
     if (isOut) {
@@ -33,6 +47,9 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
 
     workoutListContainer.querySelectorAll('.set-input, .ex-user-notes').forEach(input => {
         input.addEventListener('focus', (e) => e.target.select());
+        input.addEventListener('change',()=>{
+            if(!isPastMeso)flushPendingWorkoutInput();
+        });
 
         input.addEventListener('input', (e) => {
             if (isPastMeso) return;
