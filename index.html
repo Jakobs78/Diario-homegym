@@ -246,6 +246,12 @@
                         <summary>🏋️ Attrezzatura personale · dischi e incrementi</summary>
                         <form id="homegym-equipment-form">
                             <p>Indica il minimo incremento realmente disponibile per il peso totale mostrato nella card. Per i manubri, per singolo manubrio. L'impostazione è inclusa nel diario e sincronizzata.</p>
+                            <fieldset class="equipment-owned-bars">
+                                <legend>Bilancieri posseduti</legend>
+                                <p>Registra ogni bilanciere con peso e diametro una sola volta. Se ne usi più di uno, scegli quello predefinito: durante l'allenamento verrà proposto automaticamente. Le scelte specifiche per esercizio restano memorizzate.</p>
+                                <div id="equipment-barbells-list"></div>
+                                <button type="button" id="equipment-add-barbell" class="btn btn-secondary">+ Aggiungi bilanciere</button>
+                            </fieldset>
                             <div class="equipment-steps-grid">
                                 <label>Peso bilanciere abituale (kg)<input type="number" id="equipment-bar-weight" min="0" max="30" step=".25" value="20" required inputmode="decimal"></label>
                                 <label>Bilanciere · incremento (kg)<input type="number" id="equipment-step-barbell" min=".25" max="25" step=".25" value="2.5" required inputmode="decimal"></label>
