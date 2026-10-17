@@ -40,9 +40,9 @@ function inspectDay(day, weekNumber) {
             valid++;
             rows.push(result);
         }
-        // Only planned working sets count towards the scheduled block's
-        // completion and RPE denominator; surplus logs are not silently
-        // treated as extra scheduled sets.
+        // Use the same expected work-set count for completion and RPE
+        // coverage (including legacy imports whose log rows are the only
+        // available prescription).
         const countedRows = rows.slice(0, expected);
         const realRpe = countedRows.filter(row => row.rpe !== null);
         measuredRpe += realRpe.length;
