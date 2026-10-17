@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {sameJournal, cloudRecoveryDecision} from '../js/cloudSafety.js';
+import {sameJournal, cloudRecoveryDecision, journalFingerprint, safeRemoteRefresh} from '../js/cloudSafety.js';
 
 const diary = () => ({athlete:{email:null},history:{years:{
     '2026':{mesocycles:[{name:'Blocco A',locked:true,
@@ -44,4 +44,19 @@ test('non perdere set confermati anche quando differisce una sola serie',()=>{
     cloud.history.years['2026'].mesocycles[0].weeks[0].days[0]
         .exercises[0].loggedSets[0].isLocked=false;
     assert.equal(cloudRecoveryDecision(local,cloud),'conflict');
+});
+
+test('nuova revisione su altro device: copia locale invariata accettabile con fingerprint cloud precedente',async()=>{
+    const previous=diary(), modified=diary();
+    modified.history.years['2026'].mesocycles[0].weeks[0].days[0]
+        .exercises[0].loggedSets[0].reps=9;
+    const ack=await journalFingerprint(previous);
+    assert.equal(ack.length,64);
+    assert.equal(safeRemoteRefresh({oldRevision:'R1',remoteRevision:'R2',
+        localFingerprint:ack,acknowledgedFingerprint:ack}),true);
+    assert.equal(safeRemoteRefresh({oldRevision:'R1',remoteRevision:'R2',
+        localFingerprint:await journalFingerprint(modified),
+        acknowledgedFingerprint:ack}),false);
+    assert.equal(safeRemoteRefresh({oldRevision:'R1',remoteRevision:'R1',
+        localFingerprint:ack,acknowledgedFingerprint:ack}),false);
 });
