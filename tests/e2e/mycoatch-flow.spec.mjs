@@ -2027,7 +2027,14 @@ test('personal equipment stock and minimum increments are saved into full workou
   await page.locator('#equipment-step-dumbbell').fill('0.5');
   await page.locator('#equipment-step-machine').fill('2.5');
   await page.locator('#equipment-bar-weight').fill('15');
-  await page.locator('.equipment-plate-pairs[data-plate="20"]').fill('0');
+  const fields=page.locator('.equipment-plate-pairs');
+  for(const field of await fields.all())await expect(field).toHaveValue('');
+  await page.locator('#homegym-equipment-form button[type="submit"]').click();
+  assert.equal(await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');return state.workoutData.athlete.platePairs;
+  }),undefined,'an incomplete inventory must not be saved as zero or default stock');
+  for(const field of await fields.all())await field.fill('0');
+  await page.locator('.equipment-plate-pairs[data-plate="5"]').fill('2');
   await page.locator('#homegym-equipment-form button[type="submit"]').click();
   const values=await page.evaluate(async()=>{
     const {state}=await import('/js/state.js');
@@ -2039,6 +2046,19 @@ test('personal equipment stock and minimum increments are saved into full workou
   assert.equal(values.loadingSteps.dumbbell,.5);
   assert.equal(values.barbellWeight,15);
   assert.equal(values.platePairs['20'],0);
+  assert.equal(values.platePairs['5'],2);
+  await details.locator('summary').click();
+  await details.locator('summary').click();
+  await expect(page.locator('#equipment-bar-weight')).toHaveValue('15');
+  await expect(page.locator('.equipment-plate-pairs[data-plate="5"]')).toHaveValue('2');
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');state.workoutData.athlete.platePairs={'5':1};
+  });
+  await details.locator('summary').click();
+  await details.locator('summary').click();
+  await expect(page.locator('.equipment-plate-pairs[data-plate="20"]')).toHaveValue('0');
+  await expect(page.locator('.equipment-plate-pairs[data-plate="5"]')).toHaveValue('1');
+  await expect(page.locator('#equipment-bar-weight')).toHaveValue('15');
   assert.deepEqual(monitor.remoteRequests,[]);
   assert.deepEqual(monitor.pageErrors,[]);
 });
