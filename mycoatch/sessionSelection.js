@@ -30,6 +30,7 @@ function scoreAccessory(ex, index, {
     const personal = history.byExercise?.[canonicalExerciseKey(ex.name)] || {};
     let score = ex.pattern === 'isolation' ? 54 : 78;
     if (ex.isOptional) score -= 24;
+    if (!ex.isOptional && ex.pattern !== 'isolation') score += 60;
     if (focus) score += 50;
     // Il giorno precedente puo' aver gia' programmato lavoro per lo stesso
     // distretto. La copertura diretta e' valutata separata da quella indiretta.
@@ -203,3 +204,4 @@ export function addFocusAccessorySlot(slots, {
         addedForFocus:true
     }];
 }
+

@@ -1,6 +1,6 @@
 /**
  * Stima euristica e conservativa della durata di una seduta.
- * Non include un riscaldamento generale obbligatorio; include invece avvicinamento
+ * Include cinque minuti orientativi di riscaldamento generale e avvicinamento
  * al primo fondamentale, serie, recuperi, allestimento e cambio attrezzo.
  * I tempi sono stime da calibrare usando i workout realmente registrati.
  */
@@ -25,13 +25,15 @@ function isCompound(exercise) {
 
 function repetitionSeconds(exercise) {
     // La stima considera un tempo moderato per serie, non una cadenza imposta.
-    return isCompound(exercise) ? 55 : 50;
+    const perSide = isCompound(exercise) ? 55 : 50;
+    const unilateral = /Un Braccio|Bulgarian|Affondi|Step-up|Monopodalico|Pallof|Leg Curl ai Cavi/i.test(exercise.name || '');
+    return unilateral ? perSide * 2 + 10 : perSide;
 }
 
 function setupSeconds(exercise, index) {
     const equipmentSetup = exercise.equipment === 'barbell' ? 105 : 70;
     const transitions = index > 0 ? 45 : 0;
-    // Riscaldamento generale escluso; avvicinamento specifico ai movimenti principali.
+    // Avvicinamento specifico, aggiuntivo rispetto al riscaldamento generale.
     const warmup = index === 0 && isCompound(exercise) ? 300 :
         index === 1 && isCompound(exercise) ? 120 : 0;
     return equipmentSetup + transitions + warmup;
@@ -87,9 +89,10 @@ export function estimateDaySeconds(exercises) {
     }
 
     // Margine pratico per spostamenti e registrazione delle serie.
-    return seconds + 90;
+    return seconds + 90 + 300;
 }
 
 export function estimateDayMinutes(exercises) {
     return Math.ceil(estimateDaySeconds(exercises) / 60);
 }
+

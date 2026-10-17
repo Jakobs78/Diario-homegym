@@ -139,6 +139,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             const daySelectionCounts = new Map(weeklySelectionCounts);
             const previousDay = previousComparableTrainingDay(
                 rawLastMesocycle, dayIndex + 1);
+            const deloadReference = isDeloadWeek && w > 1
+                ? weeks[w - 2].days[dayIndex] : null;
             // Il selettore non confonde una preferenza storica con uno schema
             // motorio diverso. Le quattro alzate fondamentali occupano posizioni
             // protette contro i tagli per il tempo, ma possono essere sostituite
@@ -186,6 +188,15 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                         : selected.reason }];
             });
 
+            // Lo scarico conserva la seduta effettivamente programmata, inclusi
+            // gli accessori trasferiti: il tempo liberato non autorizza aggiunte.
+            if (deloadReference) rawExercises = deloadReference.exercises.map(previous => ({
+                ...EXERCISE_DATABASE.find(ex => ex.name === previous.name),
+                anchorKey: previous.anchorKey, priorityProtected: previous.priorityProtected,
+                isOptional: previous.isOptional, deloadSets: Math.max(1, Math.floor(previous.setsCount * 0.67)),
+                selectionReason: 'Esercizio mantenuto dalla settimana precedente per lo scarico.'
+            }));
+
             // Integrazione della funzione di specializzazione originale
             rawExercises = applySpecializationFocus(rawExercises, safeHistory);
 
@@ -225,6 +236,10 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     calibrationWeek: onboarding.calibrationWeek && w === 1,
                     fatigueConcern: prior?.fatigueConcern === true || fatiguedRegion || guardrails.recoveryRequired
                 }).toFixed(1);
+                if (HIGH_REP_EXERCISES[ex.name]) {
+                    // Le note di forza del vecchio range non descrivono la nuova prescrizione.
+                    ex.noteOverride = null;
+                }
                 const reference = ex.anchorKey
                     ? athleteProfile?.referenceLoads?.[ex.anchorKey] : null;
                 const expectedVariant = ex.anchorKey
@@ -244,7 +259,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     : "";
                 
                 // Iniettiamo la nota analitica sullo stallo o progresso basata sull'e1RM
-                if (analysis.exerciseNotes && analysis.exerciseNotes[canonicalExerciseKey(ex.name)]) {
+                if (!HIGH_REP_EXERCISES[ex.name] && analysis.exerciseNotes && analysis.exerciseNotes[canonicalExerciseKey(ex.name)]) {
                     autoNote += `${analysis.exerciseNotes[canonicalExerciseKey(ex.name)]} | `;
                 }
                 
@@ -276,6 +291,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 
                 let setsCount = Math.max(2, onboarding.volumeCap === null
                     ? baseSets : Math.min(baseSets, onboarding.volumeCap));
+                if (deloadReference) setsCount = ex.deloadSets;
                 const volumeDecision = analysis.decisions?.byMuscle?.[ex.category];
                 if (!isDeloadWeek && ex.pattern === 'isolation' &&
                     !volumeAdjustmentsApplied.has(ex.category) && volumeDecision?.volumeDelta &&
@@ -301,7 +317,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 }
 
                 let topsetStr = "";
-                if (loadDecision && loadDecision.action !== 'maintain') {
+                if (loadDecision && loadDecision.action !== 'maintain' && !requiresHighRepRecalibration) {
                     autoNote += `[PROGRESSIONE MYCOATCH] ${loadDecision.reason} | `;
                 }
                 if (loadDecision?.caveats?.includes('rpe_mancante_o_sopra_target') &&
@@ -311,15 +327,19 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 if (plannedKg !== null && ex.equipment !== 'bodyweight') {
                     autoNote += resolvedLoad.verified
                         ? targetKgMin ? '[ATTREZZATURA] Carico componibile con il bilanciere e i dischi configurati. | '
-                            : '[ATTREZZATURA] Il carico previsto non è componibile con i dischi configurati. Kg lasciati vuoti: scegli un carico disponibile rispettando il target RPE e registralo. | '
+                            : resolvedLoad.reason === 'missing_assignment'
+                                ? '[ATTREZZATURA DA CONFIGURARE] Associa a questo esercizio peso e diametro del bilanciere e inventario compatibile. Il carico non è ancora verificabile. | '
+                                : '[ATTREZZATURA] Il carico previsto non è componibile con i dischi configurati. Kg lasciati vuoti: scegli un carico disponibile rispettando il target RPE e registralo. | '
                         : '[ATTREZZATURA] Arrotondamento indicativo: verifica gli incrementi di peso realmente disponibili. | ';
                 }
-                const coachingContext = onboarding.calibrationWeek && w === 1
-                    ? '🧭 Calibrazione: controlla tecnica, lascia diverse ripetizioni di margine e rispetta il target RPE.'
-                    : generateContextNote(index, isDeloadWeek, focus);
+                const coachingContext = generateContextNote(ex, exerciseRpeString, isDeloadWeek);
                 let noteFinal = autoNote + coachingContext +
                     (exItem.selectionReason ? ' | [SCELTA MYCOATCH] ' + exItem.selectionReason : '') +
                     (exItem.noteOverride ? ' | ' + exItem.noteOverride : '');
+                if (!targetKgMin && ex.equipment !== 'bodyweight' && plannedKg === null && !requiresHighRepRecalibration) {
+                    noteFinal += ' | [CARICO DA CALIBRARE] Nessun carico storico comparabile disponibile: usa le serie di avvicinamento per trovare un peso entro il range e il target RPE, poi registra kg, reps e RPE reali.';
+                }
+                if (!isDeloadWeek) noteFinal += ' | [PROGRESSIONE] Aumenta prima le ripetizioni nel range. Quando tutte le serie confermate raggiungono il limite alto con tecnica stabile e RPE entro target, valuta il minimo incremento disponibile nella prossima seduta. Se il salto è troppo grande, mantieni. Se non raggiungi il minimo o superi il target, rivaluta carico e recupero. Il solo check non misura lo sforzo: registra reps, kg e RPE reali.';
                 if (onboarding.calibrationWeek && w === 1) {
                     noteFinal += ' | [CALIBRAZIONE MYCOATCH] Prima settimana: tecnica pulita, carico leggero/moderato e RPE prescritto, non tentare massimali. Compila kg e reps reali per adattare la prossima proposta.';
                 }
@@ -477,9 +497,9 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             // l'importatore può mostrare Upper A / Lower A / Upper B / Lower B.
             const dayLabel = String(day.dayName).match(/^(Upper [AB]|Lower [AB]|Full Body [ABC])\b/)?.[1];
             const splitNote = dayLabel ? `[SPLIT MYCOATCH] ${dayLabel}` : '';
-            const durationNote = `[DURATA STIMATA] ${day.estimatedMinutes} minuti su ${maxSessionMinutes} disponibili.`;
+            const durationNote = `[DURATA STIMATA] ${day.estimatedMinutes} minuti su ${maxSessionMinutes} disponibili, inclusi 5 minuti di riscaldamento generale, avvicinamento e lavoro su entrambi i lati. Stima orientativa: registra la durata reale.`;
             const adjustments = [];
-            if (day.reducedPrioritySets) adjustments.push(`${day.reducedPrioritySets} serie dei movimenti prioritari ridotte per rispettare il tempo; valuta più minuti per recuperare il volume`);
+            if (day.reducedPrioritySets) adjustments.push(`${day.reducedPrioritySets} serie dei movimenti prioritari ridotte per rispettare il tempo, valuta più minuti per recuperare il volume`);
             if (day.reducedAccessorySets) adjustments.push(`${day.reducedAccessorySets} serie accessorie ridotte`);
             if (day.removedAccessoryExercises) adjustments.push(`${day.removedAccessoryExercises} esercizi rimossi`);
             if (day.transferredAccessorySetsIn) {
@@ -540,21 +560,17 @@ function calculateTargetSets({ category = "", focusMuscleGroup, isDeloadWeek, we
     return Math.max(2, Math.min(targetSets, maxAllowed));
 }
 
-function generateContextNote(index, isDeload, focus) {
-    let note;
-    if (isDeload) {
-        note = "🛡️ Scarico attivo: riduci le serie, lascia circa 3-4 ripetizioni in riserva e cura la tecnica.";
-    } else if (index === 0) {
-        note = focus === 'strength'
-            ? "🔥 Focus forza: recuperi completi e spinta esplosiva concentrica."
-            : "🎯 Esercizio primario: rispetta il buffer (1-2 RIR) mantenendo la forma pulita.";
-    } else if (index === 1) {
-        note = "⚡ Tensione continua: cerca il pompaggio e tieni 1s di contrazione di picco.";
-    } else {
-        note = "💧 Gestione metabolica: controlla la fase negativa (2-3s) ed evita slanci parassiti.";
-    }
-
-    return note;
+function generateContextNote(ex, rpe, isDeload) {
+    const rir = Math.round((10 - Number(rpe)) * 2) / 2;
+    const cue = ex.name === 'Hamstring Walkout a Corpo Libero'
+        ? 'Da ponte glutei, allontana i talloni con piccoli passi e ritorna mantenendo il bacino controllato: uscita e ritorno valgono una ripetizione. Accorcia il percorso se perdi il controllo. Registra 0 kg se non usi sovraccarico.'
+        : ex.pattern === 'squat' ? 'Mantieni il tronco stabile, controlla la discesa e usa una profondità ripetibile senza perdere la posizione.'
+        : ex.pattern === 'hinge' ? 'Porta indietro il bacino, mantieni il carico vicino e limita il movimento all’escursione che controlli.'
+        : ex.pattern === 'isolation' ? 'Usa un’escursione controllata e ripetibile, senza slanci.'
+        : 'Mantieni appoggi stabili ed esecuzione controllata, senza compensi.';
+    return (isDeload ? '🛡️ Scarico: riduci il lavoro, senza inseguire record. ' : '') +
+        cue + ` Target RPE ${rpe}: circa ${rir} ripetizioni in riserva (stima soggettiva).` +
+        (HIGH_REP_EXERCISES[ex.name] ? ' Valuta il progresso con ripetizioni, tecnica e RPE a parità di carico, senza dedurre stalli dal solo e1RM.' : '');
 }
 
 export function getTemplateForDays(daysPerWeek = 3) {
@@ -615,15 +631,15 @@ export function getTemplateForDays(daysPerWeek = 3) {
             ]
         },
         {
-            name: 'Lower A (Priorità squat, glutei)',
+            name: 'Lower A (Priorità squat, femorali)',
             slots: [
                 { muscle: 'Quadricipiti', pattern: 'squat', anchor: 'squat' },
-                { muscle: 'Glutei', pattern: 'hip_thrust' },
+                { muscle: 'Femorali', pattern: 'isolation', optional: true },
                 { muscle: 'Quadricipiti', pattern: 'squat', prefer: [
                     'Bulgarian Split Squat con Manubri', 'Affondi con Manubri',
                     'Goblet Squat con Manubrio', 'Front Squat'
                 ] },
-                { muscle: 'Femorali', pattern: 'isolation', optional: true },
+                { muscle: 'Glutei', pattern: 'hip_thrust', optional: true },
                 { muscle: 'Polpacci', pattern: 'isolation' },
                 { muscle: 'Core', pattern: 'isolation', optional: true }
             ]
@@ -656,7 +672,6 @@ export function getTemplateForDays(daysPerWeek = 3) {
                     'Bulgarian Split Squat con Manubri'
                 ] },
                 { muscle: 'Femorali', pattern: 'isolation', optional: true },
-                { muscle: 'Glutei', pattern: 'hip_thrust', optional: true },
                 { muscle: 'Polpacci', pattern: 'isolation' },
                 { muscle: 'Core', pattern: 'isolation', optional: true }
             ]

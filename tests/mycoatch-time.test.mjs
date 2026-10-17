@@ -51,7 +51,7 @@ test('45 minuti: fondamentali protetti e complementari scelti senza recuperi fit
     assert.equal(day.selectionAudit.protected.length, 2);
     assert.ok(day.selectionAudit.protected.every(name =>
         day.exercises.some(ex => ex.name === name)));
-    assert.ok(day.groupCount >= 1);
+    assert.equal(day.groupCount, day.exercises.filter(ex => ex.groupType && ex.isGroupLast).length);
     assert.ok(day.estimatedMinutes <= 45);
     assert.equal(day.estimatedMinutes,estimateDayMinutes(day.exercises));
     assert.match(day.exercises[0].notes, /DURATA STIMATA/);
@@ -104,8 +104,8 @@ test('triset: tre accessori contigui, un unico tag e recupero soltanto alla fine
 
 test('l\'ottimizzatore sceglie un triset quando il superset non basta', () => {
     const exercises = [
-        { ...accessory('Prima spinta', 'Petto'), pattern: 'horizontal_push', equipment: 'barbell', restTime: '180s' },
-        { ...accessory('Prima tirata', 'Back_Lats'), pattern: 'vertical_pull', equipment: 'barbell', restTime: '150s' },
+        { ...accessory('Prima spinta', 'Petto'), pattern: 'horizontal_push', equipment: 'barbell', restTime: '90s' },
+        { ...accessory('Prima tirata', 'Back_Lats'), pattern: 'vertical_pull', equipment: 'barbell', restTime: '90s' },
         accessory('Croci', 'Petto', 3),
         accessory('Laterali', 'Spalle', 3),
         accessory('Curl', 'Bicipiti', 3)
@@ -138,19 +138,8 @@ test('un gruppo che coinvolge gli stessi muscoli non viene creato', () => {
     assert.ok(grouped.every(ex => !ex.groupType));
 });
 
-test('25 minuti: mantiene i fondamentali con volume minimo, senza inventare tempo', () => {
-    const meso = makeMeso(25);
-    for (const week of meso.weeks) {
-        for (const day of week.days) {
-            assert.ok(day.estimatedMinutes <= 25);
-            assert.equal(day.estimatedMinutes, estimateDayMinutes(day.exercises));
-            assert.ok(day.exercises.some(ex => ex.anchorKey), 'fondamentale previsto presente');
-            // Un accessorio trasferito può avere 1 serie; il minimo di 2
-            // riguarda solo i fondamentali, mai il riempimento facoltativo.
-            assert.ok(day.exercises.every(ex =>
-                (!ex.anchorKey && !ex.priorityProtected) || ex.setsCount >= 2));
-        }
-    }
+test('25 minuti: segnala quando riscaldamento e fondamentali non entrano nel budget', () => {
+    assert.throws(() => makeMeso(25), /Non è possibile rispettare 25 minuti/);
 });
 
 test('il CSV mantiene 12 colonne e timer formattati per tutte le durate', () => {

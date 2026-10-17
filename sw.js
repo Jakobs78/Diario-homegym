@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v46-diameter-inventories';
+const CACHE_NAME = 'workout-app-v47-coaching-refinement';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [

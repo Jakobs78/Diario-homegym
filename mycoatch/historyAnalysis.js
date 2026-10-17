@@ -1,3 +1,5 @@
+import { EXERCISE_DATABASE } from './exercisesDB.js';
+import { HIGH_REP_EXERCISES } from './prescriptionPolicy.js';
 import { isWarmupExercise, isWarmupSet } from '../js/workoutSemantics.js';
 // Analisi conservativa dei dati realmente registrati.
 // Non sostituisce gli RPE mancanti con valori inventati e non considera una serie
@@ -20,7 +22,8 @@ function actualSets(exercise) {
         if ((set?.isLocked !== true && set?.completed !== true) || isWarmupSet(set)) return [];
         const weight = numericValue(set.weight ?? set.actualKg);
         const reps = numericValue(set.reps ?? set.actualReps);
-        if (weight === null || weight <= 0 || reps === null || reps <= 0) return [];
+        const bodyweight = EXERCISE_DATABASE.some(ex => exerciseKey(ex.name) === exerciseKey(exercise.name) && ex.equipment === 'bodyweight');
+        if (weight === null || weight < 0 || (weight === 0 && !bodyweight) || reps === null || reps <= 0) return [];
         const rpe = numericValue(set.rpe);
         return [{ weight, reps, rpe: !set.dropSegments?.length && !set.intensityTechnique && rpe !== null && rpe >= 6 && rpe <= 10 ? rpe : null }];
     });
@@ -56,7 +59,7 @@ export function analyzeCompletedMesocycle(mesocycle) {
                 };
                 record.validSets += sets.length;
                 record.lastKg = Math.max(...sets.map(set => set.weight));
-                const estimates = sets.map(s => estimateE1rm(s.weight, s.reps, s.rpe))
+                const estimates = sets.map(s => Object.keys(HIGH_REP_EXERCISES).some(name => exerciseKey(name) === exerciseKey(exercise.name)) ? null : estimateE1rm(s.weight, s.reps, s.rpe))
                     .filter(v => v !== null);
                 if (estimates.length) {
                     const weekNum = Number(week.weekNumber);

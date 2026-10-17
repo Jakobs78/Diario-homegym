@@ -45,7 +45,9 @@ export function completedWorkingSetCount(exercise) {
     const logs = Array.isArray(exercise?.loggedSets) ? exercise.loggedSets :
         Array.isArray(exercise?.sets) ? exercise.sets : [];
     return logs.filter(set => set && isWork(set) && isConfirmed(set) &&
-        validWeight(set.weight ?? set.actualKg) &&
+        (validWeight(set.weight ?? set.actualKg) ||
+            (catalog.get(canonicalExerciseKey(exercise.name))?.equipment === 'bodyweight' &&
+             String(set.weight ?? set.actualKg).trim() === '0')) &&
         numericReps(set.reps ?? set.actualReps)).length;
 }
 
@@ -130,3 +132,4 @@ export function summarizeWeeklyMuscleVolume(days = [], options = {}) {
         Array.isArray(day?.exercises) ? day.exercises : []);
     return summarizeMuscleVolume(exercises, options);
 }
+

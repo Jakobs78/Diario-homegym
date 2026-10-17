@@ -1,3 +1,5 @@
+import { EXERCISE_DATABASE } from './exercisesDB.js';
+import { canonicalExerciseKey } from './exerciseIdentity.js';
 import { estimateE1rm } from './historyAnalysis.js';
 import { previousExercisePerformance, historicalSessionPace } from './liveHistory.js';
 import { isWarmupExercise } from '../js/workoutSemantics.js';
@@ -94,7 +96,9 @@ function hasUnconfirmed(exercise, afterIndex = -1) {
  */
 export function validateCompletedSet(values, exercise = {}, set = {}) {
     const weight = decimal(values?.weight);
-    if (weight === null || weight <= 0 || weight > 700) {
+    const bodyweight = EXERCISE_DATABASE.some(ex => ex.equipment === 'bodyweight' &&
+        canonicalExerciseKey(ex.name) === canonicalExerciseKey(exercise.name));
+    if (weight === null || weight < 0 || (weight === 0 && !bodyweight) || weight > 700) {
         return { ok: false, message: 'Inserisci il peso realmente usato in kg, maggiore di zero.' };
     }
     const tech = Boolean(set?.intensityTechnique || exercise?.isDropset ||
@@ -226,7 +230,7 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
 
     // Non suggerire aumenti in seduta da una sola serie fortunata. Richiede
     // almeno due serie consecutive COMPLETE con RPE misurato e buffer evidente.
-    if (remainingIndex >= 0 && code === 'strong_set' && paired.length >= 2 &&
+    if (result.weight > 0 && remainingIndex >= 0 && code === 'strong_set' && paired.length >= 2 &&
         paired.slice(-2).every(set =>
             range && set.reps >= range.max && set.rpe <= targetRpe - 1)) {
         const step = loadingIncrement(result.weight, exercise);

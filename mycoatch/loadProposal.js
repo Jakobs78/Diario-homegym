@@ -118,11 +118,11 @@ export function resolvePlannedLoad(ex, weight, settings={}) {
     const {step,type}=getAvailableLoadStep(ex,settings,kg);
     if(type==='barbell' && (settings.plateInventories || settings.platePairs)){
         const compatible=compatiblePlates(ex,settings);
-        if(!compatible)return {weight:null,verified:true};
+        if(!compatible)return {weight:null,verified:true,reason:'missing_assignment'};
         const {weight:bar,inventory}=compatible;
         const exact=Math.abs(kg-bar)<0.001 ||
             kg>bar && getPlateBreakdown(kg,bar,inventory)?.exact;
-        return {weight:exact?kg:null,verified:true};
+        return {weight:exact?kg:null,verified:true,...(!exact?{reason:'unavailable_load'}:{})};
     }
     return {weight:Math.round(Math.round(kg/step)*step*100)/100,verified:false};
 }

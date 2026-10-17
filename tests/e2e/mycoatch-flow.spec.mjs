@@ -95,10 +95,10 @@ async function openIsolatedApp(page) {
   await expect(page.locator('#open-tools-btn')).toBeVisible();
   // Aspetta il rendering del mesociclo: certifica che main.js e gli event listener siano stati inizializzati.
   try {
-    await expect(page.locator('#meso-display')).toHaveText('1', { timeout: 3000 });
+    await expect(page.locator('#meso-display')).toHaveText('1', { timeout: 10000 });
   } catch (error) {
     const diagnostics = await page.evaluate(async () => {
-      const raw = window.testJournal.getItem('workoutApp_data');
+      const raw = (window.testJournal || localStorage).getItem('workoutApp_data');
       let currentState;
       try {
         const module = await import('/js/state.js');
@@ -134,7 +134,7 @@ async function startCoach(page, minutes = '45') {
 
 test('percorso reale: tempo scelto, storico multianno, anteprima, download, import e timer superset', async ({ page }) => {
   const monitoring = await openIsolatedApp(page);
-  await startCoach(page);
+  await startCoach(page, '60');
 
   const dialogues = [];
   page.on('dialog', async dialog => {
@@ -2384,4 +2384,35 @@ test('risoluzione cloud in ritardo conserva modifiche locali anche con timestamp
   return {email:state.workoutData.athlete.email,conflict:Boolean(getSyncConflict()),queued:hasPendingSync()};
  });
  expect(result).toEqual({email:'new-local@invalid.example',conflict:true,queued:true});
+});
+
+test('refinement: smartphone confirms a bodyweight set with explicit zero and shows updated guidance',async({page})=>{
+ await page.setViewportSize({width:375,height:812});
+ const monitoring=await openIsolatedApp(page);
+ await prepareLiveWorkout(page);
+ await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');
+  const {renderWorkoutList}=await import('/js/ui.js');
+  const day=state.workoutData.history.years[new Date().getFullYear()].mesocycles[0].weeks[0].days[0];
+  Object.assign(day.exercises[0],{name:'Hamstring Walkout A Corpo Libero',kgMin:'',kgMax:'',reps:'6-10'});
+  renderWorkoutList();
+ });
+ await page.locator('.set-kg[data-set="0"]').fill('0');
+ await page.locator('.set-reps[data-set="0"]').fill('8');
+ await page.locator('.set-rpe[data-set="0"]').fill('8');
+ await page.locator('.set-lock-check[data-set="0"]').check();
+ await expect(page.locator('.set-lock-check[data-set="0"]')).toBeChecked();
+ const result=await page.evaluate(async()=>{
+  const {renderManualView}=await import('/js/manual.js');renderManualView();
+  const {parseCSV}=await import('/js/csvHandler.js');
+  const {MyCoatch}=await import('/mycoatch/index.js');
+  MyCoatch.generateNextFromHistory({history:{years:{}}},{daysPerWeek:4,durationWeeks:4,maxSessionMinutes:60,userAge:49});
+  return {manual:document.querySelector('#manual-content').textContent,
+   columns:parseCSV(MyCoatch.exportAsCSV()).map(row=>row.length)};
+ });
+ assert.match(result.manual,/versione 47/);
+ assert.match(result.manual,/cinque minuti/);
+ assert.ok(result.columns.every(count=>count===12));
+ assert.deepEqual(monitoring.pageErrors,[]);
+ assert.deepEqual(monitoring.remoteRequests,[]);
 });

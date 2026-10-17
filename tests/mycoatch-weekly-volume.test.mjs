@@ -94,7 +94,7 @@ test('4 giorni, 45 minuti: micro-recupero valido senza falsare le serie', () => 
 
 test('le sedute non sforano il tempo per 3 e 4 giorni e per tutte le 4 settimane', () => {
     for (const daysPerWeek of [3, 4]) {
-        for (const minutes of [30, 35, 40, 45, 50, 55, 60, 90]) {
+        for (const minutes of [35, 40, 45, 50, 55, 60, 90]) {
             const mesocycle = build(daysPerWeek, minutes);
             for (const week of mesocycle.weeks) {
                 assert.equal(week.days.length, daysPerWeek);
@@ -136,8 +136,8 @@ test('30 minuti: non promette falsamente il recupero di volume', () => {
     assert.match(review, /Confermi la proposta/);
 });
 
-test('3 giorni da 30 minuti: conserva squat fondamentale e segnala la riduzione delle serie', () => {
-    const mesocycle = build(3, 30);
+test('3 giorni da 35 minuti: conserva squat fondamentale e segnala la riduzione delle serie', () => {
+    const mesocycle = build(3, 35);
     const firstWeek = mesocycle.weeks[0];
     const missing = firstWeek.volumeBalance.missingCompoundExercises;
     assert.ok(!missing.some(ex => ex.muscle === 'Quadricipiti'));
@@ -215,3 +215,4 @@ test('CSV mantiene le 12 colonne e conserva i blocchi di superserie', () => {
         report[0].moves.reduce((sum, move) => sum + move.sets, 0));
     assert.ok(report[0].recoveredSets > 0);
 });
+
