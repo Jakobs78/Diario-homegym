@@ -83,6 +83,13 @@ export async function pullDataFromSupabase(userOrEmail) {
             });
             return null;
         }
+        // Hashing large journals yields to the event loop: a user may
+        // enter new kg/reps or change accounts while that work is pending.
+        // Re-check before trusting any cloud baseline or returning hydration.
+        if (String(appState.currentUser?.id)!==String(userOrEmail?.id) ||
+            JSON.stringify(appState.workoutData)!==snapshot ||
+            !sameJournal(appState.workoutData, getFromLocalStorageForUser(userOrEmail)) ||
+            (decision !== 'pending' && hasPendingSync())) return null;
         if (record?.revision && (decision === 'identical' ||
             decision === 'restore_cloud' || safeRefresh)) {
             // Persist the fingerprint of the accepted cloud content. A later
