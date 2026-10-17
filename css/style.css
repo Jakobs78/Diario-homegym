@@ -3052,3 +3052,17 @@ body.dark-mode .group-title-badge {
 @media(min-width:1200px){.circuit-exercises {grid-template-columns:repeat(3,minmax(0,1fr));}}
 @media(max-width:380px){.circuit-card.exercise-group-wrapper {padding:6px!important;}.circuit-exercise.ex-card{padding:6px;}}
 .ex-card .drop-detail-row td {font-weight:400;text-align:left;}
+
+/* Manuale consultabile anche durante l'allenamento da telefono. */
+.manual-intro { line-height:1.55; margin-bottom:16px; }
+.manual-index { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:6px; margin-bottom:20px; }
+.manual-index a { display:flex; align-items:center; min-height:44px; padding:8px; color:var(--primary); overflow-wrap:anywhere; }
+.manual-section { border:1px solid var(--border-color); border-radius:8px; margin-bottom:10px; scroll-margin-top:90px; }
+.manual-section > summary { padding:14px; min-height:44px; font-weight:700; cursor:pointer; }
+.manual-body { padding:0 14px 16px; line-height:1.65; overflow-wrap:anywhere; }
+.manual-body p,.manual-body ul,.manual-body ol,.manual-body dl { margin:10px 0; }
+.manual-body ul,.manual-body ol { padding-left:22px; }
+.manual-body li { margin-bottom:8px; }
+.manual-body dt { font-weight:700; }
+.manual-body dd { margin:0 0 12px; }
+.manual-body code { white-space:normal; }

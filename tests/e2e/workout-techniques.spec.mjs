@@ -241,3 +241,23 @@ test('diametro memorizzato: i dischi da 29 mm non completano il bilanciere da 50
  await card.locator('.plates-disclosure').scrollIntoViewIfNeeded();
  await page.screenshot({path:'../../outputs/dischi-diametro-smartphone.png'});
 });
+
+for(const [device,width,height] of [['telefono',390,844],['tablet',768,1024],['pc',1440,1000]])test('manuale aggiornato navigabile su '+device,async({page})=>{
+ await page.setViewportSize({width,height});await openIsolatedApp(page);
+ await page.locator('#app-utility-menu summary').click();
+ await page.locator('#btn-user-manual').click();
+ const manual=page.locator('#manual-content');
+ await expect(manual).toBeVisible();
+ await expect(manual.locator('.manual-section')).toHaveCount(17);
+ for(const link of await manual.locator('[data-manual-target]').all()){
+  const id=await link.getAttribute('data-manual-target');
+  await link.click();await expect(page.locator('#'+id)).toHaveAttribute('open','');
+ }
+ await manual.locator('[data-manual-target="manual-attrezzatura"]').click();
+ await expect(page.locator('#manual-attrezzatura')).toContainText('25, 20, 15, 10, 5, 2,5, 2, 1,25, 1 e 0,5 kg');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:'../../outputs/manuale-'+device+'.png'});
+ await page.locator('#app-utility-menu summary').click();
+ await page.locator('#btn-user-manual').click();
+ await expect(page.locator('#manual')).toHaveClass(/d-none/);
+});
