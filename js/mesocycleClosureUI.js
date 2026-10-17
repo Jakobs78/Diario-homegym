@@ -144,7 +144,7 @@ export function createMesocycleClosurePanel(mesocycle) {
         const next = node('button', '🤖 Prepara il prossimo mesociclo',
             'btn btn-secondary btn-sm');
         next.type = 'button';
-        next.addEventListener('click', startCoachChatAndGenerate);
+        next.addEventListener('click', () => startCoachChatAndGenerate(mesocycle));
         actions.append(next);
     }
     body.append(actions);
