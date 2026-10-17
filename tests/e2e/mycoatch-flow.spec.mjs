@@ -2511,3 +2511,96 @@ test('mesociclo parziale: doppio consenso obbligatorio e chiusura non automatica
   expect(after.closure).toBeUndefined();
   expect(after.checked).toBe(false);
 });
+
+
+test('last real checkbox starts closure pulse; review click dismisses without locking data', async ({page}) => {
+  await openIsolatedApp(page);
+  await page.evaluate(async () => {
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    state.currentYear='2026';
+    state.activeMesocycleIndex=0;
+    state.activeWeek=3;
+    state.activeDay=1;
+    const set=state.workoutData.history.years['2026'].mesocycles[0]
+      .weeks[2].days[0].exercises[0].loggedSets[0];
+    set.isLocked=false;
+    set.completed=false;
+    renderWorkoutList();
+  });
+  const nudge=page.locator('#review-close-meso-btn');
+  await expect(nudge).not.toHaveClass(/meso-closure-attention/);
+  await page.locator('.set-lock-check').check();
+  await expect(nudge).toHaveClass(/meso-closure-attention/);
+  await expect(nudge).toHaveAttribute('aria-label',/tutte le serie previste/);
+  await nudge.click();
+  await expect(nudge).not.toHaveClass(/meso-closure-attention/);
+  await expect(page.locator('#mesocycle-closure-panel')).toHaveAttribute('open','');
+  const untouched=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const meso=state.workoutData.history.years['2026'].mesocycles[0];
+    return {locked:meso.locked,closure:meso.coachClosure,
+      confirmed:meso.weeks[2].days[0].exercises[0].loggedSets[0].isLocked};
+  });
+  expect(untouched.locked).toBeFalsy();
+  expect(untouched.closure).toBeUndefined();
+  expect(untouched.confirmed).toBe(true);
+  // Changing a checked set makes the reminder eligible again only after
+  // it is checked for real a second time.
+  await page.locator('.set-lock-check').uncheck();
+  await expect(nudge).not.toHaveClass(/meso-closure-attention/);
+  await page.locator('.set-lock-check').check();
+  await expect(nudge).toHaveClass(/meso-closure-attention/);
+});
+
+test('import next mesocycle leaves closed predecessor locked and new active meso editable',async({page})=>{
+  await openIsolatedApp(page);
+  page.on('dialog',d=>d.accept());
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    state.currentYear='2026';state.activeMesocycleIndex=0;
+    state.activeWeek=1;state.activeDay=1;
+    renderWorkoutList();
+  });
+  await expect(page.locator('#review-close-meso-btn')).toHaveClass(/meso-closure-attention/);
+  await page.locator('#review-close-meso-btn').click();
+  await page.locator('#mesocycle-closure-panel input[type=checkbox]').check();
+  await page.getByRole('button',{name:/Concludi e blocca il mesociclo/}).click();
+  await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Sblocca');
+  const imported=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {importWorkoutPlan}=await import('/js/csvHandler.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    const old=state.workoutData.history.years['2026'].mesocycles[0];
+    const originalWeeks=JSON.stringify(old.weeks);
+    const csv=[
+      'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset',
+      '1;1;1;Panca Piana con Bilanciere;2;6-8;60;60;@8;120s;Test;'
+    ].join('\\n');
+    const result=importWorkoutPlan(csv);
+    if(result.success)renderWorkoutList();
+    const mesos=state.workoutData.history.years['2026'].mesocycles;
+    return {result,active:state.activeMesocycleIndex,count:mesos.length,
+      priorLocked:mesos[0].locked,priorClosed:mesos[0].coachClosure?.status,
+      priorWeeksUnchanged:JSON.stringify(mesos[0].weeks)===originalWeeks,
+      nextLocked:mesos.at(-1).locked,nextClosure:mesos.at(-1).coachClosure};
+  });
+  expect(imported.result.success).toBe(true);
+  expect(imported.active).toBe(1);
+  expect(imported.count).toBe(2);
+  expect(imported.priorLocked).toBe(true);
+  expect(imported.priorClosed).toBe('closed');
+  expect(imported.priorWeeksUnchanged).toBe(true);
+  expect(imported.nextLocked).toBeUndefined();
+  expect(imported.nextClosure).toBeUndefined();
+  await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Blocca');
+  await expect(page.locator('#review-close-meso-btn')).not.toHaveClass(/meso-closure-attention/);
+  await page.locator('#prev-meso-btn').click();
+  await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Sblocca');
+  await expect(page.locator('#review-close-meso-btn')).toHaveAttribute('aria-label','Report fine mesociclo');
+  await expect(page.locator('#review-close-meso-btn')).not.toHaveClass(/meso-closure-attention/);
+  await page.locator('#next-meso-btn').click();
+  await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Blocca');
+  await expect(page.locator('#review-close-meso-btn')).toHaveAttribute('aria-label','Concludi mesociclo');
+});
