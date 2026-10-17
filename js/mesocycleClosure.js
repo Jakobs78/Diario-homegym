@@ -173,7 +173,7 @@ export function closeMesocycleInMemory(mesocycle, report, {at = new Date().toISO
 export function formatMesocycleClosureForChat(review) {
     const lines = [
         'HOMEGYM DIARY — REPORT FINALE MESOCICLO (dati confermati)',
-        'Mesociclo: ' + review.name,
+        'Mesociclo: blocco selezionato',
         'Settimane programmate: ' + review.weeks,
         'Sedute completate: ' + review.completedSessions + '/' + review.plannedSessions,
         'Sedute parziali: ' + review.partialSessions,
@@ -202,6 +202,6 @@ export function formatMesocycleClosureForChat(review) {
                 d.confirmedSets + '/' + d.plannedSets + ' serie.');
     }
     lines.push('Nota: questo report non misura ipertrofia e non stabilisce la causa dei cambiamenti.');
-    lines.push('Nessun indirizzo email, nome atleta o identificativo account incluso.');
+    lines.push('Il report esclude i campi identificativi dell’account; controlla eventuali nomi personalizzati prima di condividerlo.');
     return lines.join('\n');
 }
