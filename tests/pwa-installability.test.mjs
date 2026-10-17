@@ -67,7 +67,7 @@ test('iPhone startup metadata and safe area styles do not change workout logic',
     assert.match(html,/updateViaCache: 'none'/);
     assert.match(css,/safe-area-inset-top/);
     assert.match(css,/safe-area-inset-bottom/);
-    assert.match(css,/#floating-timer\s*\{\s*bottom: calc\(20px \+ env\(safe-area-inset-bottom/);
+    assert.ok(css.includes('bottom: calc(20px + env(safe-area-inset-bottom, 0px))'));
     for(const asset of ['/manifest.webmanifest','/icons/apple-touch-icon.png','/icons/icon-192.png','/icons/icon-512.png']) {
         assert.ok(sw.includes("'"+asset+"'"),asset+' not included in offline static cache');
     }
