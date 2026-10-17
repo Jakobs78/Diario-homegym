@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v49-mesocycle-closure';
+const CACHE_NAME = 'workout-app-v50-completion-nudge';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -33,6 +33,7 @@ const ASSETS_TO_CACHE = [
   '/js/mesocycle.js',
   '/js/mesocycleClosure.js',
   '/js/mesocycleClosureUI.js',
+  '/js/mesocycleReminder.js',
   '/js/pdfExport.js',
   '/js/importer.js',
   '/js/pdfParser.js',
