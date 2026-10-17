@@ -3113,3 +3113,23 @@ body.dark-mode .group-title-badge {
     font-size: 1rem;
   }
 }
+
+
+/* MyCoatch: deliberate, low-frequency nudge ONLY when all scheduled sets
+   are confirmed. Does not change locked state or occupy additional space. */
+@keyframes mycoatch-closure-reminder {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-color); }
+  50% { box-shadow: 0 0 0 5px transparent; border-color: var(--accent-color); }
+}
+.unified-header-box #review-close-meso-btn.meso-closure-attention {
+  border: 2px solid var(--accent-color);
+  font-weight: 800;
+  animation: mycoatch-closure-reminder 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .unified-header-box #review-close-meso-btn.meso-closure-attention {
+    animation: none;
+    outline: 2px solid var(--accent-color);
+    outline-offset: 1px;
+  }
+}
