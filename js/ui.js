@@ -347,8 +347,15 @@ export function renderWorkoutList() {
     closureButton.type = 'button';
     closureButton.id = 'review-close-meso-btn';
     closureButton.className = 'btn btn-secondary btn-sm meso-guided-closure-trigger';
-    closureButton.textContent = meso.coachClosure?.status === 'closed'
-        ? '📄 Report fine mesociclo' : '🏁 Concludi mesociclo';
+    const closedMeso = meso.coachClosure?.status === 'closed';
+    const closureIcon = document.createElement('span');
+    closureIcon.textContent = closedMeso ? '📄' : '🏁';
+    closureIcon.setAttribute('aria-hidden', 'true');
+    const closureText = document.createElement('span');
+    closureText.className = 'meso-guided-closure-text';
+    closureText.textContent = closedMeso ? 'Report fine mesociclo' : 'Concludi mesociclo';
+    closureButton.append(closureIcon, closureText);
+    closureButton.setAttribute('aria-label', closureText.textContent);
     closureButton.title = 'Controlla il riepilogo prima di confermare la chiusura';
     quickRow.appendChild(closureButton);
     unifiedHeaderBox.appendChild(quickRow);
