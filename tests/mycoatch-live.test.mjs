@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateCompletedSet, assessExerciseLive, buildLiveSessionSnapshot } from '../mycoatch/liveCoach.js';
+import { validateCompletedSet, assessExerciseLive, assessSessionAdjustment, buildLiveSessionSnapshot } from '../mycoatch/liveCoach.js';
 import { MyCoatch } from '../mycoatch/index.js';
 
 function exercise(sets, extra = {}) {
@@ -56,6 +56,47 @@ test('RPE alto consiglia cautela e diminuzione facoltativa, senza scrivere sui s
     assert.equal(advice.nextSetIndex, 1);
     assert.ok(advice.e1rm > 0);
     assert.equal(JSON.stringify(ex), snapshot);
+});
+
+test('cedimento previsto @10 non genera avvisi di abbassare kg, anche con due serie confermate', () => {
+    const ex = exercise([confirmed(80, 8, 10), confirmed(80, 7, 10), empty()], {
+        targetRpe: '@10', rpe: '@10'
+    });
+    const before = JSON.stringify(ex);
+    const advice = assessExerciseLive(ex);
+    assert.equal(advice.code, 'planned_failure');
+    assert.equal(advice.severity, 'ok');
+    assert.equal(advice.suggestedWeight, null);
+    assert.match(advice.message, /cedimento programmato/i);
+    assert.doesNotMatch(advice.message, /valuta.*kg|ridurre il carico/i);
+    assert.equal(assessSessionAdjustment({ exercises: [ex] }), null);
+    const snapshot = buildLiveSessionSnapshot({ exercises: [ex] });
+    assert.equal(snapshot.sessionAdjustment, null);
+    assert.equal(JSON.stringify(ex), before);
+});
+
+test('RPE 10 non previsto resta un segnale di cautela; sotto le reps si segnala solo il problema reale', () => {
+    const high = exercise([confirmed(80, 8, 10), empty()]);
+    const warning = assessExerciseLive(high);
+    assert.equal(warning.code, 'high_effort');
+    assert.equal(warning.severity, 'caution');
+    assert.ok(warning.suggestedWeight < 80);
+
+    const short = exercise([confirmed(80, 5, 10), empty()], { targetRpe: '@10' });
+    const below = assessExerciseLive(short);
+    assert.equal(below.code, 'below_reps');
+    assert.equal(below.suggestedWeight, null);
+    assert.equal(assessSessionAdjustment({ exercises: [high, short] }), null);
+});
+
+test('la cautela per dolore prevale comunque sul cedimento programmato', () => {
+    const ex = exercise([confirmed(80, 8, 10), empty()], { targetRpe: '@10' });
+    const warning = assessExerciseLive(ex, 0, {readiness: {
+        level:'stop', message:'Dolore: non forzare la seduta.'
+    }});
+    assert.equal(warning.code, 'pain_caution');
+    assert.equal(warning.severity, 'caution');
+    assert.equal(warning.suggestedWeight, null);
 });
 
 test('una sola serie buona non fa aumentare il peso', () => {
