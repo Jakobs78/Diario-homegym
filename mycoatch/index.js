@@ -24,7 +24,10 @@ export const MyCoatch = {
         const calibrationHandoff = calibrationHandoffForMesocycle(originalReport.lastMesocycle);
         const loadingSteps=goalSettings.loadingSteps ??
             userHistory?.athlete?.loadingSteps ?? {};
-        const decisions = planAdaptiveDecisions(report,{loadingSteps});
+        const equipmentSettings={...loadingSteps,
+            platePairs:goalSettings.platePairs ?? userHistory?.athlete?.platePairs,
+            barbellWeight:goalSettings.barbellWeight ?? userHistory?.athlete?.barbellWeight};
+        const decisions = planAdaptiveDecisions(report,{loadingSteps:equipmentSettings});
         const analysis = { ...report, decisions };
 
         if (Object.keys(goalSettings).length > 0) {
@@ -39,6 +42,10 @@ export const MyCoatch = {
             });
         }
         const config = structuredClone(coachState.getConfig());
+        // Resolve per request, even with no goalSettings: never reuse another
+        // athlete's load increments or inventory from the module state.
+        config.loadingSteps=loadingSteps;
+        config.equipmentSettings=equipmentSettings;
         if(recency.reentry)config.athleteProfile={
             ...(config.athleteProfile || {experience:'intermediate'}),
             calibration:'guided',referenceLoads:{}

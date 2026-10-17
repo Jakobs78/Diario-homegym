@@ -1,6 +1,6 @@
 // mycoatch/engine.js
 import { EXERCISE_DATABASE } from './exercisesDB.js';
-import { getAvailableLoadStep } from './loadProposal.js';
+import { resolvePlannedLoad } from './loadProposal.js';
 import { isWarmupExercise } from '../js/workoutSemantics.js';
 import { analyzeCompletedMesocycle } from './historyAnalysis.js';
 import { canonicalExerciseKey } from './exerciseIdentity.js';
@@ -257,12 +257,10 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                         ? baseKg * 0.85 : baseKg);
                 // Real load steps are set by the athlete and synced in their
                 // equipment profile. Defaults are illustrative.
-                const suggestedIncrement = getAvailableLoadStep(
-                    ex,config.loadingSteps || {},plannedKg).step;
-                const targetKgMin = plannedKg === null ? '' :
-                    String(Math.round(Math.round(plannedKg / suggestedIncrement) *
-                        suggestedIncrement * 4) / 4);
-                const targetKgMax = plannedKg === null ? '' : targetKgMin;
+                const equipmentSettings=config.equipmentSettings || config.loadingSteps || {};
+                const resolvedLoad=resolvePlannedLoad(ex,plannedKg,equipmentSettings);
+                const targetKgMin=resolvedLoad.weight===null?'':String(resolvedLoad.weight);
+                const targetKgMax=targetKgMin;
 
                 const mainMuscle = ex.category;
                 const realFrequency = muscleFrequencyMap[mainMuscle] || 2;
@@ -311,7 +309,10 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     autoNote += '[QUALITÀ DATI] RPE assente o oltre il target nelle settimane di confronto: carico non aumentato. | ';
                 }
                 if (plannedKg !== null && ex.equipment !== 'bodyweight') {
-                    autoNote += '[ATTREZZATURA] Arrotondamento indicativo: verifica gli incrementi di peso realmente disponibili. | ';
+                    autoNote += resolvedLoad.verified
+                        ? targetKgMin ? '[ATTREZZATURA] Carico componibile con il bilanciere e i dischi configurati. | '
+                            : '[ATTREZZATURA] Il carico previsto non è componibile con i dischi configurati. Kg lasciati vuoti: scegli un carico disponibile rispettando il target RPE e registralo. | '
+                        : '[ATTREZZATURA] Arrotondamento indicativo: verifica gli incrementi di peso realmente disponibili. | ';
                 }
                 const coachingContext = onboarding.calibrationWeek && w === 1
                     ? '🧭 Calibrazione: controlla tecnica, lascia diverse ripetizioni di margine e rispetta il target RPE.'
@@ -336,12 +337,14 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
 
                 const isFirstCompound = index === 0 && ["squat", "hinge", "horizontal_push", "vertical_push", "vertical_pull"].includes(ex.pattern);
                 
-                if (isFirstCompound && plannedKg !== null && !usingReference) {
+                if (isFirstCompound && targetKgMin && !usingReference) {
                     const warmupReferenceKg = Number(targetKgMin);
-                    const w1 = Math.round(warmupReferenceKg * 0.5);
-                    const w2 = Math.round(warmupReferenceKg * 0.7);
-                    const w3 = Math.round(warmupReferenceKg * 0.85);
-                    noteFinal = `🔥 [WARM-UP AUTO]: 8x${w1}kg, 4x${w2}kg, 2x${w3}kg. | ` + noteFinal;
+                    const warmups=[0.5,0.7,0.85].map(ratio=>resolvedLoad.verified
+                        ? resolvePlannedLoad(ex,warmupReferenceKg*ratio,equipmentSettings).weight
+                        : Math.round(warmupReferenceKg*ratio));
+                    noteFinal = warmups.every(kg=>kg!==null && kg>0)
+                        ? `🔥 [WARM-UP AUTO]: 8x${warmups[0]}kg, 4x${warmups[1]}kg, 2x${warmups[2]}kg. | ` + noteFinal
+                        : '[WARM-UP] Avvicinati gradualmente al carico di lavoro con pesi realmente disponibili, senza affaticarti. | ' + noteFinal;
                 }
 
                 // Mai inventare un top set più pesante dei carichi verificati.
@@ -349,7 +352,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 // allo stesso carico e al target RPE della settimana.
                 if (config.useTopset === true && !isDeloadWeek &&
                     !onboarding.calibrationWeek && !usingReference &&
-                    plannedKg !== null && index === 0 && !fatiguedRegion &&
+                    targetKgMin && index === 0 && !fatiguedRegion &&
                     authorizeTopset(prior,{
                         recoveryRequired:guardrails.recoveryRequired,
                         isDeload:isDeloadWeek,
@@ -679,3 +682,4 @@ export function applySpecializationFocus(exercises, historicalData) {
 export function analyzePreviousMesocycle(lastMesocycle) {
     return analyzeCompletedMesocycle(lastMesocycle);
 }
+

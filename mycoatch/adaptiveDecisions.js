@@ -2,7 +2,7 @@
  * Decisioni conservative e spiegabili. Nessuna diagnosi di crescita muscolare:
  * kg, reps, volume e RPE descrivono prestazione, stimolo e tolleranza al lavoro.
  */
-import { getAvailableLoadStep } from './loadProposal.js';
+import { getAvailableLoadStep, resolvePlannedLoad } from './loadProposal.js';
 function incrementFor(weight, equipment) {
     if (equipment === 'dumbbell') return weight < 12.5 ? 0.5 : 1;
     if (equipment === 'cable' || equipment === 'lat_machine') return weight < 12.5 ? 0.5 : 1.25;
@@ -65,6 +65,11 @@ export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
         } else if (exercise.status === 'progressing') {
             action = 'maintain_progression';
             reason = 'Forza stimata in miglioramento: conserva il movimento e progredisci solo quando reps e RPE lo consentono.';
+        }
+
+        if(action==='increase_load' && resolvePlannedLoad(exercise,plannedKg,loadingSteps).weight===null){
+            action='maintain';plannedKg=kg;
+            reason='Le prestazioni consentono una progressione, ma i dischi disponibili non compongono il carico proposto. Mantieni i kg e riconferma ripetizioni e RPE.';
         }
 
         byExercise[key] = {
@@ -146,3 +151,4 @@ export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
 
     return { byExercise, byMuscle, summary };
 }
+

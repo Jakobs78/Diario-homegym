@@ -14,7 +14,7 @@ const number=value=>{
 const confirmed=set=>set?.isLocked===true||set?.completed===true;
 const warmup=set=>Boolean(set?.isWarmup||set?.warmup||set?.is_warmup);
 const isSpecial=(ex,set)=>Boolean(ex?.isDropset||ex?.groupType==='dropset'||
-    ex?.groupType==='restpause'||set?.intensityTechnique||
+    ex?.groupType==='restpause'||set?.intensityTechnique||set?.dropSegments?.length||
     String(set?.reps||'').includes('+'));
 const repsRange=ex=>{
     const text=String(ex?.reps||ex?.targetReps||'').trim();
@@ -107,3 +107,19 @@ export function recommendNextSessionLoad(ex,{
     };
 }
 
+
+/** A configured inventory is authoritative, including an empty inventory.
+ * Without inventory, increments remain indicative, never verified stock.
+ */
+export function resolvePlannedLoad(ex, weight, settings={}) {
+    const kg=number(weight);
+    if(kg===null || kg<=0 || kg>700)return {weight:null,verified:false};
+    const {step,type}=getAvailableLoadStep(ex,settings,kg);
+    if(type==='barbell' && settings.platePairs && typeof settings.platePairs==='object'){
+        const bar=number(settings.barbellWeight)??20;
+        const exact=bar>0 && (Math.abs(kg-bar)<0.001 ||
+            kg>bar && getPlateBreakdown(kg,bar,settings.platePairs)?.exact);
+        return {weight:exact?kg:null,verified:true};
+    }
+    return {weight:Math.round(Math.round(kg/step)*step*100)/100,verified:false};
+}

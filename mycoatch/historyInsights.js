@@ -38,7 +38,7 @@ function inspectExercise(exercise, context) {
         if (kg === null || kg <= 0 || reps === null ||
             !Number.isInteger(reps) || reps <= 0 || reps > 100) return [];
         const rpe = parseRpe(set.rpe);
-        const special = Boolean(set.intensityTechnique || set.isDropset ||
+        const special = Boolean(set.intensityTechnique || set.dropSegments?.length || set.isDropset ||
             exercise.isDropset || exercise.groupType === 'dropset' ||
             repsText.includes('+'));
         return [{
