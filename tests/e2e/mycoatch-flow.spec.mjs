@@ -2732,3 +2732,77 @@ test('import next mesocycle leaves closed predecessor locked and new active meso
   await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Blocca');
   await expect(page.locator('#review-close-meso-btn')).toHaveAttribute('aria-label','Concludi mesociclo');
 });
+
+
+test('PDF mesociclo: esportazione completa con pagine, note, risultati, archivio e nessuna scrittura',async({page})=>{
+  await openIsolatedApp(page);
+  const before=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const m=state.workoutData.history.years['2026'].mesocycles[0];
+    m.weeks=[{weekNumber:1,days:[{
+      dayName:'Giorno 1', date:'2026-10-17',
+      sessionArchives:[{sessionDate:'2026-10-10',exercises:[{
+        name:'Squat archivio',notes:'Coach ripetizione',
+        userNotes:'Nota ripetizione',loggedSets:[{weight:'81',reps:'5',rpe:'7',isLocked:true}]
+      }]}],
+      exercises:[{
+        name:'Squat',block:1,setsCount:2,reps:'5',targetRpe:'8',
+        kgMin:'92.5',kgMax:'97.5',notes:'COACH-MARKER: '+('note molto lunghe. '.repeat(700)),
+        userNotes:'PERSONAL-MARKER: buona profondita',
+        loggedSets:[
+          {weight:'95',reps:'5',rpe:'8.5',isLocked:true},
+          {weight:'100',reps:'4',rpe:'9',isLocked:false,dropSegments:[
+            {weight:'70',reps:'7',rpe:'9'}]}
+        ]
+      }]
+    }]}];
+    window.__beforeMeso=JSON.stringify(m);
+    class PdfCapture {
+      constructor(){this.pages=[[]];this.current=0;}
+      addPage(){this.pages.push([]);this.current=this.pages.length-1;}
+      getNumberOfPages(){return this.pages.length;}
+      setPage(n){this.current=n-1;}
+      setFont(){} setFontSize(){} setTextColor(){} setFillColor(){} setDrawColor(){}
+      rect(){} line(){}
+      splitTextToSize(str,width){
+        const max=Math.max(8,Math.floor(width/2));
+        const text=String(str);
+        const result=[];
+        for(const paragraph of text.split('\\n')){
+          const words=paragraph.split(/\\s+/);let line='';
+          for(const word of words){
+            if(line && (line+' '+word).length>max){result.push(line);line='';}
+            if(word.length>max){if(line){result.push(line);line='';}
+              for(let i=0;i<word.length;i+=max)result.push(word.slice(i,i+max));
+            }else line+=(line?' ':'')+word;
+          }
+          result.push(line);
+        }
+        return result;
+      }
+      text(str,x,y){for(const line of (Array.isArray(str)?str:[str])){
+        this.pages[this.current].push({line:String(line),x,y});
+      }}
+      save(filename){window.__pdfCapture={filename,pages:this.pages};}
+    }
+    window.jspdf={jsPDF:PdfCapture};
+    return window.__beforeMeso;
+  });
+  await page.locator('#open-tools-btn').click();
+  await page.locator('[data-action="export-meso-pdf"]').click();
+  const report=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const m=state.workoutData.history.years['2026'].mesocycles[0];
+    return {before:window.__beforeMeso,after:JSON.stringify(m),result:window.__pdfCapture};
+  });
+  expect(report.after).toBe(before);
+  expect(report.result.filename).toMatch(/_diario_completo\\.pdf$/);
+  expect(report.result.pages.length).toBeGreaterThan(1);
+  const lines=report.result.pages.flat().map(x=>x.line).join(' ');
+  for(const text of ['Settimana 1','Giorno 1','Squat archivio','Coach ripetizione',
+     'Nota ripetizione','Squat','TARGET:','NOTE ALLENATORE','NOTE PERSONALI',
+     'COACH-MARKER','PERSONAL-MARKER','95','8.5','100','70 kg',
+     'Confermata','Non confermata','Pagina 1'])expect(lines).toContain(text);
+  for(const pageLines of report.result.pages)for(const line of pageLines)
+    expect(line.y).toBeLessThanOrEqual(290);
+});
