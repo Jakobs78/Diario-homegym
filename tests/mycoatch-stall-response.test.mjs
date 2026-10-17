@@ -110,6 +110,29 @@ test('niente confronto blocchi con carichi diversi, settimane mancanti o RPE ass
     }
 });
 
+test('stallo reale senza progressione disponibile: prova solo +1 serie e pianifica revisione', () => {
+    const report = {
+        byExercise: { [key]: {
+            name, category: 'Spalle', equipment: 'dumbbell',
+            status: 'possible_stall', trendMetric: 'working_reps',
+            readyForLoad: false, readyForReps: false, fatigueConcern: false,
+            lastKg: 8, lastWorkingKg: 8, avgRpe: 7,
+            progressionEvidence: { distinctWeeks: 3, evidenceWeeks: ['w1','w2','w3'] }
+        }},
+        byMuscle: { Spalle: {
+            weeksObserved: 3, avgWeeklySets: 4, avgWeeklyFractionalSets: 4,
+            recentAdherence: 1, avgRpe: 7, fractionalRpeCoverage: 1,
+            exerciseKeys: [key]
+        }}
+    };
+    const before = JSON.stringify(report);
+    const results = planAdaptiveDecisions(report);
+    assert.equal(results.byMuscle.Spalle.volumeDelta,1);
+    assert.equal(results.byExercise[key].stallStrategy.code,'trial_accessory_volume');
+    assert.equal(results.byExercise[key].stallStrategy.reviewAfterWeeks,2);
+    assert.equal(JSON.stringify(report),before);
+});
+
 test('anteprima integrata: segnali fra blocchi e strategia leggibili, mai scritti sul diario', () => {
     const diary = fixture([
         [{reps:20},{reps:20}],
