@@ -32,6 +32,7 @@ import { startCoachChatAndGenerate, generateAndDownloadMesocycleCSV,
 import { initCoachPreview } from './coachPreviewUI.js';
 import { parseCoachPreferences } from '../mycoatch/userPreferences.js';
 import { DEFAULT_HOME_GYM_ACCESSORIES } from '../mycoatch/exercisesDB.js';
+import {normalizeOwnedBarbells,barbellOptionValue} from './equipmentUI.js';
 import { downloadFullBackup, restoreFullBackupFile } from './fullBackup.js';
 
 // Esposizione globale per eventi inline / retrocompatibilità
@@ -421,8 +422,47 @@ function setupEventListeners() {
     // Personal equipment is persisted inside the user's journal and included
     // in normal backup/sync. Never present default inventory as owned stock.
     const equipmentForm=document.getElementById('homegym-equipment-form');
+    const barsList=document.getElementById('equipment-barbells-list');
+    const addBarRow=(bar=null,makeDefault=false)=>{
+        if(!barsList)return;
+        const row=document.createElement('div');
+        row.className='equipment-barbell-row';
+        row.innerHTML=`<label>Peso (kg)
+            <input class="equipment-bar-weight" type="number" min="0.25" max="30" step="0.25"
+                required inputmode="decimal" placeholder="Es. 9">
+            </label>
+            <label>Diametro
+                <select class="equipment-bar-diameter" aria-label="Diametro dischi del bilanciere">
+                    <option value="29">29 mm</option><option value="50">50 mm</option>
+                </select>
+            </label>
+            <label class="equipment-default-bar"><input type="radio"
+                name="homegym-default-bar" class="equipment-bar-default" aria-label="Bilanciere predefinito">Abituale</label>
+            <button type="button" class="equipment-remove-barbell" aria-label="Rimuovi bilanciere">✕</button>`;
+        row.querySelector('.equipment-bar-weight').value=bar?.weight??'';
+        row.querySelector('.equipment-bar-diameter').value=bar?.diameter||'29';
+        const radio=row.querySelector('.equipment-bar-default');
+        radio.checked=makeDefault||!barsList.querySelector('.equipment-bar-default:checked');
+        row.querySelector('.equipment-remove-barbell').addEventListener('click',()=>{
+            const wasDefault=radio.checked;
+            row.remove();
+            if(wasDefault) {
+                const first=barsList.querySelector('.equipment-bar-default');
+                if(first)first.checked=true;
+            }
+        });
+        barsList.appendChild(row);
+    };
+    document.getElementById('equipment-add-barbell')?.addEventListener('click',()=>addBarRow());
     const readEquipment=()=>{
         const athlete=state.workoutData?.athlete||{};
+        if(barsList){
+            barsList.replaceChildren();
+            const owned=normalizeOwnedBarbells(athlete.ownedBarbells);
+            const preferred=barbellOptionValue(athlete.defaultBarbell);
+            owned.forEach((bar,i)=>addBarRow(bar,
+                preferred ? barbellOptionValue(bar)===preferred : i===0));
+        }
         const barWeight=document.getElementById('equipment-bar-weight');
         if(barWeight)barWeight.value=athlete.barbellWeight??20;
         for(const name of ['barbell','dumbbell','machine']){
@@ -479,7 +519,24 @@ function setupEventListeners() {
             if(status)status.textContent='Peso bilanciere non valido.';
             return;
         }
+        const rows=[...(barsList?.querySelectorAll('.equipment-barbell-row')||[])];
+        const selectedBars=rows.map(row=>({
+            weight:Number(row.querySelector('.equipment-bar-weight').value),
+            diameter:row.querySelector('.equipment-bar-diameter').value
+        }));
+        const ownedBarbells=normalizeOwnedBarbells(selectedBars);
+        if(ownedBarbells.length!==selectedBars.length){
+            if(status)status.textContent='Controlla i bilancieri: peso 0,25–30 kg, diametro valido, nessun duplicato.';
+            return;
+        }
+        const defaultRow=rows.find(row=>row.querySelector('.equipment-bar-default').checked);
+        const defaultBarbell=defaultRow ? {
+            weight:Number(defaultRow.querySelector('.equipment-bar-weight').value),
+            diameter:defaultRow.querySelector('.equipment-bar-diameter').value
+        } : ownedBarbells[0]||null;
         state.workoutData.athlete.barbellWeight=barWeight;
+        state.workoutData.athlete.ownedBarbells=ownedBarbells;
+        state.workoutData.athlete.defaultBarbell=defaultBarbell;
         state.workoutData.athlete.loadingSteps=loadingSteps;
         state.workoutData.athlete.plateInventories=plateInventories;
         saveAndSync(state.workoutData,'SET_EQUIPMENT');
