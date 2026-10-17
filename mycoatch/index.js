@@ -73,11 +73,16 @@ export const MyCoatch = {
             sessionsAnalyzed: originalReport.sessionsAnalyzed,
             exerciseSignals: Object.values(report.byExercise).map(item => ({
                 name: item.name, status: item.status,
+                trendMetric: item.trendMetric, repsChange: item.repsChange,
+                blockResponse: item.blockResponse,
                 e1rmChangePct: item.e1rmChangePct,
                 lastKg: item.lastKg, avgRpe: item.avgRpe,
                 exposuresCount: item.exposuresCount
             })),
             muscleSignals: report.byMuscle,
+            blockResponses: Object.values(report.byExercise)
+                .filter(item => item.blockResponse)
+                .map(item => ({ exercise: item.name, ...item.blockResponse })),
             decisions,
             coachingGuardrails:newMesocycle.coachGuardrails,
             progressionQuality,
