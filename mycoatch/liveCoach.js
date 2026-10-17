@@ -177,6 +177,8 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
     const range = targetRepRange(exercise);
     const targetRpe = plannedRpe(exercise);
     const knownRpe = result.rpe !== null;
+    // RPE 10 prescritto = cedimento programmato, non un sovraccarico imprevisto.
+    const plannedFailure = targetRpe === 10 && knownRpe && result.rpe >= 9.5;
     const completed = sets.map(set => normalizedConfirmedSet(set, exercise)).filter(Boolean);
     const paired = completed.filter(set => set.rpe !== null && !set.technique);
     const actualE1rm = knownRpe && !result.technique
@@ -191,7 +193,7 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
         code = 'special_technique';
         severity = 'info';
         message = 'Tecnica d’intensità registrata. Non stimare il massimale da una sequenza dropset/rest-pause.';
-    } else if (knownRpe && result.rpe >= 9.5) {
+    } else if (knownRpe && result.rpe >= 9.5 && !plannedFailure) {
         code = 'high_effort';
         severity = 'caution';
         message = 'RPE molto alto: completa il recupero e valuta se mantenere la qualità della prossima serie.';
@@ -199,6 +201,9 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
         code = 'below_reps';
         severity = 'caution';
         message = `Hai fatto ${result.reps} ripetizioni, sotto il minimo di ${range.min}. Verifica recupero e tecnica prima del prossimo set.`;
+    } else if (plannedFailure) {
+        code = 'planned_failure';
+        message = 'RPE 10 previsto dalla scheda: cedimento programmato. Non serve ridurre il carico per il solo RPE.';
     } else if (knownRpe && targetRpe !== null && result.rpe >= targetRpe + 1) {
         code = 'above_rpe';
         severity = 'caution';
@@ -214,7 +219,7 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
         message = 'Limite alto delle ripetizioni raggiunto con margine. Mantieni il carico e cerca conferma nelle serie successive.';
     }
 
-    if (remainingIndex >= 0 && knownRpe && !result.technique &&
+    if (remainingIndex >= 0 && knownRpe && !result.technique && !plannedFailure &&
         (code === 'high_effort' || code === 'above_rpe' || code === 'below_reps')) {
         const multipleHard = paired.slice(-2).filter(set =>
             set.rpe >= 9 || (range && set.reps < range.min)).length >= 2;
@@ -294,8 +299,9 @@ export function assessSessionAdjustment(day, readiness = null) {
         for (const set of exercise?.loggedSets || []) {
             const real = normalizedConfirmedSet(set, exercise);
             if (!real || real.technique || real.rpe === null) continue;
-            if (real.rpe >= 9.5 ||
-                (goal !== null && real.rpe >= goal + 1)) {
+            // Non conteggiare come fatica inattesa un cedimento previsto (@10).
+            if (!(goal === 10 && real.rpe >= 9.5) &&
+                (real.rpe >= 9.5 || (goal !== null && real.rpe >= goal + 1))) {
                 hard.push({ name: exercise.name, rpe: real.rpe });
             }
         }
