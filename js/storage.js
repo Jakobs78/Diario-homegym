@@ -416,7 +416,7 @@ export function clearAllData() {
     document.body.appendChild(overlay);
 
     overlay.querySelector('#danger-backup-btn')?.addEventListener('click', () => {
-        if (state.workoutData && typeof exportToCSV === 'function') {
+        if (state.workoutData?.history?.years) {
             downloadFullBackup(state.workoutData);
         } else {
             alert("Nessun dato storico da salvare.");

@@ -17,15 +17,16 @@ export function safeTechniqueEvidence(history) {
     const recent = new Map();
     for (const ex of history.exposures || []) {
         if (ex.isDeload || !ex.weekId) continue;
-        recent.set(ex.weekId, ex);
+        if (!recent.has(ex.weekId)) recent.set(ex.weekId, []);
+        recent.get(ex.weekId).push(ex);
     }
     const lastTwo = [...recent.values()].slice(-2);
-    return lastTwo.length === 2 && lastTwo.every(e =>
+    return lastTwo.length === 2 && lastTwo.every(entries => entries.every(e =>
         e.completedSets >= 2 && e.completedSets === e.plannedSets &&
         e.allRpeMeasured === true && e.allRpeWithinTarget === true &&
-        e.allStraightSets === true && e.avgRpe !== null &&
-        e.avgRpe <= 8 && e.repRange?.max >= 10
-    );
+        e.allStraightSets === true && Number.isFinite(e.avgRpe) &&
+        e.avgRpe >= 6 && e.avgRpe <= 8 && e.repRange?.max >= 10
+    ));
 }
 
 export function suggestDropset(exercise, {
@@ -51,3 +52,4 @@ export function suggestDropset(exercise, {
         note: '[TECNICA MIRATA] Solo dopo l’ultima serie: riduci il carico di circa 20–25%, esegui altre ripetizioni pulite e interrompi se perdi tecnica. Il segmento extra NON equivale a una nuova serie confermata. Facoltativo.'
     };
 }
+

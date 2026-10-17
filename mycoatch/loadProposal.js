@@ -5,6 +5,7 @@
  * repeated across ALL the exercise's homogeneous working sets.
  */
 import { getPlateBreakdown } from '../js/helpers.js';
+import { plannedWorkSetCount } from '../js/workoutSemantics.js';
 const number=value=>{
     if(value===undefined||value===null||value==='')return null;
     const n=Number(String(value).replace('@','').replace(',','.'));
@@ -18,7 +19,9 @@ const isSpecial=(ex,set)=>Boolean(ex?.isDropset||ex?.groupType==='dropset'||
 const repsRange=ex=>{
     const text=String(ex?.reps||ex?.targetReps||'').trim();
     const match=text.match(/^(\d+)(?:\s*[-–]\s*(\d+))?$/);
-    return match?{min:Number(match[1]),max:Number(match[2]||match[1])}:null;
+    if (!match) return null;
+    const min=Number(match[1]),max=Number(match[2]||match[1]);
+    return min>0 && min<=max && max<=40 ? {min,max} : null;
 };
 export const DEFAULT_LOADING_STEPS=Object.freeze({
     barbell:2.5,dumbbell:1,machine:2.5
@@ -55,7 +58,8 @@ export function recommendNextSessionLoad(ex,{
         ex.isDeload || ex.isDeloadWeek || readiness?.allowIncrease===false ||
         readiness?.level==='stop')return null;
     const entries=(ex.loggedSets||[]).filter(s=>!warmup(s));
-    if(entries.length<2 || entries.some(s=>!confirmed(s)))return null;
+    if(entries.length<2 || entries.length<plannedWorkSetCount(ex) ||
+        entries.some(s=>!confirmed(s)))return null;
     const range=repsRange(ex);
     const target=number(ex.targetRpe??ex.rpeTarget??ex.rpe);
     if(!range || target===null || target<6 || target>10)return null;
@@ -71,7 +75,8 @@ export function recommendNextSessionLoad(ex,{
     // for a different prescribed intensity.
     if(!values.every(v=>v.kg===kg&&v.reps>=range.min))return null;
     const extraReps=values.every(v=>v.reps>=range.max&&v.reps<=range.max+2&&v.rpe<=target);
-    const lowerEffort=values.every(v=>v.rpe<=target-1 && v.reps>=range.min);
+    const lowerEffort=values.every(v=>v.rpe<=target-1 && v.reps>=range.min &&
+        v.reps<=range.max+2);
     if(!extraReps&&!lowerEffort)return null;
     const {step,type,configured}=getAvailableLoadStep(ex,equipmentSettings||{},kg);
     const cap=type==='dumbbell'?0.1:0.05;
@@ -101,3 +106,4 @@ export function recommendNextSessionLoad(ex,{
         advisory:'Proposta per la prossima seduta, non modifica automatica della scheda. Rivaluta tecnica, recupero e disponibilità reale dei pesi.'
     };
 }
+

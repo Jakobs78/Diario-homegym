@@ -2,7 +2,7 @@ import { canonicalExerciseKey, canonicalExerciseName } from './exerciseIdentity.
 import { numericValue, estimateE1rm } from './historyAnalysis.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { evaluateExerciseProgression } from './progressionPolicy.js';
-import { isWarmupExercise } from '../js/workoutSemantics.js';
+import { isWarmupExercise, plannedWorkSetCount } from '../js/workoutSemantics.js';
 import { contributionsForExercise, TRACKED_MUSCLES, VOLUME_ACCOUNTING_METHOD } from './volumeAccounting.js';
 
 const catalog = new Map(EXERCISE_DATABASE.map(ex => [canonicalExerciseKey(ex.name), ex]));
@@ -50,14 +50,7 @@ function inspectExercise(exercise, context) {
 
     const targetRpe = parseRpe(exercise.targetRpe ?? exercise.rpe);
     const repsTarget = parseRepRange(exercise.reps);
-    const prescribed = Number.parseInt(String(exercise.setsCount ?? exercise.set ?? ''), 10);
-    // loggedSets puo' contenere soltanto le serie gia' registrate.
-    const plannedList = Array.isArray(exercise.sets) && exercise.sets.length
-        ? exercise.sets : logged;
-    const countWithoutWarmups = plannedList.filter(set =>
-        !set?.isWarmup && !set?.warmup && !set?.is_warmup).length;
-    const plannedSets = Math.max(valid.length,
-        Number.isFinite(prescribed) && prescribed > 0 ? prescribed : countWithoutWarmups);
+    const plannedSets = Math.max(valid.length, plannedWorkSetCount(exercise));
     const validRpe = valid.map(set => set.rpe).filter(rpe => rpe !== null);
     const e1rms = valid.map(set => set.e1rm).filter(v => v !== null);
     const avgRpe = mean(validRpe);
@@ -149,6 +142,7 @@ export function analyzeTrainingHistory(userHistory) {
     const weeks = new Map();
     // Separiamo i crediti frazionari dai set diretti legacy.
     const fractionalWeeks = new Map();
+    const prescribedWeeks = new Map();
     let sessionsAnalyzed = 0;
     let inspectedMesocycles = 0;
     let lastMesocycle = null;
@@ -185,6 +179,17 @@ export function analyzeTrainingHistory(userHistory) {
                     for (const session of sessions) {
                         let anyCompleted = false;
                         for (const ex of session.exercises) {
+                            // Missing exercise logs are not perfect adherence. Count
+                            // prescriptions separately, but never invent performance.
+                            const targetRpe = parseRpe(ex?.targetRpe ?? ex?.rpe);
+                            const deload = typeof week.isDeloadWeek === 'boolean'
+                                ? week.isDeloadWeek : targetRpe !== null && targetRpe <= 6.5;
+                            if (ex && !isWarmupExercise(ex) && !deload) {
+                                if (!prescribedWeeks.has(weekId)) prescribedWeeks.set(weekId,new Map());
+                                const totals=prescribedWeeks.get(weekId);
+                                const muscle=catalog.get(canonicalExerciseKey(ex.name))?.category || 'Non classificato';
+                                totals.set(muscle,(totals.get(muscle)||0)+plannedWorkSetCount(ex));
+                            }
                             const parsed = inspectExercise(ex, {
                                 year, mesocycleIndex: mi, week: weekNumber,
                                 day: Number(day.dayNumber) || 1,
@@ -300,9 +305,14 @@ export function analyzeTrainingHistory(userHistory) {
             const record = weeks.get(weekId).get(muscle);
             return record ? [{ weekId, ...record }] : [];
         });
-        const recent = records.slice(-3);
+        const recent = sortedWeekIds.slice(-3).map(weekId => {
+            const record=weeks.get(weekId).get(muscle);
+            return {weekId,...(record || {completedSets:0,plannedSets:0,
+                observedRpe:[],distinctExercises:new Set()})};
+        });
         const completed = recent.reduce((sum, e) => sum + e.completedSets, 0);
-        const planned = recent.reduce((sum, e) => sum + e.plannedSets, 0);
+        const planned = recent.reduce((sum, e) => sum + Math.max(e.plannedSets,
+            prescribedWeeks.get(e.weekId)?.get(muscle) || 0), 0);
         const rpes = recent.flatMap(e => e.observedRpe);
         const trendSamples = recent.map(e => e.completedSets);
         byMuscle[muscle] = {
@@ -357,3 +367,4 @@ export function analyzeTrainingHistory(userHistory) {
         source: 'multi_mesocycle_confirmed_sets'
     };
 }
+

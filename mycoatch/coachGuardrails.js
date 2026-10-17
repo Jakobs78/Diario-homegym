@@ -11,6 +11,16 @@ export const SCIENCE_SNAPSHOT = Object.freeze({
     automaticLiteratureUpdates:false,
     sources:Object.freeze([
         Object.freeze({
+            doi:'10.1007/s40279-026-02428-1', year:2026, topic:'advanced_methods',
+            reviewedOn:'2026-10-17',
+            takeaway:'Metodi avanzati senza superiorità costante per ipertrofia; evidenze limitate negli atleti altamente allenati. Scegliere in base a esigenze e tolleranza individuali.'
+        }),
+        Object.freeze({
+            doi:'10.1249/MSS.0000000000003897', year:2026, topic:'resistance_training_prescription',
+            reviewedOn:'2026-10-17',
+            takeaway:'Personalizzare la prescrizione per obiettivo e sostenibilità; le indicazioni per adulti sani non certificano un programma pluriennale per bodybuilder avanzati.'
+        }),
+        Object.freeze({
             doi:'10.1007/s40279-025-02344-w', year:2026, topic:'weekly_volume',
             takeaway:'Il volume ha una relazione dose-risposta con rendimenti decrescenti; le serie indirette meritano un conteggio distinto.'
         }),
@@ -113,12 +123,15 @@ export function authorizeTopset(exerciseHistory,{recoveryRequired=false,
     const weeks=new Map();
     for(const ex of exerciseHistory?.exposures || []){
         if(!ex?.weekId || ex.isDeload) continue;
-        weeks.set(ex.weekId,ex);
+        if (!weeks.has(ex.weekId)) weeks.set(ex.weekId,[]);
+        weeks.get(ex.weekId).push(ex);
     }
     const lastTwo=[...weeks.values()].slice(-2);
-    return lastTwo.length===2 && lastTwo.every(ex =>
+    return lastTwo.length===2 && lastTwo.every(entries => entries.every(ex =>
         ex.completedSets>=2 && ex.completedSets===ex.plannedSets &&
         ex.allRpeMeasured===true && ex.allRpeWithinTarget===true &&
-        ex.allStraightSets===true && ex.avgRpe!==null && ex.avgRpe<=8.5);
+        ex.allStraightSets===true && Number.isFinite(ex.avgRpe) &&
+        ex.avgRpe>=6 && ex.avgRpe<=8.5));
 }
+
 

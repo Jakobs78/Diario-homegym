@@ -10,6 +10,8 @@ on:
   pull_request:
     paths:
       - 'mycoatch/**'
+      - 'js/**'
+      - 'sw.js'
       - 'tests/**'
       - 'test/**'
       - 'package.json'
@@ -42,3 +44,4 @@ jobs:
           node --experimental-default-type=module --check js/bottomSheet.js
       - name: Run MyCoatch unit and integration tests
         run: npm test
+

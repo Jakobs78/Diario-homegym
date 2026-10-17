@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v41-set-volume-approved-load-review';
+const CACHE_NAME = 'workout-app-v42-coaching-evidence-integrity';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [

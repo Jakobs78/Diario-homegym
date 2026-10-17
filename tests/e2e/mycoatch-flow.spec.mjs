@@ -3,6 +3,21 @@ import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
 const ORIGIN = 'http://127.0.0.1:4173';
+
+test('backup integrale disponibile prima della cancellazione senza dipendere dal CSV', async ({page}) => {
+  await openIsolatedApp(page);
+  await page.evaluate(async () => {
+    const {clearAllData} = await import('/js/storage.js');
+    clearAllData();
+  });
+  const downloading=page.waitForEvent('download');
+  await page.locator('#danger-backup-btn').click();
+  const download=await downloading;
+  const backup=JSON.parse(await readFile(await download.path(),'utf8'));
+  expect(backup.format).toBe('homegym-diary-full-backup');
+  expect(Object.keys(backup.data.history.years)).toContain('2025');
+  await page.locator('#danger-cancel-btn').click();
+});
 const HEADER = 'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset';
 
 // Non usa dati del proprietario e non effettua alcuna richiesta a Supabase.
@@ -2280,3 +2295,4 @@ test('MyCoatch previews, approves and undoes load increases only for untouched f
   assert.deepEqual(monitor.remoteRequests,[]);
   assert.deepEqual(monitor.pageErrors,[]);
 });
+

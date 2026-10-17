@@ -58,9 +58,11 @@ export async function restoreFullBackupFile(file,{state,saveAndSync,renderWorkou
     if(!confirm('Ripristinare '+count+' mesocicli dal backup? Il diario attuale sarà sostituito. Scarica una copia di sicurezza prima di proseguire.'))return false;
     // Preserve the prior journal as a recovery download.
     downloadFullBackup(state.workoutData);
-    await saveAndSync(candidate,'RESTORE_FULL_BACKUP');
+    const saved=await saveAndSync(candidate,'RESTORE_FULL_BACKUP');
+    if(saved===false)throw Error('Ripristino non completato: salvataggio locale o coda di sincronizzazione non riusciti. Conserva entrambi i backup e verifica lo spazio disponibile.');
     state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=1;
     renderWorkoutList();
     alert('Backup ripristinato localmente. Attendi la sincronizzazione cloud prima di usare un altro dispositivo.');
     return true;
 }
+
