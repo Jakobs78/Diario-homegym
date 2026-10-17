@@ -19,7 +19,11 @@ function isEligible(mesocycle) {
 
 /** Start the reminder only after ALL planned working sets are valid and checked. */
 export function shouldHighlightMesocycleClosure(mesocycle) {
-    return isEligible(mesocycle) && !viewedPrompts.has(mesocycle);
+    if (!isEligible(mesocycle)) {
+        if (mesocycle && typeof mesocycle === 'object') viewedPrompts.delete(mesocycle);
+        return false;
+    }
+    return !viewedPrompts.has(mesocycle);
 }
 
 /** Opening the guided review acknowledges the prompt, but does NOT close a block. */
