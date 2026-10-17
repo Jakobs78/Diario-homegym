@@ -75,6 +75,16 @@ test('cedimento previsto @10 non genera avvisi di abbassare kg, anche con due se
     assert.equal(JSON.stringify(ex), before);
 });
 
+test('RPE @10 importato da rpe funziona anche quando targetRpe è vuoto', () => {
+    const ex = exercise([confirmed(80, 8, 10), empty()], {
+        targetRpe: '', rpeTarget: '', rpe: '@10'
+    });
+    const advice = assessExerciseLive(ex);
+    assert.equal(advice.code, 'planned_failure');
+    assert.equal(advice.suggestedWeight, null);
+    assert.equal(assessSessionAdjustment({ exercises: [ex] }), null);
+});
+
 test('RPE 10 non previsto resta un segnale di cautela; sotto le reps si segnala solo il problema reale', () => {
     const high = exercise([confirmed(80, 8, 10), empty()]);
     const warning = assessExerciseLive(high);
