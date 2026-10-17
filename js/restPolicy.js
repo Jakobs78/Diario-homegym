@@ -14,3 +14,16 @@ export function shouldStartRecoveryTimer(exercise, set, setIndex, totalSets) {
     if (set.intensityTechnique) return false;
     return true;
 }
+
+/**
+ * The recovery clock is useful only if another effective working set still
+ * needs to be performed in this day. Warmups remain in the journal but do
+ * not postpone the end of the workout.
+ */
+export function hasPendingWorkingSets(day) {
+    return (day?.exercises || []).some(ex =>
+        !(ex.isWarmup || ex.isExcluded || ex.is_excluded) &&
+        (ex.loggedSets || []).some(set =>
+            !(set.isWarmup || set.warmup || set.is_warmup) &&
+            set.isLocked !== true && set.completed !== true));
+}

@@ -8,6 +8,7 @@
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
 import { stopTimer, adjustTimer, handleTick, handleComplete } from './timer.js';
+import { testTimerAudio } from './audio.js';
 import { createSingleExerciseCard, updatePlatesBadgeUI } from './exerciseCard.js';
 import { updateSessionHeaderUI } from './sessionTimer.js';
 import { bindWorkoutTableEvents } from './workoutEvents.js';
@@ -128,6 +129,14 @@ document.addEventListener('click', (e) => {
     if (!e.target) return;
     
     // Controlli Timer Flottante
+    if (e.target.closest?.('#timer-test-audio')) {
+        const available=testTimerAudio();
+        const info=document.getElementById('timer-audio-status');
+        if(info)info.textContent=available
+            ? 'Test audio richiesto · tieni la PWA in primo piano'
+            : 'Audio non supportato su questo dispositivo';
+        return;
+    }
     if (e.target.id === 'timer-minus-15') {
         adjustTimer(-15, handleTick, handleComplete);
         return;
@@ -383,7 +392,7 @@ export function renderWorkoutList() {
         if (totalSecs % 10 === 0) refreshLiveCoachClock(currentDay);
     }, 1000);
 
-    updateSessionHeaderUI(currentDay, renderWorkoutList);
+    updateSessionHeaderUI(currentDay, renderWorkoutList, isPastMeso);
 
     // RENDER CARDS ESERCIZI
     const exercises = currentDay.exercises || [];

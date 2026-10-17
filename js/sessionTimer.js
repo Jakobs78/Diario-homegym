@@ -64,7 +64,7 @@ export function updateSessionAndCompletionState(currentDay) {
  * @param {Object} currentDay - L'oggetto del giorno di allenamento corrente
  * @param {Function} renderCallback - Funzione di callback per rirenderizzare la vista quando cambia lo stato
  */
-export function updateSessionHeaderUI(currentDay, renderCallback) {
+export function updateSessionHeaderUI(currentDay, renderCallback, readOnly = false) {
     const timerEl = document.getElementById('live-session-timer');
     if (!timerEl) return;
 
@@ -96,8 +96,9 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
     const pauseBtn = document.getElementById('pause-session-timer-btn');
 
     if (pauseBtn) {
+        pauseBtn.disabled = readOnly;
         pauseBtn.onclick = () => {
-            if (currentDay.completed) return;
+            if (readOnly || currentDay.completed) return;
             if (currentDay.isPaused) {
                 currentDay.isPaused = false;
                 currentDay.sessionStart = Date.now();
@@ -110,7 +111,7 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
                 currentDay.isPaused = true;
             }
             saveAndSync(state.workoutData);
-            updateSessionHeaderUI(currentDay, renderCallback);
+            updateSessionHeaderUI(currentDay, renderCallback, readOnly);
             refreshLiveCoachClock(currentDay);
         };
     }
@@ -130,13 +131,18 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
     const isAllChecked = totalSets > 0 && completedSets === totalSets;
 
     if (actionBtn) {
-        if (isAllChecked) {
+        actionBtn.disabled = readOnly;
+        if (readOnly) {
+            actionBtn.classList.add('is-hidden');
+            actionBtn.onclick = null;
+        } else if (isAllChecked) {
             actionBtn.textContent = '🔄 Ripeti (salva storico)';
             actionBtn.className = 'btn-reset-time btn-timer-action font-bold';
             actionBtn.title = 'Archivia la sessione completata prima di ripeterla';
             actionBtn.classList.remove('is-hidden');
 
             actionBtn.onclick = () => {
+                if (readOnly) return;
                 const agreed = confirm(
                     'Vuoi ripetere questa seduta?\\n\\n' +
                     'I kg, le ripetizioni, gli RPE e la data della seduta completata ' +
@@ -165,6 +171,7 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
             }
 
             actionBtn.onclick = () => {
+                if (readOnly) return;
                 if (confirm("Vuoi azzerare il timer e sbloccare la sessione per questo giorno?")) {
                     currentDay.sessionStart = null;
                     currentDay.accumulatedSeconds = 0;
@@ -216,6 +223,8 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
         timerWrapper.appendChild(historyDetails);
     }
 
+    if (readOnly && pauseBtn) pauseBtn.classList.add('is-hidden');
+
     if (currentDay.completed && currentDay.totalDurationMinutes !== undefined) {
         timerEl.classList.add('timer-completed');
         timerEl.textContent = `${currentDay.totalDurationMinutes} min`;
@@ -232,7 +241,7 @@ export function updateSessionHeaderUI(currentDay, renderCallback) {
         } else {
             timerEl.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
             if (pauseBtn) {
-                pauseBtn.classList.remove('is-hidden');
+                if (!readOnly) pauseBtn.classList.remove('is-hidden');
                 pauseBtn.innerHTML = currentDay.isPaused ? '▶️ Riprendi' : '⏸️ Pausa';
             }
         }

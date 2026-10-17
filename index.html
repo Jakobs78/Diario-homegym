@@ -516,10 +516,14 @@
         <div>
             <div class="timer-label">Recupero</div>
             <div id="timer-display">01:30</div>
+            <span id="timer-audio-status" class="timer-audio-status" role="status" aria-live="polite"></span>
         </div>
         <div class="flex-row gap-sm">
             <button class="btn btn-secondary timer-btn" id="timer-minus-15">-15s</button>
             <button class="btn btn-secondary timer-btn" id="timer-plus-30">+30s</button>
+            <button class="btn btn-secondary timer-btn timer-audio-test" id="timer-test-audio"
+              type="button" title="Riattiva e prova il suono del timer"
+              aria-label="Riattiva e prova il suono del timer">🔊</button>
             <button class="btn btn-danger timer-btn" id="stop-timer-btn">✕</button>
         </div>
     </div>

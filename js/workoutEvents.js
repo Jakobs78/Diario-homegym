@@ -5,8 +5,8 @@
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
 import { isValueOutOfRange, isValueExceedingTarget, findPreviousExercise, calculateSetVolumeTrend, parseRPE } from './helpers.js';
-import { startTimer, handleTick, handleComplete, parseRecoveryTime } from './timer.js';
-import { shouldStartRecoveryTimer } from './restPolicy.js';
+import { startTimer, stopTimer, handleTick, handleComplete, parseRecoveryTime } from './timer.js';
+import { shouldStartRecoveryTimer, hasPendingWorkingSets } from './restPolicy.js';
 import { updatePlatesBadgeUI } from './exerciseCard.js';
 import { updateSessionAndCompletionState, updateSessionHeaderUI } from './sessionTimer.js';
 import { validateCompletedSet } from '../mycoatch/liveCoach.js';
@@ -32,6 +32,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
         input.addEventListener('focus', (e) => e.target.select());
 
         input.addEventListener('input', (e) => {
+            if (isPastMeso) return;
             const target = e.target;
             const exIdx = target.dataset.ex;
             const ex = currentDay.exercises[exIdx];
@@ -148,6 +149,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
 
     workoutListContainer.querySelectorAll('.set-lock-check').forEach(chk => {
         chk.addEventListener('change', (e) => {
+            if (isPastMeso) { e.target.checked = !e.target.checked; return; }
             const exIdx = parseInt(e.target.dataset.ex, 10);
             const setIdx = parseInt(e.target.dataset.set, 10);
             
@@ -244,6 +246,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             if (isChecked) {
                 const totalSets = ex.loggedSets?.length || ex.sets?.length || 1;
                 const startRecovery = !(setObj.isWarmup||setObj.warmup||setObj.is_warmup) &&
+                    hasPendingWorkingSets(currentDay) &&
                     shouldStartRecoveryTimer(ex, setObj, setIdx, totalSets);
 
                 if (startRecovery) {
@@ -267,7 +270,8 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             }
 
             updateSessionAndCompletionState(currentDay);
-            updateSessionHeaderUI(currentDay, renderCallback);
+            if(currentDay.completed)stopTimer();
+            updateSessionHeaderUI(currentDay, renderCallback, isPastMeso);
             updateLiveCoachPanel(currentDay, { readOnly: isPastMeso });
             saveAndSync(state.workoutData);
             if (typeof renderCallback === 'function') renderCallback();

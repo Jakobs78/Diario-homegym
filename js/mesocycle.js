@@ -69,6 +69,10 @@ export function deleteCurrentMesocycle() {
 
     const activeIdx = state.activeMesocycleIndex || 0;
     const mesoToDelete = mesocycles[activeIdx];
+    if (mesoToDelete?.locked) {
+        showNotification('Il mesociclo è bloccato: sbloccalo prima di eliminarlo.', 'warning');
+        return;
+    }
 
     if (!confirm(`Sei sicuro di voler eliminare definitivamente il "${mesoToDelete?.name || 'Mesociclo'}"?`)) {
         return;

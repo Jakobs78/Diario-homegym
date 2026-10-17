@@ -2944,3 +2944,23 @@ body.dark-mode .group-title-badge {
 .mycoatch-session-summary small {display:block;margin-top:7px;font-size:.74rem;color:var(--text-muted);}
 .year-selector-container {display:inline-flex;align-items:center;gap:5px;}
 .year-selector-container .week-select-input {min-height:38px;font-size:.82rem;}
+
+
+/* Rest audio controls: visible, accessible, never replace the clock. */
+#floating-timer .timer-audio-test {
+    min-width:42px;min-height:42px;
+    padding:7px 9px;font-size:1.12rem;
+}
+#floating-timer .timer-audio-test:focus-visible {
+    outline:3px solid var(--accent-color);
+    outline-offset:2px;
+}
+#floating-timer .timer-audio-status {
+    display:block;max-width:155px;
+    font-size:.68rem;line-height:1.25;
+    color:var(--text-muted);
+}
+@media(max-width:375px) {
+    #floating-timer .timer-btn {padding:7px 6px;}
+    #floating-timer .timer-audio-test {min-width:38px;}
+}

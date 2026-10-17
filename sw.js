@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v39-smart-progression-equipment';
+const CACHE_NAME = 'workout-app-v40-readonly-ios-audio-rest';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
