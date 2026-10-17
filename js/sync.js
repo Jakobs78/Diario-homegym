@@ -302,10 +302,7 @@ export function initBackgroundSync(state) {
             const remoteData = await pullDataFromSupabase(user);
                 if (remoteData && String(state.currentUser?.id)===String(user.id) && !hasPendingSync()) {
                     const localData = getFromLocalStorageForUser(user);
-                    const localTime = new Date(localData.updatedAt || 0).getTime();
-                    const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
-
-                    if (remoteTime > localTime) {
+                    if (!sameJournal(localData,remoteData)) {
                         state.workoutData = remoteData;
                         saveToLocalStorage(remoteData,{preserveUpdatedAt:true});
                         await flushJournalStorage();
