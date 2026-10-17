@@ -11,6 +11,7 @@ import { state } from './state.js';
 import { getFromLocalStorage, getFromLocalStorageForUser, getStoredLocalOwner,
     saveToLocalStorage, saveAndSync, hasPendingSync, processSyncQueue, clearLocalData, updateSyncStatusUI } from './storage.js';
 import { pullDataFromSupabase, initBackgroundSync } from './sync.js';
+import { sameJournal } from './cloudSafety.js';
 import { renderWorkoutList } from './ui.js';
 import { restoreActiveRestTimer } from './timer.js';
 import { handlePdfExportFromState } from './pdfExport.js';
@@ -57,11 +58,10 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         try {
             const remoteData = await pullDataFromSupabase(session.user);
             if (remoteData && String(state.currentUser?.id)===String(session.user.id) && !hasPendingSync()) {
-                const localStamp=Date.parse(state.workoutData?.updatedAt || '') || 0;
-                const remoteStamp=Date.parse(remoteData.updatedAt || '') || 0;
-                const hasLocalHistory=Object.values(state.workoutData?.history?.years || {})
-                    .some(year=>year?.mesocycles?.length>0);
-                if(remoteStamp>localStamp || !hasLocalHistory){
+                // pullDataFromSupabase already proved that hydration is safe:
+                // empty local or a cloud-acknowledged, unchanged local journal.
+                // Browser clock skew must not block a legitimate newer cloud row.
+                if(!sameJournal(remoteData,state.workoutData)){
                     state.workoutData=remoteData;
                     saveToLocalStorage(remoteData,{preserveUpdatedAt:true});
                     await flushJournalStorage();
@@ -113,11 +113,9 @@ async function initApp() {
 
                 const remoteData = await pullDataFromSupabase(user);
                 
-                if (remoteData && remoteData.history && Object.keys(remoteData.history.years || {}).length > 0) {
-                    const localTime = new Date(localData.updatedAt || 0).getTime();
-                    const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
-
-                    if (remoteTime > localTime && String(state.currentUser?.id)===String(user.id) && !hasPendingSync()) {
+                if (remoteData?.history?.years && typeof remoteData.history.years==='object') {
+                    if (!sameJournal(remoteData,localData) &&
+                        String(state.currentUser?.id)===String(user.id) && !hasPendingSync()) {
                         state.workoutData = remoteData;
                         saveToLocalStorage(remoteData,{preserveUpdatedAt:true});
                     await flushJournalStorage(); 
