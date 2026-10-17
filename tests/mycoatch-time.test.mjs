@@ -121,7 +121,7 @@ test('l\'ottimizzatore sceglie un triset quando il superset non basta', () => {
 test('timer: superserie, dropset e serie normali', () => {
     assert.equal(shouldStartRecoveryTimer({ groupType: 'superset', isGroupLast: false }, {}, 0, 3), false);
     assert.equal(shouldStartRecoveryTimer({ groupType: 'superset', isGroupLast: true }, {}, 0, 3), true);
-    assert.equal(shouldStartRecoveryTimer({ isDropset: true }, {}, 0, 3), false);
+    assert.equal(shouldStartRecoveryTimer({ isDropset: true }, {}, 0, 3), true);
     assert.equal(shouldStartRecoveryTimer({ isDropset: true }, {}, 2, 3), true);
     assert.equal(shouldStartRecoveryTimer({ }, { intensityTechnique: 'MYO_REPS' }, 2, 3), false);
     assert.equal(shouldStartRecoveryTimer({ notes: 'senza pausa tra esercizi' }, {}, 0, 3), true);
@@ -175,3 +175,4 @@ test('avvicinamento specifico: incluso nel tempo ma non come serie allenante', (
     assert.equal(primary.setsCount, primary.sets.length);
     assert.ok(estimateDaySeconds([primary]) > (primary.setsCount * 55) + 300);
 });
+

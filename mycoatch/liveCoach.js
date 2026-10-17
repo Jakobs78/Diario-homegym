@@ -117,7 +117,7 @@ export function validateCompletedSet(values, exercise = {}, set = {}) {
         weight,
         reps: String(values.reps).trim(),
         numericReps: repsInfo.reps,
-        technique: repsInfo.technique,
+        technique: repsInfo.technique || Boolean(set?.intensityTechnique || set?.dropSegments?.length),
         rpe,
         message: rpe === null ? 'Serie registrata senza RPE; stima della fatica limitata.' : ''
     };
@@ -131,7 +131,7 @@ function normalizedConfirmedSet(set, exercise) {
         weight: parsed.weight,
         reps: parsed.numericReps,
         rpe: parsed.rpe,
-        technique: parsed.technique,
+        technique: parsed.technique || set.intensityTechnique==='DROP_SET' || Boolean(set.dropSegments?.length),
         timestamp: typeof set.completedAt === 'string' ? Date.parse(set.completedAt) : NaN
     };
 }
@@ -454,3 +454,4 @@ export function buildLiveSessionSnapshot(day, { now = Date.now(), history = null
         readOnly: Boolean(day?.completed)
     };
 }
+

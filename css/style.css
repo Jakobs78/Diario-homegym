@@ -3017,3 +3017,38 @@ body.dark-mode .group-title-badge {
     .set-trend-badge .set-trend-pct {font-size:.67rem;}
     .set-trend-badge .set-trend-absolute {font-size:.52rem;}
 }
+
+
+/* During a circuit, keep all members of the current round together. */
+.circuit-card .circuit-heading h3 {margin:0 0 8px;font-size:1rem;}
+.circuit-rounds {display:flex;gap:6px;flex-wrap:wrap;}
+.circuit-rounds button {min-height:44px;padding:6px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-color);color:var(--text-color);}
+.circuit-rounds button[aria-pressed="true"] {background:var(--accent-color);color:white;}
+.circuit-status {font-size:.85rem;line-height:1.4;margin:8px 0;}
+.circuit-exercises {display:grid;grid-template-columns:minmax(0,1fr);gap:8px;}
+.circuit-exercise.ex-card {padding:10px;margin:0;min-width:0;}
+.circuit-exercise .ex-name {font-size:.95rem;margin:0 0 5px!important;}
+.circuit-exercise .target-box {padding:5px 7px;margin-bottom:5px!important;font-size:.8rem;}
+.circuit-exercise .set-table {margin-bottom:0!important;}
+.circuit-details summary,.plates-disclosure summary {cursor:pointer;padding:10px 3px;min-height:44px;box-sizing:border-box;font-size:.85rem;font-weight:600;}
+.circuit-details .exercise-coach-notes {margin-top:5px;}
+.circuit-exercise [hidden] {display:none!important;}
+.plates-disclosure {margin:6px 0;}
+.ex-card .custom-big-check {width:44px!important;height:44px!important;max-width:100%;cursor:pointer;}
+.drop-scope-control {display:block;padding:12px;background:var(--block-bg);border:1px solid var(--accent-color);border-radius:8px;}
+.drop-scope-control select {display:block;width:100%;min-height:44px;margin-top:8px;font-size:16px;}
+.ex-card .drop-detail-row td {padding:8px!important;height:auto!important;}
+.drop-fields {text-align:left;border-left:3px solid #e58a22;padding:8px;background:rgba(229,138,34,.07);font-size:.85rem;}
+.drop-fields p {margin:5px 0;line-height:1.4;}
+.drop-skip-label {display:flex;align-items:center;gap:8px;min-height:44px;}
+.drop-skip {width:24px;height:24px;}
+.drop-segment {display:grid;grid-template-columns:1fr 1fr 1fr 44px;gap:5px;align-items:end;margin-bottom:8px;}
+.drop-segment>span {grid-column:1/-1;font-weight:bold;}
+.drop-segment label {font-size:.75rem;min-width:0;}
+.drop-segment .drop-input {display:block;box-sizing:border-box;min-width:0;width:100%;min-height:44px;font-size:16px;border:1px solid var(--border-color);border-radius:5px;background:var(--bg-color);color:var(--text-color);padding:4px;}
+.drop-remove,.drop-add {min-height:44px;}
+.drop-remove {font-size:1.3rem;}
+@media(min-width:760px){.circuit-exercises {grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(min-width:1200px){.circuit-exercises {grid-template-columns:repeat(3,minmax(0,1fr));}}
+@media(max-width:380px){.circuit-card.exercise-group-wrapper {padding:6px!important;}.circuit-exercise.ex-card{padding:6px;}}
+.ex-card .drop-detail-row td {font-weight:400;text-align:left;}

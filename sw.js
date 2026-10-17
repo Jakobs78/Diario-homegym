@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v43-four-year-durable-history';
+const CACHE_NAME = 'workout-app-v44-circuits-dropsets-equipment';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -49,6 +49,10 @@ const ASSETS_TO_CACHE = [
   '/js/timer.js',
   '/js/helpers.js',
   '/js/restPolicy.js',
+  '/js/trainingTechniques.js',
+  '/js/dropSetUI.js',
+  '/js/circuitUI.js',
+  '/js/equipmentUI.js',
   '/mycoatch/userPreferences.js',
   '/mycoatch/index.js',
   '/mycoatch/state.js',
