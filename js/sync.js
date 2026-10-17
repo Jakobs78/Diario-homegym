@@ -12,6 +12,7 @@ import { getFromLocalStorageForUser, saveToLocalStorage, hasPendingSync, process
     getCloudRevision, setCloudRevision, recordSyncConflict } from './storage.js';
 import { renderWorkoutList } from './ui.js';
 import { state as appState } from './state.js';
+import { sameJournal, cloudRecoveryDecision } from './cloudSafety.js';
 
 /**
  * Utility interna per estrarre l'email da un oggetto utente o da una stringa.
@@ -55,9 +56,27 @@ export async function pullDataFromSupabase(userOrEmail) {
         const record=await pullWorkoutRecord(userOrEmail);
         if(String(appState.currentUser?.id)!==String(userOrEmail?.id) ||
             JSON.stringify(appState.workoutData)!==snapshot)return null;
-        // Only an account with no pending offline changes may accept the
-        // latest remote row as its optimistic concurrency baseline.
-        if(record?.revision && !hasPendingSync())setCloudRevision(userOrEmail,record.revision);
+        const local = getFromLocalStorageForUser(userOrEmail);
+        // A form may have edited in-memory values that have not yet reached
+        // IndexedDB (debounced input). Do not hydrate over those edits.
+        if (!sameJournal(appState.workoutData, local)) return null;
+        const decision = cloudRecoveryDecision(local, record?.payload, {
+            pending: hasPendingSync()
+        });
+        if (decision === 'conflict' || decision === 'missing_cloud') {
+            // A missing/corrupted queue must NOT allow a timestamp comparison
+            // to silently choose a winner or certify cloud synchronization.
+            recordSyncConflict(userOrEmail, {
+                local, remote: record?.payload ?? null,
+                remoteRevision: record?.revision ?? null,
+                detectedAt: new Date().toISOString()
+            });
+            return null;
+        }
+        if (record?.revision && (decision === 'identical' ||
+            decision === 'restore_cloud')) {
+            setCloudRevision(userOrEmail, record.revision);
+        }
         return record?.payload || null;
     }catch(err){
         console.error('❌ Errore lettura cloud:',err.message);
@@ -65,7 +84,7 @@ export async function pullDataFromSupabase(userOrEmail) {
     }
 }
 
-const samePayload=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+const samePayload=sameJournal;
 const conflict=(user,local,remote)=>{
     recordSyncConflict(user,{
         local,remote:remote?.payload||null,remoteRevision:remote?.revision||null,
