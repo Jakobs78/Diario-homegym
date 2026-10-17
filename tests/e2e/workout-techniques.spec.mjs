@@ -187,6 +187,7 @@ test('bilanciere leggero disponibile a richiesta, manubri pesanti senza calcolat
   state.workoutData.athlete ||= {};
   state.workoutData.athlete.ownedBarbells=[{weight:20,diameter:'50'}];
   state.workoutData.athlete.defaultBarbell={weight:20,diameter:'50'};
+  state.workoutData.athlete.plateInventories={'50':{'5':1}};
   renderWorkoutList();
  });
  const card=page.locator('.ex-card[data-ex="0"]');
@@ -198,7 +199,6 @@ test('bilanciere leggero disponibile a richiesta, manubri pesanti senza calcolat
  await card.locator('.set-kg[data-set="0"]').fill('30');
  await expect(card.locator('.plates-disclosure')).not.toHaveAttribute('open','');
  await card.locator('.plates-disclosure summary').click();
- await page.evaluate(async()=>{const {state}=await import('/js/state.js');state.workoutData.athlete ||= {};state.workoutData.athlete.plateInventories={'50':{'5':1}};});
  await expect(card.locator('.bar-select')).toHaveValue('20|50');
  await expect(card.locator('.plates-badge')).toContainText('5 kg/lato');
  await expect(page.locator('.ex-card[data-ex="1"] .plates-disclosure')).toHaveCount(0);
