@@ -1,3 +1,4 @@
+import {historyWindow} from './historyWindow.js';
 /* global Chart */
 /**
  * Module: analytics.js
@@ -865,7 +866,9 @@ export function refreshCurrentAnalyticsView(range = currentRange) {
     if (range) currentRange = range;
 
     const activeSubtab = document.querySelector('.sub-tab-content.active')?.id || 'subtab-macro';
-    const data = state.workoutData;
+    const fullData = state.workoutData;
+    const data = !fullData || state.showArchivedHistory ? fullData :
+        {...fullData, history:historyWindow(fullData).operational};
     if (!data) return;
 
     if (activeSubtab === 'subtab-macro') {

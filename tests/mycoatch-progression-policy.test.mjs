@@ -37,6 +37,7 @@ function makeHistory(weeks) {
             days: days.map((exercises, dayIndex) => ({
                 dayNumber: dayIndex + 1,
                 dayName: 'Upper A',
+                sessionCompletedAt: new Date(Date.now()-(weeks.length-1-index)*7*86400000).toISOString(),
                 exercises
             }))
         })) }]
@@ -283,3 +284,4 @@ test('due sedute della stessa settimana a kg diversi non simulano una progressio
     assert.equal(decision.plannedKg, 80);
     assert.ok(decision.caveats.includes('tecnica_speciale_o_carichi_misti'));
 });
+

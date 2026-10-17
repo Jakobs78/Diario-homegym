@@ -10,6 +10,7 @@ export const state = {
     activeWeek: parseInt(localStorage.getItem('ui_active_week')) || 1,
     activeDay: parseInt(localStorage.getItem('ui_active_day')) || 1,
 
+    showArchivedHistory: false,
     activeView: 'workout',
     workoutData: {
         athlete: { email: null },
@@ -39,6 +40,7 @@ export function resetState() {
     state.activeMesocycleIndex = 0;
     state.activeWeek = 1;
     state.activeView = 'workout';
+    state.showArchivedHistory = false;
     state.workoutData = {
         athlete: { email: null },
         history: {

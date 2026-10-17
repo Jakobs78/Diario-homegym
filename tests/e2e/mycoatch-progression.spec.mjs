@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 
 const ORIGIN = 'http://127.0.0.1:4173';
 const offlineConfig = `
+import {journalStorage} from './journalStore.js';
+window.testJournal=journalStorage;
 export const CONFIG = { STORAGE_KEY: 'workoutApp_data', APP_VERSION: 'e2e-progression' };
 export const supabase = {
   auth: {
@@ -24,6 +26,7 @@ const fixture = {
       weekNumber,
       days: [{
         dayNumber: 1, dayName: 'Upper A',
+        sessionCompletedAt: new Date(Date.now()-(2-weekNumber)*7*86400000).toISOString(),
         exercises: [{
           name: 'Panca Piana con Bilanciere', set: '2 set',
           reps: '6-8', targetRpe: '@8', rpe: '@8',
@@ -64,7 +67,7 @@ test('UI browser reale: propone prima +1 rep, poi +kg, senza dati inventati né 
     const { MyCoatch } = await import('/mycoatch/index.js');
     const { formatCoachReview } = await import('/mycoatch/mesocycleComparison.js');
     const baseline = JSON.stringify(state.workoutData);
-    const localBaseline = localStorage.getItem('workoutApp_data');
+    const localBaseline = window.testJournal.getItem('workoutApp_data');
     const config = {
       userAge: 36, daysPerWeek: 4, maxSessionMinutes: 75,
       durationWeeks: 4, focus: 'hybrid'
@@ -95,7 +98,7 @@ test('UI browser reale: propone prima +1 rep, poi +kg, senza dati inventati né 
 
     return {
       reps, loads, noRpe, baseline,
-      afterLoad, localUnchanged: localStorage.getItem('workoutApp_data') === localBaseline
+      afterLoad, localUnchanged: window.testJournal.getItem('workoutApp_data') === localBaseline
     };
   });
 
@@ -124,3 +127,4 @@ test('UI browser reale: propone prima +1 rep, poi +kg, senza dati inventati né 
   assert.deepEqual(external, []);
   assert.deepEqual(errors, []);
 });
+

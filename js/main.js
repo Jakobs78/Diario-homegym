@@ -1,3 +1,4 @@
+import { initializeJournalStorage, flushJournalStorage } from './journalStore.js';
 /**
  * Module: main.js
  * Summary: Coordina l'avvio dell'applicazione, la registrazione del Service Worker per la gestione offline, l'inizializzazione del tema, il banner di sviluppo, i listener di autenticazione di Supabase, la sincronizzazione iniziale dei dati cloud con fallback su localStorage, e l'associazione dei controlli globali per la navigazione tra mesocicli, il manuale d'uso e la gestione degli eventi dell'interfaccia.
@@ -43,6 +44,7 @@ window.switchAnalyticsTab = switchAnalyticsTab;
 // 2. GESTIONE AUTENTICAZIONE & STATO
 // ==========================================
 supabase.auth.onAuthStateChange(async (event, session) => {
+    try {await initializeJournalStorage();}catch(error){console.error(error);return;}
     if (session?.user) {
         const owner=getStoredLocalOwner();
         state.currentUser = session.user;
@@ -54,7 +56,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 
         try {
             const remoteData = await pullDataFromSupabase(session.user);
-            if (remoteData && !hasPendingSync()) {
+            if (remoteData && String(state.currentUser?.id)===String(session.user.id) && !hasPendingSync()) {
                 const localStamp=Date.parse(state.workoutData?.updatedAt || '') || 0;
                 const remoteStamp=Date.parse(remoteData.updatedAt || '') || 0;
                 const hasLocalHistory=Object.values(state.workoutData?.history?.years || {})
@@ -62,6 +64,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
                 if(remoteStamp>localStamp || !hasLocalHistory){
                     state.workoutData=remoteData;
                     saveToLocalStorage(remoteData,{preserveUpdatedAt:true});
+                    await flushJournalStorage();
                     renderWorkoutList();
                 }
             }
@@ -80,6 +83,8 @@ async function initApp() {
     console.log(`Avvio Advanced Workout Tracker v${CONFIG.APP_VERSION}`);
     applyUserToUI(null);
 
+    try {await initializeJournalStorage();}
+    catch(error){alert('Archivio non disponibile. I dati precedenti restano conservati. '+error.message);return;}
     initTheme();
     initDevBanner();
     initBackgroundSync(state);
@@ -112,9 +117,10 @@ async function initApp() {
                     const localTime = new Date(localData.updatedAt || 0).getTime();
                     const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
 
-                    if (remoteTime > localTime && !hasPendingSync()) {
+                    if (remoteTime > localTime && String(state.currentUser?.id)===String(user.id) && !hasPendingSync()) {
                         state.workoutData = remoteData;
-                        saveToLocalStorage(remoteData,{preserveUpdatedAt:true}); 
+                        saveToLocalStorage(remoteData,{preserveUpdatedAt:true});
+                    await flushJournalStorage(); 
                     }
                 } else {
                     console.log("⚠️ Cloud vuoto o non raggiungibile: mantengo i dati locali in sicurezza.");

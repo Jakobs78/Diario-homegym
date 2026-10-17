@@ -1,3 +1,4 @@
+import { journalStorage, flushJournalStorage } from './journalStore.js';
 /**
  * Module: sync.js
  * Summary: Gestisce la sincronizzazione dei dati tra il client e Supabase, inclusa la pull e push di informazioni sull'allenamento[cite: 6].
@@ -10,6 +11,7 @@ import { supabase } from './config.js';
 import { getFromLocalStorageForUser, saveToLocalStorage, hasPendingSync, processSyncQueue, updateSyncStatusUI,
     getCloudRevision, setCloudRevision, recordSyncConflict } from './storage.js';
 import { renderWorkoutList } from './ui.js';
+import { state as appState } from './state.js';
 
 /**
  * Utility interna per estrarre l'email da un oggetto utente o da una stringa.
@@ -49,7 +51,10 @@ export async function pullWorkoutRecord(userOrEmail) {
 
 export async function pullDataFromSupabase(userOrEmail) {
     try {
+        const snapshot=JSON.stringify(appState.workoutData);
         const record=await pullWorkoutRecord(userOrEmail);
+        if(String(appState.currentUser?.id)!==String(userOrEmail?.id) ||
+            JSON.stringify(appState.workoutData)!==snapshot)return null;
         // Only an account with no pending offline changes may accept the
         // latest remote row as its optimistic concurrency baseline.
         if(record?.revision && !hasPendingSync())setCloudRevision(userOrEmail,record.revision);
@@ -92,9 +97,8 @@ export async function pushDataToSupabase(userOrEmail,payload,actionTimestamp=nul
 
         const recordData={
             email,payload,
-            updated_at:actionTimestamp
-                ?new Date(actionTimestamp).toISOString()
-                :new Date().toISOString()
+            updated_at:new Date(Math.max(Date.now(),
+                (Date.parse(remote?.revision||'')||0)+1)).toISOString()
         };
         let result;
         if(remote){
@@ -134,7 +138,7 @@ export async function resolveSyncConflict(userOrEmail,choice,payload=null) {
     const remote=await pullWorkoutRecord(userOrEmail);
     const expected=getCloudRevision(userOrEmail);
     // A newer third-party edit must be reviewed as a NEW conflict.
-    const cached=localStorage.getItem('workoutApp_data_conflict_'+
+    const cached=journalStorage.getItem('workoutApp_data_conflict_'+
         String(userOrEmail?.id||email));
     let observed=null;
     try{observed=cached?JSON.parse(cached):null;}catch{}
@@ -147,7 +151,8 @@ export async function resolveSyncConflict(userOrEmail,choice,payload=null) {
         return {ok:true,payload:remote.payload,revision:remote.revision};
     }
     const currentPayload=payload||getFromLocalStorageForUser(userOrEmail);
-    const writtenAt=new Date().toISOString();
+    const writtenAt=new Date(Math.max(Date.now(),
+        (Date.parse(remote?.revision||'')||0)+1)).toISOString();
     let result;
     if(remote){
         result=await supabase.from('workouts')
@@ -250,14 +255,14 @@ export function initBackgroundSync(state) {
         try {
             // ✅ Usa getUser() direttamente anche qui
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            if (!user || String(state.currentUser?.id)!==String(user.id)) return;
 
             if (hasPendingSync()) {
                 await processSyncQueue();
             }
 
             const remoteData = await pullDataFromSupabase(user);
-                if (remoteData && !hasPendingSync()) {
+                if (remoteData && String(state.currentUser?.id)===String(user.id) && !hasPendingSync()) {
                     const localData = getFromLocalStorageForUser(user);
                     const localTime = new Date(localData.updatedAt || 0).getTime();
                     const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
@@ -265,6 +270,7 @@ export function initBackgroundSync(state) {
                     if (remoteTime > localTime) {
                         state.workoutData = remoteData;
                         saveToLocalStorage(remoteData,{preserveUpdatedAt:true});
+                        await flushJournalStorage();
                         renderWorkoutList();
                         updateSyncStatusUI();
                         showSyncToast("Dati aggiornati dal cloud ✨");

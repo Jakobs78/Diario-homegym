@@ -42,7 +42,7 @@ function inspectExercise(exercise, context) {
             exercise.isDropset || exercise.groupType === 'dropset' ||
             repsText.includes('+'));
         return [{
-            kg, reps, rpe, special,
+            kg, reps, rpe, special,completedAt:set.completedAt,
             e1rm: rpe !== null && !special ? estimateE1rm(kg, reps, rpe) : null
         }];
     });
@@ -61,9 +61,19 @@ function inspectExercise(exercise, context) {
     const meta = catalog.get(key);
     const min = repsTarget?.min;
     const max = repsTarget?.max;
+    const calendarIds=context.calendarWeeks ? valid.map(set=>{
+        const date=new Date(set.completedAt);
+        if(!Number.isFinite(date.getTime()))return null;
+        const monday=new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate()));
+        monday.setUTCDate(monday.getUTCDate()-((monday.getUTCDay()+6)%7));
+        return monday.toISOString().slice(0,10);
+    }) : [];
+    const calendarComparable=!context.calendarWeeks ||
+        calendarIds.every(id=>id!==null && id===calendarIds[0]);
 
     return {
         ...context,
+        weekId:context.calendarWeeks && calendarComparable ? calendarIds[0] : context.weekId,
         key,
         name: canonicalExerciseName(exercise.name),
         category: meta?.category || 'Non classificato',
@@ -99,7 +109,7 @@ function inspectExercise(exercise, context) {
             validRpe.length === valid.length &&
             valid.every(set => !set.special && set.reps >= min &&
                 set.reps <= (max ?? min) + 2 && set.rpe <= targetRpe - 1),
-        allRpeWithinTarget: targetRpe !== null && validRpe.length === valid.length &&
+        allRpeWithinTarget: calendarComparable && targetRpe !== null && validRpe.length === valid.length &&
             valid.every(set => set.rpe <= targetRpe),
         allRpeMeasured: valid.length === plannedSets &&
             validRpe.length === valid.length,
@@ -135,7 +145,7 @@ function determineExerciseStatus(exposures) {
  * della webapp, senza accedere a dati di altri utenti.
  * Le serie non confermate non contano mai come allenamenti completati.
  */
-export function analyzeTrainingHistory(userHistory) {
+export function analyzeTrainingHistory(userHistory,{calendarWeeks=false}={}) {
     const history = userHistory?.history || userHistory || {};
     const years = history.years || {};
     const byExercise = {};
@@ -195,7 +205,7 @@ export function analyzeTrainingHistory(userHistory) {
                                 day: Number(day.dayNumber) || 1,
                                 isDeloadWeek: typeof week.isDeloadWeek === 'boolean'
                                     ? week.isDeloadWeek : undefined,
-                                weekId, sessionId: session.sessionId
+                                weekId, sessionId: session.sessionId,calendarWeeks
                             });
                             if (!parsed) continue;
                             anyCompleted = true;
