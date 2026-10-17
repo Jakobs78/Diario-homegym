@@ -109,7 +109,7 @@ export function summarizeMesocycleClosure(mesocycle) {
     const invalidConfirmedSets = sessions.reduce((n, day) => n + day.invalidConfirmedSets, 0);
     const measuredRpeSets = sessions.reduce((n, day) => n + day.measuredRpe, 0);
     const rpeSum = sessions.reduce((n, day) => n + day.rpeSum, 0);
-    return {
+    const review = {
         version: 1, name: mesocycle?.name || 'Mesociclo',
         weeks: weeks.length, plannedSessions, completedSessions,
         partialSessions, skippedSessions, plannedSets, completedSets,
@@ -129,6 +129,13 @@ export function summarizeMesocycleClosure(mesocycle) {
         })),
         exerciseChanges: observedChanges(sessions)
     };
+    // In-memory optimistic lease: a change to ANY workout/log field between
+    // preview and confirmation invalidates the review, even if totals agree.
+    // Non-enumerable: never exported in ChatGPT summaries or closure metadata.
+    Object.defineProperty(review, '_sourceSnapshot', {
+        value: JSON.stringify(mesocycle?.weeks || []), enumerable: false
+    });
+    return review;
 }
 
 /** Minimal metadata in the existing mesocycle JSON; no duplicate workout data. */
@@ -140,7 +147,8 @@ export function closeMesocycleInMemory(mesocycle, report, {at = new Date().toISO
         throw Error('Il mesociclo risulta già concluso.');
     // Re-evaluate immediately before writing: previews are never authority.
     const current = summarizeMesocycleClosure(mesocycle);
-    if (JSON.stringify(current) !== JSON.stringify(report))
+    if (report._sourceSnapshot !== JSON.stringify(mesocycle.weeks) ||
+        JSON.stringify(current) !== JSON.stringify(report))
         throw Error('Le sedute sono cambiate: rivedi il riepilogo prima di concludere.');
     if (current.status !== 'complete' && acknowledgeIncomplete !== true)
         throw Error('Il mesociclo è incompleto: conferma esplicitamente la chiusura anticipata.');
