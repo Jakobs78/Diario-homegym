@@ -9,10 +9,11 @@ import { journalStorage, flushJournalStorage } from './journalStore.js';
 // ==========================================
 import { supabase } from './config.js';
 import { getFromLocalStorageForUser, saveToLocalStorage, hasPendingSync, processSyncQueue, updateSyncStatusUI,
-    getCloudRevision, setCloudRevision, recordSyncConflict } from './storage.js';
+    getCloudRevision, setCloudRevision, getCloudAcceptedHash, setCloudAcceptedHash,
+    recordSyncConflict } from './storage.js';
 import { renderWorkoutList } from './ui.js';
 import { state as appState } from './state.js';
-import { sameJournal, cloudRecoveryDecision } from './cloudSafety.js';
+import { sameJournal, cloudRecoveryDecision, journalFingerprint, safeRemoteRefresh } from './cloudSafety.js';
 
 /**
  * Utility interna per estrarre l'email da un oggetto utente o da una stringa.
@@ -63,7 +64,16 @@ export async function pullDataFromSupabase(userOrEmail) {
         const decision = cloudRecoveryDecision(local, record?.payload, {
             pending: hasPendingSync()
         });
-        if (decision === 'conflict' || decision === 'missing_cloud') {
+        const acceptedHash = getCloudAcceptedHash(userOrEmail);
+        const oldRevision = getCloudRevision(userOrEmail);
+        const safeRefresh = decision === 'conflict' && acceptedHash &&
+            safeRemoteRefresh({
+                oldRevision, remoteRevision: record?.revision,
+                localFingerprint: await journalFingerprint(local),
+                acknowledgedFingerprint: acceptedHash
+            });
+        if ((decision === 'conflict' && !safeRefresh) ||
+            decision === 'missing_cloud') {
             // A missing/corrupted queue must NOT allow a timestamp comparison
             // to silently choose a winner or certify cloud synchronization.
             recordSyncConflict(userOrEmail, {
@@ -74,7 +84,12 @@ export async function pullDataFromSupabase(userOrEmail) {
             return null;
         }
         if (record?.revision && (decision === 'identical' ||
-            decision === 'restore_cloud')) {
+            decision === 'restore_cloud' || safeRefresh)) {
+            // Persist the fingerprint of the accepted cloud content. A later
+            // local-only edit (or lost queue) will no longer be mistaken for
+            // an unchanged device with a newer remote revision.
+            setCloudAcceptedHash(userOrEmail,
+                await journalFingerprint(record.payload));
             setCloudRevision(userOrEmail, record.revision);
         }
         return record?.payload || null;
@@ -110,6 +125,7 @@ export async function pushDataToSupabase(userOrEmail,payload,actionTimestamp=nul
         if(expected===null && remote){
             if(!samePayload(remote.payload,payload))
                 return conflict(userOrEmail,payload,remote);
+            setCloudAcceptedHash(userOrEmail,await journalFingerprint(payload));
             setCloudRevision(userOrEmail,remote.revision);
             return {ok:true};
         }
@@ -139,6 +155,7 @@ export async function pushDataToSupabase(userOrEmail,payload,actionTimestamp=nul
         }
         if(!result.data?.updated_at)
             return conflict(userOrEmail,payload,await pullWorkoutRecord(userOrEmail));
+        setCloudAcceptedHash(userOrEmail,await journalFingerprint(payload));
         setCloudRevision(userOrEmail,result.data.updated_at);
         return {ok:true};
     }catch(err){
@@ -166,6 +183,7 @@ export async function resolveSyncConflict(userOrEmail,choice,payload=null) {
     }
     if(choice==='cloud'){
         if(!remote?.payload)return {ok:false,error:new Error('Versione cloud non disponibile.')};
+        setCloudAcceptedHash(userOrEmail,await journalFingerprint(remote.payload));
         setCloudRevision(userOrEmail,remote.revision);
         return {ok:true,payload:remote.payload,revision:remote.revision};
     }
@@ -185,6 +203,7 @@ export async function resolveSyncConflict(userOrEmail,choice,payload=null) {
     }
     if(result.error || !result.data?.updated_at)
         return conflict(userOrEmail,currentPayload,await pullWorkoutRecord(userOrEmail));
+    setCloudAcceptedHash(userOrEmail,await journalFingerprint(currentPayload));
     setCloudRevision(userOrEmail,result.data.updated_at);
     return {ok:true,payload:currentPayload,revision:result.data.updated_at};
 }
