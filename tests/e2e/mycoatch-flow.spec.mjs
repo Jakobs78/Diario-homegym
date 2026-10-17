@@ -2626,3 +2626,20 @@ test('import next mesocycle leaves closed predecessor locked and new active meso
   await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Blocca');
   await expect(page.locator('#review-close-meso-btn')).toHaveAttribute('aria-label','Concludi mesociclo');
 });
+
+test('offline: uscire dal campo salva subito l’ultima bozza kg anche prima del debounce',async({page})=>{
+  const monitor=await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+  const kg=page.locator('.set-kg[data-set="0"]').first();
+  await kg.fill('81.25');
+  await kg.blur();
+  const saved=await page.evaluate(async()=>{
+    const s=await import('/js/journalStore.js');
+    await s.flushJournalStorage();
+    const data=JSON.parse(s.journalStorage.getItem('workoutApp_data'));
+    return data.history.years['2026'].mesocycles[0].weeks[0].days[0]
+      .exercises[0].loggedSets[0].weight;
+  });
+  expect(Number(saved)).toBe(81.25);
+  expect(monitor.remoteRequests).toEqual([]);
+});
