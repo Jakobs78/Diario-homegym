@@ -19,6 +19,7 @@ import { parseCoachPDF } from './pdfParser.js';
 import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
 import { createLiveCoachPanel, updateLiveCoachPanel, refreshLiveCoachClock, dismissLiveCoachToast } from './liveCoachUI.js';
 import { toggleCurrentMesocycleLock } from './mesocycle.js';
+import { createMesocycleClosurePanel } from './mesocycleClosureUI.js';
 import { createWeeklyReviewPanel } from './weeklyReviewUI.js';
 import { createFutureLoadReviewPanel } from './futureLoadReviewUI.js';
 
@@ -175,6 +176,13 @@ document.addEventListener('click', (e) => {
     } else if (clickedBtn.id === 'toggle-lock-meso-btn') {
         e.preventDefault();
         toggleCurrentMesocycleLock();
+    } else if (clickedBtn.id === 'review-close-meso-btn') {
+        e.preventDefault();
+        const panel = document.getElementById('mesocycle-closure-panel');
+        if (panel) {
+            panel.open = true;
+            panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+        }
     }
 });
 
@@ -187,6 +195,7 @@ export function renderWorkoutList() {
     if (!DOM.workoutListContainer) return;
     const coachWasOpen = Boolean(document.getElementById('mycoatch-live-disclosure')?.open);
     const reviewWasOpen = Boolean(document.getElementById('mycoatch-weekly-review')?.open);
+    const closureWasOpen = Boolean(document.getElementById('mesocycle-closure-panel')?.open);
     DOM.workoutListContainer.innerHTML = '';
 
     if (!state.activeView) state.activeView = 'workout';
@@ -231,7 +240,9 @@ export function renderWorkoutList() {
     if (isPastMeso) {
         const archiveBadge = document.createElement('div');
         archiveBadge.className = 'meso-locked-badge mb-md flex-center gap-md';
-        archiveBadge.innerHTML = '🔒 <span><strong>Mesociclo Bloccato:</strong> I dati sono congelati in sola lettura. Clicca sul tasto Sblocca per modificarli.</span>';
+        archiveBadge.textContent = meso.coachClosure?.status === 'closed'
+            ? '🔒 Mesociclo concluso: archivio in sola lettura. Consulta il report o sblocca con conferma per riaprire.'
+            : '🔒 Mesociclo bloccato: dati in sola lettura. Sblocca per modificarli.';
         DOM.workoutListContainer.appendChild(archiveBadge);
     }
     
@@ -331,6 +342,14 @@ export function renderWorkoutList() {
     lockButton.setAttribute('aria-label', isLocked ? 'Sblocca mesociclo' : 'Blocca mesociclo');
     lockButton.classList.add('meso-direct-lock');
     quickRow.appendChild(lockButton);
+    const closureButton = document.createElement('button');
+    closureButton.type = 'button';
+    closureButton.id = 'review-close-meso-btn';
+    closureButton.className = 'btn btn-secondary btn-sm';
+    closureButton.textContent = meso.coachClosure?.status === 'closed'
+        ? '📄 Report fine mesociclo' : '🏁 Concludi mesociclo';
+    closureButton.title = 'Controlla il riepilogo prima di confermare la chiusura';
+    quickRow.appendChild(closureButton);
     unifiedHeaderBox.appendChild(quickRow);
 
     // I giorni restano accessibili tramite chip scorrevoli.
@@ -353,6 +372,9 @@ export function renderWorkoutList() {
     });
     unifiedHeaderBox.appendChild(dayTabsContainer);
     DOM.workoutListContainer.appendChild(unifiedHeaderBox);
+    const closurePanel = createMesocycleClosurePanel(meso);
+    closurePanel.open = closureWasOpen;
+    DOM.workoutListContainer.appendChild(closurePanel);
 
     // Il pannello mantiene ogni dato e comando ma e' ripiegato di default.
     const coachDisclosure = document.createElement('details');
