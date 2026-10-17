@@ -279,8 +279,10 @@ export function updateSyncStatusUI() {
         ? 'Offline: dati salvati sul dispositivo in attesa di rete.'
         : pending
             ? 'Modifiche non sincronizzate: non cambiare dispositivo prima della sincronizzazione.'
-            : 'Sincronizzato: tutti i dati sono allineati con il cloud.';
-    const unverified=!state.currentUser || !getCloudRevision(state.currentUser);
+            : unverified
+                ? 'Cloud non ancora verificato: controlla la connessione e non cancellare i dati di questo dispositivo.'
+                : 'Ultima copia locale verificata con Supabase; ulteriori modifiche restano in attesa finché non sincronizzate.';
+    const unverified=!state.currentUser?.id || !getCloudRevision(state.currentUser);
     syncBadge.textContent = storageFailure ? '⚠ Salvataggio'
         : conflict ? '⚠ Conflitto' : offline ? '● Offline'
         : pending ? '⚠ In coda' : unverified ? '○ Cloud?' : '✓ Cloud';
