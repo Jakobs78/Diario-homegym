@@ -7,6 +7,7 @@
 // ==========================================
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
+import { historyWindow } from './historyWindow.js';
 import { stopTimer, adjustTimer, handleTick, handleComplete } from './timer.js';
 import { testTimerAudio } from './audio.js';
 import { createSingleExerciseCard, updatePlatesBadgeUI } from './exerciseCard.js';
@@ -102,7 +103,8 @@ export function renderUploadCard(onFileProcessed) {
 // FUNZIONE DI SUPPORTO: RECUPERO SICURO MESOCICLO ATTIVO
 // ==========================================
 function getActiveYearAndMeso() {
-    const yearsObj = state.workoutData?.history?.years || {};
+    const yearsObj = state.showArchivedHistory ? state.workoutData?.history?.years || {}
+        : historyWindow(state.workoutData).active;
     const requested=String(state.currentYear || new Date().getFullYear());
     const currentYear=yearsObj[requested] ? requested
         : yearsObj[String(new Date().getFullYear())] ? String(new Date().getFullYear())
@@ -193,6 +195,20 @@ export function renderWorkoutList() {
     
     DOM.workoutListContainer.classList.remove('d-none');
 
+    const historyScope=historyWindow(state.workoutData);
+    if(Object.keys(historyScope.archived).length){
+        const archiveControl=document.createElement('button');
+        archiveControl.type='button';archiveControl.id='history-archive-toggle';
+        archiveControl.className='btn btn-secondary btn-sm';
+        archiveControl.textContent=state.showArchivedHistory
+            ? `Torna allo storico ${historyScope.start}–${historyScope.end}` : 'Consulta anche gli anni precedenti';
+        archiveControl.addEventListener('click',()=>{
+            state.showArchivedHistory=!state.showArchivedHistory;
+            state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=1;
+            renderWorkoutList();
+        });
+        DOM.workoutListContainer.append(archiveControl);
+    }
     const { yearData, meso, mesoIndex } = getActiveYearAndMeso();
 
     if (!yearData || !yearData.mesocycles || yearData.mesocycles.length === 0) {
@@ -226,7 +242,7 @@ export function renderWorkoutList() {
     quickRow.className = 'workout-quick-controls';
 
     const isLocked = Boolean(meso.locked);
-    const years=Object.keys(state.workoutData?.history?.years||{})
+    const years=Object.keys(state.showArchivedHistory ? state.workoutData?.history?.years||{} : historyScope.active)
         .filter(y=>/^\d{4}$/.test(y) && state.workoutData.history.years[y]?.mesocycles?.length)
         .sort((a,b)=>Number(b)-Number(a));
     if(years.length){
@@ -444,4 +460,5 @@ export function renderWorkoutList() {
     // possono riferirsi solo a set futuri realmente modificabili.
     updateLiveCoachPanel(currentDay, { readOnly: isPastMeso });
 }
+
 

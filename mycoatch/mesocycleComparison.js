@@ -118,6 +118,13 @@ export function compareMesocyclePlans(previous, generated, analysis) {
 export function formatCoachReview(comparison, report) {
     const lines = ['MYCOATCH — ANTEPRIMA DELLA PROPOSTA'];
     lines.push(`Storico analizzato: ${report.inspectedMesocycles} mesocicli, ${report.sessionsAnalyzed} sedute con serie confermate.`);
+    if(report.recency){
+        const r=report.recency;
+        lines.push(`Storico operativo: ${r.startYear}–${r.endYear}. Per i carichi attuali: solo serie datate degli ultimi ${r.windowDays} giorni.`);
+        if(r.reentry)lines.push('RIENTRO DOPO PAUSA: nuova calibrazione, senza riutilizzare automaticamente i vecchi carichi.');
+        if(r.undatedSets || r.excludedOldSets || r.futureSets)
+            lines.push(`Dati esclusi dalle progressioni: ${r.undatedSets} serie senza data, ${r.excludedOldSets} troppo vecchie, ${r.futureSets} con data futura. Restano nel diario e nei backup.`);
+    }
     if (comparison.coachGuardrails) {
         const guard = comparison.coachGuardrails;
         lines.push('AUTONOMIA DEL COACH: priorità all’evidenza osservata, non alle richieste di maggiore intensità.');
@@ -299,3 +306,4 @@ export function formatCoachReview(comparison, report) {
     lines.push('Confermi la proposta e vuoi scaricare il CSV?');
     return lines.join('\n');
 }
+

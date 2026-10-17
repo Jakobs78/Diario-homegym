@@ -3,6 +3,21 @@ import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
 const ORIGIN = 'http://127.0.0.1:4173';
+
+test('backup integrale disponibile prima della cancellazione senza dipendere dal CSV', async ({page}) => {
+  await openIsolatedApp(page);
+  await page.evaluate(async () => {
+    const {clearAllData} = await import('/js/storage.js');
+    clearAllData();
+  });
+  const downloading=page.waitForEvent('download');
+  await page.locator('#danger-backup-btn').click();
+  const download=await downloading;
+  const backup=JSON.parse(await readFile(await download.path(),'utf8'));
+  expect(backup.format).toBe('homegym-diary-full-backup');
+  expect(Object.keys(backup.data.history.years)).toContain('2025');
+  await page.locator('#danger-cancel-btn').click();
+});
 const HEADER = 'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset';
 
 // Non usa dati del proprietario e non effettua alcuna richiesta a Supabase.
@@ -14,6 +29,7 @@ const week = (weekNumber, weight) => ({
   days: [{
     dayNumber: 1,
     dayName: 'Upper A',
+    sessionCompletedAt: new Date(Date.now()-(3-weekNumber)*7*86400000).toISOString(),
     exercises: [{
       block: 1, name: 'Panca Piana con Bilanciere', set: '1 set',
       reps: '6-8', kgMin: String(weight), kgMax: String(weight),
@@ -34,6 +50,8 @@ const fixture = {
 };
 
 const offlineConfig = `
+import {journalStorage} from './journalStore.js';
+window.testJournal=journalStorage;
 export const CONFIG = { STORAGE_KEY: 'workoutApp_data', APP_VERSION: 'e2e-isolated' };
 export const supabase = {
   auth: {
@@ -80,7 +98,7 @@ async function openIsolatedApp(page) {
     await expect(page.locator('#meso-display')).toHaveText('1', { timeout: 3000 });
   } catch (error) {
     const diagnostics = await page.evaluate(async () => {
-      const raw = localStorage.getItem('workoutApp_data');
+      const raw = window.testJournal.getItem('workoutApp_data');
       let currentState;
       try {
         const module = await import('/js/state.js');
@@ -139,7 +157,7 @@ test('percorso reale: tempo scelto, storico multianno, anteprima, download, impo
     d.text.includes('2 mesocicli') && d.text.includes('Confermi la proposta')));
   assert.ok(dialogues.some(d => d.type === 'alert' && d.text.includes('successo')));
 
-  const storedAfter = await page.evaluate(() => JSON.parse(localStorage.getItem('workoutApp_data')));
+  const storedAfter = await page.evaluate(() => JSON.parse(window.testJournal.getItem('workoutApp_data')));
   assert.deepEqual(storedAfter, fixture, 'Il download non deve sovrascrivere lo storico');
 
   // Importazione effettuata con il vero parser della webapp e lo stesso CSV scaricato.
@@ -205,7 +223,7 @@ test('annullare l\'anteprima non scarica il CSV né modifica lo storico', async 
   await expect(page.locator('#mycoatch-form-feedback')).toContainText('nessun file CSV scaricato');
   assert.ok(dialogs.includes('confirm'));
   assert.equal(downloads, 0);
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('workoutApp_data')));
+  const stored = await page.evaluate(() => JSON.parse(window.testJournal.getItem('workoutApp_data')));
   assert.deepEqual(stored, fixture);
   const active = await page.evaluate(async () => {
     const { MyCoatch } = await import('/mycoatch/index.js');
@@ -425,7 +443,7 @@ test('MyCoatch check-in reale: sonno/energia limitano aumenti, dolore impone cau
     const {state}=await import('/js/state.js');
     const day=state.workoutData.history.years[new Date().getFullYear()]
       .mesocycles[0].weeks[0].days[0];
-    const disk=JSON.parse(localStorage.getItem('workoutApp_data'));
+    const disk=JSON.parse(window.testJournal.getItem('workoutApp_data'));
     return {memory:day.coachCheckin,disk:disk.history.years[new Date().getFullYear()]
       .mesocycles[0].weeks[0].days[0].coachCheckin};
   });
@@ -546,7 +564,7 @@ test('MyCoatch suggerisce la revisione della settimana seguente e applica solo d
   let saved=await page.evaluate(async()=>{
     const {state}=await import('/js/state.js');
     const m=state.workoutData.history.years[new Date().getFullYear()].mesocycles[0];
-    const disk=JSON.parse(localStorage.getItem('workoutApp_data'));
+    const disk=JSON.parse(window.testJournal.getItem('workoutApp_data'));
     const persisted=disk.history.years[new Date().getFullYear()].mesocycles[0];
     return {source:m.weeks[0].days[0].exercises[0].loggedSets,
       next:m.weeks[1].days[0].exercises[0],
@@ -723,7 +741,7 @@ test('prima scheda atleta principiante: questionario, calibrazione guidata, ante
     state.workoutData.history.years = {};
     // Resta isolato dalla rete: nessun cambio account, nessun refresh che
     // reinserisca il fixture mediante l'initScript dei test.
-    localStorage.setItem('workoutApp_data', JSON.stringify(state.workoutData));
+    window.testJournal.setItem('workoutApp_data', JSON.stringify(state.workoutData));
   });
   await startCoach(page, '60');
   await page.locator('#mycoatch-experience').selectOption('beginner');
@@ -750,7 +768,7 @@ test('prima scheda atleta principiante: questionario, calibrazione guidata, ante
     text.includes('PRIMA SETTIMANA DI CALIBRAZIONE') &&
     text.includes('priorità Petto')));
   const stored = await page.evaluate(() =>
-    JSON.parse(localStorage.getItem('workoutApp_data')));
+    JSON.parse(window.testJournal.getItem('workoutApp_data')));
   assert.deepEqual(stored.history.years, {});
   assert.deepEqual(monitor.remoteRequests, []);
   assert.deepEqual(monitor.pageErrors, []);
@@ -763,7 +781,7 @@ test('prima scheda intermedio senza storico: rispetta esclusioni e convalida car
     state.workoutData.history.years = {};
     // Resta isolato dalla rete: nessun cambio account, nessun refresh che
     // reinserisca il fixture mediante l'initScript dei test.
-    localStorage.setItem('workoutApp_data', JSON.stringify(state.workoutData));
+    window.testJournal.setItem('workoutApp_data', JSON.stringify(state.workoutData));
   });
   await startCoach(page, '75');
   await page.locator('#mycoatch-calibration').selectOption('regular');
@@ -918,7 +936,7 @@ test('data dei carichi autodichiarati: senza data non prescrive kg, con data rec
   await page.evaluate(async () => {
     const { state } = await import('/js/state.js');
     state.workoutData.history.years = {};
-    localStorage.setItem('workoutApp_data', JSON.stringify(state.workoutData));
+    window.testJournal.setItem('workoutApp_data', JSON.stringify(state.workoutData));
   });
   await startCoach(page, '75');
   await page.locator('#mycoatch-experience').selectOption('intermediate');
@@ -1058,13 +1076,13 @@ test('anteprima successiva: avvisa se prima settimana calibrata solo in parte e 
       weight: '40', reps: '8', rpe: '7', isLocked: true, completed: true
     });
     first.completedAt = new Date().toISOString();
-    localStorage.setItem('workoutApp_data', JSON.stringify(state.workoutData));
+    window.testJournal.setItem('workoutApp_data', JSON.stringify(state.workoutData));
     renderWorkoutList();
     return { success: true };
   });
   assert.equal(created.success, true, JSON.stringify(created));
 
-  const before = await page.evaluate(() => localStorage.getItem('workoutApp_data'));
+  const before = await page.evaluate(() => window.testJournal.getItem('workoutApp_data'));
   const previews = [];
   page.on('dialog', async dialog => {
     if (dialog.type() === 'confirm') {
@@ -1081,7 +1099,7 @@ test('anteprima successiva: avvisa se prima settimana calibrata solo in parte e 
   assert.ok(previews.some(p => p.includes('calibrazione NON completata') &&
     p.includes('Riferimenti mancanti: Squat')),
     'La proposta parziale deve dichiarare gli esercizi ancora mancanti');
-  assert.equal(await page.evaluate(() => localStorage.getItem('workoutApp_data')),
+  assert.equal(await page.evaluate(() => window.testJournal.getItem('workoutApp_data')),
     before, 'L’anteprima annullata non può riscrivere allenamenti esistenti');
 
   // Simula poi solo serie confermate davvero, come un utente che abbia
@@ -1098,16 +1116,16 @@ test('anteprima successiva: avvisa se prima settimana calibrata solo in parte e 
         }
       }
     }
-    localStorage.setItem('workoutApp_data', JSON.stringify(state.workoutData));
+    window.testJournal.setItem('workoutApp_data', JSON.stringify(state.workoutData));
     return meso.weeks[0].days.length;
   });
   assert.equal(completed, 4);
-  const allBefore = await page.evaluate(() => localStorage.getItem('workoutApp_data'));
+  const allBefore = await page.evaluate(() => window.testJournal.getItem('workoutApp_data'));
   await page.locator('#mycoatch-submit').click();
   assert.ok(previews.some(p => p.includes('Calibrazione della prima settimana registrata') &&
     p.includes('NON significa che le settimane restanti')),
     'Anche quando la calibrazione è pronta non deve dichiarare concluso il blocco');
-  assert.equal(await page.evaluate(() => localStorage.getItem('workoutApp_data')),
+  assert.equal(await page.evaluate(() => window.testJournal.getItem('workoutApp_data')),
     allBefore);
   assert.deepEqual(monitoring.remoteRequests, []);
   assert.deepEqual(monitoring.pageErrors, []);
@@ -1192,7 +1210,7 @@ test('CSV precompila davvero gli input, il check copia alle serie dopo senza inv
   assert.equal(second[2].rpe,'');
 
   // Persiste la prestazione reale, non le suggestioni delle altre righe.
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('workoutApp_data')));
+  const saved = await page.evaluate(() => JSON.parse(window.testJournal.getItem('workoutApp_data')));
   const logged = saved.history.years[String(new Date().getFullYear())].mesocycles.at(-1)
     .weeks[0].days[0].exercises[0].loggedSets;
   assert.equal(logged[0].isLocked,true);
@@ -1462,12 +1480,12 @@ test('MyCoatch visual preview: all weeks shown and diary changes only after expl
   await expect(page.locator('#mycoatch-preview-overlay')).not.toHaveClass(/hidden/);
   await expect(page.locator('.mycoatch-preview-week')).toHaveCount(4);
   await expect(page.locator('#mycoatch-preview-summary')).toContainText('scheda esistente rimane intatta');
-  const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('workoutApp_data')));
+  const before=await page.evaluate(()=>JSON.parse(window.testJournal.getItem('workoutApp_data')));
   assert.deepEqual(before,fixture);
   await page.locator('#mycoatch-preview-apply').click();
   await expect(page.locator('#mycoatch-preview-overlay')).toHaveClass(/hidden/);
   const updated=await page.evaluate(()=>{
-    const d=JSON.parse(localStorage.getItem('workoutApp_data'));
+    const d=JSON.parse(window.testJournal.getItem('workoutApp_data'));
     const mesos=d.history.years[new Date().getFullYear()].mesocycles;
     return {count:mesos.length,first:mesos[0].name,last:mesos.at(-1).name,days:mesos.at(-1).weeks[0].days.map(x=>x.dayName)};
   });
@@ -2032,12 +2050,12 @@ test('offline save queue coalesces newer full snapshots for the same athlete',as
     const {CONFIG}=await import('/js/config.js');
     const {saveAndSync,hasPendingSync}=await import('/js/storage.js');
     state.currentUser=null;
-    localStorage.removeItem(CONFIG.STORAGE_KEY+'_sync_queue');
+    window.testJournal.removeItem(CONFIG.STORAGE_KEY+'_sync_queue');
     for(let i=1;i<=4;i++){
       state.workoutData.athlete.email='iteration-'+i+'@invalid.example';
       await saveAndSync(state.workoutData);
     }
-    const queue=JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY+'_sync_queue'));
+    const queue=JSON.parse(window.testJournal.getItem(CONFIG.STORAGE_KEY+'_sync_queue'));
     return {count:queue.length,payload:queue[0].payload.athlete.email,
       pending:hasPendingSync()};
   });
@@ -2224,7 +2242,7 @@ test('MyCoatch previews, approves and undoes load increases only for untouched f
       const day=w.days[0];
       day.exercises=[structuredClone(template)];
       day.completed=false;day.sessionStart=null;day.accumulatedSeconds=0;
-      delete day.date;delete day.coachCheckin;
+      delete day.date;delete day.sessionCompletedAt;delete day.coachCheckin;
     }
     state.workoutData.athlete.loadingSteps={barbell:2.5};
     renderWorkoutList();
@@ -2279,4 +2297,66 @@ test('MyCoatch previews, approves and undoes load increases only for untouched f
   assert.ok(reverted.undoneAt);
   assert.deepEqual(monitor.remoteRequests,[]);
   assert.deepEqual(monitor.pageErrors,[]);
+});
+
+
+test('rimozione account conserva diario, coda e credenziali degli altri utenti',async({page})=>{
+ await openIsolatedApp(page);
+ const result=await page.evaluate(async()=>{
+  const {journalStorage:s,flushJournalStorage}=await import('/js/journalStore.js');
+  const {removeAccountLocalData}=await import('/js/storage.js');
+  s.setItem('workoutApp_data_owner','B');s.setItem('workoutApp_data','B diary');
+  s.setItem('workoutApp_data_user_A','A diary');s.setItem('workoutApp_data_user_B','B diary');
+  s.setItem('workoutApp_data_sync_queue',JSON.stringify([{id:'a',ownerId:'A'},{id:'b',ownerId:'B'}]));
+  localStorage.setItem('auth-sentinel','keep');await flushJournalStorage();
+  await removeAccountLocalData({id:'A'});
+  return {a:s.getItem('workoutApp_data_user_A'),b:s.getItem('workoutApp_data_user_B'),global:s.getItem('workoutApp_data'),queue:JSON.parse(s.getItem('workoutApp_data_sync_queue')),auth:localStorage.getItem('auth-sentinel')};
+ });
+ expect(result).toEqual({a:null,b:'B diary',global:'B diary',queue:[{id:'b',ownerId:'B'}],auth:'keep'});
+});
+
+test('archivio precedente ai quattro anni resta consultabile e nel backup',async({page})=>{
+ await openIsolatedApp(page);
+ await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');
+  state.workoutData.history.years['2020']=structuredClone(state.workoutData.history.years['2025']);
+  renderWorkoutList();
+ });
+ expect(await page.locator('#workout-year-select option').allTextContents()).not.toContain('2020');
+ await page.locator('#history-archive-toggle').click();
+ await page.locator('#workout-year-select').selectOption('2020');
+ await expect(page.locator('.ex-card').first()).toBeVisible();
+ await page.locator('#history-archive-toggle').click();
+ expect(await page.locator('#workout-year-select option').allTextContents()).not.toContain('2020');
+ expect(await page.evaluate(async()=>Boolean((await import('/js/state.js')).state.workoutData.history.years['2020']))).toBe(true);
+});
+
+test('risoluzione cloud in ritardo conserva modifiche locali anche con timestamp identico',async({page})=>{
+ await openIsolatedApp(page);
+ await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');const {supabase}=await import('/js/config.js');
+  const {recordSyncConflict,saveAndSync}=await import('/js/storage.js');
+  state.currentUser={id:'race-user',email:'race@invalid.example'};
+  await saveAndSync(state.workoutData);
+  const remote=structuredClone(state.workoutData);remote.athlete.email='remote@invalid.example';
+  recordSyncConflict(state.currentUser,{remote,remoteRevision:'2026-10-17T10:00:00Z'});
+  supabase.from=()=>{const query={select(){return query;},eq(){return query;},maybeSingle(){
+   window.raceStarted=true;
+   return new Promise(resolve=>{window.finishRace=()=>resolve({data:{payload:remote,updated_at:'2026-10-17T10:00:00Z'},error:null});});
+  }};return query;};
+ });
+ page.on('dialog',dialog=>dialog.accept());
+ await page.locator('#sync-conflict-panel').getByRole('button',{name:'Usa la versione cloud'}).click();
+ await expect.poll(()=>page.evaluate(()=>window.raceStarted)).toBe(true);
+ await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');
+  // Deliberately keep updatedAt unchanged to reproduce the old race.
+  state.workoutData.athlete.email='new-local@invalid.example';window.finishRace();
+ });
+ await expect(page.locator('.sync-conflict-status')).toContainText('Nessuna modifica locale sostituita');
+ const result=await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');const {getSyncConflict,hasPendingSync}=await import('/js/storage.js');
+  return {email:state.workoutData.athlete.email,conflict:Boolean(getSyncConflict()),queued:hasPendingSync()};
+ });
+ expect(result).toEqual({email:'new-local@invalid.example',conflict:true,queued:true});
 });

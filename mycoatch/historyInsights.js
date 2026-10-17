@@ -2,7 +2,7 @@ import { canonicalExerciseKey, canonicalExerciseName } from './exerciseIdentity.
 import { numericValue, estimateE1rm } from './historyAnalysis.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { evaluateExerciseProgression } from './progressionPolicy.js';
-import { isWarmupExercise } from '../js/workoutSemantics.js';
+import { isWarmupExercise, plannedWorkSetCount } from '../js/workoutSemantics.js';
 import { contributionsForExercise, TRACKED_MUSCLES, VOLUME_ACCOUNTING_METHOD } from './volumeAccounting.js';
 
 const catalog = new Map(EXERCISE_DATABASE.map(ex => [canonicalExerciseKey(ex.name), ex]));
@@ -42,7 +42,7 @@ function inspectExercise(exercise, context) {
             exercise.isDropset || exercise.groupType === 'dropset' ||
             repsText.includes('+'));
         return [{
-            kg, reps, rpe, special,
+            kg, reps, rpe, special,completedAt:set.completedAt,
             e1rm: rpe !== null && !special ? estimateE1rm(kg, reps, rpe) : null
         }];
     });
@@ -50,14 +50,7 @@ function inspectExercise(exercise, context) {
 
     const targetRpe = parseRpe(exercise.targetRpe ?? exercise.rpe);
     const repsTarget = parseRepRange(exercise.reps);
-    const prescribed = Number.parseInt(String(exercise.setsCount ?? exercise.set ?? ''), 10);
-    // loggedSets puo' contenere soltanto le serie gia' registrate.
-    const plannedList = Array.isArray(exercise.sets) && exercise.sets.length
-        ? exercise.sets : logged;
-    const countWithoutWarmups = plannedList.filter(set =>
-        !set?.isWarmup && !set?.warmup && !set?.is_warmup).length;
-    const plannedSets = Math.max(valid.length,
-        Number.isFinite(prescribed) && prescribed > 0 ? prescribed : countWithoutWarmups);
+    const plannedSets = Math.max(valid.length, plannedWorkSetCount(exercise));
     const validRpe = valid.map(set => set.rpe).filter(rpe => rpe !== null);
     const e1rms = valid.map(set => set.e1rm).filter(v => v !== null);
     const avgRpe = mean(validRpe);
@@ -68,9 +61,19 @@ function inspectExercise(exercise, context) {
     const meta = catalog.get(key);
     const min = repsTarget?.min;
     const max = repsTarget?.max;
+    const calendarIds=context.calendarWeeks ? valid.map(set=>{
+        const date=new Date(set.completedAt);
+        if(!Number.isFinite(date.getTime()))return null;
+        const monday=new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate()));
+        monday.setUTCDate(monday.getUTCDate()-((monday.getUTCDay()+6)%7));
+        return monday.toISOString().slice(0,10);
+    }) : [];
+    const calendarComparable=!context.calendarWeeks ||
+        calendarIds.every(id=>id!==null && id===calendarIds[0]);
 
     return {
         ...context,
+        weekId:context.calendarWeeks && calendarComparable ? calendarIds[0] : context.weekId,
         key,
         name: canonicalExerciseName(exercise.name),
         category: meta?.category || 'Non classificato',
@@ -106,7 +109,7 @@ function inspectExercise(exercise, context) {
             validRpe.length === valid.length &&
             valid.every(set => !set.special && set.reps >= min &&
                 set.reps <= (max ?? min) + 2 && set.rpe <= targetRpe - 1),
-        allRpeWithinTarget: targetRpe !== null && validRpe.length === valid.length &&
+        allRpeWithinTarget: calendarComparable && targetRpe !== null && validRpe.length === valid.length &&
             valid.every(set => set.rpe <= targetRpe),
         allRpeMeasured: valid.length === plannedSets &&
             validRpe.length === valid.length,
@@ -142,13 +145,14 @@ function determineExerciseStatus(exposures) {
  * della webapp, senza accedere a dati di altri utenti.
  * Le serie non confermate non contano mai come allenamenti completati.
  */
-export function analyzeTrainingHistory(userHistory) {
+export function analyzeTrainingHistory(userHistory,{calendarWeeks=false}={}) {
     const history = userHistory?.history || userHistory || {};
     const years = history.years || {};
     const byExercise = {};
     const weeks = new Map();
     // Separiamo i crediti frazionari dai set diretti legacy.
     const fractionalWeeks = new Map();
+    const prescribedWeeks = new Map();
     let sessionsAnalyzed = 0;
     let inspectedMesocycles = 0;
     let lastMesocycle = null;
@@ -183,14 +187,37 @@ export function analyzeTrainingHistory(userHistory) {
                         sessionId: weekId + '/' + day.dayNumber + '/current'
                     }];
                     for (const session of sessions) {
+                        const actualWeeks=new Set();
+                        if(calendarWeeks)for(const ex of session.exercises)
+                        for(const set of ex?.loggedSets || ex?.sets || []){
+                            if(!(set.isLocked===true || set.completed===true))continue;
+                            const date=new Date(set.completedAt);
+                            if(!Number.isFinite(date.getTime()))continue;
+                            const monday=new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate()));
+                            monday.setUTCDate(monday.getUTCDate()-((monday.getUTCDay()+6)%7));
+                            actualWeeks.add(monday.toISOString().slice(0,10));
+                        }
+                        const volumeWeekId=calendarWeeks
+                            ? actualWeeks.size===1 ? [...actualWeeks][0] : null : weekId;
                         let anyCompleted = false;
                         for (const ex of session.exercises) {
+                            // Missing exercise logs are not perfect adherence. Count
+                            // prescriptions separately, but never invent performance.
+                            const targetRpe = parseRpe(ex?.targetRpe ?? ex?.rpe);
+                            const deload = typeof week.isDeloadWeek === 'boolean'
+                                ? week.isDeloadWeek : targetRpe !== null && targetRpe <= 6.5;
+                            if (ex && !isWarmupExercise(ex) && !deload && volumeWeekId) {
+                                if (!prescribedWeeks.has(volumeWeekId)) prescribedWeeks.set(volumeWeekId,new Map());
+                                const totals=prescribedWeeks.get(volumeWeekId);
+                                const muscle=catalog.get(canonicalExerciseKey(ex.name))?.category || 'Non classificato';
+                                totals.set(muscle,(totals.get(muscle)||0)+plannedWorkSetCount(ex));
+                            }
                             const parsed = inspectExercise(ex, {
                                 year, mesocycleIndex: mi, week: weekNumber,
                                 day: Number(day.dayNumber) || 1,
                                 isDeloadWeek: typeof week.isDeloadWeek === 'boolean'
                                     ? week.isDeloadWeek : undefined,
-                                weekId, sessionId: session.sessionId
+                                weekId, sessionId: session.sessionId,calendarWeeks
                             });
                             if (!parsed) continue;
                             anyCompleted = true;
@@ -201,14 +228,14 @@ export function analyzeTrainingHistory(userHistory) {
                                 };
                             }
                             byExercise[parsed.key].exposures.push(parsed);
-                            if (parsed.isDeload) continue;
+                            if (parsed.isDeload || !volumeWeekId) continue;
                             const volumeCredits = contributionsForExercise(
                                 parsed.name, parsed.completedSets);
                             if (volumeCredits) {
-                                if (!fractionalWeeks.has(weekId)) {
-                                    fractionalWeeks.set(weekId, new Map());
+                                if (!fractionalWeeks.has(volumeWeekId)) {
+                                    fractionalWeeks.set(volumeWeekId, new Map());
                                 }
-                                const fractionalByMuscle = fractionalWeeks.get(weekId);
+                                const fractionalByMuscle = fractionalWeeks.get(volumeWeekId);
                                 const record = (muscle) => {
                                     if (!fractionalByMuscle.has(muscle)) {
                                         fractionalByMuscle.set(muscle, {
@@ -230,8 +257,8 @@ export function analyzeTrainingHistory(userHistory) {
                                     totals.withRpe += count * measuredRatio;
                                 }
                             }
-                            if (!weeks.has(weekId)) weeks.set(weekId, new Map());
-                            const weekMuscles = weeks.get(weekId);
+                            if (!weeks.has(volumeWeekId)) weeks.set(volumeWeekId, new Map());
+                            const weekMuscles = weeks.get(volumeWeekId);
                             if (!weekMuscles.has(parsed.category)) {
                                 weekMuscles.set(parsed.category, {
                                     completedSets: 0, plannedSets: 0, tonnage: 0,
@@ -255,6 +282,7 @@ export function analyzeTrainingHistory(userHistory) {
     const exerciseNotes = {};
     const stalledExercises = [];
     for (const [key, item] of Object.entries(byExercise)) {
+        if(calendarWeeks)item.exposures.sort((a,b)=>a.weekId.localeCompare(b.weekId));
         const standard = item.exposures.filter(e => !e.isDeload);
         const previous = standard.at(-1) || item.exposures.at(-1);
         const status = determineExerciseStatus(item.exposures);
@@ -295,14 +323,20 @@ export function analyzeTrainingHistory(userHistory) {
 
     const byMuscle = {};
     const sortedWeekIds = [...weeks.keys()];
+    if(calendarWeeks)sortedWeekIds.sort();
     for (const muscle of new Set([...weeks.values()].flatMap(m => [...m.keys()]))) {
         const records = sortedWeekIds.flatMap(weekId => {
             const record = weeks.get(weekId).get(muscle);
             return record ? [{ weekId, ...record }] : [];
         });
-        const recent = records.slice(-3);
+        const recent = sortedWeekIds.slice(-3).map(weekId => {
+            const record=weeks.get(weekId).get(muscle);
+            return {weekId,...(record || {completedSets:0,plannedSets:0,
+                observedRpe:[],distinctExercises:new Set()})};
+        });
         const completed = recent.reduce((sum, e) => sum + e.completedSets, 0);
-        const planned = recent.reduce((sum, e) => sum + e.plannedSets, 0);
+        const planned = recent.reduce((sum, e) => sum + Math.max(e.plannedSets,
+            prescribedWeeks.get(e.weekId)?.get(muscle) || 0), 0);
         const rpes = recent.flatMap(e => e.observedRpe);
         const trendSamples = recent.map(e => e.completedSets);
         byMuscle[muscle] = {
@@ -357,3 +391,4 @@ export function analyzeTrainingHistory(userHistory) {
         source: 'multi_mesocycle_confirmed_sets'
     };
 }
+

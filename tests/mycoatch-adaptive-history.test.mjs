@@ -33,6 +33,7 @@ function mesocycle(name, exposureWeeks, exerciseName = 'Panca Piana con Bilancie
             weekNumber: index + 1,
             days: [{
                 dayNumber: 1,
+                sessionCompletedAt: new Date(Date.now()-(exposureWeeks.length-1-index)*7*86400000).toISOString(),
                 exercises: [plannedExercise(exerciseName, sets, options)]
             }]
         }))
@@ -279,3 +280,4 @@ test('anteprima riporta carichi, ripetizioni e durata prevista', () => {
     assert.match(text, /durate previste/i);
     assert.match(text, /×/);
 });
+

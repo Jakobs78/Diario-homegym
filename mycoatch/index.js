@@ -10,6 +10,7 @@ import { estimateE1rm } from './historyAnalysis.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { calibrationHandoffForMesocycle } from './calibrationReview.js';
 import { planMacrocycle } from './macrocyclePlanner.js';
+import { prepareRecentEvidence } from './recentEvidence.js';
 
 export const MyCoatch = {
     /**
@@ -17,8 +18,10 @@ export const MyCoatch = {
      */
     generateNextFromHistory(userHistory, goalSettings = {}) {
         // Analisi longitudinale: tutti gli anni e i mesocicli, soltanto serie confermate.
-        const report = analyzeTrainingHistory(userHistory);
-        const calibrationHandoff = calibrationHandoffForMesocycle(report.lastMesocycle);
+        const {history:recentHistory,audit:recency,originalHistory}=prepareRecentEvidence(userHistory);
+        const report = analyzeTrainingHistory(recentHistory,{calendarWeeks:true});
+        const originalReport=analyzeTrainingHistory(originalHistory);
+        const calibrationHandoff = calibrationHandoffForMesocycle(originalReport.lastMesocycle);
         const loadingSteps=goalSettings.loadingSteps ??
             userHistory?.athlete?.loadingSteps ?? {};
         const decisions = planAdaptiveDecisions(report,{loadingSteps});
@@ -29,10 +32,17 @@ export const MyCoatch = {
             // riutilizzare quello di un'altra persona/sessione dalla memoria JS.
             coachState.updateConfig({
                 ...goalSettings, loadingSteps,
-                athleteProfile: goalSettings.athleteProfile ?? null
+                athleteProfile: recency.reentry ? {
+                    ...(goalSettings.athleteProfile || {experience:'intermediate'}),
+                    calibration:'guided',referenceLoads:{}
+                } : goalSettings.athleteProfile ?? null
             });
         }
-        const config = coachState.getConfig();
+        const config = structuredClone(coachState.getConfig());
+        if(recency.reentry)config.athleteProfile={
+            ...(config.athleteProfile || {experience:'intermediate'}),
+            calibration:'guided',referenceLoads:{}
+        };
         const macrocycle = planMacrocycle(report, config, userHistory);
 
         // I dati storici non vengono modificati: proponiamo un mesociclo separato.
@@ -50,9 +60,10 @@ export const MyCoatch = {
             basis: 'validated_completed_work_sets_across_distinct_weeks'
         };
         newMesocycle.coachReport = {
-            inspectedYears: report.inspectedYears,
-            inspectedMesocycles: report.inspectedMesocycles,
-            sessionsAnalyzed: report.sessionsAnalyzed,
+            recency,
+            inspectedYears: originalReport.inspectedYears,
+            inspectedMesocycles: originalReport.inspectedMesocycles,
+            sessionsAnalyzed: originalReport.sessionsAnalyzed,
             exerciseSignals: Object.values(report.byExercise).map(item => ({
                 name: item.name, status: item.status,
                 e1rmChangePct: item.e1rmChangePct,
@@ -92,7 +103,8 @@ export const MyCoatch = {
      * Anteprima indipendente del macrociclo, senza creare o salvare workout.
      */
     previewMacrocycle(userHistory, goalSettings = {}) {
-        const report = analyzeTrainingHistory(userHistory);
+        const {history}=prepareRecentEvidence(userHistory);
+        const report = analyzeTrainingHistory(history,{calendarWeeks:true});
         return planMacrocycle(report, { ...coachState.getConfig(), ...goalSettings }, userHistory);
     },
 
@@ -231,3 +243,4 @@ export function downloadMesocycleCSV() {
         return { success: false, message: error.message };
     }
 }
+

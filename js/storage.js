@@ -9,6 +9,7 @@ import { CONFIG } from './config.js';
 import { state, resetState } from './state.js';
 import { pushDataToSupabase, deleteCloudData, resolveSyncConflict } from './sync.js';
 import { downloadFullBackup } from './fullBackup.js';
+import { journalStorage, initializeJournalStorage, flushJournalStorage, journalStorageFailed, journalStorageReady } from './journalStore.js';
 
 const QUEUE_KEY = `${CONFIG.STORAGE_KEY}_sync_queue`;
 const OWNER_KEY = `${CONFIG.STORAGE_KEY}_owner`;
@@ -16,21 +17,21 @@ const scopedKey = id => `${CONFIG.STORAGE_KEY}_user_${id}`;
 const accountId=user=>String(user?.id||user?.email||'');
 const revisionKey=user=>`${CONFIG.STORAGE_KEY}_revision_${accountId(user)}`;
 const conflictKey=user=>`workoutApp_data_conflict_${accountId(user)}`;
-export const getCloudRevision=user=>localStorage.getItem(revisionKey(user));
+export const getCloudRevision=user=>journalStorage.getItem(revisionKey(user));
 export function setCloudRevision(user,revision){
     if(!user || !accountId(user))return;
-    if(revision===null||revision===undefined)localStorage.removeItem(revisionKey(user));
-    else localStorage.setItem(revisionKey(user),String(revision));
+    if(revision===null||revision===undefined)journalStorage.removeItem(revisionKey(user));
+    else journalStorage.setItem(revisionKey(user),String(revision));
 }
 export function getSyncConflict(user=state.currentUser){
     if(!user || !accountId(user))return null;
-    try {return JSON.parse(localStorage.getItem(conflictKey(user))||'null');}
+    try {return JSON.parse(journalStorage.getItem(conflictKey(user))||'null');}
     catch{return null;}
 }
 export function recordSyncConflict(user,details) {
     if(!user || !accountId(user))return;
     try {
-        localStorage.setItem(conflictKey(user),JSON.stringify(details));
+        journalStorage.setItem(conflictKey(user),JSON.stringify(details));
     }catch(error){
         console.error('Impossibile memorizzare lo snapshot del conflitto:',error);
         // The queued local snapshot is still retained. Never upload it
@@ -39,11 +40,11 @@ export function recordSyncConflict(user,details) {
     updateSyncStatusUI();
 }
 
-export function getStoredLocalOwner(){return localStorage.getItem(OWNER_KEY);}
+export function getStoredLocalOwner(){return journalStorage.getItem(OWNER_KEY);}
 export function getFromLocalStorageForUser(user){
     const id=user?.id ? String(user.id) : null;
     if(!id)return getFromLocalStorage();
-    const scoped=localStorage.getItem(scopedKey(id));
+    const scoped=journalStorage.getItem(scopedKey(id));
     if(scoped){
         try {return JSON.parse(scoped);}
         catch {return structuredClone(DEFAULT_WORKOUT_DATA);}
@@ -64,12 +65,40 @@ let syncDebounceTimer = null;
 let isSyncing = false;
 let storageFailure = false;
 let uploadingActionId=null;
+let deletingAccount=false;
+
+export function pauseSyncForAccountDeletion(){
+    if(isSyncing || deletingAccount)throw Error('Attendi la fine della sincronizzazione e riprova.');
+    deletingAccount=true;
+    clearTimeout(syncDebounceTimer);
+    return ()=>{deletingAccount=false;};
+}
+
+export async function removeAccountLocalData(user){
+    if(!user?.id)throw Error('Account da eliminare non identificato.');
+    const id=String(user.id), owner=getStoredLocalOwner();
+    const queue=getQueue().filter(action=>action.ownerId
+        ? String(action.ownerId)!==id : owner!==id);
+    journalStorage.removeItem(scopedKey(id));
+    journalStorage.removeItem(revisionKey(user));
+    journalStorage.removeItem(conflictKey(user));
+    if(queue.length)journalStorage.setItem(QUEUE_KEY,JSON.stringify(queue));else clearQueue();
+    if(owner===id){
+        journalStorage.removeItem(CONFIG.STORAGE_KEY);
+        journalStorage.removeItem(OWNER_KEY);
+    }
+    await flushJournalStorage();
+    if(owner===id){
+        localStorage.removeItem('cached_athlete_name');
+        localStorage.removeItem('user_email');
+    }
+}
 
 // ==========================================
 // 2. GESTIONE CODA OFFLINE (SYNC QUEUE)
 // ==========================================
 function getQueue() {
-    const queue = localStorage.getItem(QUEUE_KEY);
+    const queue = journalStorage.getItem(QUEUE_KEY);
     try{return queue ? JSON.parse(queue) : [];}
     catch(error){
         storageFailure=true;
@@ -87,11 +116,11 @@ function enqueueAction(action) {
     const compact=queue.filter(item=>String(item.ownerId??'')!==owner ||
         (isSyncing && item.id===uploadingActionId));
     compact.push(action);
-    localStorage.setItem(QUEUE_KEY,JSON.stringify(compact));
+    journalStorage.setItem(QUEUE_KEY,JSON.stringify(compact));
 }
 
 function clearQueue() {
-    localStorage.removeItem(QUEUE_KEY);
+    journalStorage.removeItem(QUEUE_KEY);
 }
 
 export function hasPendingSync() {
@@ -111,11 +140,11 @@ export function saveToLocalStorage(data, {preserveUpdatedAt = false} = {}) {
         // Cloud hydration MUST NOT change the original modification timestamp.
         if (!preserveUpdatedAt) data.updatedAt = new Date().toISOString();
         const encoded=JSON.stringify(data);
-        localStorage.setItem(CONFIG.STORAGE_KEY, encoded);
+        journalStorage.setItem(CONFIG.STORAGE_KEY, encoded);
         const id=state.currentUser?.id;
         if(id){
-            localStorage.setItem(scopedKey(id),encoded);
-            localStorage.setItem(OWNER_KEY,String(id));
+            journalStorage.setItem(scopedKey(id),encoded);
+            journalStorage.setItem(OWNER_KEY,String(id));
         }
         state.workoutData = data;
         storageFailure=false;
@@ -130,7 +159,7 @@ export function saveToLocalStorage(data, {preserveUpdatedAt = false} = {}) {
 
 export function getFromLocalStorage() {
     try {
-        const data = localStorage.getItem(CONFIG.STORAGE_KEY);
+        const data = journalStorage.getItem(CONFIG.STORAGE_KEY);
         return data ? JSON.parse(data) : DEFAULT_WORKOUT_DATA;
     } catch (e) {
         console.error('❌ Errore nel caricamento dei dati locali:', e);
@@ -141,7 +170,10 @@ export function getFromLocalStorage() {
 // ==========================================
 // 4. SINCRONIZZAZIONE CLOUD & CODA
 // ==========================================
-export async function saveAndSync(data, actionType = 'UPDATE_WORKOUT') {
+export async function saveAndSync(data = state.workoutData, actionType = 'UPDATE_WORKOUT') {
+    // Journal and queued JSON are serialized synchronously before yielding.
+    const ownerId=state.currentUser?.id || getStoredLocalOwner() || null;
+    if(!journalStorageReady()){storageFailure=true;updateSyncStatusUI();return false;}
     if(!saveToLocalStorage(data)){
         updateSyncStatusUI();
         return false; // Do not pretend a diary is saved when storage is full.
@@ -151,7 +183,7 @@ export async function saveAndSync(data, actionType = 'UPDATE_WORKOUT') {
         type: actionType,
         payload: data, 
         timestamp: Date.now(),
-        ownerId:state.currentUser?.id || getStoredLocalOwner() || null
+        ownerId
     });}catch(error){
         storageFailure=true;
         console.error('Impossibile mettere in coda il diario:',error);
@@ -159,6 +191,9 @@ export async function saveAndSync(data, actionType = 'UPDATE_WORKOUT') {
         return false;
     }
 
+    try { await flushJournalStorage(); } catch(error) {
+        storageFailure=true;updateSyncStatusUI();return false;
+    }
     updateSyncStatusUI(); 
 
     if (!state.currentUser || !navigator.onLine) {
@@ -173,7 +208,9 @@ export async function saveAndSync(data, actionType = 'UPDATE_WORKOUT') {
 }
 
 export async function processSyncQueue() {
-    if (getSyncConflict() || isSyncing || !state.currentUser || !navigator.onLine) {
+    try {await initializeJournalStorage();await flushJournalStorage();}
+    catch {storageFailure=true;updateSyncStatusUI();return;}
+    if (deletingAccount || getSyncConflict() || isSyncing || !state.currentUser || !navigator.onLine) {
         updateSyncStatusUI();
         return;
     }
@@ -208,12 +245,13 @@ export async function processSyncQueue() {
             // Keep edits enqueued during the network request; only delete
             // entries that were actually acknowledged by the cloud.
             const remaining=getQueue().filter(item=>item.id!==action.id);
-            if(remaining.length)localStorage.setItem(QUEUE_KEY,JSON.stringify(remaining));
+            if(remaining.length)journalStorage.setItem(QUEUE_KEY,JSON.stringify(remaining));
             else clearQueue();
         }
     } catch (error) {
         console.error("❌ Errore durante la sincronizzazione cloud (i dati restano in coda):", error);
     } finally {
+        try {await flushJournalStorage();}catch {storageFailure=true;}
         uploadingActionId=null;
         isSyncing = false;
         updateSyncStatusUI(); 
@@ -232,6 +270,7 @@ export function updateSyncStatusUI() {
     const pending = !offline && hasPendingSync();
     // Stato sempre leggibile nel layout compatto: messaggio esteso come
     // tooltip e nome accessibile, senza nascondere gli avvisi di rischio.
+    storageFailure ||= journalStorageFailed();
     const detail = storageFailure
         ? 'ATTENZIONE: impossibile conservare tutti i dati locali. Scarica subito un backup JSON e verifica lo spazio disponibile.'
         : conflict
@@ -308,29 +347,35 @@ function renderSyncConflictControls(conflict) {
         status.textContent='Verifica versione cloud e sincronizzazione…';
         try{
             const selected=structuredClone(state.workoutData);
-            const selectedStamp=selected.updatedAt;
+            const selectedSnapshot=JSON.stringify(selected);
+            const selectedActions=new Set(getQueue().filter(a=>String(a.ownerId||'')===String(user.id)).map(a=>a.id));
             const result=await resolveSyncConflict(user,choice,selected);
             if(!result.ok){
                 status.textContent='Il cloud è cambiato: verifica nuovamente il conflitto. I dati locali restano intatti.';
                 updateSyncStatusUI();
                 return;
             }
-            const currentSame=state.workoutData.updatedAt===selectedStamp;
+            const currentSame=JSON.stringify(state.workoutData)===selectedSnapshot;
+            if(String(state.currentUser?.id)!==String(user.id) || !currentSame){
+                status.textContent='Il diario o l’utente è cambiato durante la richiesta. Nessuna modifica locale sostituita: verifica e ripeti la scelta.';
+                return;
+            }
             if(choice==='cloud'){
                 // The entire local version was downloaded BEFORE replacement.
-                saveToLocalStorage(result.payload,{preserveUpdatedAt:true});
+                if(!saveToLocalStorage(result.payload,{preserveUpdatedAt:true}))
+                    throw Error('Salvataggio della versione cloud non riuscito.');
                 state.workoutData=result.payload;
             }
             // Drop only acknowledged actions: later edits made while the
             // network request ran must remain queued for the next sync.
             const queue=getQueue().filter(action=>{
                 if(String(action.ownerId||'')!==String(user.id))return true;
-                if(choice==='cloud')return false;
-                return !currentSame && action.timestamp>Date.parse(selectedStamp||0);
+                return !selectedActions.has(action.id);
             });
-            if(queue.length)localStorage.setItem(QUEUE_KEY,JSON.stringify(queue));
+            if(queue.length)journalStorage.setItem(QUEUE_KEY,JSON.stringify(queue));
             else clearQueue();
-            localStorage.removeItem(conflictKey(user));
+            journalStorage.removeItem(conflictKey(user));
+            await flushJournalStorage();
             renderWorkoutListAfterConflict();
             updateSyncStatusUI();
             if(hasPendingSync())processSyncQueue();
@@ -370,6 +415,7 @@ window.addEventListener('online', () => {
 });
 
 window.addEventListener('offline', updateSyncStatusUI);
+window.addEventListener('homegym-storage-error',()=>{storageFailure=true;updateSyncStatusUI();});
 document.addEventListener('DOMContentLoaded', updateSyncStatusUI);
 
 // ==========================================
@@ -416,7 +462,7 @@ export function clearAllData() {
     document.body.appendChild(overlay);
 
     overlay.querySelector('#danger-backup-btn')?.addEventListener('click', () => {
-        if (state.workoutData && typeof exportToCSV === 'function') {
+        if (state.workoutData?.history?.years) {
             downloadFullBackup(state.workoutData);
         } else {
             alert("Nessun dato storico da salvare.");
@@ -474,27 +520,19 @@ function showFinalConfirmationStep(overlay) {
         deleteBtn.disabled = true;
         deleteBtn.innerText = "Eliminazione in corso...";
 
+        let resume;
+        const user=state.currentUser;
         try {
+            resume=pauseSyncForAccountDeletion();
             // Never claim cloud deletion if the remote operation was not
             // confirmed. No local loss when offline or unauthenticated.
             const id=state.currentUser?.id ? String(state.currentUser.id) : null;
             if(!id || typeof deleteCloudData!=='function' ||
-                await deleteCloudData(state.currentUser)!==true){
+                await deleteCloudData(user)!==true){
                 throw Error('Eliminazione cloud non confermata: nessun dato cancellato. Accedi online e riprova.');
             }
-            localStorage.removeItem(scopedKey(id));
-            localStorage.removeItem(revisionKey(state.currentUser));
-            localStorage.removeItem(conflictKey(state.currentUser));
-            if(getStoredLocalOwner()===id){
-                localStorage.removeItem(CONFIG.STORAGE_KEY);
-                localStorage.removeItem(OWNER_KEY);
-                localStorage.removeItem('cached_athlete_name');
-            }
-            // Keep OTHER accounts' pending offline edits intact.
-            const otherActions=getQueue().filter(a=>a.ownerId && String(a.ownerId)!==id);
-            if(otherActions.length)localStorage.setItem(QUEUE_KEY,JSON.stringify(otherActions));
-            else clearQueue();
-            sessionStorage.clear();
+            await removeAccountLocalData(user);
+            if(String(state.currentUser?.id)!==String(user.id))return;
             
             if (typeof resetState === 'function') {
                 resetState();
@@ -508,7 +546,7 @@ function showFinalConfirmationStep(overlay) {
             alert("Errore durante l'eliminazione dei dati nel cloud: " + err.message);
             deleteBtn.disabled = false;
             deleteBtn.innerText = "Riprova";
-        }
+        } finally {resume?.();}
     });
 }
 

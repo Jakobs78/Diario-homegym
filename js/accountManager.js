@@ -4,6 +4,8 @@
 // notifiche di prova/scadenza e cancellazione account.
 // ==========================================
 import { supabase } from './config.js';
+import { removeAccountLocalData, pauseSyncForAccountDeletion } from './storage.js';
+import { state } from './state.js';
 
 export function applyUserToUI(user) {
     const userEmailDisplay = document.getElementById('user-email-display');
@@ -99,9 +101,11 @@ export async function deleteUserAccount() {
     const confirmed = confirm("Sei sicuro di voler eliminare definitivamente il tuo account? Tutti i tuoi dati e allenamenti andranno persi.");
     if (!confirmed) return;
 
+    let resume;
     try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error("Sessione non trovata.");
+        if (!session?.user?.id) throw new Error("Sessione non trovata.");
+        resume=pauseSyncForAccountDeletion();
 
         const { error } = await supabase.functions.invoke('delete-account', {
             headers: { Authorization: `Bearer ${session.access_token}` }
@@ -109,12 +113,13 @@ export async function deleteUserAccount() {
 
         if (error) throw error;
 
-        localStorage.clear();
+        await removeAccountLocalData(session.user);
+        if(String(state.currentUser?.id)!==String(session.user.id))return;
         alert("Account eliminato con successo.");
         await supabase.auth.signOut();
         window.location.reload();
     } catch (err) {
         console.error("Errore eliminazione account:", err);
         alert("Impossibile eliminare l'account: " + (err.message || "Riprova."));
-    }
+    } finally {resume?.();}
 }

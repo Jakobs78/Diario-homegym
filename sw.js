@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v41-set-volume-approved-load-review';
+const CACHE_NAME = 'workout-app-v43-four-year-durable-history';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -22,6 +22,9 @@ const ASSETS_TO_CACHE = [
   '/js/gestures.js',
   '/js/charts.js',
   '/js/storage.js',
+  '/js/journalStore.js',
+  '/js/historyWindow.js',
+  '/mycoatch/recentEvidence.js',
   '/js/sync.js',
   '/js/fullBackup.js',
   '/js/coachPreviewUI.js',

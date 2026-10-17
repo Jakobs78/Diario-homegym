@@ -16,3 +16,16 @@ export function isWarmupSet(set) {
 export function isEffectiveTrainingSet(exercise,set) {
     return !isWarmupExercise(exercise) && !isWarmupSet(set);
 }
+
+/** Preserve the largest explicit prescription when an import has fewer log rows. */
+export function plannedWorkSetCount(exercise) {
+    const counts = [exercise?.setsCount, exercise?.set].map(value => {
+        const match = String(value ?? '').trim().match(/^(\d+)(?:\s*(?:sets?|serie))?$/i);
+        return match ? Number(match[1]) : 0;
+    });
+    for (const rows of [exercise?.sets, exercise?.loggedSets]) {
+        counts.push(Array.isArray(rows) ? rows.filter(s => !isWarmupSet(s)).length : 0);
+    }
+    return Math.max(0, ...counts);
+}
+

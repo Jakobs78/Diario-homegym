@@ -1,3 +1,4 @@
+import { journalStorage, initializeJournalStorage } from './journalStore.js';
 // ==========================================
 // MODULI: auth.js - Gestione autenticazione Supabase (login, registrazione, sessioni) e fallback offline
 // ==========================================
@@ -71,7 +72,8 @@ export async function checkSession() {
     }
 
     try {
-        const rawData = localStorage.getItem(CONFIG.STORAGE_KEY);
+        await initializeJournalStorage();
+        const rawData = journalStorage.getItem(CONFIG.STORAGE_KEY);
         const cachedEmail = localStorage.getItem('user_email');
 
         if (rawData || cachedEmail) {
