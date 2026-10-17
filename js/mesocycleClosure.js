@@ -221,7 +221,7 @@ export function closeMesocycleInMemory(mesocycle, report, {at = new Date().toISO
 export function formatMesocycleClosureForChat(review) {
     const lines = [
         'HOMEGYM DIARY — REPORT FINALE MESOCICLO (dati confermati)',
-        'Mesociclo: blocco selezionato',
+        'Mesociclo: ' + review.name,
         'Settimane programmate: ' + review.weeks,
         'Sedute completate: ' + review.completedSessions + '/' + review.plannedSessions,
         'Sedute parziali: ' + review.partialSessions,
