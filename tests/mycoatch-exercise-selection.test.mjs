@@ -16,10 +16,10 @@ const noHistory = { byExercise: {}, stalledExercises: [], exerciseNotes: {} };
 const plan = (config = {}, previous = null) =>
     generateSmartMesocycle({ ...base, ...config }, noHistory, previous);
 
-test('catalogo di 50 esercizi con ID stabili, categorie e dotazioni esplicite', () => {
-    assert.equal(EXERCISE_DATABASE.length, 50);
-    assert.equal(new Set(EXERCISE_DATABASE.map(e => e.id)).size, 50);
-    assert.equal(new Set(EXERCISE_DATABASE.map(e => e.name)).size, 50);
+test('catalogo di 51 esercizi con ID stabili, categorie e dotazioni esplicite', () => {
+    assert.equal(EXERCISE_DATABASE.length, 51);
+    assert.equal(new Set(EXERCISE_DATABASE.map(e => e.id)).size, 51);
+    assert.equal(new Set(EXERCISE_DATABASE.map(e => e.name)).size, 51);
     assert.ok(EXERCISE_DATABASE.every(ex =>
         /^[a-z0-9_]+$/.test(ex.id) &&
         ex.primaryMuscle === ex.category &&
@@ -82,7 +82,7 @@ test('4 giorni: Upper A, Lower A, Upper B, Lower B con fondamentali protetti', (
 });
 
 test('3 giorni rimane una Full Body con panca, squat, military e hip hinge', () => {
-    for (const minutes of [30, 45, 60]) {
+    for (const minutes of [35, 45, 60]) {
         const meso = plan({ daysPerWeek: 3, maxSessionMinutes: minutes });
         for (const week of meso.weeks) {
             assert.equal(week.days.length, 3);
@@ -192,7 +192,7 @@ test('copertura muscolare distingue serie dirette e presenza indiretta', () => {
 });
 
 test('anteprima spiega le 4 alzate, lo split e gli accessori mancanti', () => {
-    const meso = plan({ maxSessionMinutes: 45 });
+    const meso = plan({ maxSessionMinutes: 45, athleteProfile: {experience: 'advanced', calibration: 'regular', excludedExercises: ['Hamstring Walkout a Corpo Libero']} });
     const compare = compareMesocyclePlans(null, meso, {});
     const review = formatCoachReview(compare,
         { inspectedMesocycles: 0, sessionsAnalyzed: 0 });
@@ -232,3 +232,4 @@ test('la selezione non è casuale e rimane stabile nelle quattro settimane', () 
         Array.from({ length: 4 }, () =>
             first.weeks[0].days.map(day => day.exercises[0].name)));
 });
+

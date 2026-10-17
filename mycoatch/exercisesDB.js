@@ -1,5 +1,6 @@
 // mycoatch/exercisesDB.js
 const RAW_EXERCISES = [
+    { name: "Hamstring Walkout a Corpo Libero", category: "Femorali", pattern: "isolation", equipment: "bodyweight", cnsCost: 3, defaultReps: "6-10", defaultKg: "" },
     // --- PETTO / SPINTA ---
     { name: "Panca Piana con Bilanciere", category: "Petto", pattern: "horizontal_push", equipment: "barbell", cnsCost: 8, profile: "Curva bilanciata - Max tensione medio-range", defaultReps: "6-8", defaultKg: "" },
     { name: "Panca Inclinata con Manubri", category: "Petto", pattern: "horizontal_push", equipment: "dumbbell", cnsCost: 6, profile: "Enfasi fascio clavicolare - Ottimizzazione ROM", defaultReps: "8-10", defaultKg: "" },
@@ -70,6 +71,7 @@ const RAW_EXERCISES = [
  * Le `secondaryMuscles` indicano coinvolgimento, NON serie effettive misurate.
  */
 const STABLE_IDS = new Map([
+    ["Hamstring Walkout a Corpo Libero", "hamstring_walkout_corpo_libero"],
     ["Panca Piana con Bilanciere", "panca_piana_con_bilanciere"],
     ["Panca Inclinata con Manubri", "panca_inclinata_con_manubri"],
     ["Dip alle Parallele (sovraccarico)", "dip_alle_parallele_sovraccarico"],
@@ -203,3 +205,4 @@ export const DEFAULT_HOME_GYM_EQUIPMENT = Object.freeze([
 // Confrontare con le dotazioni dichiarate: NON presumere dip station,
 // barra trazioni, bilanciere EZ, cavigliera o panca inclinabile.
 export const DEFAULT_HOME_GYM_ACCESSORIES = Object.freeze(['rack', 'flat_bench']);
+

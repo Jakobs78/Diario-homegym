@@ -1,3 +1,4 @@
+import { HIGH_REP_EXERCISES } from './prescriptionPolicy.js';
 import { canonicalExerciseKey, canonicalExerciseName } from './exerciseIdentity.js';
 import { numericValue, estimateE1rm } from './historyAnalysis.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
@@ -35,7 +36,8 @@ function inspectExercise(exercise, context) {
         // Per dropset/triset registrati come "10+8+6" conta solo la prima
         // porzione ai fini del volume; l'e1RM rimane deliberatamente ignoto.
         const reps = numericValue(repsText.includes('+') ? repsText.split('+')[0] : repsText);
-        if (kg === null || kg <= 0 || reps === null ||
+        const bodyweight = catalog.get(canonicalExerciseKey(exercise.name))?.equipment === 'bodyweight';
+        if (kg === null || kg < 0 || (kg === 0 && !bodyweight) || reps === null ||
             !Number.isInteger(reps) || reps <= 0 || reps > 100) return [];
         const rpe = parseRpe(set.rpe);
         const special = Boolean(set.intensityTechnique || set.dropSegments?.length || set.isDropset ||
@@ -43,7 +45,7 @@ function inspectExercise(exercise, context) {
             repsText.includes('+'));
         return [{
             kg, reps, rpe, special,completedAt:set.completedAt,
-            e1rm: rpe !== null && !special ? estimateE1rm(kg, reps, rpe) : null
+            e1rm: !HIGH_REP_EXERCISES[catalog.get(canonicalExerciseKey(exercise.name))?.name] && rpe !== null && !special ? estimateE1rm(kg, reps, rpe) : null
         }];
     });
     if (!valid.length) return null;
@@ -318,7 +320,9 @@ export function analyzeTrainingHistory(userHistory,{calendarWeeks=false}={}) {
             progressing: 'e1RM in crescita nelle ultime tre esposizioni.',
             stable: 'e1RM stabile: monitorare senza modifiche automatiche drastiche.'
         };
-        exerciseNotes[key] = statusText[item.status];
+        exerciseNotes[key] = HIGH_REP_EXERCISES[item.name]
+            ? 'Confronta ripetizioni, tecnica e RPE a parità di carico: il solo e1RM non definisce uno stallo su questo isolamento.'
+            : statusText[item.status];
     }
 
     const byMuscle = {};

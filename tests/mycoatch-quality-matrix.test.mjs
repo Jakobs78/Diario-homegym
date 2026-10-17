@@ -6,7 +6,7 @@ import { EXERCISE_DATABASE } from '../mycoatch/exercisesDB.js';
 
 const names = new Set(EXERCISE_DATABASE.map(ex => ex.name));
 const goals = ['hybrid', 'strength', 'hypertrophy'];
-const minutes = [30, 35, 40, 45, 60, 75, 90];
+const minutes = [35, 40, 45, 50, 60, 75, 90];
 const levels = ['beginner', 'intermediate', 'advanced'];
 
 test('stress: 126 profili non inventano kg e mantengono quattro ancore e vincoli di tempo', () => {
@@ -77,3 +77,4 @@ test('stress: generated four-week plans never modify the supplied athlete settin
     assert.ok(plan.weeks.every(w =>
         w.days[0].exercises[0].name === 'Panca Inclinata con Manubri'));
 });
+

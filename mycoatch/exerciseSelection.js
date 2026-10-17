@@ -119,7 +119,7 @@ const SLOT_PREFERENCES = {
     'Glutei:hip_thrust': [
         'Hip Thrust con Bilanciere', 'Glute Bridge con Bilanciere', 'Pull-through ai Cavi'
     ],
-    'Femorali:isolation': ['Leg Curl ai Cavi (cavigliera)', 'Leg Curl Steso'],
+    'Femorali:isolation': ['Leg Curl ai Cavi (cavigliera)', 'Leg Curl Steso', 'Hamstring Walkout a Corpo Libero'],
     'Spalle:isolation': [
         'Alzate Laterali con Manubri', 'Alzate Laterali ai Cavi',
         'Alzate Posteriori con Manubri', 'Face Pull ai Cavi'
@@ -216,3 +216,4 @@ export function selectExerciseForSlot(slot, options = {}) {
             : 'Selezionato per schema motorio, attrezzatura, ruolo e distribuzione settimanale.'
     };
 }
+

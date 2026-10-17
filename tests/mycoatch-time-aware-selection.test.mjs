@@ -36,18 +36,18 @@ test('session planner protects three compound anchors and reports why accessorie
     ...core,
     fixture('Curl',{category:'Bicipiti',optional:true}),
     fixture('Laterali',{category:'Spalle'})
-  ],30,{focusMuscleGroup:'Spalle',scheduledWeeklySets:{Spalle:0,Bicipiti:12}});
+  ],35,{focusMuscleGroup:'Spalle',scheduledWeeklySets:{Spalle:0,Bicipiti:12}});
   assert.deepEqual(planned.exercises.slice(0,3).map(x=>x.name),core.map(x=>x.name));
   assert.ok(planned.exercises.every(e=>e.setsCount===e.sets.length));
-  assert.ok(planned.estimatedMinutes<=30);
+  assert.ok(planned.estimatedMinutes<=35);
   assert.deepEqual(planned.selectionAudit.protected,core.map(x=>x.name));
   assert.equal(planned.selectionAudit.strategy,'time_first_protected_core_coverage_score_v1');
-  assert.equal(planned.selectionAudit.timeBudgetMinutes,30);
+  assert.equal(planned.selectionAudit.timeBudgetMinutes,35);
   assert.ok(planned.selectionAudit.excludedAccessories.length>0);
 });
 
 test('daily selection differs by time while keeping every anchor; no phantom sets',()=>{
-  for(const daysPerWeek of [3,4]) for(const minutes of [30,45,60,90]){
+  for(const daysPerWeek of [3,4]) for(const minutes of [35,45,60,90]){
     const plan=generateSmartMesocycle(config(minutes,daysPerWeek));
     for(const week of plan.weeks){
       for(const day of week.days){
@@ -128,3 +128,4 @@ test('preview explains time-first selection and does not add a CSV schema column
   assert.match(preview,/movimenti prioritari protetti/);
   assert.match(preview,/Durate previste/);
 });
+

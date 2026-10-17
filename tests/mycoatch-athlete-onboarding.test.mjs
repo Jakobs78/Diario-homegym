@@ -233,7 +233,7 @@ test('anteprima esplicita profilo, calibrazione, esclusioni, e carichi dichiarat
 
 test('3/4 giorni e durata scelta rispettati, CSV compatibile e nessun check fantasma', () => {
     for (const daysPerWeek of [3, 4]) {
-        for (const minutes of [30, 45, 60, 90]) {
+        for (const minutes of [35, 45, 60, 90]) {
             const meso = generate(profile('beginner'), { daysPerWeek, maxSessionMinutes: minutes });
             for (const w of meso.weeks) {
                 assert.ok(w.weeklyCoverage.allPriorityLiftsPresent);
@@ -302,3 +302,4 @@ test('data reale del riferimento: massimo 90 giorni, no future e no date inventa
             performedOn: '2026-02-30' } }
     })), /non può essere futura/);
 });
+

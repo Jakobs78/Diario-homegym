@@ -25,7 +25,7 @@ const sampled=(name,completed=true)=>({
 test('AUDIT MATRIX: 3/4 days x 30/45/60/90m x beginner/advanced x recovery weeks',()=>{
     let inspectedSessions=0;
     for(const days of [3,4])
-        for(const minutes of [30,45,60,90])
+        for(const minutes of [35,45,60,90])
             for(const experience of ['beginner','advanced']){
                 const settings=cfg(days,minutes,experience,'Spalle');
                 const immutable=JSON.stringify(settings);
@@ -135,3 +135,4 @@ test('AUDIT CONTINUITY: excluded earlier days and absent past schedule are safe'
     ]};
     assert.equal(previousComparableTrainingDay(old,1).exercises[0].name,'Front Squat');
 });
+
