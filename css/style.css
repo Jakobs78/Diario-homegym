@@ -2964,3 +2964,56 @@ body.dark-mode .group-title-badge {
     #floating-timer .timer-btn {padding:7px 6px;}
     #floating-timer .timer-audio-test {min-width:38px;}
 }
+
+
+/* Workout diary: fixed, legible volume comparison below each CONFIRMED kg.
+ * The reserved second line prevents jumps on iPhone when a set is checked. */
+.kg-input-wrapper {
+    display:flex;flex-direction:column;align-items:center;
+    justify-content:center;min-width:0;width:100%;
+}
+.td-kg-container .kg-input-wrapper {min-height:54px;}
+.td-kg-container .set-kg {height:34px!important;min-height:34px!important;}
+.set-trend-badge {
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    width:100%;max-width:100%;min-width:0;
+    font-size:.67rem;line-height:1.12;font-weight:800;
+    padding:1px 2px 3px;white-space:normal;overflow-wrap:anywhere;
+    color:var(--text-muted);
+}
+.set-trend-badge .set-trend-pct {
+    font-size:.72rem;white-space:nowrap;font-variant-numeric:tabular-nums;
+}
+.set-trend-badge .set-trend-absolute {
+    font-size:.57rem;line-height:1.1;font-weight:650;
+    color:inherit;white-space:nowrap;
+}
+.set-trend-badge.is-positive {color:#16803c;}
+.set-trend-badge.is-negative {color:#c72c35;}
+.set-trend-badge.is-neutral {color:var(--text-muted);}
+.mycoatch-future-load-review {
+    border:1px solid var(--border-color);border-radius:11px;
+    padding:0 12px;margin:12px 0;background:var(--card-bg);
+}
+.mycoatch-future-load-summary {
+    font-weight:750;font-size:.88rem;cursor:pointer;
+    min-height:46px;display:flex;align-items:center;
+}
+.mycoatch-future-load-content {padding:4px 0 12px;}
+.mycoatch-future-load-content p {font-size:.84rem;line-height:1.45;}
+.mycoatch-future-load-item {
+    padding:10px 0;border-top:1px solid var(--border-color);
+}
+.mycoatch-future-load-item h4 {font-size:.88rem;margin:0 0 5px;}
+.mycoatch-future-load-item small {display:block;font-size:.75rem;line-height:1.4;}
+.mycoatch-future-load-targets {padding-left:18px;font-size:.8rem;line-height:1.55;}
+.mycoatch-future-load-item button {
+    display:block;width:100%;min-height:44px;margin-top:8px;
+    text-align:center;white-space:normal;
+}
+.mycoatch-future-load-error {font-weight:700;}
+@media(max-width:480px) {
+    .set-trend-badge {font-size:.63rem;}
+    .set-trend-badge .set-trend-pct {font-size:.67rem;}
+    .set-trend-badge .set-trend-absolute {font-size:.52rem;}
+}

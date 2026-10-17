@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v40-readonly-ios-audio-rest';
+const CACHE_NAME = 'workout-app-v41-set-volume-approved-load-review';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -35,6 +35,8 @@ const ASSETS_TO_CACHE = [
   '/js/workoutEvents.js',
   '/js/exerciseCard.js',
   '/js/setPrefill.js',
+  '/js/setVolumeComparison.js',
+  '/js/futureLoadReviewUI.js',
   '/js/workoutSemantics.js',
   '/js/liveCoachUI.js',
   '/js/weeklyReviewUI.js',
@@ -67,6 +69,7 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/mycoatch-adapter.js',
   '/mycoatch/liveCoach.js',
   '/mycoatch/loadProposal.js',
+  '/mycoatch/futureLoadReview.js',
   '/mycoatch/sessionReadiness.js',
   '/mycoatch/weeklyReview.js',
   '/mycoatch/liveHistory.js',

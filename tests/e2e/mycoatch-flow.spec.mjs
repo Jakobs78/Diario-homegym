@@ -2169,3 +2169,114 @@ test('sound button uses a user gesture and rest still plays 5 short beeps and a 
   assert.deepEqual(monitor.remoteRequests,[]);
   assert.deepEqual(monitor.pageErrors,[]);
 });
+
+
+test('per-set volume badges persist inside kg cells, including week 1 of next year and neutral results',async({page})=>{
+  const monitor=await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    const old=state.workoutData.history.years['2025'].mesocycles[0]
+      .weeks[0].days[0].exercises[0];
+    old.loggedSets=[0,1,2].map(()=>({
+      weight:'70',reps:'8',rpe:'8',isLocked:true,completed:true
+    }));
+    renderWorkoutList();
+  });
+  const r=i=>page.locator('.ex-card[data-ex="0"] .workout-set-row[data-set-index="'+i+'"]');
+  await expect(r(0).locator('.set-trend-badge')).toHaveCount(0);
+  for(const [i,kg] of [[0,'80'],[1,'70'],[2,'60']]){
+    await r(i).locator('.set-kg').fill(kg);
+    await r(i).locator('.set-reps').fill('8');
+    await r(i).locator('.set-rpe').fill('8');
+    await r(i).locator('.set-lock-check').check();
+  }
+  await expect(r(0).locator('.set-trend-badge')).toContainText('▲ +14,29%');
+  await expect(r(0).locator('.set-trend-badge')).toContainText('+80 kg·rep');
+  await expect(r(1).locator('.set-trend-badge')).toContainText('= 0%');
+  await expect(r(2).locator('.set-trend-badge')).toContainText('▼ -14,29%');
+  await r(1).locator('.set-warmup-toggle').click();
+  await expect(r(1).locator('.set-trend-badge')).toHaveCount(0);
+  const inside=await r(0).locator('.td-kg-container').evaluate(td=>{
+    const badge=td.querySelector('.set-trend-badge');
+    return {exists:!!badge,parent:badge?.parentElement?.className,canSee:badge?.getBoundingClientRect().height>0};
+  });
+  assert.equal(inside.exists,true);
+  assert.match(inside.parent,/kg-input-wrapper/);
+  assert.equal(inside.canSee,true);
+  assert.deepEqual(monitor.remoteRequests,[]);
+  assert.deepEqual(monitor.pageErrors,[]);
+});
+
+test('MyCoatch previews, approves and undoes load increases only for untouched future sessions',async({page})=>{
+  const monitor=await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    const meso=state.workoutData.history.years['2026'].mesocycles[0];
+    const template=structuredClone(meso.weeks[0].days[0].exercises[0]);
+    template.loggedSets=template.loggedSets.map(set=>({
+      ...set,weight:'',reps:'',rpe:'',isLocked:false,completed:false
+    }));
+    for(const w of meso.weeks.slice(1)){
+      const day=w.days[0];
+      day.exercises=[structuredClone(template)];
+      day.completed=false;day.sessionStart=null;day.accumulatedSeconds=0;
+      delete day.date;delete day.coachCheckin;
+    }
+    state.workoutData.athlete.loadingSteps={barbell:2.5};
+    renderWorkoutList();
+  });
+  for(let i=0;i<3;i++){
+    const row=page.locator('.ex-card[data-ex="0"] .workout-set-row[data-set-index="'+i+'"]');
+    await row.locator('.set-kg').fill('80');
+    await row.locator('.set-reps').fill('6');
+    await row.locator('.set-rpe').fill('6');
+    await row.locator('.set-lock-check').check();
+  }
+  const review=page.locator('#mycoatch-future-load-review');
+  await expect(review).toBeVisible();
+  await review.locator('summary').click();
+  await expect(review).toContainText('80 → 82.5 kg');
+  await expect(review.locator('.mycoatch-future-load-targets li')).toHaveCount(2);
+  const before=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const m=state.workoutData.history.years['2026'].mesocycles[0];
+    return {
+      source:JSON.stringify(m.weeks[0].days[0].exercises[0]),
+      future:m.weeks.slice(1).map(w=>w.days[0].exercises[0].kgMin)
+    };
+  });
+  assert.deepEqual(before.future,['80','80']);
+  await review.locator('.mycoatch-future-load-apply').click();
+  await expect(review).toContainText('Aggiorna solo le prossime sedute');
+  const after=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const m=state.workoutData.history.years['2026'].mesocycles[0];
+    return {source:JSON.stringify(m.weeks[0].days[0].exercises[0]),
+      future:m.weeks.slice(1).map(w=>w.days[0].exercises[0].kgMin),
+      log:m.coachFutureLoadReviews};
+  });
+  assert.equal(after.source,before.source,'historical performed sets unchanged');
+  assert.deepEqual(after.future,['82.5','82.5']);
+  assert.equal(after.log.length,1);
+  await page.locator('#week-selector').selectOption('2');
+  await expect(page.locator('.ex-card[data-ex="0"] .set-kg[data-set="0"]'))
+    .toHaveValue('82.5');
+  await page.locator('#week-selector').selectOption('1');
+  const applied=page.locator('#mycoatch-future-load-review');
+  await applied.locator('summary').click();
+  await applied.locator('.mycoatch-future-load-undo').click();
+  const reverted=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const m=state.workoutData.history.years['2026'].mesocycles[0];
+    return {future:m.weeks.slice(1).map(w=>w.days[0].exercises[0].kgMin),
+      undoneAt:m.coachFutureLoadReviews[0].undoneAt};
+  });
+  assert.deepEqual(reverted.future,['80','80']);
+  assert.ok(reverted.undoneAt);
+  assert.deepEqual(monitor.remoteRequests,[]);
+  assert.deepEqual(monitor.pageErrors,[]);
+});
