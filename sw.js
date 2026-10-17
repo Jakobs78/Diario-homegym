@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v47-coaching-refinement';
+const CACHE_NAME = 'workout-app-v48-stall-response';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -25,6 +25,7 @@ const ASSETS_TO_CACHE = [
   '/js/journalStore.js',
   '/js/historyWindow.js',
   '/mycoatch/recentEvidence.js',
+  '/mycoatch/stallResponse.js',
   '/js/sync.js',
   '/js/fullBackup.js',
   '/js/coachPreviewUI.js',
