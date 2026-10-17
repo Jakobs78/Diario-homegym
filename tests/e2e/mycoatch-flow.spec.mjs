@@ -2577,7 +2577,7 @@ test('import next mesocycle leaves closed predecessor locked and new active meso
     const csv=[
       'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset',
       '1;1;1;Panca Piana con Bilanciere;2;6-8;60;60;@8;120s;Test;'
-    ].join('\\n');
+    ].join('\n');
     const result=importWorkoutPlan(csv);
     if(result.success)renderWorkoutList();
     const mesos=state.workoutData.history.years['2026'].mesocycles;
