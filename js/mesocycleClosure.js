@@ -16,10 +16,13 @@ function performance(ex, set) {
     return record.ok ? {...record, performedAt: set.completedAt ?? null} : null;
 }
 
+const rpeSumFor = rows => rows.reduce((sum, row) => sum + row.rpe, 0);
+
 function inspectDay(day, weekNumber) {
     let plannedSets = 0, confirmedSets = 0, invalidConfirmedSets = 0;
     let measuredRpe = 0, rpeSum = 0;
     const samples = [];
+    const exerciseResults = [];
     const exercises = (day?.exercises || []).filter(ex => !isWarmupExercise(ex));
     for (const ex of exercises) {
         const expected = plannedWorkSetCount(ex);
@@ -36,12 +39,25 @@ function inspectDay(day, weekNumber) {
             if (!result) continue;
             valid++;
             rows.push(result);
-            if (result.rpe !== null) {
-                measuredRpe++;
-                rpeSum += result.rpe;
-            }
         }
-        confirmedSets += Math.min(expected, valid);
+        // Only planned working sets count towards the scheduled block's
+        // completion and RPE denominator; surplus logs are not silently
+        // treated as extra scheduled sets.
+        const countedRows = rows.slice(0, expected);
+        const realRpe = countedRows.filter(row => row.rpe !== null);
+        measuredRpe += realRpe.length;
+        rpeSum += realRpe.reduce((sum, row) => sum + row.rpe, 0);
+        confirmedSets += countedRows.length;
+        if (countedRows.length) exerciseResults.push({
+            name: ex.name,
+            weekNumber, validSets: countedRows.length,
+            minKg: Math.min(...countedRows.map(row => row.weight)),
+            maxKg: Math.max(...countedRows.map(row => row.weight)),
+            minReps: Math.min(...countedRows.map(row => row.numericReps)),
+            maxReps: Math.max(...countedRows.map(row => row.numericReps)),
+            rpeMeasured: realRpe.length,
+            averageRpe: realRpe.length ? rounded(rpeSumFor(realRpe) / realRpe.length) : null
+        });
         if (valid >= expected && rows.length) {
             const dates = rows.map(row => row.performedAt ||
                 day?.sessionCompletedAt || day?.date || null).map(value => {
@@ -72,7 +88,7 @@ function inspectDay(day, weekNumber) {
         weekNumber, dayNumber: day?.dayNumber ?? null,
         dayName: day?.dayName || 'Giorno ' + (day?.dayNumber ?? '?'),
         status, plannedSets, confirmedSets, invalidConfirmedSets,
-        measuredRpe, rpeSum, samples,
+        measuredRpe, rpeSum, samples, exerciseResults,
         archivedRepeats: Array.isArray(day?.sessionArchives) ? day.sessionArchives.length : 0
     };
 }
@@ -139,7 +155,27 @@ export function summarizeMesocycleClosure(mesocycle) {
             weekNumber: day.weekNumber, dayNumber: day.dayNumber, dayName: day.dayName,
             status: day.status, confirmedSets: day.confirmedSets, plannedSets: day.plannedSets
         })),
-        exerciseChanges: observedChanges(sessions)
+        exerciseChanges: observedChanges(sessions),
+        // Programmed weeks are not calendar weeks; show recorded coverage,
+        // never substitute empty sessions with zero-RPE observations.
+        weeklyResults: weeks.map(week => {
+            const scheduled = sessions.filter(day =>
+                String(day.weekNumber) === String(week.weekNumber));
+            const withRpe = scheduled.reduce((n, day) => n + day.measuredRpe, 0);
+            const rpeTotal = scheduled.reduce((n, day) => n + day.rpeSum, 0);
+            return {
+                weekNumber: week.weekNumber,
+                plannedSets: scheduled.reduce((n, day) => n + day.plannedSets, 0),
+                completedSets: scheduled.reduce((n, day) => n + day.confirmedSets, 0),
+                rpeMeasured: withRpe,
+                averageRpe: withRpe ? rounded(rpeTotal / withRpe) : null
+            };
+        }),
+        // Descriptive per-exercise evidence includes partial sessions too;
+        // never exports raw notes, accounts, timestamps or athlete IDs.
+        exerciseResults: sessions.flatMap(day => day.exerciseResults.map(ex => ({
+            ...ex, dayNumber: day.dayNumber
+        })))
     };
     // In-memory optimistic lease: a change to ANY workout/log field between
     // preview and confirmation invalidates the review, even if totals agree.
@@ -207,6 +243,20 @@ export function formatMesocycleClosureForChat(review) {
                 ' · variazione reps allo stesso carico: ' +
                 (ex.deltaReps > 0 ? '+' : '') + ex.deltaReps));
     }
+    lines.push('COPERTURA E RPE PER SETTIMANA PROGRAMMATA:');
+    for (const w of review.weeklyResults || [])
+        lines.push('Sett. ' + w.weekNumber + ': ' + w.completedSets +
+            '/' + w.plannedSets + ' serie confermate; RPE misurati ' +
+            w.rpeMeasured + '/' + w.completedSets +
+            ', media ' + (w.averageRpe ?? 'non disponibile') + '.');
+    lines.push('CARICHI E RIPETIZIONI EFFETTIVI (anche sedute parziali; intervalli descrittivi, non progressioni):');
+    if (!review.exerciseResults?.length) lines.push('Nessuna serie valida confermata.');
+    for (const ex of review.exerciseResults || [])
+        lines.push('Sett. ' + ex.weekNumber + ', G' + (ex.dayNumber ?? '?') +
+            ', ' + ex.name + ': ' + ex.validSets + ' serie; ' + ex.minKg +
+            '–' + ex.maxKg + ' kg, ' + ex.minReps + '–' + ex.maxReps +
+            ' reps; RPE ' + ex.rpeMeasured + '/' + ex.validSets +
+            ', media ' + (ex.averageRpe ?? 'non disponibile') + '.');
     if (review.incompleteDays.length) {
         lines.push('SEDUTE NON COMPLETE (da verificare, senza inventare allenamenti):');
         for (const d of review.incompleteDays)
