@@ -203,7 +203,7 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
         message = `Hai fatto ${result.reps} ripetizioni, sotto il minimo di ${range.min}. Verifica recupero e tecnica prima del prossimo set.`;
     } else if (plannedFailure) {
         code = 'planned_failure';
-        message = 'RPE 10 previsto dalla scheda: cedimento programmato. Non serve ridurre il carico per il solo RPE.';
+        message = 'RPE 10 previsto dalla scheda: cedimento programmato. Mantieni il carico previsto se tecnica e ripetizioni sono corrette.';
     } else if (knownRpe && targetRpe !== null && result.rpe >= targetRpe + 1) {
         code = 'above_rpe';
         severity = 'caution';
