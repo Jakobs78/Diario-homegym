@@ -3134,10 +3134,11 @@ body.dark-mode .group-title-badge {
 @media (max-width: 480px) {
   .unified-header-box #review-close-meso-btn.meso-closure-attention {
     width: auto;
-    min-width: 128px;
-    min-height: 42px;
-    padding: 6px 9px;
-    font-size: .82rem;
+    min-width: 92px;
+    max-width: 98px;
+    min-height: 38px;
+    padding: 4px 5px;
+    font-size: .72rem;
   }
   .unified-header-box #review-close-meso-btn.meso-closure-attention .meso-guided-closure-text {
     display: inline;
