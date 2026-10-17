@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {canonicalExerciseKey} from '../mycoatch/exerciseIdentity.js';
 import {dropScope,hasDropPrescription,needsDropScope,validateDropSegments} from '../js/trainingTechniques.js';
-import {equipmentKind,automaticallyShowPlates} from '../js/equipmentUI.js';
+import {equipmentKind,automaticallyShowPlates,normalizeOwnedBarbells,barbellOptionValue,selectableBarbells,suggestedBarbell} from '../js/equipmentUI.js';
 import {shouldStartRecoveryTimer,currentCircuitRound,recoveryExercise} from '../js/restPolicy.js';
 import {repeatCompletedSessionPreservingHistory} from '../js/historySafety.js';
 const done=()=>({weight:20,reps:12,rpe:8,isLocked:true});
@@ -59,4 +60,36 @@ test('scarichi strutturati non diventano serie normali per la calibrazione di fo
  const set={weight:20,reps:12,rpe:9,dropSegments:[{weight:15,reps:8}]};
  assert.equal(validateCompletedSet(set,{},set).technique,true);
  assert.equal(validateCompletedSet({...set,dropSegments:[]},{},{...set,dropSegments:[]}).technique,false);
+});
+
+test('bilancieri posseduti: deduplica per peso e diametro senza inventare attrezzatura',()=>{
+ const bars=normalizeOwnedBarbells([{weight:9,diameter:'29'},{weight:'9',diameter:29},
+     {weight:20,diameter:'50'},{weight:0,diameter:'50'},{weight:12,diameter:'35'},
+     {weight:9.1,diameter:'29'}]);
+ assert.deepEqual(bars,[{weight:9,diameter:'29'},{weight:20,diameter:'50'}]);
+ assert.deepEqual(normalizeOwnedBarbells(undefined),[]);
+ assert.equal(barbellOptionValue(bars[0]),'9|29');
+});
+test('bilanciere consigliato: associazione dell esercizio prima del predefinito',()=>{
+ const ex={name:'Squat con Bilanciere'};
+ const athlete={ownedBarbells:[{weight:9,diameter:'29'},{weight:20,diameter:'50'}],
+   defaultBarbell:{weight:20,diameter:'50'},
+   barbellAssignments:{[canonicalExerciseKey(ex.name)]:{weight:9,diameter:'29'}}};
+ // Canonical exercise identity may normalize beyond simple lowercasing.
+ assert.deepEqual(suggestedBarbell({...ex,name:'Nuovo esercizio'},athlete),{weight:20,diameter:'50'});
+ const owned=selectableBarbells(ex,athlete);
+ assert.deepEqual(owned,athlete.ownedBarbells);
+ assert.deepEqual(suggestedBarbell(ex,{
+     ...athlete,barbellAssignments:{}}),{weight:20,diameter:'50'});
+});
+test('associazioni legacy: visibili anche senza configurazione, senza riscrivere lo storico',()=>{
+ const ex={name:'Esercizio bilanciere personalizzato'};
+ // Saved binding is keyed by the existing canonical key, identical to the live card.
+ assert.deepEqual(selectableBarbells(ex,{
+     barbellAssignments:{[canonicalExerciseKey(ex.name)]:{weight:12,diameter:'29'}}
+ }),[{weight:12,diameter:'29'}]);
+ assert.deepEqual(selectableBarbells(ex,{}),[]);
+ assert.equal(suggestedBarbell(ex,{}),null);
+ assert.deepEqual(suggestedBarbell(ex,{ownedBarbells:[{weight:20,diameter:'50'}],
+   defaultBarbell:{weight:9,diameter:'29'}}),{weight:20,diameter:'50'});
 });

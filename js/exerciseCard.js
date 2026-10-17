@@ -2,13 +2,13 @@ import {barbellForExercise} from '../mycoatch/barbellInventory.js';
 import {canonicalExerciseKey} from '../mycoatch/exerciseIdentity.js';
 import {hasDropPrescription} from './trainingTechniques.js';
 import {dropFields,dropScopeControl} from './dropSetUI.js';
-import {equipmentKind,automaticallyShowPlates} from './equipmentUI.js';
+import {equipmentKind,automaticallyShowPlates,selectableBarbells,suggestedBarbell,barbellOptionValue} from './equipmentUI.js';
 /**
  * Module: exerciseCard.js
  * Summary: Genera dinamicamente le card per ogni esercizio gestendo lo stato di esclusione dai massimali, i selettori del bilanciere, il calcolo dei dischi per lato e l'evidenziatura automatica fuori target per KG (inclusi Topset), REPS ed RPE (con supporto al feedback verde di miglioramento).
  */
 
-import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange, calculateSetVolumeTrend, isValueExceedingTarget, parseRPE, escapeHtml, slugify } from './helpers.js';
+import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange, calculateSetVolumeTrend, isValueExceedingTarget, parseRPE, escapeHtml } from './helpers.js';
 import { state } from './state.js';
 import { enableCardSwipeGesture } from './gestures.js';
 import { isWarmupExercise } from './workoutSemantics.js';
@@ -41,7 +41,9 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         !(logs[remembered]?.isLocked || logs[remembered]?.completed) ? remembered :
         (firstUnfinished>=0 ? firstUnfinished : Math.max(0,logs.length-1));
     exCard.dataset.activeSet=String(selected);
-    const barKey='homegym_bar_'+(state.currentUser?.id || 'local')+'_'+slugify(ex.name);
+    const athleteEquipment=state.workoutData?.athlete||{};
+    const barOptions=selectableBarbells(ex,athleteEquipment);
+    const suggestedBar=suggestedBarbell(ex,athleteEquipment);
 
 
     let cardHtml = `
@@ -236,30 +238,15 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
 
     if(equipment!=='other')cardHtml += `
         <details class="plates-disclosure"><summary>${equipment==='unknown'?'Usi un bilanciere? Calcola i dischi':'Calcola dischi per bilanciere'}</summary>
-        <!-- Carico e dischi per la serie selezionata, non solo per il primo set -->
-        <div class="bar-plates-container mb-md" aria-label="Calcolo dischi serie attiva">
-            <div class="flex-center gap-md">
-                <span class="bar-select-label">🏋️ DISCHI · SERIE <span class="plates-active-set">${selected+1}</span></span>
-                <select class="bar-select flex-1" data-ex="${exIdx}" ${isPastMeso ? 'disabled' : ''}>
-                    <option value="20">Bil 20kg</option>
-                    <option value="15">Bil 15kg</option>
-                    <option value="12">Bil 12kg</option>
-                    <option value="10">Bil 10kg</option>
-                    <option value="9">Bil 9kg</option>
-                    <option value="6">Bil 6kg</option>
-                    <option value="0">Manubri / Macchina</option>
-                </select>
-                <select class="bar-diameter" aria-label="Diametro bilanciere" ${isPastMeso ? 'disabled' : ''}>
-                    <option value="">Diametro…</option><option value="50">50 mm</option><option value="29">29 mm</option>
+        <div class="bar-plates-container" aria-label="Calcolo dischi serie attiva">
+            <div class="bar-controls-row">
+                <span class="bar-select-label">🏋️ SERIE <span class="plates-active-set">${selected+1}</span></span>
+                <select class="bar-select" aria-label="Bilanciere: peso e diametro" ${isPastMeso ? 'disabled' : ''}>
+                    ${barOptions.length ? barOptions.map(bar=>`<option value="${barbellOptionValue(bar)}">Bil ${bar.weight} kg · Ø${bar.diameter} mm</option>`).join('')
+                        : '<option value="">Configura bilanciere…</option>'}
                 </select>
             </div>
-    
-            <div class="plates-badge flex-between gap-sm" data-ex="${exIdx}">
-                <span class="plates-label">CARICO PER LATO:</span>
-                <div class="plates-content flex-center gap-xs">
-                    0 kg
-                </div>
-            </div>
+            <div class="plates-badge" data-ex="${exIdx}">Configura i tuoi bilancieri in Strumenti → Attrezzatura personale.</div>
         </div>
         </details>
     `;
@@ -312,28 +299,17 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     });
     const barSelect=exCard.querySelector('.bar-select');
     if(barSelect){
-        const binding=barbellForExercise(ex,state.workoutData?.athlete);
-        const preferred=binding ? String(binding.weight) : localStorage.getItem(barKey);
-        const equipment=String(ex.equipment||'').toLowerCase();
-        const dumbbell=/dumbbell|manubri|manubrio|machine|macchina|cable|cavi/.test(equipment)
-            || /manubri|manubrio|macchina|cavi/.test(ex.name.toLowerCase());
-        const fallback=dumbbell?'0':'20';
-        barSelect.value=[...barSelect.options].some(opt=>opt.value===preferred)?preferred:fallback;
-        const diameter=exCard.querySelector('.bar-diameter');
-        diameter.value=binding?.diameter||'';
-        const remember=()=>{
-            if(isPastMeso)return;
-            localStorage.setItem(barKey,barSelect.value);
+        barSelect.value=barbellOptionValue(suggestedBar);
+        barSelect.addEventListener('change',()=>{
+            if(isPastMeso || !barSelect.value)return;
+            const [weight,diameter]=barSelect.value.split('|');
             state.workoutData.athlete ||= {};
             state.workoutData.athlete.barbellAssignments ||= {};
             state.workoutData.athlete.barbellAssignments[canonicalExerciseKey(ex.name)]={
-                weight:Number(barSelect.value),diameter:diameter.value};
+                weight:Number(weight),diameter};
             saveAndSync(state.workoutData,'SET_EQUIPMENT');
             updatePlatesBadgeUI(exIdx,exCard);
-        };
-        barSelect.addEventListener('change',remember);
-        diameter.addEventListener('change',remember);
-
+        });
     }
     exCard.dataset.platesAutoEligible=String(equipment==='barbell');
     const disclosure=exCard.querySelector('.plates-disclosure');
@@ -354,12 +330,13 @@ export function updatePlatesBadgeUI(exIdx, cardNode=null) {
     const setIdx=Number(card.dataset.activeSet||0);
     const kgField=card.querySelector('.set-kg[data-set="'+setIdx+'"]');
     const total=Number(String(kgField?.value||'').replace(',','.'));
-    const barWeight=Number(select?.value??20);
+    const [selectedBarWeight,diameter]=String(select?.value||'').split('|');
+    const barWeight=Number(selectedBarWeight);
     const disclosure=card.querySelector('.plates-disclosure');
     if(disclosure && !disclosure.dataset.manual)disclosure.open=card.dataset.platesAutoEligible==='true' && total>35;
-    if(barWeight===0){
-        badge.className='plates-badge plates-badge-disabled';
-        badge.textContent='Manubri / macchina · dischi non necessari';
+    if(!select?.value || !['50','29'].includes(diameter) || !Number.isFinite(barWeight) || barWeight<=0){
+        badge.className='plates-badge plates-badge-empty';
+        badge.textContent='Configura i tuoi bilancieri in Strumenti → Attrezzatura personale.';
         return;
     }
     if(!kgField?.value.trim() || !Number.isFinite(total) || total<=0){
@@ -377,11 +354,10 @@ export function updatePlatesBadgeUI(exIdx, cardNode=null) {
         badge.textContent='Solo bilanciere: 0 kg di dischi per lato.';
         return;
     }
-    const diameter=card.querySelector('.bar-diameter')?.value;
     const inventory=state.workoutData?.athlete?.plateInventories?.[diameter];
     if(!inventory){
         badge.className='plates-badge plates-badge-empty';
-        badge.textContent=diameter ? 'Configura i dischi da '+diameter+' mm in Attrezzatura personale.' : 'Scegli il diametro del bilanciere per usare soltanto dischi compatibili.';
+        badge.textContent='Configura i dischi da '+diameter+' mm in Attrezzatura personale.';
         return;
     }
     const breakdown=getPlateBreakdown(total,barWeight,inventory);
@@ -409,12 +385,6 @@ export function updatePlatesBadgeUI(exIdx, cardNode=null) {
         note.className='plate-breakdown-warning';
         note.textContent='Combinazione incompleta: mancano '+leftover+' kg/lato.';
         badge.append(note);
-    }
-    if(inventory){
-        const hint=document.createElement('small');
-        hint.className='plate-breakdown-hint';
-        hint.textContent='Solo dischi da '+diameter+' mm registrati nelle impostazioni.';
-        badge.append(hint);
     }
     if(kgField.classList.contains('text-placeholder-active')){
         const hint=document.createElement('small');

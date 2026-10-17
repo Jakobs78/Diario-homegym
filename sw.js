@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v50-notes-sets-spacing';
+const CACHE_NAME = 'workout-app-v50-compact-owned-barbells';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [

@@ -1554,6 +1554,9 @@ test('punto 3: mobile card keeps previous performance, per-set plates, coach not
       notes:'Busto stabile',loggedSets:[{weight:'',reps:'',rpe:'',isLocked:false}]
     });
     state.activeWeek=2;state.activeDay=1;
+    state.workoutData.athlete ||= {};
+    state.workoutData.athlete.ownedBarbells=[{weight:20,diameter:'50'},{weight:15,diameter:'50'}];
+    state.workoutData.athlete.defaultBarbell={weight:20,diameter:'50'};
     renderWorkoutList();
   });
   const card=page.locator('.ex-card[data-ex="0"]');
@@ -1573,11 +1576,10 @@ test('punto 3: mobile card keeps previous performance, per-set plates, coach not
     const {state}=await import('/js/state.js');state.workoutData.athlete ||= {};
     state.workoutData.athlete.plateInventories={'50':{'20':2,'10':2,'5':2,'2.5':2}};
   });
-  await card.locator('.bar-diameter').selectOption('50');
-  await expect(card.locator('.plates-badge')).toContainText('32.5 kg/lato');
-  await card.locator('.bar-select').selectOption('15');
+  await card.locator('.bar-select').selectOption('15|50');
   await expect(card.locator('.plates-badge')).toContainText('35 kg/lato');
-  await card.locator('.bar-select').selectOption('20');
+  await card.locator('.bar-select').selectOption('20|50');
+  await expect(card.locator('.plates-badge')).toContainText('32.5 kg/lato');
   await card.locator('.set-kg[data-set="0"]').fill('80');
   await card.locator('.set-reps[data-set="0"]').fill('8');
   await card.locator('.set-rpe[data-set="0"]').fill('8');

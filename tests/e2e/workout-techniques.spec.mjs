@@ -183,7 +183,12 @@ test('bilanciere leggero disponibile a richiesta, manubri pesanti senza calcolat
   const day=Object.values(state.workoutData.history.years)[0].mesocycles[0].weeks[0].days[0];
   day.exercises[0].name='Panca Piana con Bilanciere';delete day.exercises[0].isDropset;day.exercises[0].notes='';
   day.exercises[0].kgMin='30';day.exercises[0].kgMax='30';
-  day.exercises[1].name='Spinte con Manubri';day.exercises[1].kgMin='40';day.exercises[1].kgMax='40';renderWorkoutList();
+  day.exercises[1].name='Spinte con Manubri';day.exercises[1].kgMin='40';day.exercises[1].kgMax='40';
+  state.workoutData.athlete ||= {};
+  state.workoutData.athlete.ownedBarbells=[{weight:20,diameter:'50'}];
+  state.workoutData.athlete.defaultBarbell={weight:20,diameter:'50'};
+  state.workoutData.athlete.plateInventories={'50':{'5':1}};
+  renderWorkoutList();
  });
  const card=page.locator('.ex-card[data-ex="0"]');
  await expect(card.locator('.plates-disclosure')).not.toHaveAttribute('open','');
@@ -194,8 +199,7 @@ test('bilanciere leggero disponibile a richiesta, manubri pesanti senza calcolat
  await card.locator('.set-kg[data-set="0"]').fill('30');
  await expect(card.locator('.plates-disclosure')).not.toHaveAttribute('open','');
  await card.locator('.plates-disclosure summary').click();
- await page.evaluate(async()=>{const {state}=await import('/js/state.js');state.workoutData.athlete ||= {};state.workoutData.athlete.plateInventories={'50':{'5':1}};});
- await card.locator('.bar-diameter').selectOption('50');
+ await expect(card.locator('.bar-select')).toHaveValue('20|50');
  await expect(card.locator('.plates-badge')).toContainText('5 kg/lato');
  await expect(page.locator('.ex-card[data-ex="1"] .plates-disclosure')).toHaveCount(0);
 });
@@ -221,21 +225,20 @@ test('diametro memorizzato: i dischi da 29 mm non completano il bilanciere da 50
   state.workoutData.athlete ||= {};
   state.workoutData.athlete.platePairs={'1.25':9};
   state.workoutData.athlete.plateInventories={'50':{'20':1,'5':1},'29':{'25':1,'1.25':1}};
+  state.workoutData.athlete.ownedBarbells=[{weight:20,diameter:'50'},{weight:20,diameter:'29'}];
+  state.workoutData.athlete.defaultBarbell={weight:20,diameter:'50'};
   renderWorkoutList();
  });
  const card=page.locator('.ex-card[data-ex="0"]');
- await expect(card.locator('.plates-badge')).toContainText('Scegli il diametro');
- await card.locator('.bar-diameter').selectOption('50');
+ await expect(card.locator('.bar-select')).toHaveValue('20|50');
  await expect(card.locator('.plates-badge')).toContainText('Combinazione incompleta');
- await expect(card.locator('.plates-badge')).toContainText('Solo dischi da 50 mm');
- await card.locator('.bar-diameter').selectOption('29');
+ await card.locator('.bar-select').selectOption('20|29');
  await expect(card.locator('.plates-badge')).not.toContainText('Combinazione incompleta');
  await expect(card.locator('.plates-badge')).toContainText('25 + 1.25');
  await page.evaluate(async()=>{await (await import('/js/journalStore.js')).flushJournalStorage();});
  await page.reload();
- await expect(card.locator('.bar-diameter')).toHaveValue('29');
- await expect(card.locator('.bar-select')).toHaveValue('20');
- await expect(card.locator('.plates-badge')).toContainText('Solo dischi da 29 mm');
+ await expect(card.locator('.bar-select')).toHaveValue('20|29');
+ await expect(card.locator('.plates-badge')).toContainText('26.25 kg/lato');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.evaluate(()=>{document.getElementById('auth-overlay').style.display='none';});
  await card.locator('.plates-disclosure').scrollIntoViewIfNeeded();
@@ -260,4 +263,50 @@ for(const [device,width,height] of [['telefono',390,844],['tablet',768,1024],['p
  await page.locator('#app-utility-menu summary').click();
  await page.locator('#btn-user-manual').click();
  await expect(page.locator('#manual')).toHaveClass(/d-none/);
+});
+
+test('bilancieri impostati una volta: scelta automatica e layout compatto a 320px',async({page})=>{
+ await page.setViewportSize({width:320,height:812});
+ await openIsolatedApp(page);
+ await page.locator('#open-tools-btn').click();
+ await page.locator('.equipment-settings summary').click();
+ const rows=page.locator('.equipment-barbell-row');
+ await page.locator('#equipment-add-barbell').click();
+ await rows.nth(0).locator('.equipment-bar-weight').fill('9');
+ await rows.nth(0).locator('.equipment-bar-diameter').selectOption('29');
+ await page.locator('#equipment-add-barbell').click();
+ await rows.nth(1).locator('.equipment-bar-weight').fill('20');
+ await rows.nth(1).locator('.equipment-bar-diameter').selectOption('50');
+ await rows.nth(1).locator('.equipment-bar-default').check();
+ await page.locator('.equipment-plate-pairs').evaluateAll(inputs=>inputs.forEach(el=>el.value='0'));
+ await page.locator('#homegym-equipment-form button[type="submit"]').click();
+ await expect(page.locator('#homegym-equipment-status')).toContainText('Attrezzatura salvata');
+ const stored=await page.evaluate(async()=>{
+   const {state}=await import('/js/state.js');
+   return {bars:state.workoutData.athlete.ownedBarbells,preferred:state.workoutData.athlete.defaultBarbell};
+ });
+ expect(stored).toEqual({bars:[{weight:9,diameter:'29'},{weight:20,diameter:'50'}],
+   preferred:{weight:20,diameter:'50'}});
+ await page.locator('#close-tools-btn').click();
+ const card=page.locator('.ex-card').first();
+ await expect(card.locator('.bar-select')).toHaveValue('20|50');
+ await card.locator('.plates-disclosure').evaluate(node=>node.open=true);
+ const positions=await card.evaluate(node=>{
+   const a=node.querySelector('.bar-select-label').getBoundingClientRect();
+   const b=node.querySelector('.bar-select').getBoundingClientRect();
+   return {sameRow:Math.abs(a.top-b.top)<20,
+     inside:b.right<=innerWidth+1 && b.left>=0,
+     barWidth:b.width};
+ });
+ expect(positions.sameRow).toBe(true);
+ expect(positions.inside).toBe(true);
+ expect(positions.barWidth).toBeGreaterThan(100);
+ await card.locator('.bar-select').selectOption('9|29');
+ const assigned=await page.evaluate(async()=>{
+   const {state}=await import('/js/state.js');
+   const {canonicalExerciseKey}=await import('/mycoatch/exerciseIdentity.js');
+   const exercise=Object.values(state.workoutData.history.years)[0].mesocycles[0].weeks[0].days[0].exercises[0];
+   return state.workoutData.athlete.barbellAssignments?.[canonicalExerciseKey(exercise.name)];
+ });
+ expect(assigned).toEqual({weight:9,diameter:'29'});
 });
