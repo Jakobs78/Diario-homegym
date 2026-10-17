@@ -2796,7 +2796,7 @@ test('PDF mesociclo: esportazione completa con pagine, note, risultati, archivio
     return {before:window.__beforeMeso,after:JSON.stringify(m),result:window.__pdfCapture};
   });
   expect(report.after).toBe(before);
-  expect(report.result.filename).toMatch(/_diario_completo\\.pdf$/);
+  expect(report.result.filename.endsWith('_diario_completo.pdf')).toBe(true);
   expect(report.result.pages.length).toBeGreaterThan(1);
   const lines=report.result.pages.flat().map(x=>x.line).join(' ');
   for(const text of ['Settimana 1','Giorno 1','Squat archivio','Coach ripetizione',
