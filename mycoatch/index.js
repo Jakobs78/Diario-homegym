@@ -28,7 +28,7 @@ export const MyCoatch = {
         const report = analyzeTrainingHistory(recentHistory,{calendarWeeks:true});
         const originalReport=analyzeTrainingHistory(originalHistory);
         const previousMesocycle = handoff?.mesocycle || report.lastMesocycle;
-        const calibrationHandoff = calibrationHandoffForMesocycle(previousMesocycle);
+        const calibrationHandoff = calibrationHandoffForMesocycle(handoff?.mesocycle || originalReport.lastMesocycle);
         const loadingSteps=coachingGoals.loadingSteps ??
             userHistory?.athlete?.loadingSteps ?? {};
         const equipmentSettings={...userHistory?.athlete,...coachingGoals,...loadingSteps,
