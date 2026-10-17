@@ -8,6 +8,7 @@ import { state } from './state.js';
 import { buildMesocyclePdfOutline } from './mesocyclePdfModel.js';
 import { saveAndSync } from './storage.js';
 import { renderWorkoutList, showNotification } from './ui.js';
+import { closeMesocycleInMemory, summarizeMesocycleClosure } from './mesocycleClosure.js';
 
 // ==========================================
 // 2. RECUPERO MESOCICLO ATTIVO (Sincronizzato con ui.js)
@@ -97,20 +98,53 @@ export function deleteCurrentMesocycle() {
 // ==========================================
 // 4. BLOCCO & SBLOCCO MESOCICLO
 // ==========================================
-export function toggleCurrentMesocycleLock() {
+export async function toggleCurrentMesocycleLock() {
     const currentMeso = getActiveMesocycleObject();
     if (!currentMeso) return;
-
-    // Normalizziamo in booleano puro ed invertiamo
-    currentMeso.locked = !currentMeso.locked;
-    
-    // Salva lo stato
-    saveAndSync(state.workoutData);
-    
-    // 🔄 Ridisegna la lista per applicare/rimuovere i blocchi dagli input e aggiornare il pulsante
+    const previousLock = Boolean(currentMeso.locked);
+    const previousClosure = currentMeso.coachClosure;
+    // Un ciclo concluso richiede una conferma distinta dallo sblocco normale.
+    if (previousLock && previousClosure?.status === 'closed' &&
+        !confirm('Questo mesociclo è stato CONCLUSO. Riaprirlo permetterà di modificare i dati e annullerà la chiusura registrata. Vuoi davvero riaprirlo?')) return;
+    currentMeso.locked = !previousLock;
+    if (previousLock && previousClosure?.status === 'closed')
+        delete currentMeso.coachClosure;
+    try {
+        const result = await saveAndSync(state.workoutData);
+        if (result === false) throw Error('Salvataggio non confermato: verifica archivio e sincronizzazione.');
+    } catch(error) {
+        currentMeso.locked = previousLock;
+        if (previousClosure === undefined) delete currentMeso.coachClosure;
+        else currentMeso.coachClosure = previousClosure;
+        renderWorkoutList();
+        showNotification(error.message);
+        return;
+    }
     renderWorkoutList();
-    
-    showNotification(currentMeso.locked ? "Mesociclo bloccato" : "Mesociclo sbloccato");
+    showNotification(currentMeso.locked ? 'Mesociclo bloccato in sola lettura' :
+        'Mesociclo sbloccato');
+}
+
+/** Salva solo la chiusura e il blocco; i log esistenti non vengono riscritti. */
+export async function concludeCurrentMesocycle(mesocycle, report, {
+    acknowledgeIncomplete = false
+} = {}) {
+    if (!mesocycle || mesocycle !== getActiveMesocycleObject())
+        throw Error('Selezione cambiata: riapri la revisione del mesociclo corretto.');
+    const beforeLocked = mesocycle.locked;
+    const beforeClosure = mesocycle.coachClosure;
+    closeMesocycleInMemory(mesocycle, report, { acknowledgeIncomplete });
+    try {
+        const saved = await saveAndSync(state.workoutData);
+        if (saved === false) throw Error('Salvataggio non confermato: la chiusura non è stata completata. Conserva un backup e verifica la sincronizzazione.');
+    } catch(error) {
+        mesocycle.locked = beforeLocked;
+        if (beforeClosure === undefined) delete mesocycle.coachClosure;
+        else mesocycle.coachClosure = beforeClosure;
+        throw error;
+    }
+    renderWorkoutList();
+    return summarizeMesocycleClosure(mesocycle);
 }
 
 export function updateMesocycleLockUI() {
