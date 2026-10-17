@@ -2723,6 +2723,7 @@ body.dark-mode .group-title-badge {
     overflow: hidden;
     background: var(--block-bg);
     margin-top: 8px;
+    margin-bottom: 10px;
 }
 .ex-card .exercise-coach-notes > summary {
     cursor: pointer;
