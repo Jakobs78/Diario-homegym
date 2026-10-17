@@ -42,7 +42,9 @@ function weeklyObservations(exposures) {
     return [...weeks].map(([id, entries]) => {
         const first = entries[0];
         if (!entries.every(validExposure) ||
-            !entries.every(ex => comparable(first, ex))) return {
+            !entries.every(ex => comparable(first, ex)) ||
+            !entries.every(ex => ex.year === first.year &&
+                ex.mesocycleIndex === first.mesocycleIndex)) return {
             invalid: true, weekId: id,
             blockId: first.year + '/' + first.mesocycleIndex
         };
