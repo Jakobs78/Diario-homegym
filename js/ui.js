@@ -359,7 +359,7 @@ export function renderWorkoutList() {
     closureText.className = 'meso-guided-closure-text';
     const highlightClosure = shouldHighlightMesocycleClosure(meso);
     closureText.textContent = closedMeso ? 'Report fine mesociclo'
-        : highlightClosure ? 'Report MyCoatch' : 'Concludi mesociclo';
+        : highlightClosure ? 'MyCoatch' : 'Concludi mesociclo';
     closureButton.append(closureIcon, closureText);
     if (highlightClosure) closureButton.classList.add('meso-closure-attention');
     closureButton.setAttribute('aria-label', highlightClosure
