@@ -17,6 +17,13 @@ const scopedKey = id => `${CONFIG.STORAGE_KEY}_user_${id}`;
 const accountId=user=>String(user?.id||user?.email||'');
 const revisionKey=user=>`${CONFIG.STORAGE_KEY}_revision_${accountId(user)}`;
 const conflictKey=user=>`workoutApp_data_conflict_${accountId(user)}`;
+const acceptedHashKey=user=>`${CONFIG.STORAGE_KEY}_cloud_ack_hash_${accountId(user)}`;
+export const getCloudAcceptedHash=user=>journalStorage.getItem(acceptedHashKey(user));
+export function setCloudAcceptedHash(user,hash){
+    if(!user || !accountId(user))return;
+    if(!hash)journalStorage.removeItem(acceptedHashKey(user));
+    else journalStorage.setItem(acceptedHashKey(user),String(hash));
+}
 export const getCloudRevision=user=>journalStorage.getItem(revisionKey(user));
 export function setCloudRevision(user,revision){
     if(!user || !accountId(user))return;
@@ -82,6 +89,7 @@ export async function removeAccountLocalData(user){
     journalStorage.removeItem(scopedKey(id));
     journalStorage.removeItem(revisionKey(user));
     journalStorage.removeItem(conflictKey(user));
+    journalStorage.removeItem(acceptedHashKey(user));
     if(queue.length)journalStorage.setItem(QUEUE_KEY,JSON.stringify(queue));else clearQueue();
     if(owner===id){
         journalStorage.removeItem(CONFIG.STORAGE_KEY);
