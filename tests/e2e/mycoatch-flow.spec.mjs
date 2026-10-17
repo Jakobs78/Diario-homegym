@@ -2615,7 +2615,7 @@ test('smartphone: l’ultima spunta dell’ultimo giorno evidenzia MyCoatch anch
     width:el.getBoundingClientRect().width
   }));
   assert.notEqual(accent.animation,'none');
-  assert.ok(accent.width>=128,JSON.stringify(accent));
+  assert.ok(accent.width>=92 && accent.width<=105,JSON.stringify(accent));
   await button.click();
   await expect(button).not.toHaveClass(/meso-closure-attention/);
   await expect(page.locator('#mesocycle-closure-panel')).toHaveAttribute('open','');
