@@ -3084,3 +3084,20 @@ body.dark-mode .group-title-badge {
 }
 .mycoatch-meso-closure-check input { margin-top: .25rem; flex-shrink: 0; }
 .mycoatch-meso-closure-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: .7rem; }
+
+/* Do not push exercises below the fold before the athlete opens the review. */
+#mesocycle-closure-panel[hidden] { display: none !important; }
+.unified-header-box .meso-guided-closure-trigger {
+  min-height: 34px;
+  padding: 4px 7px;
+  line-height: 1.1;
+  font-size: .74rem;
+  white-space: nowrap;
+}
+@media (max-width: 420px) {
+  .unified-header-box .meso-guided-closure-trigger {
+    min-height: 32px;
+    padding: 3px 6px;
+    font-size: .71rem;
+  }
+}
