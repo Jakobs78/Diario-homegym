@@ -1,142 +1,89 @@
-// manual.js - Manuale d'uso integrato per HomeGym Diary
+// Guida integrata: descrive i controlli presenti, senza promesse di dati infallibili.
+const sections = [
+['iniziare','1. Da dove iniziare',`
+<p>HomeGym Diary organizza schede, allenamenti e storico della tua homegym. <strong>MyCoatch</strong> prepara proposte e interpreta le serie che confermi. I dati previsti nella scheda e quelli realmente eseguiti sono distinti.</p>
+<ol><li>Accedi al tuo account e controlla lo stato <strong>Cloud</strong> in alto.</li><li>Apri <strong>Strumenti → Attrezzatura personale · dischi e incrementi</strong> e configura i pesi disponibili.</li><li>Crea una proposta con MyCoatch oppure importa una scheda.</li><li>Scegli anno, mesociclo, settimana e giorno. Leggi obiettivi e note prima di iniziare.</li><li>Registra i risultati reali e spunta ogni serie conclusa. Al termine controlla il salvataggio e le eventuali proposte.</li></ol>
+<p>Dal menu <strong>☰</strong> trovi questo manuale, il tema chiaro/scuro e l’uscita dall’account. Per tornare all’allenamento usa <strong>Chiudi Manuale</strong> nello stesso menu. In alto trovi anche <strong>Analisi</strong> e <strong>Strumenti</strong>.</p>`],
+['navigazione','2. Anni, mesocicli e blocco delle modifiche',`
+<p>Il diario è organizzato in <strong>anno → mesociclo → settimana → giorno → esercizi → serie</strong>. Usa i selettori dell’anno e della settimana e i pulsanti del mesociclo; i tab dei giorni aprono la seduta e le note disponibili.</p>
+<p>Il lucchetto <strong>🔒/🔓</strong> protegge il mesociclo dalle modifiche. Un mesociclo bloccato rimane consultabile: se un campo o un comando non è disponibile, controlla prima il blocco e se stai visualizzando uno storico in sola lettura.</p>
+<p>MyCoatch lavora su una finestra di <strong>quattro anni di calendario: anno corrente e tre precedenti</strong>. I dati più vecchi non vengono cancellati: restano nell’archivio consultabile e nel backup integrale. Per le proposte conta anche quanto sono recenti e confrontabili le prestazioni; una lunga pausa può richiedere una nuova calibrazione.</p>`],
+['attrezzatura','3. Inventario dischi: 50 mm e 29 mm',`
+<p>Apri <strong>Strumenti → Attrezzatura personale · dischi e incrementi</strong>. I due inventari sono indipendenti: <strong>50 mm</strong> e <strong>29 mm</strong>. Per entrambi sono disponibili i tagli <strong>25, 20, 15, 10, 5, 2,5, 2, 1,25, 1 e 0,5 kg</strong>.</p>
+<p>Indica il numero di <strong>coppie</strong> possedute: due dischi da 10 kg sono una coppia; quattro dischi da 5 kg sono due coppie. Scrivi <strong>0</strong> per un taglio che non possiedi. Compila entrambi gli inventari, anche con tutti zeri per il diametro che non usi, poi premi <strong>Salva attrezzatura nel diario</strong>. I campi nuovi sono vuoti: l’app non presume che tu possieda dei dischi.</p>
+<p>Se avevi salvato un inventario unico, lo trovi come riferimento da suddividere. Non viene duplicato né attribuito automaticamente a un diametro. Dopo il salvataggio, le quantità separate sono quelle utilizzate dal calcolatore.</p>
+<p>Gli incrementi indicano il più piccolo aumento disponibile: per il bilanciere sul <strong>peso totale</strong>, per i manubri sul <strong>singolo manubrio</strong>. I pesi dei bilancieri e le relative scelte restano quelli già disponibili; modificare le quantità dei dischi non li cambia. Inventari e associazioni agli esercizi fanno parte del diario, del backup e della sincronizzazione.</p>`],
+['calcolatore','4. Scegliere il bilanciere e calcolare i dischi',`
+<ol><li>Nella card apri <strong>Calcola dischi per bilanciere</strong>.</li><li>Scegli il peso del bilanciere e il suo diametro, <strong>50 mm oppure 29 mm</strong>. La coppia di scelte viene ricordata per quell’esercizio.</li><li>Tocca la riga della serie da consultare: il calcolo segue la serie selezionata e i kg mostrati in quella riga.</li></ol>
+<p>I kg del bilanciere sono <strong>inclusi nel carico totale</strong>. Esempio: 70 kg totali con bilanciere da 20 kg richiedono 25 kg di dischi per lato. Il calcolatore può usare solo le coppie del diametro scelto: non prende dischi dall’altro inventario.</p>
+<p>Se mancano dischi, compare una combinazione incompleta con il peso mancante per lato: <strong>non è il carico totale richiesto</strong>. Se manca il diametro o il relativo inventario, l’app chiede di completarli. Un carico inferiore al peso del bilanciere viene segnalato; un carico uguale richiede il solo bilanciere.</p>
+<p>Per gli esercizi riconosciuti con bilanciere il pannello si apre automaticamente <strong>sopra 35 kg</strong>; a 35 kg o meno puoi aprirlo manualmente. Per manubri e macchine riconosciuti non compare. Per un esercizio non riconosciuto è disponibile a richiesta: usalo solo se impieghi davvero un bilanciere.</p>
+<p>MyCoatch usa la stessa compatibilità per le proposte. Un incremento impossibile non viene applicato. Nelle nuove schede, un carico non verificabile con l’attrezzatura dichiarata può restare vuoto con una nota: completa l’associazione oppure scegli e registra un peso disponibile coerente con il target.</p>`],
+['scheda','5. Creare una scheda con MyCoatch',`
+<p>In <strong>Strumenti</strong> scegli <strong>Scarica Nuovo Mesociclo (.CSV) - MyCoatch</strong>. Si apre la configurazione: tempo disponibile (anche personalizzato fra 25 e 180 minuti), tre o quattro giorni settimanali, età, obiettivo forza/ipertrofia/powerbuilding, esperienza e priorità muscolari.</p>
+<p>Il configuratore presume una dotazione di base con rack, bilanciere, manubri, panca piana e cavi/lat machine. Indica le varianti preferite dei fondamentali, gli accessori realmente disponibili e gli esercizi che preferisci evitare; controlla nell’anteprima che ogni esercizio sia eseguibile nella tua palestra. La scelta delle varianti e degli accessori guida la selezione degli esercizi; <strong>è distinta dall’inventario dei dischi</strong>, che serve a verificare i carichi.</p>
+<p>Senza uno storico attendibile puoi scegliere la <strong>prima settimana guidata di calibrazione</strong>. Gli eventuali carichi di riferimento, con ripetizioni, RPE e data, sono dichiarazioni iniziali: non diventano prestazioni già eseguite. Se mancano riferimenti adatti, alcuni kg possono restare da scegliere e registrare.</p>
+<p>Controlla l’<strong>anteprima</strong>: giorni, esercizi, serie, ripetizioni, RPE, recuperi, stime di tempo e motivazioni. Puoi scaricare il CSV, annullare o applicare la proposta. L’applicazione crea un mesociclo separato e conserva lo storico precedente; la sola anteprima non modifica il diario. Le risposte della configurazione guidano quella proposta e non equivalgono al salvataggio automatico di un profilo personale completo.</p>`],
+['serie','6. Compilare e confermare una serie',`
+<p>La card mostra prescrizione, note del coach e, quando disponibile, una prestazione precedente confrontabile. I valori precompilati sono <strong>suggerimenti</strong>: non sono risultati acquisiti finché non confermi la serie.</p>
+<ol><li>Controlla o modifica <strong>kg</strong> e <strong>ripetizioni realmente eseguite</strong>. Nella registrazione scrivi un numero, non il range della prescrizione.</li><li>Indica l’<strong>RPE effettivo</strong> se lo conosci. Puoi lasciarlo vuoto: MyCoatch non lo inventa, ma avrà meno elementi per stimare lo sforzo e proporre progressioni.</li><li>Spunta <strong>✓</strong> dopo avere eseguito l’intera serie. La conferma accetta anche i valori precompilati: verifica che corrispondano a ciò che hai fatto.</li><li>Per correggere una serie confermata, togli la spunta, modifica e conferma di nuovo. Una serie senza spunta non vale come prestazione confermata per MyCoatch.</li></ol>
+<p>Usa sempre la stessa convenzione di peso per un esercizio; per i manubri registra il peso del singolo manubrio. Le evidenziazioni confrontano l’inserimento con il target, non certificano la tecnica. Le frecce di volume confrontano dati compatibili quando disponibili: più tonnellaggio non dimostra da solo maggiore crescita muscolare.</p>
+<p>Puoi aggiungere note personali. I campi delle note del coach descrivono la prescrizione: leggili soprattutto in presenza di tecniche speciali.</p>`],
+['tecniche','7. Superserie, triset, jumpset, dropset e topset',`
+<p><strong>Superserie, triset e jumpset:</strong> la card di gruppo mostra un giro alla volta. Conferma la serie di ciascun esercizio; il recupero parte solo quando il giro è completo, usando il recupero dell’ultimo esercizio del gruppo. Spuntare per primo l’ultimo esercizio non avvia una pausa prematura. Non puoi confermare un giro futuro prima di avere completato quello corrente. I pulsanti dei giri permettono di consultare anche quelli precedenti.</p>
+<p><strong>Dropset:</strong> la riga principale contiene la serie base. Nei campi sottostanti registra kg e ripetizioni di ciascuno scarico, più RPE facoltativo. Ogni scarico richiede un peso inferiore al precedente. Puoi aggiungere o rimuovere fasi prima della conferma. Spunta una sola volta, dopo la base e tutti gli scarichi: non parte un recupero fra le fasi. Non sommare le ripetizioni degli scarichi nel campo della serie base.</p>
+<p>Se la scheda importata dice soltanto “dropset”, scegli se riguarda <strong>l’ultima serie oppure ogni serie</strong>, secondo le indicazioni del coach. Se non lo esegui, seleziona <strong>Dropset non eseguito</strong> e registra la base. Gli scarichi rimangono nello storico, ma non vengono trattati come serie normali per stimare forza e aumenti di carico.</p>
+<p><strong>Topset:</strong> è una prescrizione specifica, non un gruppo di esercizi da unire. Segui la riga e le note dedicate senza estenderne il peso a tutte le altre serie. Altre tecniche riconosciute nelle note, come rest-pause e myo-reps, non hanno necessariamente la stessa interfaccia a fasi del dropset: consulta la prescrizione e non interpretare il loro nome come una funzione identica.</p>`],
+['tempo','8. Recuperi, durata e ripetizione della seduta',`
+<p>La conferma delle serie alimenta il cronometro della seduta e il recupero previsto. Il <strong>timer di recupero</strong> offre −15 secondi, +30 secondi, arresto e il pulsante 🔊 per riattivare/provare il suono. Le restrizioni audio del dispositivo possono richiedere un tocco; verifica il suono se non lo senti.</p>
+<p>Il <strong>cronometro della sessione</strong> è distinto dal recupero: usa Pausa/Riprendi quando interrompi la seduta. “Termina” chiede conferma per azzerare il timer e sbloccare la sessione: non è un comando per dichiarare eseguite le serie mancanti. A fine lavoro effettivo la seduta si completa e non viene avviato un recupero dopo l’ultima serie necessaria.</p>
+<p>Per allenarti di nuovo sullo stesso giorno completato usa <strong>Ripeti (salva storico)</strong>. La seduta precedente viene archiviata prima di svuotare i dati della nuova esecuzione, compresi gli scarichi. La sezione <strong>Sedute precedenti salvate</strong> permette di consultarla: non serve cancellare il vecchio allenamento.</p>`],
+['warmup','9. Riscaldamento ed esclusione dal lavoro effettivo',`
+<p>Il pulsante <strong>W</strong> identifica una singola serie come riscaldamento. Per contrassegnare un intero esercizio usa il doppio click sulla card da computer oppure lo scorrimento laterale intenzionale su dispositivo touch, evitando i campi di inserimento.</p>
+<p>Il riscaldamento resta nel diario, ma non deve impedire il completamento della seduta né essere usato da MyCoatch come lavoro effettivo per progressioni e stime di forza. Controlla questi contrassegni se il conteggio delle serie non è quello atteso. Le eventuali indicazioni di avvicinamento nelle note vanno eseguite con pesi realmente disponibili.</p>`],
+['coach','10. MyCoatch durante e dopo l’allenamento',`
+<p>Apri il pannello <strong>MyCoatch · Coach in seduta</strong>. Prima di iniziare puoi compilare sonno, energia, affaticamento muscolare e presenza di dolore. Queste risposte aiutano a contestualizzare i risultati; non costituiscono una diagnosi.</p>
+<p>Dopo il check MyCoatch ricalcola il riepilogo e può mostrare un consiglio riferito alla serie appena confermata, dati di andamento, tempo trascorso e previsione indicativa della durata. <strong>Una serie negativa isolata non comporta automaticamente una nuova scheda.</strong></p>
+<p>Le proposte distinguono fra una prestazione promettente della singola seduta e una tendenza confermata su settimane diverse. Carichi, target, tipo di serie, RPE e completezza dei dati devono consentire un confronto. Riscaldamento, scarichi, serie incomplete e RPE mancanti limitano le conclusioni. L’e1RM è una stima della forza, non un massimale misurato.</p>
+<p>Quando disponibile, la <strong>revisione dei carichi futuri</strong> mostra cosa cambierebbe nelle sedute ancora intatte. Applica soltanto dopo aver letto la proposta: le prestazioni passate non vengono riscritte. L’annullamento è disponibile solo finché le sedute interessate non sono iniziate o cambiate.</p>
+<p>La <strong>revisione settimanale</strong> può proporre target RPE più prudenti. Dopo la conferma i kg futuri interessati possono non essere più precompilati, per scegliere un peso coerente con il nuovo sforzo; serie e ripetizioni restano quelle indicate. “Ripristina target originali” è disponibile solo nelle condizioni mostrate. La calibrazione iniziale ha un proprio riepilogo basato sui risultati realmente registrati.</p>`],
+['importare','11. Importare schede e tecniche dal file',`
+<p>Da <strong>Strumenti → Importa scheda allenamento</strong> puoi caricare CSV, Excel (.xlsx/.xls) e PDF. Scarica il modello dalla finestra di importazione. Per i PDF controlla il riepilogo e tutta la scheda risultante: layout insoliti o scansioni senza testo possono non essere letti correttamente. Alcuni lettori/esportatori possono richiedere una connessione.</p>
+<p>Per il formato tabellare usa le colonne del modello: <strong>Settimana, Giorno, Blocco, Esercizio, Set, Reps, KgMin, KgMax, RPE, Recupero, Note, Topset</strong>. Mantieni intestazioni e struttura; non usare il CSV dello storico come se fosse una scheda.</p>
+<p>Le tecniche devono essere esplicite nella colonna <strong>Note</strong> e i blocchi devono essere coerenti. Per esempio, righe contigue 1A, 1B e 1C con indicazione “Triset” identificano il gruppo; “Superset” o “Superserie” identificano la coppia. Il solo nome degli esercizi non basta a dichiarare una tecnica.</p>
+<p>Per un dropset sull’ultima serie puoi usare <code>[DROP_SET] [DROP_SCOPE:LAST]</code>; per ogni serie <code>[DROP_SET] [DROP_SCOPE:ALL]</code>. MyCoatch esporta l’indicazione esplicita per le proprie prescrizioni. Dopo qualsiasi importazione controlla gruppi, ripetizioni, carichi e recuperi. Leggi le conferme che proteggono il mesociclo in corso prima di proseguire.</p>`],
+['analisi','12. Analisi, record e confronti',`
+<p>Apri <strong>Analisi</strong>. Sono disponibili filtri temporali (mesociclo corrente, tre mesi, un anno, storico completo) e un selettore del mesociclo per le viste Macro e Micro.</p>
+<ul><li><strong>Macro Mesociclo:</strong> sedute completate, tonnellaggio eseguito, RPE medio registrato, serie settimanali previste/confermate per muscolo e calendario delle sedute.</li><li><strong>Micro Esercizio &amp; PR:</strong> scegli un esercizio per consultare massimo carico registrato, massimo tonnellaggio di serie, ripetizioni a carico target e andamento carico/RPE.</li><li><strong>Confronto Mesocicli:</strong> seleziona due blocchi per confrontare risultati e aderenza.</li></ul>
+<p>Un record di carico non equivale a un test massimale. Tonnellaggio, RPE e contributi muscolari sono indicatori da interpretare nel contesto; non misurano direttamente ipertrofia o qualità tecnica. Campi vuoti o poche conferme possono produrre dati mancanti anziché una valutazione affidabile.</p>`],
+['backup','13. PDF, CSV e backup integrale',`
+<ul><li><strong>PDF giornaliero:</strong> copia leggibile della scheda selezionata.</li><li><strong>PDF intero mesociclo:</strong> programmazione del blocco attivo, utile da consultare o stampare.</li><li><strong>Storico CSV (anno corrente):</strong> esportazione tabellare dei progressi dell’anno selezionato. Non sostituisce il backup completo e non conserva necessariamente tutti i dettagli delle nuove funzioni.</li><li><strong>Import storico CSV:</strong> importa risultati nel formato previsto; controlla anno e collocazione dei dati e gli eventuali errori segnalati.</li><li><strong>Backup integrale diario (JSON):</strong> conserva il diario completo, inclusi anni archiviati, impostazioni e dati strutturati. È la scelta per una copia di sicurezza o un trasferimento completo.</li></ul>
+<p><strong>Ripristina diario dal backup JSON sostituisce il diario attuale</strong> dopo conferma; non è una fusione automatica. Prima salva una copia del diario presente. Un PDF o un CSV non equivale a questo ripristino completo. Conserva i file di backup in un luogo distinto dal solo browser.</p>`],
+['cloud','14. Salvataggio, offline e più dispositivi',`
+<p>Il diario salva sul dispositivo e mette in coda la sincronizzazione dell’account. Controlla l’indicatore <strong>Cloud</strong>: un salvataggio locale non significa che i dati siano già arrivati online. La modalità offline richiede che l’app e il diario siano già disponibili sul dispositivo; primo accesso e operazioni cloud richiedono connessione.</p>
+<p>Prima di passare dal telefono al tablet o al PC, torna online e attendi la sincronizzazione. Evita di modificare contemporaneamente lo stesso diario su più dispositivi. Se compare <strong>Diario diverso su due dispositivi</strong>, la sincronizzazione è sospesa: scarica i backup di entrambe le versioni, confrontale e scegli quale conservare. L’app non unisce automaticamente i risultati in conflitto.</p>
+<p>Gli archivi locali degli account autenticati sono separati. Verifica comunque l’account attivo prima di lavorare e usa l’uscita dal menu ☰ quando necessario. Se viene segnalato un errore di salvataggio, esporta un backup JSON prima di fare altre operazioni.</p>
+<p><strong>Non cancellare i dati del browser per risolvere un problema di aggiornamento.</strong> Potresti perdere modifiche non sincronizzate. Prima di pulizie o cambio dispositivo verifica il cloud ed esporta il backup integrale. Nessun sistema di salvataggio elimina la necessità di una copia di sicurezza.</p>`],
+['installazione','15. Installazione, aggiornamenti e aspetto',`
+<p>Puoi usare la webapp dal browser su smartphone, tablet e PC. Nei browser compatibili puoi installarla tramite il menu del browser o la condivisione, cercando <strong>Installa app</strong> o <strong>Aggiungi alla schermata Home</strong>; la dicitura dipende dal dispositivo.</p>
+<p>Dopo una pubblicazione ricarica la pagina oppure chiudi e riapri l’app con connessione attiva. Se vedi ancora la versione precedente, ripeti l’apertura dopo aver controllato il salvataggio, senza cancellare il diario. Il tema chiaro/scuro si cambia dal menu ☰. Su tablet e PC le card dei gruppi possono affiancarsi; su smartphone vengono disposte verticalmente.</p>`],
+['eliminazioni','16. Eliminazioni e supporto',`
+<p>In <strong>Strumenti → Zona Pericolosa</strong> trovi l’eliminazione della scheda del mesociclo, di tutto lo storico e dell’account. Sono operazioni diverse: leggi la conferma specifica e scarica prima il backup integrale. L’eliminazione dello storico può coinvolgere anche la copia cloud; non usarla per un semplice aggiornamento dell’app.</p>
+<p>Il collegamento <strong>Hai bisogno d’aiuto?</strong> apre una richiesta di supporto. Descrivi il dispositivo, cosa stavi facendo e il messaggio visualizzato; non inviare password. Se un risultato sembra sbagliato, verifica prima anno/settimana/giorno, stato delle spunte, contrassegni W, attrezzatura e account.</p>`],
+['glossario','17. Termini e problemi frequenti',`
+<dl><dt>Serie / set e ripetizioni / reps</dt><dd>Una serie contiene il numero di ripetizioni eseguite prima del recupero o della fase successiva prescritta.</dd><dt>RPE</dt><dd>Valutazione soggettiva dello sforzo. L’app accetta valori da 6 a 10 oppure il campo vuoto; il target della scheda e il valore realmente percepito sono due informazioni diverse.</dd><dt>Deload / scarico</dt><dd>Periodo con richiesta di lavoro ridotta. Non va confuso con lo scarico di peso all’interno di un dropset.</dd><dt>e1RM</dt><dd>Stima del carico per una ripetizione ricavata da dati registrati, quando adatti. Non è una prova eseguita.</dd></dl>
+<ul><li><strong>Non riesco a spuntare:</strong> controlla kg, reps, RPE, eventuali fasi dropset, giro corrente e blocco del mesociclo.</li><li><strong>Il timer non parte:</strong> potresti essere a metà gruppo, su un riscaldamento o alla fine della seduta.</li><li><strong>I kg sono vuoti:</strong> può mancare una prestazione confrontabile, una calibrazione o la compatibilità dell’attrezzatura. Leggi le note prima di inserire un peso.</li><li><strong>Non appare una progressione:</strong> servono dati adatti; non tutti i check devono produrre un aumento.</li><li><strong>Il calcolatore non trova dischi:</strong> controlla peso del bilanciere, diametro, inventario salvato e serie selezionata.</li></ul>`]
+];
 
-const manualContent = `
-<div class="manual-section" style="margin-bottom: 20px;">
-    <h3 style="color: var(--primary); margin-bottom: 8px;">📖 Benvenuto in HomeGym Diary</h3>
-    <p><strong>HomeGym Diary</strong> è un'applicazione web avanzata progettata per la programmazione, il tracciamento e l'analisi dei tuoi allenamenti in home gym.</p>
-</div>
-<div class="manual-section" style="margin-bottom: 20px; background: rgba(0, 123, 255, 0.08); padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary, #007bff);">
-    <h3 style="color: var(--primary, #007bff); margin-bottom: 8px; margin-top: 0;">📲 Utilizzo come Vera App Mobile (PWA)</h3>
-    <p style="margin-bottom: 8px;">Per la migliore esperienza d'uso in palestra, è <strong>fortemente consigliato installare HomeGym Diary come vera e propria app</strong> sulla schermata home del tuo smartphone. Questo garantisce la visualizzazione a schermo intero, un avvio immediato e massima stabilità:</p>
-    <ul style="padding-left: 20px; line-height: 1.6; margin-bottom: 0;">
-        <li><strong>iPhone / iOS (Safari):</strong> Tocca l'icona di condivisione 📤 in basso e seleziona <strong>"Aggiungi alla schermata Home"</strong>.</li>
-        <li><strong>Android (Chrome):</strong> Tocca i tre pallini in alto a destra <code>⋮</code> e seleziona <strong>"Installa app"</strong> oppure <strong>"Aggiungi a schermata Home"</strong>.</li>
-    </ul>
-</div>
-
-<div class="manual-section" style="margin-bottom: 20px; background: rgba(245, 158, 11, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b;">
-    <h3 style="color: #b45309; margin-bottom: 8px; margin-top: 0;">⚡ Architettura Offline-First</h3>
-    <p style="margin-bottom: 8px; line-height: 1.5;"><strong>HomeGym Diary</strong> è progettata con un'architettura <em>Offline-First</em>: tutti i tuoi progressi, set ed esercizi vengono salvati <strong>nell’archivio locale del browser</strong>, permettendoti di allenarti senza alcuna interruzione anche in assenza di segnale o Wi-Fi.</p>
-    <ul style="padding-left: 20px; line-height: 1.6; margin-bottom: 0;">
-        <li><strong>Dispositivo ad uso personale:</strong> Poiché la memoria locale è legata al browser dello smartphone per garantire la continuità offline, l'app è intesa per l'utilizzo su un <strong>dispositivo personale</strong>. Evita di alternare account diversi sullo stesso dispositivo per non mescolare i dati presenti nella cache locale prima del sync.</li>
-        <li><strong>Sincronizzazione Cloud:</strong> Non appena il dispositivo torna online, i dati locali vengono sincronizzati in background sul tuo account cloud protetto da Supabase.</li>
-    </ul>
-</div>
-
-<div class="manual-section" style="margin-bottom: 20px; background: rgba(16, 185, 129, 0.08); padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
-    <h3 style="color: #059669; margin-bottom: 8px; margin-top: 0;">🛡️ Sincronizzazione Cloud e Pulizia del Browser (PWA)</h3>
-    <p style="margin-bottom: 8px; line-height: 1.5;"><strong>I tuoi dati sono al sicuro!</strong> Poiché HomeGym Diary salva i tuoi progressi sul cloud tramite Supabase, lo storico dei tuoi allenamenti non andrà mai perso. Tuttavia, se decidi di svuotare la cache o la memoria dello smartphone, è fondamentale seguire una semplice precauzione:</p>
-    <ul style="padding-left: 20px; line-height: 1.6; margin-bottom: 0;">
-        <li><strong>Sincronizza sempre prima di pulire:</strong> Prima di effettuare qualsiasi operazione di pulizia del browser, apri l'app con una connessione Internet attiva e assicurati che l'indicatore in alto mostri lo stato 🟢 <em>Sincronizzato</em>.</li>
-        <li><strong>Dati protetti online:</strong> Tutti gli allenamenti già inviati al cloud rimangono perfettamente conservati ed esenti da qualsiasi pulizia locale del dispositivo.</li>
-        <li><strong>Cosa succede dopo la pulizia:</strong> La rimozione dei dati locali disconnetterà temporaneamente il tuo account. Al riavvio successivo ti basterà effettuare il login per riscaricare automaticamente l'intera scheda e lo storico.</li>
-    </ul>
-</div>
-
-<div class="manual-section" style="margin-bottom: 20px;">
-    <h3 style="color: var(--primary); margin-bottom: 8px;">🔐 Autenticazione e Sincronizzazione Cloud</h3>
-    <ul style="padding-left: 20px; line-height: 1.6;">
-        <li><strong>Accesso Cloud:</strong> Tutti i dati sono associati al tuo account personale protetto da autenticazione Supabase.</li>
-        <li><strong>Stato Sincronizzazione:</strong> L'indicatore nell'intestazione mostra in tempo reale lo stato della connessione (es. 🟢 <em>Sincronizzato</em>).</li>
-        <li><strong>Supporto Offline:</strong> Registra i tuoi allenamenti anche senza internet; i dati verranno sincronizzati al ripristino della rete.</li>
-    </ul>
-</div>
-
-<div class="manual-section" style="margin-bottom: 20px;">
-    <h3 style="color: var(--primary); margin-bottom: 8px;">📅 Navigazione e Struttura Temporale</h3>
-    <ul style="padding-left: 20px; line-height: 1.6;">
-        <li><strong>Mesocicli:</strong> Utilizza i pulsanti <code>-</code> e <code>+</code> per passare da un ciclo all'altro.</li>
-        <li><strong>Settimane:</strong> Seleziona la settimana di riferimento tramite il selettore dedicato.</li>
-        <li><strong>Giorni & Note Coach:</strong> I tab dinamici mostrano i giorni programmati e le eventuali note settimanali lasciate dal coach.</li>
-    </ul>
-</div>
-
-<div class="manual-section" style="margin-bottom: 20px;">
-    <h3 style="color: var(--primary); margin-bottom: 8px;">🏋️ Tracciamento Esercizi, Trend & Calcolo Dischi</h3>
-    <ul style="padding-left: 20px; line-height: 1.6;">
-        <li><strong>Pre-Compilazione Intelligente:</strong> I dati target (KgMin, KgMax, Topset, RPE e Recupero) vengono pre-popolati automaticamente.</li>
-        <li><strong>📈 Indicatore Trend di Volume (▲ / ▼):</strong> Confronto automatico in tempo reale con la sessione precedente per lo stesso esercizio (es. <code>▲ +100 kg</code>).</li>
-        <li><strong>🏋️ Calcolatore Dischi Bilanciere:</strong> Calcola istantaneamente il carico dei dischi da inserire per ciascun lato del bilanciere (considerando un bilanciere da 20 kg).</li>
-        <li><strong>🎯 Validazione Cromatico-Target:</strong> I valori inseriti vengono evidenziati visivamente se sono inferiori al target prescritto o se superano il massimale previsto.</li>
-    </ul>
-</div>
-
-<div class="manual-section" style="margin-bottom: 20px;">
-    <h3 style="color: var(--primary); margin-bottom: 8px;">⏱️ Gestione dei Tempi di Recupero e Sessione</h3>
-    <p>Il cronometro si avvia automaticamente spuntando la prima serie. Dalla barra superiore puoi:</p>
-    <ul style="padding-left: 20px; line-height: 1.6; margin-top: 6px;">
-        <li><strong>Pausa / Riprendi (⏸️/▶️):</strong> Congela temporaneamente il conteggio.</li>
-        <li><strong>Termina (⏹️):</strong> Azzera il timer e sblocca la sessione.</li>
-    </ul>
-    <p style="margin-top: 8px;">Il <strong>Timer Fluttuante</strong> permette di gestire il recupero con comandi rapidi (<code>-15s</code>, <code>+30s</code>).</p>
-</div>
-
-<div class="manual-section" style="margin-bottom: 20px;">
-    <h3 style="color: var(--primary); margin-bottom: 8px;">🛡️ Gestione Esercizi (Warmup e Massimali)</h3>
-    <ul style="padding-left: 20px; line-height: 1.6;">
-        <li><strong>Esclusione Blocco:</strong> Escludi un esercizio dal conteggio massimali/completamento tramite <strong>doppio click</strong> o <strong>swipe laterale</strong>.</li>
-        <li><strong>Filtraggio Riscaldamento Intelligente:</strong> Tutte le serie contrassegnate come Warmup o gli esercizi disattivati vengono automaticamente scartati dai calcoli del tonnellaggio, dei volumi muscolari e dai PR.</li>
-    </ul>
-</div>
-
-<div class="manual-section" style="margin-bottom: 20px;">
-    <h3 style="color: var(--primary); margin-bottom: 8px;">📊 Hub Analitico Unificato</h3>
-    <p>Accedi al menu <strong>Analisi & Dashboards</strong> per consultare grafici e KPI suddivisi in 3 sotto-sezioni:</p>
-    <ul style="padding-left: 20px; line-height: 1.6; margin-top: 6px;">
-        <li><strong>📈 Macro Mesociclo:</strong> Aderenza %, Volume Totale (Tonnellaggio netto) e livello medio Fatica RPE (con avviso Deload). Include il grafico a barre per distretto muscolare.</li>
-        <li><strong>🎯 Micro Esercizio & PR:</strong> Isola i tuoi Record Personali storici e visualizza il grafico doppio asse <em>Carico Max vs RPE Percepito</em>.</li>
-        <li><strong>🔄 Confronto Mesocicli:</strong> Grafico Radar comparativo su Volume, Intensità, Aderenza e Hard Sets.</li>
-    </ul>
-</div>
-
-<div class="manual-section" style="margin-bottom: 20px;">
-    <h3 style="color: var(--primary); margin-bottom: 8px;">⚙️ Strumenti & Gestione</h3>
-    <p>Il menu <strong>Strumenti & Gestione</strong> raccoglie le funzionalità di manutenzione, importazione e backup:</p>
-    <ul style="padding-left: 20px; line-height: 1.6; margin-top: 6px;">
-        <li><strong>📖 Manuale d'uso:</strong> Visualizza questa guida interattiva.</li>
-        <li><strong>🖨️ PDF Giornaliero con QR Code:</strong> Esporta la scheda di allenamento giornaliera formattata in PDF con QR Code di verifica integrato.</li>
-        <li><strong>📑 Esporta Intero Mesociclo (PDF):</strong> Esporta in PDF la programmazione completa del blocco attivo.</li>
-        <li>
-            <strong>🤖 Genera Mesociclo con MyCoatch:</strong> Il coach intelligente analizza lo storico dei tuoi stalli e progressi passati, programmando in automatico un nuovo mesociclo ottimizzato per densità, volumi e carichi. Subito dopo la generazione, ti viene offerta la possibilità di scaricare il file CSV di backup/modifica.
-        </li>
-        <li>
-            <strong>📂 Importa scheda (Excel / CSV / PDF):</strong> Carica un nuovo piano di allenamento da file Excel (.xlsx, .xls), CSV o direttamente da file PDF formattati dal coach.
-            <ul style="margin-top: 4px; padding-left: 18px;">
-                <li><strong>Modello di Esempio:</strong> Download diretto del modello pre-formattato.</li>
-                <li><strong>Protezione Mesociclo Attivo:</strong> Avviso di conferma prima di sovrascrivere un ciclo in corso.</li>
-                <li><strong>Riconoscimento Tecniche Speciali:</strong> Individuazione automatica di <em>Triset</em>, <em>Dropset</em>, <em>Superset</em> e <em>Jumpset</em> con raggruppamento grafico dei blocchi (es. 1A, 1B, 1C).</li>
-            </ul>
-        </li>
-        <li><strong>💾 Backup storico CSV:</strong> Esporta una copia di sicurezza completa dello storico.</li>
-        <li><strong>📥 Import storico CSV:</strong> Ripristina o importa dati storici da file CSV.</li>
-    </ul>
-    <h4 style="color: #dc2626; margin-top: 12px; margin-bottom: 6px;">⚠️ Zona Pericolosa</h4>
-    <ul style="padding-left: 20px; line-height: 1.6;">
-        <li><strong>Elimina scheda mesociclo:</strong> Rimuove la programmazione del mesociclo corrente.</li>
-        <li><strong>Elimina tutto!:</strong> Cancella permanentemente tutti i dati salvati (richiede conferma esplicita).</li>
-        <li><strong>Elimina Definitivamente Account:</strong> Rimuove account e dati associati da Supabase.</li>
-    </ul>
-</div>
-
-<div class="manual-section" style="margin-top: 20px;">
-    <h3 style="color: var(--primary); margin-bottom: 8px;">✨ Ultime Novità & Aggiornamenti</h3>
-    <ul style="padding-left: 20px; line-height: 1.6;">
-        <li><strong>🤖 Integrazione MyCoatch:</strong> Generazione automatica e intelligente di mesocicli basata sull'analisi dello storico e dei precedenti stalli, con opzione di download immediato in CSV per personalizzazioni.</li>
-        <li><strong>📱 Esperienza PWA Nausea-Free:</strong> Pieno supporto all'installazione su schermata Home con salvataggio offline locale istantaneo.</li>
-        <li><strong>📊 Hub Analitico Unificato (<code>analytics.js</code>):</strong> Nuova architettura in 3 Sub-Tab (Macro Mesociclo, Micro Esercizio/PR e Confronto Radar).</li>
-        <li><strong>🏋️ Calcolatore Dischi & Indicatore Trend:</strong> Calcolo istantaneo del peso bilanciere per lato e confronto volume ▲/▼ con la sessione precedente.</li>
-        <li><strong>🛡️ Filtro Automatico Warmup:</strong> Esclusione nativa del riscaldamento dai conteggi di volume e record personali.</li>
-        <li><strong>🔒 Blocco di Sicurezza Mesociclo:</strong> Pulsante <code>🔒/🔓</code> per congelare il mesociclo attivo.</li>
-    </ul>
-</div>
-`;
-
-/**
- * Inietta autonomamente il manuale nel DOM
- */
 export function renderManualView() {
-    const manualContainer = document.getElementById('manual-content');
-    if (manualContainer) {
-        manualContainer.innerHTML = manualContent;
-    }
+    const container=document.getElementById('manual-content');
+    if(!container)return;
+    container.innerHTML=`<p class="manual-intro"><strong>Guida aggiornata · versione 46</strong><br>Apri un argomento per leggere le istruzioni. Le funzioni descritte seguono la versione corrente della webapp.</p>
+      <nav class="manual-index" aria-label="Indice del manuale">${sections.map(([id,title])=>`<a href="#manual-${id}" data-manual-target="manual-${id}">${title}</a>`).join('')}</nav>
+      ${sections.map(([id,title,body],i)=>`<details class="manual-section" id="manual-${id}" ${i===0?'open':''}><summary>${title}</summary><div class="manual-body">${body}</div></details>`).join('')}`;
+    container.querySelectorAll('[data-manual-target]').forEach(link=>link.addEventListener('click',event=>{
+        event.preventDefault();
+        const section=document.getElementById(link.dataset.manualTarget);
+        if(section){section.open=true;section.scrollIntoView({block:'start'});section.querySelector('summary')?.focus();}
+    }));
 }

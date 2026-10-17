@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v45-homegym-coach';
+const CACHE_NAME = 'workout-app-v46-diameter-inventories';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -76,6 +76,7 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/mycoatch-adapter.js',
   '/mycoatch/liveCoach.js',
   '/mycoatch/loadProposal.js',
+  '/mycoatch/barbellInventory.js',
   '/mycoatch/futureLoadReview.js',
   '/mycoatch/sessionReadiness.js',
   '/mycoatch/weeklyReview.js',

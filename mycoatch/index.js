@@ -24,7 +24,7 @@ export const MyCoatch = {
         const calibrationHandoff = calibrationHandoffForMesocycle(originalReport.lastMesocycle);
         const loadingSteps=goalSettings.loadingSteps ??
             userHistory?.athlete?.loadingSteps ?? {};
-        const equipmentSettings={...loadingSteps,
+        const equipmentSettings={...userHistory?.athlete,...goalSettings,...loadingSteps,
             platePairs:goalSettings.platePairs ?? userHistory?.athlete?.platePairs,
             barbellWeight:goalSettings.barbellWeight ?? userHistory?.athlete?.barbellWeight};
         const decisions = planAdaptiveDecisions(report,{loadingSteps:equipmentSettings});

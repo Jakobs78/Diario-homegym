@@ -193,7 +193,10 @@ test('bilanciere leggero disponibile a richiesta, manubri pesanti senza calcolat
  await expect(card.locator('.plates-disclosure')).toHaveAttribute('open','');
  await card.locator('.set-kg[data-set="0"]').fill('30');
  await expect(card.locator('.plates-disclosure')).not.toHaveAttribute('open','');
- await card.locator('.plates-disclosure summary').click();await expect(card.locator('.plates-badge')).toContainText('5 kg/lato');
+ await card.locator('.plates-disclosure summary').click();
+ await page.evaluate(async()=>{const {state}=await import('/js/state.js');state.workoutData.athlete ||= {};state.workoutData.athlete.plateInventories={'50':{'5':1}};});
+ await card.locator('.bar-diameter').selectOption('50');
+ await expect(card.locator('.plates-badge')).toContainText('5 kg/lato');
  await expect(page.locator('.ex-card[data-ex="1"] .plates-disclosure')).toHaveCount(0);
 });
 for(const [device,width,height] of [['smartphone',390,844],['tablet',768,1024],['pc',1440,1000]])test('gruppi e dropset leggibili su '+device,async({page})=>{
@@ -206,4 +209,55 @@ for(const [device,width,height] of [['smartphone',390,844],['tablet',768,1024],[
  await setupPlan(page,'drop');await page.locator('.ex-card[data-ex="0"]').scrollIntoViewIfNeeded();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:'../../outputs/nuovo-dropset-'+device+'.png'});
+});
+
+test('diametro memorizzato: i dischi da 29 mm non completano il bilanciere da 50 mm',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await setupPlan(page,'drop');
+ await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');
+  const day=Object.values(state.workoutData.history.years)[0].mesocycles[0].weeks[0].days[0];
+  Object.assign(day.exercises[0],{name:'Panca Piana con Bilanciere',isDropset:false,notes:'',kgMin:'72.5',kgMax:'72.5'});
+  state.workoutData.athlete ||= {};
+  state.workoutData.athlete.platePairs={'1.25':9};
+  state.workoutData.athlete.plateInventories={'50':{'20':1,'5':1},'29':{'25':1,'1.25':1}};
+  renderWorkoutList();
+ });
+ const card=page.locator('.ex-card[data-ex="0"]');
+ await expect(card.locator('.plates-badge')).toContainText('Scegli il diametro');
+ await card.locator('.bar-diameter').selectOption('50');
+ await expect(card.locator('.plates-badge')).toContainText('Combinazione incompleta');
+ await expect(card.locator('.plates-badge')).toContainText('Solo dischi da 50 mm');
+ await card.locator('.bar-diameter').selectOption('29');
+ await expect(card.locator('.plates-badge')).not.toContainText('Combinazione incompleta');
+ await expect(card.locator('.plates-badge')).toContainText('25 + 1.25');
+ await page.evaluate(async()=>{await (await import('/js/journalStore.js')).flushJournalStorage();});
+ await page.reload();
+ await expect(card.locator('.bar-diameter')).toHaveValue('29');
+ await expect(card.locator('.bar-select')).toHaveValue('20');
+ await expect(card.locator('.plates-badge')).toContainText('Solo dischi da 29 mm');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.evaluate(()=>{document.getElementById('auth-overlay').style.display='none';});
+ await card.locator('.plates-disclosure').scrollIntoViewIfNeeded();
+ await page.screenshot({path:'../../outputs/dischi-diametro-smartphone.png'});
+});
+
+for(const [device,width,height] of [['telefono',390,844],['tablet',768,1024],['pc',1440,1000]])test('manuale aggiornato navigabile su '+device,async({page})=>{
+ await page.setViewportSize({width,height});await openIsolatedApp(page);
+ await page.locator('#app-utility-menu summary').click();
+ await page.locator('#btn-user-manual').click();
+ const manual=page.locator('#manual-content');
+ await expect(manual).toBeVisible();
+ await expect(manual.locator('.manual-section')).toHaveCount(17);
+ for(const link of await manual.locator('[data-manual-target]').all()){
+  const id=await link.getAttribute('data-manual-target');
+  await link.click();await expect(page.locator('#'+id)).toHaveAttribute('open','');
+ }
+ await manual.locator('[data-manual-target="manual-attrezzatura"]').click();
+ await expect(page.locator('#manual-attrezzatura')).toContainText('25, 20, 15, 10, 5, 2,5, 2, 1,25, 1 e 0,5 kg');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:'../../outputs/manuale-'+device+'.png'});
+ await page.locator('#app-utility-menu summary').click();
+ await page.locator('#btn-user-manual').click();
+ await expect(page.locator('#manual')).toHaveClass(/d-none/);
 });

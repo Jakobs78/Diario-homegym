@@ -100,6 +100,7 @@ export function showLiveCoachToast(day, { exerciseIndex, setIndex } = {}) {
             const p=recommendNextSessionLoad(ex,{
                 readiness:snapshot.readiness,
                 equipmentSettings:{
+                    ...state.workoutData?.athlete,
                     ...(state.workoutData?.athlete?.loadingSteps||{}),
                     platePairs:state.workoutData?.athlete?.platePairs,
                     barbellWeight:state.workoutData?.athlete?.barbellWeight
@@ -284,6 +285,7 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
         const proposal=recommendNextSessionLoad(ex,{
             readiness:snapshot.readiness,
             equipmentSettings:{
+                    ...state.workoutData?.athlete,
                 ...(state.workoutData?.athlete?.loadingSteps||{}),
                 platePairs:state.workoutData?.athlete?.platePairs,
                 barbellWeight:state.workoutData?.athlete?.barbellWeight
@@ -476,3 +478,4 @@ export function showLiveCoachInputError(message) {
         urgent: true
     });
 }
+

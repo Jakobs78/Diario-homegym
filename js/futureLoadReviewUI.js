@@ -20,6 +20,7 @@ const el=(tag,cls,text)=>{
 const optionsFor=day=>({
     readiness:buildLiveSessionSnapshot(day,{history:state.workoutData}).readiness,
     equipmentSettings:{
+                    ...state.workoutData?.athlete,
         ...(state.workoutData?.athlete?.loadingSteps||{}),
         platePairs:state.workoutData?.athlete?.platePairs,
         barbellWeight:state.workoutData?.athlete?.barbellWeight
@@ -122,3 +123,4 @@ export function createFutureLoadReviewPanel(meso,weekNumber,dayIndex,{
     details.append(content);
     return details;
 }
+
