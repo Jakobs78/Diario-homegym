@@ -197,3 +197,32 @@ test('un nuovo mesociclo vuoto non richiede chiusura, vecchio chiuso resta indip
     assert.equal(shouldHighlightMesocycleClosure(previous),false);
     assert.equal(shouldHighlightMesocycleClosure(next),false);
 });
+
+test('report finale: serie confermate per settimana e kg/reps/RPE anche dalla seduta parziale',()=>{
+    const m=plan(makeWeek(1,[performed(80,8,8),performed(82.5,9,'',false)]),
+        makeWeek(2,[performed(82.5,9,9),performed(82.5,10,'')]));
+    const before=JSON.stringify(m);
+    const report=summarizeMesocycleClosure(m);
+    assert.equal(report.weeklyResults[0].completedSets,1);
+    assert.equal(report.weeklyResults[0].rpeMeasured,1);
+    assert.equal(report.weeklyResults[1].completedSets,2);
+    assert.equal(report.weeklyResults[1].rpeMeasured,1);
+    assert.equal(report.exerciseResults.length,2);
+    assert.equal(report.exerciseResults[0].validSets,1);
+    assert.equal(report.exerciseResults[0].minKg,80);
+    assert.equal(report.exerciseResults[1].maxReps,10);
+    const exported=formatMesocycleClosureForChat(report);
+    assert.match(exported,/COPERTURA E RPE PER SETTIMANA PROGRAMMATA/);
+    assert.match(exported,/CARICHI E RIPETIZIONI EFFETTIVI/);
+    assert.match(exported,/82.5–82.5 kg, 9–10 reps/);
+    assert.equal(JSON.stringify(m),before);
+});
+
+test('righe registrate oltre il numero testuale non vengono perse dal conteggio legacy',()=>{
+    const m=plan(makeWeek(1,[performed(80,8,8),performed(80,9,9),performed(80,10,10)]));
+    const report=summarizeMesocycleClosure(m);
+    assert.equal(report.completedSets,3);
+    assert.equal(report.measuredRpeSets,3);
+    assert.equal(report.averageRpe,9);
+    assert.equal(report.exerciseResults[0].validSets,3);
+});

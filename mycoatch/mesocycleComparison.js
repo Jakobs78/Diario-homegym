@@ -118,6 +118,22 @@ export function compareMesocyclePlans(previous, generated, analysis) {
 export function formatCoachReview(comparison, report) {
     const lines = ['MYCOATCH — ANTEPRIMA DELLA PROPOSTA'];
     lines.push(`Storico analizzato: ${report.inspectedMesocycles} mesocicli, ${report.sessionsAnalyzed} sedute con serie confermate.`);
+    if (report.closureHandoff) {
+        const h = report.closureHandoff, r = h.review;
+        lines.push('ORIGINE ESPLICITA: mesociclo concluso "' + h.name +
+            '" (' + h.year + ', posizione ' + (h.index + 1) + ').');
+        lines.push('Risultati reali del blocco: ' + r.completedSessions + '/' +
+            r.plannedSessions + ' sedute complete, ' + r.partialSessions +
+            ' parziali, ' + r.skippedSessions + ' non iniziate; ' +
+            r.completedSets + '/' + r.plannedSets + ' serie confermate valide.');
+        lines.push('RPE realmente misurati: ' + r.measuredRpeSets + '/' +
+            r.completedSets + (r.averageRpe === null ? ' (media non disponibile).' :
+                ' (media ' + r.averageRpe + ').'));
+        if (r.status !== 'complete') lines.push('ATTENZIONE: chiusura anticipata o dati incompleti. ' +
+            'Non dedurre miglioramenti dalle sedute mancanti.');
+        lines.push('Continuità esercizi e confronto vecchio/nuovo ancorati a questo blocco; ' +
+            'carichi, stalli e fatica sono analizzati separatamente sui dati recenti confermati.');
+    }
     if(report.recency){
         const r=report.recency;
         lines.push(`Storico operativo: ${r.startYear}–${r.endYear}. Per i carichi attuali: solo serie datate degli ultimi ${r.windowDays} giorni.`);
