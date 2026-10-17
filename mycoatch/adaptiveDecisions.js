@@ -43,9 +43,9 @@ export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
             } else {
                 reason = 'Le due settimane giustificano una progressione, ma il passo minimo standard sarebbe superiore al 10% del carico: mantieni i kg oppure usa microcarichi realmente disponibili.';
             }
-        } else if (exercise.status === 'possible_stall') {
+        } else if (exercise.status === 'possible_stall' && !exercise.readyForReps) {
             action = 'review_stall';
-            reason = 'Possibile stallo e1RM: conferma tecnica, sonno, pause e andamento dei carichi prima di ruotare esercizio o alzare il volume.';
+            reason = 'Possibile stallo della prestazione: conferma tecnica, sonno, pause e andamento dei carichi prima di ruotare esercizio o alzare il volume.';
         } else if (exercise.status === 'regressing') {
             action = 'review_regression';
             reason = 'e1RM in calo, ma dati non sufficienti per attribuirlo alla fatica: mantieni e osserva la seduta seguente.';
