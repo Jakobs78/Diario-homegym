@@ -2461,6 +2461,28 @@ test('chiusura guidata integrata: blocca il ciclo, conserva i dati, esporta repo
   expect(text).not.toContain('private-athlete-id');
   await page.getByRole('button',{name:/Prepara il prossimo mesociclo/}).click();
   await expect(page.locator('#mycoatch-config-modal')).not.toHaveClass(/hidden/);
+  // Real browser handoff, not just a unit-level locator: the selected
+  // concluded block must reach the generated proposal and leave logs intact.
+  const handoff=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {createVisualCoachProposal}=await import('/mycoatch/mycoatch-adapter.js');
+    const before=JSON.stringify(state.workoutData.history.years);
+    const source=state.workoutData.history.years['2026'].mesocycles[0];
+    const result=await createVisualCoachProposal({
+      durationWeeks:4,daysPerWeek:4,maxSessionMinutes:60,userAge:49,focus:'hybrid'
+    });
+    return {
+      expected:source.name,
+      actual:result.proposal.coachReport.closureHandoff?.name,
+      comparison:result.proposal.coachReport.comparison.previousName,
+      intact:before===JSON.stringify(state.workoutData.history.years),
+      confirmed:result.proposal.coachReport.closureHandoff?.review?.completedSets
+    };
+  });
+  expect(handoff.actual).toBe(handoff.expected);
+  expect(handoff.comparison).toBe(handoff.expected);
+  expect(handoff.confirmed).toBeGreaterThan(0);
+  expect(handoff.intact).toBe(true);
   await page.locator('#close-mycoatch-config').click();
   await page.locator('#toggle-lock-meso-btn').click();
   await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Blocca');
