@@ -5,7 +5,7 @@
 // 1. IMPORT & DIPENDENZE
 // ==========================================
 import { state } from './state.js';
-import { buildMesocyclePdfOutline } from './mesocyclePdfModel.js';
+import { buildMesocyclePdfDetails } from './mesocyclePdfModel.js';
 import { saveAndSync } from './storage.js';
 import { renderWorkoutList, showNotification } from './ui.js';
 import { closeMesocycleInMemory, summarizeMesocycleClosure } from './mesocycleClosure.js';
@@ -182,46 +182,159 @@ export function updateMesocycleUI() {
     if (nextBtn) nextBtn.disabled = (currentIndex >= mesos.length - 1 || mesos.length === 0);
 }
 
+/**
+ * Complete mesocycle diary export. Strictly read-only: no sync or state writes.
+ * Text is wrapped and paginated at the line level, so long notes are never cut.
+ */
 export function exportMesoToPDF(mesoData) {
-    if(!mesoData){alert('Nessun mesociclo da esportare.');return;}
-    const {jsPDF}=window.jspdf;
-    const doc=new jsPDF({unit:'mm',format:'a4'});
-    const entries=buildMesocyclePdfOutline(mesoData);
-    const margin=14,innerWidth=182,pageBottom=280;
-    let y=20;
-    const advance=(height)=>{
-        if(y+height>pageBottom){doc.addPage();y=18;}
+    if (!mesoData) { alert('Nessun mesociclo da esportare.'); return; }
+    const {jsPDF} = window.jspdf;
+    const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const rows = buildMesocyclePdfDetails(mesoData);
+    const left = 14, right = 196, width = right - left, bottom = 278;
+    const dark = [15, 23, 42], muted = [71, 85, 105], blue = [3, 105, 161];
+    let y = 18;
+    const pageBreak = () => {
+        doc.addPage();
+        y = 19;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...muted);
+        doc.text(String(mesoData.name || 'Mesociclo') + ' · continua', left, y);
+        y += 8;
     };
-    doc.setFont('helvetica','bold');doc.setFontSize(16);
-    const title=doc.splitTextToSize(mesoData.name || 'Mesociclo',innerWidth);
-    advance(title.length*7+2);doc.text(title,margin,y);y+=title.length*7+2;
-    doc.setFont('helvetica','normal');doc.setFontSize(9);
-    doc.text('Programmazione proposta / registrata. Verificare sempre kg, RPE e recuperi reali.',margin,y);y+=9;
-    for(const entry of entries){
-        if(entry.kind==='week'){
-            advance(15);
-            doc.setFillColor(226,232,240);doc.rect(margin,y-5,innerWidth,10,'F');
-            doc.setTextColor(15,23,42);doc.setFont('helvetica','bold');doc.setFontSize(12);
-            doc.text(entry.title,margin+3,y+2);y+=14;
-            continue;
+    const ensure = height => { if (y + height > bottom) pageBreak(); };
+    const wrapped = (text, x = left + 2, fontSize = 8.5, step = 4.5,
+        color = dark, font = 'normal', maxWidth = right - x - 2) => {
+        doc.setFont('helvetica', font);
+        doc.setFontSize(fontSize);
+        doc.setTextColor(...color);
+        const lines = doc.splitTextToSize(String(text), maxWidth);
+        for (const line of lines) {
+            ensure(step + 1);
+            doc.text(line, x, y);
+            y += step;
         }
-        if(entry.kind==='day'){
-            advance(12);doc.setFont('helvetica','bold');doc.setFontSize(11);
-            doc.text(entry.title,margin,y);y+=8;continue;
+    };
+    const header = () => {
+        ensure(10);
+        doc.setFillColor(241, 245, 249);
+        doc.setDrawColor(226, 232, 240);
+        doc.rect(left + 1, y - 4, width - 2, 7, 'FD');
+        doc.setFont('helvetica','bold');
+        doc.setFontSize(7.6);
+        doc.setTextColor(...muted);
+        const cols = [17, 36, 74, 112, 137];
+        ['SERIE','KG','REPS','RPE','STATO'].forEach((text, index) =>
+            doc.text(text, cols[index], y));
+        y += 5;
+    };
+
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(15);
+    doc.setTextColor(...dark);
+    wrapped(String(mesoData.name || 'Mesociclo') + ' · DIARIO COMPLETO',
+        left, 15, 7.5, dark, 'bold', width);
+    y += 1;
+    wrapped('Programmazione e risultati sono distinti. Solo le serie confermate ' +
+        'sono prestazioni validate nel diario.',left,8,4.5,muted);
+    y += 7;
+
+    for (const row of rows) {
+        if (row.kind === 'week') {
+            ensure(16);
+            doc.setFillColor(226, 232, 240);
+            doc.rect(left, y - 5, width, 10, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(...dark);
+            doc.text(row.title, left + 3, y + 2);
+            y += 15;
+        } else if (row.kind === 'day') {
+            ensure(15);
+            doc.setFillColor(240, 249, 255);
+            doc.rect(left, y - 4, width, 9, 'F');
+            doc.setFont('helvetica','bold');
+            doc.setFontSize(10);
+            doc.setTextColor(...blue);
+            doc.text(row.title + (row.date !== '—' ? ' · ' + row.date : ''),left + 3,y + 2);
+            y += 13;
+        } else if (row.kind === 'session') {
+            ensure(10);
+            doc.setFont('helvetica','bold');
+            doc.setFontSize(8.5);
+            doc.setTextColor(...muted);
+            doc.text(row.title + (row.date !== '—' ? ' · ' + row.date : ''),left + 2,y);
+            y += 8;
+        } else if (row.kind === 'exercise') {
+            ensure(20); // Do not orphan exercise titles at the foot of a page.
+            doc.setFont('helvetica','bold');
+            doc.setFontSize(8);
+            doc.setTextColor(...muted);
+            doc.text('BLOCCO ' + row.block + (row.excluded ? ' · RISCALDAMENTO' : ''),left + 2,y);
+            y += 5;
+            wrapped(row.title,left + 2,10,5.5,dark,'bold');
+            y += 1;
+            wrapped('TARGET: ' + row.prescription,left + 2,8.2,4.5,muted);
+            y += 3;
+        } else if (row.kind === 'note') {
+            ensure(11);
+            doc.setFont('helvetica','bold');
+            doc.setFontSize(8);
+            doc.setTextColor(...blue);
+            doc.text(row.label,left + 2,y);
+            y += 5;
+            wrapped(row.text,left + 3,8.5,4.5,dark,'normal',width - 8);
+            y += 3;
+        } else if (row.kind === 'notice') {
+            ensure(7);
+            wrapped(row.text,left + 3,8,4.5,muted);
+            y += 3;
+        } else if (row.kind === 'set-head') {
+            ensure(16);
+            header();
+        } else if (row.kind === 'set') {
+            const status = (row.confirmed ? 'Confermata' : 'Non confermata') +
+                (row.warmup ? ' · warmup' : '') +
+                (row.technique ? ' · ' + row.technique : '');
+            doc.setFont('helvetica','normal');
+            doc.setFontSize(7.7);
+            const statusLines = doc.splitTextToSize(status, right - 139);
+            const height = Math.max(9, statusLines.length * 4 + 3);
+            if (y + height + 1 > bottom) {
+                pageBreak();
+                header(); // Repeat table heading on the following page.
+            }
+            doc.setFillColor(248, 250, 252);
+            doc.setDrawColor(226, 232, 240);
+            doc.rect(left + 1, y - 4, width - 2, height, 'FD');
+            doc.setFont('helvetica','normal');
+            doc.setFontSize(8.5);
+            doc.setTextColor(...dark);
+            const x = [17, 36, 74, 112];
+            [row.number,row.weight,row.reps,row.rpe].forEach((value,idx) =>
+                doc.text(String(value),x[idx],y + 1));
+            doc.setFontSize(7.7);
+            for (const [idx,line] of statusLines.entries()) doc.text(line,139,y + idx * 4 + 1);
+            y += height;
+        } else if (row.kind === 'drop') {
+            ensure(7);
+            wrapped(row.text,left + 8,7.8,4.5,muted);
+            y += 2;
         }
-        const desc=doc.splitTextToSize(entry.text,innerWidth-8);
-        const extra=entry.notes?doc.splitTextToSize('Note: '+entry.notes,innerWidth-12):[];
-        const height=desc.length*5+extra.length*4.3+5;
-        advance(height);
-        doc.setFont('helvetica','normal');doc.setFontSize(9);
-        doc.text(desc,margin+3,y);y+=desc.length*5;
-        if(extra.length){
-            doc.setTextColor(82,96,115);doc.setFontSize(8);
-            doc.text(extra,margin+5,y);y+=extra.length*4.3;
-            doc.setTextColor(15,23,42);
-        }
-        y+=5;
     }
-    const filename=String(mesoData.name||'mesociclo').replace(/[^a-zA-Z0-9_-]/g,'_');
-    doc.save(filename+'_programma_completo.pdf');
+    // Print the page count without touching the mesocycle data.
+    if (typeof doc.getNumberOfPages === 'function') {
+        const count = doc.getNumberOfPages();
+        for (let i = 1; i <= count; i++) {
+            doc.setPage(i);
+            doc.setFont('helvetica','normal');
+            doc.setFontSize(8);
+            doc.setTextColor(...muted);
+            doc.text('Pagina ' + i + ' / ' + count,right,289,{align:'right'});
+        }
+    }
+    const name = String(mesoData.name || 'mesociclo')
+        .replace(/[^a-zA-Z0-9_-]/g,'_');
+    doc.save(name + '_diario_completo.pdf');
 }

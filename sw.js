@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v50-compact-owned-barbells';
+const CACHE_NAME = 'workout-app-v50-full-mesocycle-pdf';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
