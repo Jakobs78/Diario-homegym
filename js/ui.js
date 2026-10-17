@@ -180,6 +180,7 @@ document.addEventListener('click', (e) => {
         e.preventDefault();
         const panel = document.getElementById('mesocycle-closure-panel');
         if (panel) {
+            panel.hidden = false;
             panel.open = true;
             panel.scrollIntoView({behavior:'smooth',block:'nearest'});
         }
@@ -345,7 +346,7 @@ export function renderWorkoutList() {
     const closureButton = document.createElement('button');
     closureButton.type = 'button';
     closureButton.id = 'review-close-meso-btn';
-    closureButton.className = 'btn btn-secondary btn-sm';
+    closureButton.className = 'btn btn-secondary btn-sm meso-guided-closure-trigger';
     closureButton.textContent = meso.coachClosure?.status === 'closed'
         ? '📄 Report fine mesociclo' : '🏁 Concludi mesociclo';
     closureButton.title = 'Controlla il riepilogo prima di confermare la chiusura';
@@ -374,6 +375,7 @@ export function renderWorkoutList() {
     DOM.workoutListContainer.appendChild(unifiedHeaderBox);
     const closurePanel = createMesocycleClosurePanel(meso);
     closurePanel.open = closureWasOpen;
+    closurePanel.hidden = !closureWasOpen;
     DOM.workoutListContainer.appendChild(closurePanel);
 
     // Il pannello mantiene ogni dato e comando ma e' ripiegato di default.
