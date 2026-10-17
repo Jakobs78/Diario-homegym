@@ -17,6 +17,7 @@ import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
 import { createLiveCoachPanel, updateLiveCoachPanel, refreshLiveCoachClock, dismissLiveCoachToast } from './liveCoachUI.js';
 import { toggleCurrentMesocycleLock } from './mesocycle.js';
 import { createWeeklyReviewPanel } from './weeklyReviewUI.js';
+import { createFutureLoadReviewPanel } from './futureLoadReviewUI.js';
 
 export const DOM = {
     appContainer: document.getElementById('app-container'),
@@ -352,6 +353,10 @@ export function renderWorkoutList() {
     coachSummary.append(coachName, coachCount);
     coachDisclosure.append(coachSummary, createLiveCoachPanel(currentDay, { readOnly: isPastMeso }));
     DOM.workoutListContainer.appendChild(coachDisclosure);
+    const futureReview=createFutureLoadReviewPanel(meso,targetWeek.weekNumber,currentDayIndex-1,{
+        readOnly:isPastMeso,render:renderWorkoutList
+    });
+    if(futureReview)DOM.workoutListContainer.appendChild(futureReview);
     const weeklyReview = createWeeklyReviewPanel(meso, targetWeek.weekNumber, {
         readOnly:isPastMeso,wasOpen:reviewWasOpen,render:renderWorkoutList
     });

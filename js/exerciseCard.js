@@ -10,6 +10,7 @@ import { isWarmupExercise } from './workoutSemantics.js';
 import { saveAndSync } from './storage.js';
 import { renderWorkoutList } from './ui.js';
 import { getSetPrefill } from './setPrefill.js';
+import { compareConfirmedSetVolume } from './setVolumeComparison.js';
 
 // UI-only state: never stored in the journal or mistaken for a performed set.
 const chosenSetByKey=new Map();
@@ -21,7 +22,6 @@ const selectedKey=exIdx=>[
 export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, activeDayNum, isPastMeso) {
     const isExExcluded = isWarmupExercise(ex);
     const isDropsetPlan = ex.isDropset || false;
-    const isFirstWeek = targetWeek.weekNumber === 1;
 
     const exCard = document.createElement('div');
     exCard.className = `ex-card ${isExExcluded ? 'is-excluded' : ''} ${isDropsetPlan ? 'is-dropset' : ''}`;
@@ -121,36 +121,17 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         const isLocked = setObj.isLocked || setObj.completed || false;
         const isDisabled = isLocked || isPastMeso;
 
-        const prevSet = isFirstWeek ? null : prevExercise?.loggedSets?.[setIdx];
+        // A persistent mini badge for confirmed comparable sets, also across
+        // mesocycle/year boundaries. Never treat a draft or warmup as volume.
+        const comparison=compareConfirmedSetVolume(ex,prevExercise,setIdx);
+        const trendHtml=comparison
+            ? '<span class="set-trend-badge is-'+comparison.status+
+                '" title="'+escapeHtml(comparison.label)+'" aria-label="'+
+                escapeHtml(comparison.label)+'"><span class="set-trend-pct">'+
+                escapeHtml(comparison.display)+'</span><small class="set-trend-absolute">'+
+                escapeHtml(comparison.absolute)+'</small></span>'
+            : '';
 
-        const isCurrentSetConfirmed = Boolean(setObj.isLocked || setObj.completed);
-        const isPrevSetConfirmed = Boolean(prevSet?.isLocked || prevSet?.completed);
-
-        const parseRepsSafe = (val) => {
-            if (!val) return 0;
-            const match = String(val).match(/\d+/);
-            return match ? parseInt(match[0], 10) : 0;
-        };
-
-        const currentKg = isCurrentSetConfirmed ? (parseFloat(String(setObj.weight || 0).replace(',', '.')) || 0) : 0;
-        const currentReps = isCurrentSetConfirmed ? parseRepsSafe(setObj.reps) : 0;
-
-        const prevKg = isPrevSetConfirmed ? (parseFloat(String(prevSet?.weight || prevSet?.kg || 0).replace(',', '.')) || 0) : 0;
-        const prevReps = isPrevSetConfirmed ? parseRepsSafe(prevSet?.reps) : 0;
-
-        let trendHtml = '';
-        if (!isFirstWeek && isCurrentSetConfirmed && isPrevSetConfirmed && currentKg > 0 && currentReps > 0 && prevKg > 0 && prevReps > 0) {
-            const trend = calculateSetVolumeTrend(
-                { weight: currentKg, reps: currentReps }, 
-                { weight: prevKg, reps: prevReps }
-            );
-
-            if (trend) {
-                const trendClass = trend.isPositive ? 'text-success' : 'text-danger';
-                trendHtml = `<span class="${trendClass} text-xs font-bold whitespace-nowrap">${trend.text}</span>`;
-            }
-        }
-        
         const suggested = getSetPrefill(ex, setIdx, { previousExercise: prevExercise });
         const displayWeight = isLocked ? (setObj.weight ?? '') : suggested.weight;
         const displayReps = isLocked ? (setObj.reps ?? '') : suggested.reps;
@@ -218,7 +199,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                 <td class="td-input td-kg-container">
                     <div class="kg-input-wrapper flex-column flex-center">
                         <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-kg ios-no-zoom ${kgClass} ${isUnsavedKg ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayWeight)}" placeholder="${escapeHtml(targetWeightDefault)}" ${isDisabled ? 'disabled' : ''}>
-                        ${trendHtml ? `<div class="set-trend-badge">${trendHtml}</div>` : ''}
+                        ${trendHtml}
                     </div>
                 </td>
                 <td class="td-input">
