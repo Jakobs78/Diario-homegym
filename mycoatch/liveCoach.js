@@ -55,7 +55,13 @@ function targetRepRange(exercise) {
 }
 
 function plannedRpe(exercise) {
-    return validRpe(exercise?.targetRpe ?? exercise?.rpeTarget ?? exercise?.rpe);
+    // L'import può lasciare targetRpe vuoto e tenere @10 nel campo rpe.
+    // Usa il primo valore valido, come il riepilogo visibile nella scheda.
+    for (const candidate of [exercise?.targetRpe, exercise?.rpeTarget, exercise?.rpe]) {
+        const target = validRpe(candidate);
+        if (target !== null) return target;
+    }
+    return null;
 }
 
 function restSeconds(exercise) {
