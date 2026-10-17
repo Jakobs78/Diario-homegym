@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v50-exercise-notes-layout';
+const CACHE_NAME = 'workout-app-v50-rpe10-history-readability';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [

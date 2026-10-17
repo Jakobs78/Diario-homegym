@@ -2637,18 +2637,20 @@ body.dark-mode .group-title-badge {
     margin-bottom: 9px;
     border-left: 3px solid var(--accent-color);
 }
-.ex-card .history-title { font-weight: 800; font-size: .74rem; letter-spacing: .02em; }
+.ex-card .history-title { font-weight: 800; font-size: .82rem; letter-spacing: .02em; }
 .ex-card .history-content {
-    display: grid;
-    grid-template-columns: repeat(auto-fit,minmax(min(100%,145px),1fr));
-    gap: 3px 9px;
+    display: block;
     font-variant-numeric: tabular-nums;
 }
 .ex-card .history-content > div {
+    display: block;
     margin: 0;
+    font-size: .88rem;
     line-height: 1.5;
+    overflow-wrap: anywhere;
     color: var(--text-color);
 }
+.ex-card .history-content > div + div { margin-top: 6px; }
 .ex-card .target-box {
     font-family: inherit;
     font-size: .88rem;
@@ -2671,15 +2673,16 @@ body.dark-mode .group-title-badge {
 .ex-card .col-reps { width: 25% !important; }
 .ex-card .col-rpe { width: 22% !important; }
 .ex-card .col-check { width: 16% !important; }
-.ex-card .set-table th { height: 31px !important; line-height: 31px !important; }
+.ex-card .set-table th { height: 31px !important; line-height: 31px !important; font-size: .78rem; }
 .ex-card .set-table td,
 .ex-card .set-table td:first-child {
     height: 50px !important;
     line-height: normal !important;
+    font-size: .92rem !important;
 }
 .ex-card .set-table .set-input {
     min-height: 46px !important;
-    font-size: 16px !important; /* iOS: avoids keyboard-triggered page zoom */
+    font-size: 17px !important; /* iOS: remains >=16px to prevent keyboard zoom */
     padding: 1px 2px !important;
 }
 .ex-card .set-table tr.is-active-set td {

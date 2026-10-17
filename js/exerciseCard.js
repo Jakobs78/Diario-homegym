@@ -41,7 +41,6 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         !(logs[remembered]?.isLocked || logs[remembered]?.completed) ? remembered :
         (firstUnfinished>=0 ? firstUnfinished : Math.max(0,logs.length-1));
     exCard.dataset.activeSet=String(selected);
-    const completedCount=logs.filter(set=>set.isLocked || set.completed).length;
     const barKey='homegym_bar_'+(state.currentUser?.id || 'local')+'_'+slugify(ex.name);
 
 
@@ -114,10 +113,6 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             </div>
         </section>
 
-        <div class="workout-set-status flex-between mb-sm">
-            <strong>Serie di oggi · ${completedCount}/${logs.length} confermate</strong>
-            <span class="active-set-label" aria-live="polite">Serie ${selected+1} selezionata</span>
-        </div>
     `;
 
     cardHtml += dropScopeControl(ex,exIdx,isPastMeso);
@@ -306,8 +301,6 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             row.classList.toggle('is-active-set',active);
             row.setAttribute('aria-current',active?'true':'false');
         });
-        const title=exCard.querySelector('.active-set-label');
-        if(title)title.textContent='Serie '+(idx+1)+' di '+logs.length+' selezionata';
         const platesTitle=exCard.querySelector('.plates-active-set');
         if(platesTitle)platesTitle.textContent=String(idx+1);
         updatePlatesBadgeUI(exIdx,exCard);
