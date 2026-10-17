@@ -4,6 +4,8 @@ import {
     summarizeMesocycleClosure, closeMesocycleInMemory,
     formatMesocycleClosureForChat
 } from '../js/mesocycleClosure.js';
+import { shouldHighlightMesocycleClosure, acknowledgeMesocycleClosurePrompt }
+    from '../js/mesocycleReminder.js';
 
 const performed=(kg=80,reps=8,rpe='8',checked=true)=>({
     weight:String(kg),reps:String(reps),rpe,
@@ -143,4 +145,55 @@ test('report per ChatGPT non include email, note private né ID atleta',()=>{
     assert.match(report,/REPORT FINALE MESOCICLO/);
     assert.match(report,/Sedute completate: 1\/1/);
     assert.doesNotMatch(report,/private@example|private-athlete|PRIVATE NOTE/);
+});
+
+test('ultimo check valido accende il richiamo; click lo ferma senza chiudere il ciclo',()=>{
+    const meso=plan(makeWeek(1,[performed(),performed(80,8,8,false)]));
+    const original=JSON.stringify(meso);
+    assert.equal(shouldHighlightMesocycleClosure(meso),false);
+    assert.equal(acknowledgeMesocycleClosurePrompt(meso),false);
+    meso.weeks[0].days[0].exercises[0].loggedSets[1].isLocked=true;
+    meso.weeks[0].days[0].exercises[0].loggedSets[1].completed=true;
+    assert.equal(shouldHighlightMesocycleClosure(meso),true);
+    assert.equal(acknowledgeMesocycleClosurePrompt(meso),true);
+    assert.equal(shouldHighlightMesocycleClosure(meso),false);
+    assert.equal(meso.locked,undefined);
+    assert.equal(meso.coachClosure,undefined);
+    assert.equal(meso.weeks[0].days[0].exercises[0].loggedSets[0].weight,
+        JSON.parse(original).weeks[0].days[0].exercises[0].loggedSets[0].weight);
+});
+
+test('togliere e riconfermare una spunta riattiva la notifica',()=>{
+    const meso=plan(makeWeek(1,[performed(),performed()]));
+    assert.equal(shouldHighlightMesocycleClosure(meso),true);
+    assert.equal(acknowledgeMesocycleClosurePrompt(meso),true);
+    assert.equal(shouldHighlightMesocycleClosure(meso),false);
+    const set=meso.weeks[0].days[0].exercises[0].loggedSets[1];
+    set.isLocked=false;set.completed=false;
+    assert.equal(shouldHighlightMesocycleClosure(meso),false);
+    set.isLocked=true;set.completed=true;
+    assert.equal(shouldHighlightMesocycleClosure(meso),true);
+});
+
+test('chiusura o semplice blocco manuale non fanno lampeggiare vecchi cicli',()=>{
+    const meso=plan(makeWeek(1,[performed(),performed()]));
+    assert.equal(shouldHighlightMesocycleClosure(meso),true);
+    meso.locked=true;
+    assert.equal(shouldHighlightMesocycleClosure(meso),false);
+    meso.locked=false;
+    assert.equal(shouldHighlightMesocycleClosure(meso),true);
+    closeMesocycleInMemory(meso,summarizeMesocycleClosure(meso));
+    assert.equal(shouldHighlightMesocycleClosure(meso),false);
+    meso.locked=false; // State inconsistently hydrated: metadata wins.
+    assert.equal(shouldHighlightMesocycleClosure(meso),false);
+});
+
+test('un nuovo mesociclo vuoto non richiede chiusura, vecchio chiuso resta indipendente',()=>{
+    const previous=plan(makeWeek(1,[performed(),performed()]));
+    closeMesocycleInMemory(previous,summarizeMesocycleClosure(previous));
+    const next=plan(makeWeek(1,[performed(60,8,8,false),performed(60,8,8,false)]));
+    assert.equal(previous.locked,true);
+    assert.equal(next.locked,undefined);
+    assert.equal(shouldHighlightMesocycleClosure(previous),false);
+    assert.equal(shouldHighlightMesocycleClosure(next),false);
 });
