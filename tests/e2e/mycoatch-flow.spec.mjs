@@ -2242,7 +2242,7 @@ test('MyCoatch previews, approves and undoes load increases only for untouched f
       const day=w.days[0];
       day.exercises=[structuredClone(template)];
       day.completed=false;day.sessionStart=null;day.accumulatedSeconds=0;
-      delete day.date;delete day.coachCheckin;
+      delete day.date;delete day.sessionCompletedAt;delete day.coachCheckin;
     }
     state.workoutData.athlete.loadingSteps={barbell:2.5};
     renderWorkoutList();
