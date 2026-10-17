@@ -353,19 +353,20 @@ export function renderWorkoutList() {
     closureButton.className = 'btn btn-secondary btn-sm meso-guided-closure-trigger';
     const closedMeso = meso.coachClosure?.status === 'closed';
     const closureIcon = document.createElement('span');
-    closureIcon.textContent = closedMeso ? '📄' : '🏁';
+    closureIcon.textContent = closedMeso ? '📄' : '🤖';
     closureIcon.setAttribute('aria-hidden', 'true');
     const closureText = document.createElement('span');
     closureText.className = 'meso-guided-closure-text';
-    closureText.textContent = closedMeso ? 'Report fine mesociclo' : 'Concludi mesociclo';
-    closureButton.append(closureIcon, closureText);
     const highlightClosure = shouldHighlightMesocycleClosure(meso);
+    closureText.textContent = closedMeso ? 'Report fine mesociclo'
+        : highlightClosure ? 'MyCoatch' : 'Concludi mesociclo';
+    closureButton.append(closureIcon, closureText);
     if (highlightClosure) closureButton.classList.add('meso-closure-attention');
     closureButton.setAttribute('aria-label', highlightClosure
-        ? 'Concludi mesociclo: tutte le serie previste risultano confermate'
+        ? 'Apri il report MyCoatch: controlla anche le serie non confermate'
         : closureText.textContent);
     closureButton.title = highlightClosure
-        ? 'Tutte le serie previste sono complete. Apri la chiusura guidata.'
+        ? 'Ultima serie dell’ultimo giorno spuntata. Apri il report MyCoatch e controlla eventuali serie mancanti.'
         : 'Controlla il riepilogo prima di confermare la chiusura';
     quickRow.appendChild(closureButton);
     unifiedHeaderBox.appendChild(quickRow);

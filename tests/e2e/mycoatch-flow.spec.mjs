@@ -2581,6 +2581,64 @@ test('mesociclo parziale: doppio consenso obbligatorio e chiusura non automatica
 });
 
 
+test('smartphone: l’ultima spunta dell’ultimo giorno evidenzia MyCoatch anche con esercizi incompleti',async({page})=>{
+  await page.setViewportSize({width:375,height:812});
+  const monitoring=await openIsolatedApp(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    state.currentYear='2026';
+    state.activeMesocycleIndex=0;
+    state.activeWeek=3;
+    state.activeDay=1;
+    const meso=state.workoutData.history.years['2026'].mesocycles[0];
+    const finalDay=meso.weeks[2].days[0];
+    const unconfirmed=structuredClone(finalDay.exercises[0]);
+    unconfirmed.name='Esercizio finale da verificare';
+    unconfirmed.loggedSets=[{weight:'',reps:'',rpe:'',isLocked:false,completed:false}];
+    finalDay.exercises.unshift(unconfirmed);
+    const lastSet=finalDay.exercises[1].loggedSets[0];
+    lastSet.isLocked=false;
+    lastSet.completed=false;
+    renderWorkoutList();
+  });
+  const button=page.locator('#review-close-meso-btn');
+  await expect(button).not.toHaveClass(/meso-closure-attention/);
+  await expect(button.locator('.meso-guided-closure-text')).not.toBeVisible();
+  await page.locator('.set-lock-check[data-ex="1"][data-set="0"]').check();
+  await expect(button).toHaveClass(/meso-closure-attention/);
+  await expect(button.locator('.meso-guided-closure-text')).toBeVisible();
+  await expect(button).toContainText('MyCoatch');
+  await expect(button).toHaveAttribute('aria-label',/serie non confermate/);
+  const accent=await button.evaluate(el=>({
+    animation:getComputedStyle(el).animationName,
+    width:el.getBoundingClientRect().width
+  }));
+  assert.notEqual(accent.animation,'none');
+  assert.ok(accent.width>=92 && accent.width<=105,JSON.stringify(accent));
+  await button.click();
+  await expect(button).not.toHaveClass(/meso-closure-attention/);
+  await expect(page.locator('#mesocycle-closure-panel')).toHaveAttribute('open','');
+  await expect(page.locator('#mesocycle-closure-panel')).toContainText('Sedute da verificare');
+  await expect(page.locator('#mesocycle-closure-panel')).toContainText('NON è completamente registrato');
+  const stateAfter=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const meso=state.workoutData.history.years['2026'].mesocycles[0];
+    return {
+      locked:meso.locked,
+      closure:meso.coachClosure,
+      unchecked:meso.weeks[2].days[0].exercises[0].loggedSets[0].isLocked,
+      lastChecked:meso.weeks[2].days[0].exercises[1].loggedSets[0].isLocked
+    };
+  });
+  assert.equal(Boolean(stateAfter.locked),false);
+  assert.equal(stateAfter.closure,undefined);
+  assert.equal(stateAfter.unchecked,false);
+  assert.equal(stateAfter.lastChecked,true);
+  assert.deepEqual(monitoring.remoteRequests,[]);
+  assert.deepEqual(monitoring.pageErrors,[]);
+});
+
 test('last real checkbox starts closure pulse; review click dismisses without locking data', async ({page}) => {
   await openIsolatedApp(page);
   await page.evaluate(async () => {
@@ -2600,7 +2658,7 @@ test('last real checkbox starts closure pulse; review click dismisses without lo
   await expect(nudge).not.toHaveClass(/meso-closure-attention/);
   await page.locator('.set-lock-check').check();
   await expect(nudge).toHaveClass(/meso-closure-attention/);
-  await expect(nudge).toHaveAttribute('aria-label',/tutte le serie previste/);
+  await expect(nudge).toHaveAttribute('aria-label',/Apri il report MyCoatch/);
   await nudge.click();
   await expect(nudge).not.toHaveClass(/meso-closure-attention/);
   await expect(page.locator('#mesocycle-closure-panel')).toHaveAttribute('open','');

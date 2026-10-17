@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v50-rpe10-history-readability';
+const CACHE_NAME = 'workout-app-v50-final-day-mycoatch-reminder';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
