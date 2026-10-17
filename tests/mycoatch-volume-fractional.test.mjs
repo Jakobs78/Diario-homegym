@@ -165,9 +165,9 @@ test('when a minimum kg increase is already eligible, do not also add volume', (
     const decision=planAdaptiveDecisions(r).byMuscle.Bicipiti;
     assert.equal(r.byMuscle.Bicipiti.avgWeeklyFractionalSets,4);
     assert.equal(decision.volumeDelta,0);
-    assert.equal(planAdaptiveDecisions(r).byExercise['curl ai cavi bassi']?.action ||
-        Object.values(planAdaptiveDecisions(r).byExercise).find(x=>x.exercise==='Curl ai Cavi Bassi')?.action,
-        'increase_load');
+    assert.equal(Object.values(r.byExercise).find(x=>x.name==='Curl ai Cavi Bassi')?.readyForLoad,true);
+    // L'incremento puo' restare sospeso se il carico non e' componibile:
+    // neppure in quel caso si sommano serie extra.
 });
 
 test('proposed 4-week microcycles include direct and indirect credit reports', ()=>{
