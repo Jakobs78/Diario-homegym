@@ -10,7 +10,7 @@ const same = (a, b, tolerance = 0) =>
 function validExposure(ex) {
     const range = ex?.repRange;
     return Boolean(ex && !ex.isDeload && ex.weekId &&
-        Number.isFinite(ex.workingKg) && ex.workingKg >= 0 &&
+        Number.isFinite(ex.workingKg) && ex.workingKg > 0 &&
         range && Number.isInteger(range.min) && Number.isInteger(range.max) &&
         range.min > 0 && range.max >= range.min &&
         ex.completedSets > 0 && ex.completedSets === ex.plannedSets &&
@@ -42,7 +42,10 @@ function weeklyObservations(exposures) {
     return [...weeks].map(([id, entries]) => {
         const first = entries[0];
         if (!entries.every(validExposure) ||
-            !entries.every(ex => comparable(first, ex))) return null;
+            !entries.every(ex => comparable(first, ex))) return {
+            invalid: true, weekId: id,
+            blockId: first.year + '/' + first.mesocycleIndex
+        };
         return {
             ...first, weekId: id,
             minWorkingReps: Math.min(...entries.map(ex => ex.minWorkingReps)),
@@ -59,7 +62,7 @@ const noTrend = () => ({status: 'insufficient_data', repsDelta: null, metric: nu
  */
 export function evaluateRepetitionTrend(exposures = []) {
     const last = weeklyObservations(exposures).slice(-3);
-    if (last.length < 3 || last.some(x => x === null) ||
+    if (last.length < 3 || last.some(x => x?.invalid) ||
         !last.every(ex => comparable(last[0], ex))) return noTrend();
     const [first, middle, recent] = last.map(x => x.minWorkingReps);
     const repsDelta = recent - first;
@@ -77,7 +80,7 @@ export function evaluateRepetitionTrend(exposures = []) {
  */
 export function compareBlockResponse(exposures = []) {
     const source = weeklyObservations(exposures);
-    if (source.length < 4 || source.some(x => x === null)) return null;
+    if (source.length < 4) return null;
     const blocks = new Map();
     for (const week of source) {
         if (!blocks.has(week.blockId)) blocks.set(week.blockId, []);
@@ -88,7 +91,8 @@ export function compareBlockResponse(exposures = []) {
     const previous = last[0][1].slice(-2);
     const current = last[1][1].slice(-2);
     const four = [...previous, ...current];
-    if (!four.every(ex => comparable(four[0], ex))) return null;
+    if (four.some(ex => ex?.invalid) ||
+        !four.every(ex => comparable(four[0], ex))) return null;
     const before = (previous[0].minWorkingReps + previous[1].minWorkingReps) / 2;
     const after = (current[0].minWorkingReps + current[1].minWorkingReps) / 2;
     const deltaReps = after - before;
