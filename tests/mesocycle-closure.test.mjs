@@ -15,6 +15,8 @@ const exercise=(values=[performed(),performed()])=>({
 });
 const makeWeek=(num,values,extras={})=>({
     weekNumber:num,days:[{dayNumber:1,dayName:'Push',completed:!!extras.dayCompleted,
+        sessionCompletedAt: extras.noDate ? undefined :
+            new Date(Date.UTC(2026,9,1+(num-1)*7)).toISOString(),
         exercises:[exercise(values)],...(extras.archives?{sessionArchives:extras.archives}:{})}]
 });
 const plan=(...weeks)=>({name:'Test privato',weeks});
@@ -122,6 +124,15 @@ test('confronto prestazioni solo fra settimane a carico uguale',()=>{
     r=summarizeMesocycleClosure(meso);
     assert.equal(r.exerciseChanges[0].metric,'repetitions_at_same_load');
     assert.equal(r.exerciseChanges[0].deltaReps,1);
+});
+
+test('senza data o con più esposizioni nella stessa settimana non inferisce trend longitudinale',()=>{
+    const undated=plan(makeWeek(1,[performed(),performed()],{noDate:true}),
+        makeWeek(2,[performed(80,10),performed(80,10)],{noDate:true}));
+    assert.equal(summarizeMesocycleClosure(undated).exerciseChanges.length,0);
+    undated.weeks[0].days[0].sessionCompletedAt='2026-10-01T12:00:00Z';
+    undated.weeks[1].days[0].sessionCompletedAt='2026-10-02T12:00:00Z';
+    assert.equal(summarizeMesocycleClosure(undated).exerciseChanges.length,0);
 });
 
 test('report per ChatGPT non include email, note private né ID atleta',()=>{
