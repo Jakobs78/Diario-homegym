@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v50-closure-handoff-report';
+const CACHE_NAME = 'workout-app-v51-exercise-notes-layout';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
