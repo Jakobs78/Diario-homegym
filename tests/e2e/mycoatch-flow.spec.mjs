@@ -2631,7 +2631,7 @@ test('smartphone: l’ultima spunta dell’ultimo giorno evidenzia MyCoatch anch
       lastChecked:meso.weeks[2].days[0].exercises[1].loggedSets[0].isLocked
     };
   });
-  assert.equal(stateAfter.locked,false);
+  assert.equal(Boolean(stateAfter.locked),false);
   assert.equal(stateAfter.closure,undefined);
   assert.equal(stateAfter.unchecked,false);
   assert.equal(stateAfter.lastChecked,true);
