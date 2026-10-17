@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v48-stall-response';
+const CACHE_NAME = 'workout-app-v49-mesocycle-closure';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -31,6 +31,8 @@ const ASSETS_TO_CACHE = [
   '/js/coachPreviewUI.js',
   '/js/mesocyclePdfModel.js',
   '/js/mesocycle.js',
+  '/js/mesocycleClosure.js',
+  '/js/mesocycleClosureUI.js',
   '/js/pdfExport.js',
   '/js/importer.js',
   '/js/pdfParser.js',

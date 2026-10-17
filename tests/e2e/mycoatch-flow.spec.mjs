@@ -2416,3 +2416,98 @@ test('refinement: smartphone confirms a bodyweight set with explicit zero and sh
  assert.deepEqual(monitoring.pageErrors,[]);
  assert.deepEqual(monitoring.remoteRequests,[]);
 });
+
+
+test('chiusura guidata integrata: blocca il ciclo, conserva i dati, esporta report e permette riapertura esplicita', async ({page}) => {
+  await openIsolatedApp(page);
+  const before=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=1;
+    renderWorkoutList();
+    return JSON.stringify(state.workoutData.history.years);
+  });
+  await page.locator('#review-close-meso-btn').click();
+  await expect(page.locator('#mesocycle-closure-panel')).toHaveAttribute('open','');
+  await expect(page.locator('#mesocycle-closure-panel')).toContainText('Sedute complete: 3/3');
+  const checks=page.locator('#mesocycle-closure-panel input[type=checkbox]');
+  await expect(checks).toHaveCount(1);
+  const finish=page.getByRole('button',{name:/Concludi e blocca il mesociclo/});
+  await expect(finish).toBeDisabled();
+  await checks.first().check();
+  await expect(finish).toBeEnabled();
+  page.on('dialog', dialog=>dialog.accept());
+  await finish.click();
+  await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Sblocca');
+  await expect(page.locator('#review-close-meso-btn')).toContainText('Report fine mesociclo');
+  const closed=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const m=state.workoutData.history.years['2026'].mesocycles[0];
+    const stored=JSON.parse(window.testJournal.getItem('workoutApp_data'))
+      .history.years['2026'].mesocycles[0];
+    return {locked:m.locked,closure:m.coachClosure,storedLocked:stored.locked,
+      storedClosure:stored.coachClosure,years:JSON.stringify(state.workoutData.history.years)};
+  });
+  expect(closed.locked).toBe(true);
+  expect(closed.storedLocked).toBe(true);
+  expect(closed.closure.status).toBe('closed');
+  expect(closed.storedClosure.status).toBe('closed');
+  const d=page.waitForEvent('download');
+  await page.getByRole('button',{name:/Esporta report per ChatGPT/}).click();
+  const file=await d;const text=await readFile(await file.path(),'utf8');
+  expect(file.suggestedFilename()).toMatch(/report_mycoatch\.txt$/);
+  expect(text).toMatch(/Sedute completate: 3\/3/);
+  expect(text).not.toContain('test-e2e@invalid.example');
+  expect(text).not.toContain('private-athlete-id');
+  await page.getByRole('button',{name:/Prepara il prossimo mesociclo/}).click();
+  await expect(page.locator('#mycoatch-config-modal')).not.toHaveClass(/hidden/);
+  await page.locator('#close-mycoatch-config').click();
+  await page.locator('#toggle-lock-meso-btn').click();
+  await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Blocca');
+  const reopened=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    return state.workoutData.history.years['2026'].mesocycles[0];
+  });
+  expect(reopened.locked).toBe(false);
+  expect(reopened.coachClosure).toBeUndefined();
+  // Only closure/lock metadata changes; all original exercises and sets remain.
+  const initial=JSON.parse(before)['2026'].mesocycles[0];
+  expect(reopened.weeks).toEqual(initial.weeks);
+});
+
+test('mesociclo parziale: doppio consenso obbligatorio e chiusura non automatica',async({page})=>{
+  await openIsolatedApp(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=1;
+    const m=state.workoutData.history.years['2026'].mesocycles[0];
+    m.weeks[1].days[0].exercises[0].loggedSets[0].isLocked=false;
+    m.weeks[1].days[0].exercises[0].loggedSets[0].completed=false;
+    renderWorkoutList();
+  });
+  await page.locator('#review-close-meso-btn').click();
+  await expect(page.locator('#mesocycle-closure-panel')).toContainText('Sedute complete: 2/3');
+  const boxes=page.locator('#mesocycle-closure-panel input[type=checkbox]');
+  await expect(boxes).toHaveCount(2);
+  const finish=page.getByRole('button',{name:/Concludi e blocca il mesociclo/});
+  await boxes.first().check();
+  await expect(finish).toBeDisabled();
+  await boxes.last().check();
+  await expect(finish).toBeEnabled();
+  let confirmCalls=0;
+  page.on('dialog',async d=>{
+    if(d.type()==='confirm'){confirmCalls++;await d.dismiss();}
+    else await d.accept();
+  });
+  await finish.click();
+  expect(confirmCalls).toBe(1);
+  const after=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const m=state.workoutData.history.years['2026'].mesocycles[0];
+    return {locked:m.locked,closure:m.coachClosure,checked:m.weeks[1].days[0].exercises[0].loggedSets[0].isLocked};
+  });
+  expect(after.locked).toBeFalsy();
+  expect(after.closure).toBeUndefined();
+  expect(after.checked).toBe(false);
+});
