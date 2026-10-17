@@ -18,7 +18,9 @@ export function sameJournal(left, right) {
 }
 
 function pristine(data) {
-    if (!data || typeof data !== 'object' || Array.isArray(data)) return true;
+    if (!data) return true;
+    if (typeof data !== 'object' || Array.isArray(data) ||
+        !data.history?.years || typeof data.history.years !== 'object') return false;
     // Never erase a local-only profile/equipment configuration merely
     // because it contains zero mesocycles.
     if (data.updatedAt) return false;
