@@ -86,7 +86,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         }
     }
 
-    // Performed history stays in plain sight; long coach notes move below the set table.
+    // Performed history stays in plain sight; coach and personal notes follow the target.
     if (lastSessionSetsHtml) {
         cardHtml += `
             <section class="exercise-history-box exercise-notes-box mb-md"
@@ -102,6 +102,17 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         <div class="target-box mb-md">
             <strong>TARGET:</strong> ${formatExerciseSummary(ex)}
         </div>
+
+        <section class="exercise-coach-notes" aria-label="Note del coach e note personali">
+            <div class="exercise-coach-notes-body">
+                <div class="note-allenatore-title">📝 NOTE COACH</div>
+                <div class="note-allenatore-text">${ex.notes ? escapeHtml(ex.notes) : '<span class="text-muted">Nessuna nota del coach.</span>'}</div>
+                <label class="workout-notes-label" for="ex-user-notes-${exIdx}">✍️ Note personali</label>
+                <input type="text" id="ex-user-notes-${exIdx}" placeholder="Aggiungi una nota all'esercizio..."
+                    value="${escapeHtml(ex.userNotes || '')}" class="ex-user-notes w-100"
+                    data-ex="${exIdx}" ${isPastMeso ? 'disabled' : ''}>
+            </div>
+        </section>
 
         <div class="workout-set-status flex-between mb-sm">
             <strong>Serie di oggi · ${completedCount}/${logs.length} confermate</strong>
@@ -259,16 +270,6 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     `;
     cardHtml += `
         <div id="mycoach-advice-${exIdx}" class="mycoach-fatigue-alert is-hidden"></div>
-        <section class="exercise-coach-notes" aria-label="Note del coach e note personali">
-            <div class="exercise-coach-notes-body">
-                <div class="note-allenatore-title">📝 NOTE COACH</div>
-                <div class="note-allenatore-text">${ex.notes ? escapeHtml(ex.notes) : '<span class="text-muted">Nessuna nota del coach.</span>'}</div>
-                <label class="workout-notes-label" for="ex-user-notes-${exIdx}">✍️ Note personali</label>
-                <input type="text" id="ex-user-notes-${exIdx}" placeholder="Aggiungi una nota all'esercizio..."
-                    value="${escapeHtml(ex.userNotes || '')}" class="ex-user-notes w-100"
-                    data-ex="${exIdx}" ${isPastMeso ? 'disabled' : ''}>
-            </div>
-        </section>
     `;
 
     exCard.innerHTML = cardHtml;
