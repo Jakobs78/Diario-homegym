@@ -101,3 +101,64 @@ test('copie diverse senza coda: blocca il pull, proteggendo serie locali conferm
     expect(result.conflict.local).toEqual(diary(8));
     expect(result.local).toEqual(diary(8));
 });
+
+test('altro dispositivo sincronizzato: aggiorna automaticamente solo copia locale non modificata',async({page})=>{
+    await isolated(page);
+    const output=await page.evaluate(async({old,remote})=>{
+        const store=await import('/js/journalStore.js');await store.initializeJournalStorage();
+        const {state}=await import('/js/state.js');
+        const {pullDataFromSupabase}=await import('/js/sync.js');
+        const {getCloudRevision,getCloudAcceptedHash,setCloudRevision,setCloudAcceptedHash,
+            getSyncConflict,saveToLocalStorage}=await import('/js/storage.js');
+        const {journalFingerprint}=await import('/js/cloudSafety.js');
+        const user={id:'123',email:'atleta@example.test'};
+        state.currentUser=user;
+        saveToLocalStorage(old,{preserveUpdatedAt:true});
+        setCloudAcceptedHash(user,await journalFingerprint(old));
+        setCloudRevision(user,'2026-10-17T09:00:01Z');
+        await store.flushJournalStorage();
+        window.__mockCloudRow={payload:remote,updated_at:'2026-10-17T09:02:00Z'};
+        const pulled=await pullDataFromSupabase(user);
+        if(pulled)saveToLocalStorage(pulled,{preserveUpdatedAt:true});
+        await store.flushJournalStorage();
+        return {pulled,revision:getCloudRevision(user),
+            acceptedHash:getCloudAcceptedHash(user),conflict:getSyncConflict(user),
+            local:JSON.parse(store.journalStorage.getItem('workoutApp_data'))};
+    },{old:diary(8),remote:diary(10)});
+    expect(output.pulled).toEqual(diary(10));
+    expect(output.local).toEqual(diary(10));
+    expect(output.revision).toBe('2026-10-17T09:02:00Z');
+    expect(output.acceptedHash).toHaveLength(64);
+    expect(output.conflict).toBeNull();
+});
+
+test('coda persa: modifica locale non certificata impedisce sovrascrittura cloud',async({page})=>{
+    await isolated(page);
+    const output=await page.evaluate(async({original,edited,remote})=>{
+        const store=await import('/js/journalStore.js');await store.initializeJournalStorage();
+        const {state}=await import('/js/state.js');
+        const {pullDataFromSupabase}=await import('/js/sync.js');
+        const {getCloudRevision,getSyncConflict,saveToLocalStorage,
+            setCloudRevision,setCloudAcceptedHash}=await import('/js/storage.js');
+        const {journalFingerprint}=await import('/js/cloudSafety.js');
+        const user={id:'123',email:'atleta@example.test'};
+        state.currentUser=user;
+        saveToLocalStorage(original,{preserveUpdatedAt:true});
+        setCloudRevision(user,'2026-10-17T09:00:01Z');
+        setCloudAcceptedHash(user,await journalFingerprint(original));
+        await store.flushJournalStorage();
+        // Simulate an offline edit persisted in IndexedDB but a lost queue.
+        saveToLocalStorage(edited,{preserveUpdatedAt:true});
+        await store.flushJournalStorage();
+        window.__mockCloudRow={payload:remote,updated_at:'2026-10-17T09:02:00Z'};
+        const pulled=await pullDataFromSupabase(user);
+        await store.flushJournalStorage();
+        return {pulled,revision:getCloudRevision(user),
+            conflict:getSyncConflict(user),local:JSON.parse(
+                store.journalStorage.getItem('workoutApp_data'))};
+    },{original:diary(8),edited:diary(9),remote:diary(10)});
+    expect(output.pulled).toBeNull();
+    expect(output.local).toEqual(diary(9));
+    expect(output.conflict.remote).toEqual(diary(10));
+    expect(output.revision).toBe('2026-10-17T09:00:01Z');
+});
