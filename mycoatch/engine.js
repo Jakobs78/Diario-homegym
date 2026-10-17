@@ -259,7 +259,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     : "";
                 
                 // Iniettiamo la nota analitica sullo stallo o progresso basata sull'e1RM
-                if (!HIGH_REP_EXERCISES[ex.name] && analysis.exerciseNotes && analysis.exerciseNotes[canonicalExerciseKey(ex.name)]) {
+                if (analysis.exerciseNotes && analysis.exerciseNotes[canonicalExerciseKey(ex.name)]) {
                     autoNote += `${analysis.exerciseNotes[canonicalExerciseKey(ex.name)]} | `;
                 }
                 
@@ -319,6 +319,9 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 let topsetStr = "";
                 if (loadDecision && loadDecision.action !== 'maintain' && !requiresHighRepRecalibration) {
                     autoNote += `[PROGRESSIONE MYCOATCH] ${loadDecision.reason} | `;
+                }
+                if (loadDecision?.stallStrategy) {
+                    autoNote += '[STRATEGIA STALLO] ' + loadDecision.stallStrategy.recommendation + ' | ';
                 }
                 if (loadDecision?.caveats?.includes('rpe_mancante_o_sopra_target') &&
                     loadDecision.action === 'maintain') {

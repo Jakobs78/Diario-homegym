@@ -153,10 +153,10 @@ test('a possible biceps stall with a large indirect share does NOT add sets', ()
     const decision=planAdaptiveDecisions(r).byMuscle.Bicipiti;
     assert.equal(decision.volumeDelta,0);
     assert.equal(decision.weeklyFractionalSetsObserved,9);
-    assert.match(decision.reason,/lavoro secondario/i);
+    assert.match(decision.reason,/mantieni/i);
 });
 
-test('a low-volume plateau with reliable RPE can still trial just one set', ()=>{
+test('when a minimum kg increase is already eligible, do not also add volume', ()=>{
     const training=historical(Array.from({length:3},(_,i)=>week([
         workout('Curl ai Cavi Bassi',3,15),
         workout('Lat Machine con Triangolo',2,60)
@@ -164,7 +164,10 @@ test('a low-volume plateau with reliable RPE can still trial just one set', ()=>
     const r=analyzeTrainingHistory(training);
     const decision=planAdaptiveDecisions(r).byMuscle.Bicipiti;
     assert.equal(r.byMuscle.Bicipiti.avgWeeklyFractionalSets,4);
-    assert.equal(decision.volumeDelta,1);
+    assert.equal(decision.volumeDelta,0);
+    assert.equal(Object.values(r.byExercise).find(x=>x.name==='Curl ai Cavi Bassi')?.readyForLoad,true);
+    // L'incremento puo' restare sospeso se il carico non e' componibile:
+    // neppure in quel caso si sommano serie extra.
 });
 
 test('proposed 4-week microcycles include direct and indirect credit reports', ()=>{

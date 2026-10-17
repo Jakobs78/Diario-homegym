@@ -3,6 +3,7 @@ import { canonicalExerciseKey, canonicalExerciseName } from './exerciseIdentity.
 import { numericValue, estimateE1rm } from './historyAnalysis.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { evaluateExerciseProgression } from './progressionPolicy.js';
+import { evaluateRepetitionTrend, compareBlockResponse } from './stallResponse.js';
 import { isWarmupExercise, plannedWorkSetCount } from '../js/workoutSemantics.js';
 import { contributionsForExercise, TRACKED_MUSCLES, VOLUME_ACCOUNTING_METHOD } from './volumeAccounting.js';
 
@@ -130,16 +131,21 @@ function determineExerciseStatus(exposures) {
         byWeek.set(exposure.weekId, Math.max(byWeek.get(exposure.weekId) || 0, exposure.e1rm));
     }
     const recent = [...byWeek.values()].slice(-3);
-    if (recent.length < 3) return { status: 'insufficient_data', percent: null };
+    if (recent.length < 3) {
+        const repTrend = evaluateRepetitionTrend(exposures);
+        return { status: repTrend.status, percent: null,
+            metric: repTrend.metric, repsDelta: repTrend.repsDelta,
+            evidenceWeeks: repTrend.evidenceWeeks || [] };
+    }
     const first = recent[0];
     const second = recent[1];
     const last = recent[2];
     const percent = round(100 * (last / first - 1));
-    if (last < first * 0.97) return { status: 'regressing', percent };
+    if (last < first * 0.97) return { status: 'regressing', percent, metric: 'e1rm' };
     if (last <= first * 1.01 && last <= second * 1.015)
-        return { status: 'possible_stall', percent };
-    if (last > first * 1.02) return { status: 'progressing', percent };
-    return { status: 'stable', percent };
+        return { status: 'possible_stall', percent, metric: 'e1rm' };
+    if (last > first * 1.02) return { status: 'progressing', percent, metric: 'e1rm' };
+    return { status: 'stable', percent, metric: 'e1rm' };
 }
 
 /**
@@ -294,6 +300,9 @@ export function analyzeTrainingHistory(userHistory,{calendarWeeks=false}={}) {
         const { readyForLoad, readyForReps, nextRepTarget, fatigueConcern } = progression;
         item.status = status.status;
         item.e1rmChangePct = status.percent;
+        item.trendMetric = status.metric;
+        item.repsChange = status.repsDelta ?? null;
+        item.blockResponse = compareBlockResponse(item.exposures);
         item.lastKg = previous?.topKg ?? null;
         item.lastWorkingKg = progression.lastWeekWorkingKg ??
             previous?.workingKg ?? null;
@@ -320,9 +329,17 @@ export function analyzeTrainingHistory(userHistory,{calendarWeeks=false}={}) {
             progressing: 'e1RM in crescita nelle ultime tre esposizioni.',
             stable: 'e1RM stabile: monitorare senza modifiche automatiche drastiche.'
         };
-        exerciseNotes[key] = HIGH_REP_EXERCISES[item.name]
-            ? 'Confronta ripetizioni, tecnica e RPE a parità di carico: il solo e1RM non definisce uno stallo su questo isolamento.'
-            : statusText[item.status];
+        const repsNotes = {
+            insufficient_data: 'Ripetizioni non confrontabili su tre settimane complete con carico, range e RPE registrati: nessuno stallo dedotto.',
+            regressing: 'Ripetizioni minime in calo a parità di carico: controllare recupero e tecnica prima di cambiare programma.',
+            possible_stall: 'Possibile stallo delle ripetizioni su tre settimane confrontabili a carico costante; verificare contesto e recupero.',
+            progressing: 'Ripetizioni minime in aumento a parità di carico e target: continua la progressione prudente.',
+            stable: 'Ripetizioni sostanzialmente stabili: raccogli altre sedute confrontabili.'
+        };
+        exerciseNotes[key] = status.metric === 'working_reps'
+            ? repsNotes[item.status] : HIGH_REP_EXERCISES[item.name]
+                ? 'e1RM non utilizzabile su questo esercizio: servono ripetizioni, RPE e carichi confrontabili.'
+                : statusText[item.status];
     }
 
     const byMuscle = {};

@@ -172,6 +172,16 @@ export function formatCoachReview(comparison, report) {
         lines.push('Gli incrementi di carico sono proposte, non modifiche ai risultati ' +
             'delle sedute già eseguite. Verifica i microcarichi disponibili.');
     }
+    if (report.blockResponses?.length) {
+        lines.push('RISPOSTA TRA MESOCICLI (osservazione, non prova di causalità):');
+        for (const r of report.blockResponses.slice(0, 5)) {
+            const label = r.status === 'improved' ? 'miglioramento' :
+                r.status === 'declined' ? 'calo' : 'stabile';
+            lines.push(r.exercise + ': ' + label + ' (' +
+                (r.deltaReps > 0 ? '+' : '') + r.deltaReps +
+                ' ripetizioni minime medie, a carico e target comparabili).');
+        }
+    }
     if (report.calibrationHandoff) {
         const calibration = report.calibrationHandoff;
         lines.push('PASSAGGIO DALLA CALIBRAZIONE: ' +

@@ -43,9 +43,9 @@ export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
             } else {
                 reason = 'Le due settimane giustificano una progressione, ma il passo minimo standard sarebbe superiore al 10% del carico: mantieni i kg oppure usa microcarichi realmente disponibili.';
             }
-        } else if (exercise.status === 'possible_stall') {
+        } else if (exercise.status === 'possible_stall' && !exercise.readyForReps) {
             action = 'review_stall';
-            reason = 'Possibile stallo e1RM: conferma tecnica, sonno, pause e andamento dei carichi prima di ruotare esercizio o alzare il volume.';
+            reason = 'Possibile stallo della prestazione: conferma tecnica, sonno, pause e andamento dei carichi prima di ruotare esercizio o alzare il volume.';
         } else if (exercise.status === 'regressing') {
             action = 'review_regression';
             reason = 'e1RM in calo, ma dati non sufficienti per attribuirlo alla fatica: mantieni e osserva la seduta seguente.';
@@ -97,11 +97,9 @@ export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
         const highFatigue = relevant.some(ex => ex.fatigueConcern);
         const plateau = relevant.some(ex =>
             ex.status === 'possible_stall' &&
-            ex.progressionEvidence?.progressionTrigger !== 'low_rpe');
-        // When all working sets have at least 1 RPE in reserve over two
-        // comparable weeks, prioritize the minimum load step instead of
-        // adding accessory volume for the same "stall". Other plateau
-        // scenarios keep their existing volume policy.
+            !ex.readyForLoad && !ex.readyForReps);
+        // If double progression is already authorized (reps OR kg), avoid
+        // adding accessory volume in the same stall-response decision.
         const enoughWeeks = metrics.weeksObserved >= 3;
         const adherence = metrics.recentAdherence;
         const fractional = metrics.avgWeeklyFractionalSets;
@@ -147,6 +145,43 @@ export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
             avgRpe: metrics.avgRpe
         };
         if (volumeDelta) summary.push({ target: muscle, action, reason });
+    }
+
+    // A possible stall is a prompt to select and review a strategy, not a
+    // diagnosis. The already-calculated muscle-volume policy remains the only
+    // source of any actual +1/-1 accessory prescription.
+    for (const [key, decision] of Object.entries(byExercise)) {
+        const evidence = report.byExercise[key];
+        if (evidence?.status !== 'possible_stall') continue;
+        const muscle = report.byMuscle?.[evidence.category] || {};
+        const volume = byMuscle[evidence.category];
+        let code = 'consolidate_and_review';
+        let recommendation = 'Mantieni gli stimoli e ricontrolla le prestazioni comparabili, la tecnica e il recupero tra due settimane.';
+        if (evidence.fatigueConcern) {
+            code = 'review_recovery';
+            recommendation = 'Prima di aumentare lo stimolo, riesamina fatica e recupero; applica solo gli alleggerimenti già autorizzati.';
+        } else if (decision.action === 'increase_load' || decision.action === 'build_reps') {
+            code = 'continue_double_progression';
+            recommendation = 'Non aggiungere volume: prova la progressione minima già autorizzata, poi confronta due settimane di dati reali.';
+        } else if (volume?.action === 'trial_accessory_volume') {
+            code = 'trial_accessory_volume';
+            recommendation = 'Una serie accessoria aggiuntiva può essere provata SOLO se il generatore la inserisce nel tempo disponibile; verifica la risposta dopo due settimane.';
+        } else if (muscle.recentAdherence !== null &&
+                   muscle.recentAdherence !== undefined && muscle.recentAdherence < 0.85) {
+            code = 'improve_adherence';
+            recommendation = 'Prima di modificare la scheda, completa le sedute programmate e rivaluta dopo due settimane.';
+        } else if (evidence.avgRpe === null ||
+                   (muscle.fractionalRpeCoverage !== undefined &&
+                    muscle.fractionalRpeCoverage < 0.75)) {
+            code = 'complete_evidence';
+            recommendation = 'Registra RPE, ripetizioni e carico effettivi prima di scegliere una variazione del volume.';
+        }
+        decision.stallStrategy = {
+            code, recommendation, reviewAfterWeeks: 2,
+            evidenceMetric: evidence.trendMetric || 'e1rm',
+            response: evidence.blockResponse || null,
+            notice: 'Ipotesi di lavoro da verificare; non è una prova di efficacia o di crescita muscolare.'
+        };
     }
 
     return { byExercise, byMuscle, summary };

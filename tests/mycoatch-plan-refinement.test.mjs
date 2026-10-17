@@ -90,7 +90,7 @@ test('non confonde configurazione mancante con un peso non componibile',()=>{
  assert.match(plan.weeks[0].days[0].exercises[0].notes,/ATTREZZATURA DA CONFIGURARE/);
  assert.match(build().weeks[0].days[0].exercises[0].notes,/CARICO DA CALIBRARE/);
 });
-test('vecchie alzate laterali da 10 reps non producono stallo e1RM né nel legacy né nello storico',()=>{
+test('alzate laterali: e1RM ignoto, eventuale stallo riconosciuto solo da reps confrontabili',()=>{
  const name='Alzate Laterali con Manubri', key=canonicalExerciseKey(name);
  const meso={weeks:[1,2,3].map(weekNumber=>({weekNumber,days:[{dayNumber:1,
   exercises:[{name,reps:'10-12',rpe:'8',setsCount:3,
@@ -99,7 +99,9 @@ test('vecchie alzate laterali da 10 reps non producono stallo e1RM né nel legac
  assert.notEqual(legacy.byExercise[key].status,'possible_stall');
  const analysis=analyzeTrainingHistory({history:{years:{2026:{mesocycles:[meso]}}}});
  assert.equal(analysis.byExercise[key].exposures.every(e=>e.e1rm===null),true);
- assert.notEqual(analysis.byExercise[key].status,'possible_stall');
+ assert.equal(analysis.byExercise[key].status,'possible_stall');
+ assert.equal(analysis.byExercise[key].trendMetric,'working_reps');
+ assert.equal(analysis.byExercise[key].e1rmChangePct,null);
 });
 test('età da sola non riduce il programma; tempi irrealistici vengono segnalati',()=>{
  const signature=age=>build({userAge:age}).weeks.map(w=>w.days.map(d=>d.exercises.map(e=>[e.name,e.setsCount,e.rpe])));
