@@ -218,11 +218,11 @@ test('report finale: serie confermate per settimana e kg/reps/RPE anche dalla se
     assert.equal(JSON.stringify(m),before);
 });
 
-test('serie extra oltre il prescritto non gonfiano RPE o completamento',()=>{
+test('righe registrate oltre il numero testuale non vengono perse dal conteggio legacy',()=>{
     const m=plan(makeWeek(1,[performed(80,8,8),performed(80,9,9),performed(80,10,10)]));
     const report=summarizeMesocycleClosure(m);
-    assert.equal(report.completedSets,2);
-    assert.equal(report.measuredRpeSets,2);
-    assert.equal(report.averageRpe,8.5);
-    assert.equal(report.exerciseResults[0].validSets,2);
+    assert.equal(report.completedSets,3);
+    assert.equal(report.measuredRpeSets,3);
+    assert.equal(report.averageRpe,9);
+    assert.equal(report.exerciseResults[0].validSets,3);
 });
