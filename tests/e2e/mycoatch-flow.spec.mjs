@@ -1603,6 +1603,52 @@ test('punto 3: mobile card keeps previous performance, per-set plates, coach not
   assert.deepEqual(monitoring.pageErrors,[]);
 });
 
+test('scheda mobile: storico uno sotto l’altro, note sopra i set, testo leggibile e niente riga ridondante',async({page})=>{
+  await page.setViewportSize({width:375,height:812});
+  const monitoring=await openIsolatedApp(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    const meso=state.workoutData.history.years['2026'].mesocycles[0];
+    const prior=meso.weeks[0].days[0].exercises[0];
+    prior.loggedSets=[
+      {weight:'72.5',reps:'8',rpe:'8',isLocked:true,completed:true},
+      {weight:'75',reps:'7',rpe:'9',isLocked:true,completed:true}
+    ];
+    state.activeWeek=2;
+    state.activeDay=1;
+    renderWorkoutList();
+  });
+  const card=page.locator('.ex-card[data-ex="0"]');
+  const rows=card.locator('.history-content > div');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).toContainText('72.5kg');
+  await expect(rows.nth(1)).toContainText('75kg');
+  const boxes=await rows.evaluateAll(nodes=>nodes.map(n=>{
+    const r=n.getBoundingClientRect();
+    return {top:r.top,bottom:r.bottom};
+  }));
+  assert.ok(boxes[1].top >= boxes[0].bottom,
+    'ogni serie precedente deve iniziare sotto quella prima');
+  const target=await card.locator('.target-box').evaluate(el=>el.compareDocumentPosition(
+    el.closest('.ex-card').querySelector('.exercise-coach-notes')));
+  assert.ok(target & 4,'note dopo il target');
+  const beforeSets=await card.locator('.exercise-coach-notes').evaluate(el=>el.compareDocumentPosition(
+    el.closest('.ex-card').querySelector('.set-table')));
+  assert.ok(beforeSets & 4,'note prima della tabella');
+  await expect(card.locator('.workout-set-status, .active-set-label')).toHaveCount(0);
+  const sizes=await card.evaluate(el=>({
+    history:parseFloat(getComputedStyle(el.querySelector('.history-content > div')).fontSize),
+    tableHeading:parseFloat(getComputedStyle(el.querySelector('.set-table th')).fontSize),
+    tableInput:parseFloat(getComputedStyle(el.querySelector('.set-kg')).fontSize)
+  }));
+  assert.ok(sizes.history>=14,JSON.stringify(sizes));
+  assert.ok(sizes.tableHeading>=12,JSON.stringify(sizes));
+  assert.ok(sizes.tableInput>=17,JSON.stringify(sizes));
+  await expect(card.locator('.workout-set-row.is-active-set')).toHaveCount(1);
+  assert.deepEqual(monitoring.pageErrors,[]);
+});
+
 test('mobile 320px: meso lock always visible, no nav, exclusion by double-click only',async({page})=>{
   await page.setViewportSize({width:320,height:760});
   await openIsolatedApp(page);
