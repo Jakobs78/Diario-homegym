@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v50-closure-handoff-report';
+const CACHE_NAME = 'workout-app-v50-cloud-journal-safety';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -22,6 +22,7 @@ const ASSETS_TO_CACHE = [
   '/js/gestures.js',
   '/js/charts.js',
   '/js/storage.js',
+  '/js/cloudSafety.js',
   '/js/journalStore.js',
   '/js/historyWindow.js',
   '/mycoatch/recentEvidence.js',
