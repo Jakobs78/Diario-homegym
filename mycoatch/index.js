@@ -201,7 +201,7 @@ export const MyCoatch = {
                     if (lastSetObj && lastSetObj.intensityTechnique) {
                         const techniqueTag = `[${lastSetObj.intensityTechnique}]`;
                         if (!noteFinalStr.includes(techniqueTag)) {
-                            noteFinalStr = `${techniqueTag} ${noteFinalStr}`;
+                            noteFinalStr = `${techniqueTag} ${lastSetObj.intensityTechnique==='DROP_SET'?'[DROP_SCOPE:LAST] ':''}${noteFinalStr}`;
                         }
                     }
 

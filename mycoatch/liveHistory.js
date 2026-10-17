@@ -22,7 +22,8 @@ function simpleValidSets(exercise) {
         const rpe = numberOrNull(set.rpe);
         if (!kg || !Number.isInteger(reps) || reps <= 0 || reps > 40) return [];
         const cleanRpe = rpe !== null && rpe >= 6 && rpe <= 10 ? rpe : null;
-        const e1rm = cleanRpe !== null ? estimateE1rm(kg, reps, cleanRpe) : null;
+        const special=set.intensityTechnique || set.dropSegments?.length || exercise.isDropset;
+        const e1rm = cleanRpe !== null && !special ? estimateE1rm(kg, reps, cleanRpe) : null;
         return [{ kg, reps, rpe: cleanRpe, e1rm }];
     });
 }
@@ -128,3 +129,4 @@ export function historicalSessionPace(history, currentDay) {
         source: 'completed_sessions_actual_elapsed'
     };
 }
+

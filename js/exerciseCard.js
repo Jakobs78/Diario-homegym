@@ -1,3 +1,6 @@
+import {hasDropPrescription} from './trainingTechniques.js';
+import {dropFields,dropScopeControl} from './dropSetUI.js';
+import {equipmentKind,automaticallyShowPlates} from './equipmentUI.js';
 /**
  * Module: exerciseCard.js
  * Summary: Genera dinamicamente le card per ogni esercizio gestendo lo stato di esclusione dai massimali, i selettori del bilanciere, il calcolo dei dischi per lato e l'evidenziatura automatica fuori target per KG (inclusi Topset), REPS ed RPE (con supporto al feedback verde di miglioramento).
@@ -21,7 +24,8 @@ const selectedKey=exIdx=>[
 
 export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, activeDayNum, isPastMeso) {
     const isExExcluded = isWarmupExercise(ex);
-    const isDropsetPlan = ex.isDropset || false;
+    const isDropsetPlan = ex.isDropset || (ex.sets||[]).some(s=>s.intensityTechnique==='DROP_SET');
+    const equipment=equipmentKind(ex);
 
     const exCard = document.createElement('div');
     exCard.className = `ex-card ${isExExcluded ? 'is-excluded' : ''} ${isDropsetPlan ? 'is-dropset' : ''}`;
@@ -103,6 +107,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         </div>
     `;
 
+    cardHtml += dropScopeControl(ex,exIdx,isPastMeso);
     cardHtml += `
         <table class="set-table mb-sm">
             <thead>
@@ -179,8 +184,8 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         const isUnsavedRpe = suggested.isSuggestedRpe && !!displayRpe && !isLocked;
 
         let intensityBadgeHtml = '';
-        if (setObj.intensityTechnique) {
-            const isDrop = setObj.intensityTechnique === 'DROP_SET';
+        if (setObj.intensityTechnique || hasDropPrescription(ex,setIdx)) {
+            const isDrop = setObj.intensityTechnique === 'DROP_SET' || hasDropPrescription(ex,setIdx);
             intensityBadgeHtml = `<span class="badge-tech ${isDrop ? 'tech-drop' : 'tech-rpause'}">${isDrop ? 'DROP' : 'R-PAUSE'}</span>`;
         }
 
@@ -209,10 +214,11 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                     <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe ios-no-zoom ${rpeClass} ${isUnsavedRpe ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayRpe)}" placeholder="RPE" title="RPE proposto: verifica che corrisponda alla fatica percepita. La spunta ✓ conferma tutti i valori della serie." ${isDisabled ? 'disabled' : ''}>
                 </td>
                 <td class="td-check text-center">
-                    <input type="checkbox" class="set-lock-check custom-big-check" aria-label="Conferma o riapri serie ${setIdx+1}" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''}>
+                    <input type="checkbox" class="set-lock-check custom-big-check" aria-label="Conferma o riapri serie ${setIdx+1}" title="${hasDropPrescription(ex,setIdx)?'Conferma base e scarichi insieme':'Conferma serie'}" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''}>
                 </td>
             </tr>
         `;
+        cardHtml += dropFields(ex,exIdx,setIdx,isPastMeso);
     });
 
     cardHtml += `
@@ -220,7 +226,8 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         </table>
     `;
 
-    cardHtml += `
+    if(equipment!=='other')cardHtml += `
+        <details class="plates-disclosure"><summary>${equipment==='unknown'?'Usi un bilanciere? Calcola i dischi':'Calcola dischi per bilanciere'}</summary>
         <!-- Carico e dischi per la serie selezionata, non solo per il primo set -->
         <div class="bar-plates-container mb-md" aria-label="Calcolo dischi serie attiva">
             <div class="flex-center gap-md">
@@ -243,6 +250,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                 </div>
             </div>
         </div>
+        </details>
     `;
     cardHtml += `
         <div id="mycoach-advice-${exIdx}" class="mycoach-fatigue-alert is-hidden"></div>
@@ -316,6 +324,12 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             updatePlatesBadgeUI(exIdx,exCard);
         });
     }
+    exCard.dataset.platesAutoEligible=String(equipment==='barbell');
+    const disclosure=exCard.querySelector('.plates-disclosure');
+    if(disclosure){
+        disclosure.open=automaticallyShowPlates(ex,getSetPrefill(ex,selected,{previousExercise:prevExercise}).weight);
+        disclosure.querySelector('summary').addEventListener('click',()=>{disclosure.dataset.manual='true';});
+    }
     selectSet(selected);
     return exCard;
 }
@@ -330,6 +344,8 @@ export function updatePlatesBadgeUI(exIdx, cardNode=null) {
     const kgField=card.querySelector('.set-kg[data-set="'+setIdx+'"]');
     const total=Number(String(kgField?.value||'').replace(',','.'));
     const barWeight=Number(select?.value??20);
+    const disclosure=card.querySelector('.plates-disclosure');
+    if(disclosure && !disclosure.dataset.manual)disclosure.open=card.dataset.platesAutoEligible==='true' && total>35;
     if(barWeight===0){
         badge.className='plates-badge plates-badge-disabled';
         badge.textContent='Manubri / macchina · dischi non necessari';
@@ -390,3 +406,4 @@ export function updatePlatesBadgeUI(exIdx, cardNode=null) {
         badge.append(hint);
     }
 }
+

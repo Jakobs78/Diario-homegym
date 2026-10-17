@@ -94,6 +94,8 @@ export function repeatCompletedSessionPreservingHistory(day, { capturedAt = new 
             set.reps = '';
             set.rpe = '';
             delete set.completedAt;
+            delete set.dropSegments;delete set.dropSkipped;
+            if(set.intensityTechnique==='DROP_SET')delete set.intensityTechnique;
             // Older diaries mirrored performed sets in ex.sets. Clear only
             // that legacy duplicate, never a row carrying prescription fields.
             const legacy=Array.isArray(ex.sets) ? ex.sets[index] : null;
@@ -108,6 +110,7 @@ export function repeatCompletedSessionPreservingHistory(day, { capturedAt = new 
                 legacy.reps='';
                 legacy.rpe='';
                 delete legacy.completedAt;
+                delete legacy.dropSegments;delete legacy.dropSkipped;
             }
         }
     }
@@ -117,3 +120,4 @@ export function repeatCompletedSessionPreservingHistory(day, { capturedAt = new 
 export function safeArchiveCount(day) {
     return Array.isArray(day?.sessionArchives) ? day.sessionArchives.length : 0;
 }
+

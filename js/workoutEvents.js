@@ -1,3 +1,5 @@
+import {hasDropPrescription,needsDropScope,validateDropSegments} from './trainingTechniques.js';
+import {bindDropFields} from './dropSetUI.js';
 /**
  * Module: workoutEvents.js
  * Summary: Associa gli eventi di input per la modifica in tempo reale di kg, reps, RPE e note utente, validando i range consentiti, applicando feedback visivi d'errore o di miglioramento e gestendo il blocco delle serie.
@@ -6,7 +8,7 @@ import { state } from './state.js';
 import { saveAndSync } from './storage.js';
 import { isValueOutOfRange, isValueExceedingTarget, findPreviousExercise, calculateSetVolumeTrend, parseRPE } from './helpers.js';
 import { startTimer, stopTimer, handleTick, handleComplete, parseRecoveryTime } from './timer.js';
-import { shouldStartRecoveryTimer, hasPendingWorkingSets } from './restPolicy.js';
+import { shouldStartRecoveryTimer, hasPendingWorkingSets, isCircuit, circuitMembers, currentCircuitRound, recoveryExercise } from './restPolicy.js';
 import { updatePlatesBadgeUI } from './exerciseCard.js';
 import { updateSessionAndCompletionState, updateSessionHeaderUI } from './sessionTimer.js';
 import { validateCompletedSet } from '../mycoatch/liveCoach.js';
@@ -27,6 +29,7 @@ function updateInputStatusClasses(element, isOut, isImprovedOrExceeding) {
 export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
     const workoutListContainer = document.getElementById('workout-list-container');
     if (!workoutListContainer) return;
+    bindDropFields(workoutListContainer,currentDay,{readOnly:isPastMeso,save:()=>saveAndSync(state.workoutData),render:renderCallback});
 
     workoutListContainer.querySelectorAll('.set-input, .ex-user-notes').forEach(input => {
         input.addEventListener('focus', (e) => e.target.select());
@@ -164,6 +167,12 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             const rpeInput = rowCard?.querySelector(`.set-rpe[data-set="${setIdx}"]`);
 
             if (isChecked) {
+                if(isCircuit(ex) && setIdx!==currentCircuitRound(circuitMembers(currentDay,ex))){
+                    e.target.checked=false;showLiveCoachInputError('Completa prima il giro corrente del gruppo.');return;
+                }
+                if(needsDropScope(ex)){
+                    e.target.checked=false;showLiveCoachInputError('Specifica prima se il dropset è solo sull’ultima serie o su ogni serie.');return;
+                }
                 // Il checkbox attesta l'intera riga, anche senza editare i campi.
                 // Kg/reps/RPE precompilati restano suggerimenti finche' non si spunta ✓.
                 // MyCoatch considera solo set isLocked/completed confermati.
@@ -179,6 +188,16 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                     if (!entered.weight) kgInput?.focus();
                     else repsInput?.focus();
                     return;
+                }
+                if(hasDropPrescription(ex,setIdx)){
+                    if(!/^\d{1,2}$/.test(String(validation.reps))){
+                        e.target.checked=false;showLiveCoachInputError('Inserisci nella riga base solo le sue ripetizioni; registra gli scarichi nei campi sottostanti.');return;
+                    }
+                    const drops=validateDropSegments(validation.weight,setObj.dropSegments,setObj.dropSkipped);
+                    if(!drops.ok){e.target.checked=false;showLiveCoachInputError(drops.message);return;}
+                    setObj.dropSegments=drops.segments;setObj.dropSkipped=drops.skipped;
+                    if(!drops.skipped)setObj.intensityTechnique='DROP_SET';
+                    else if(setObj.intensityTechnique==='DROP_SET')delete setObj.intensityTechnique;
                 }
                 setObj.weight = validation.weight;
                 setObj.reps = validation.reps;
@@ -247,14 +266,15 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                 const totalSets = ex.loggedSets?.length || ex.sets?.length || 1;
                 const startRecovery = !(setObj.isWarmup||setObj.warmup||setObj.is_warmup) &&
                     hasPendingWorkingSets(currentDay) &&
-                    shouldStartRecoveryTimer(ex, setObj, setIdx, totalSets);
+                    shouldStartRecoveryTimer(ex, setObj, setIdx, totalSets,currentDay);
 
                 if (startRecovery) {
+                    const restSource=recoveryExercise(currentDay,ex);
                     let rawRecovery = '';
-                    for (const key of Object.keys(ex)) {
+                    for (const key of Object.keys(restSource)) {
                         const lKey = key.toLowerCase();
-                        if ((lKey.includes('rest') || lKey.includes('rec') || lKey.includes('tempo') || lKey.includes('pause') || lKey.includes('recupero')) && ex[key]) {
-                            rawRecovery = ex[key];
+                        if ((lKey.includes('rest') || lKey.includes('rec') || lKey.includes('tempo') || lKey.includes('pause') || lKey.includes('recupero')) && restSource[key]) {
+                            rawRecovery = restSource[key];
                             break;
                         }
                     }

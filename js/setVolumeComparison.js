@@ -29,6 +29,7 @@ export function compareConfirmedSetVolume(current,previous,index) {
     const logs=current.loggedSets||[],old=previous.loggedSets||[];
     if(logs.length!==old.length)return null; // changed set structure
     const a=logs[index],b=old[index];
+    if(a?.dropSegments?.length || b?.dropSegments?.length)return null;
     if(!checked(a)||!checked(b)||warmup(a)||warmup(b) ||
         role(current,index)!==role(previous,index) ||
         technique(current,a)!==technique(previous,b) ||
@@ -58,3 +59,4 @@ export function compareConfirmedSetVolume(current,previous,index) {
         label:'Volume della serie rispetto all’ultima sessione comparabile: '+
             display+', '+absolute};
 }
+

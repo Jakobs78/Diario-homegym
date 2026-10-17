@@ -1,3 +1,5 @@
+import {createCircuitCard} from './circuitUI.js';
+import {isCircuit} from './restPolicy.js';
 // ==========================================
 // MODULI: ui.js - Gestione interfaccia utente, eventi DOM, rendering schede allenamento e upload universale
 // ==========================================
@@ -422,31 +424,12 @@ export function renderWorkoutList() {
     while (i < exercises.length) {
         const ex = exercises[i];
 
-        if (ex.groupType && ex.groupBase) {
-            const currentGroupBase = ex.groupBase;
-            const groupType = ex.groupType;
-
-            const groupWrapper = document.createElement('div');
-            groupWrapper.className = 'exercise-group-wrapper mb-lg';
-
-            groupWrapper.innerHTML = `
-                <div class="group-header flex-between mb-md">
-                    <span class="group-title-badge">
-                        🔗 ${groupType.toUpperCase()} (BLOCCO ${currentGroupBase}) - NO PAUSA INTERMEDIA
-                    </span>
-                    <span class="group-subtitle">Recupero al termine del blocco</span>
-                </div>
-            `;
-
-            while (i < exercises.length && exercises[i].groupBase === currentGroupBase && exercises[i].groupType === groupType) {
-                const currentEx = exercises[i];
-                const card = createSingleExerciseCard(currentEx, i, currentDay, mesoIndex, targetWeek, activeDayNum, isPastMeso);
-                groupWrapper.appendChild(card);
-                updatePlatesBadgeUI(i);
-                i++;
+        if (isCircuit(ex) && ex.groupBase) {
+            const start=i,members=[];
+            while(i<exercises.length && exercises[i].groupBase===ex.groupBase && exercises[i].groupType===ex.groupType){
+                members.push(exercises[i]);i++;
             }
-
-            DOM.workoutListContainer.appendChild(groupWrapper);
+            DOM.workoutListContainer.append(createCircuitCard(members,start,currentDay,mesoIndex,targetWeek,activeDayNum,isPastMeso,renderWorkoutList));
         } else {
             const card = createSingleExerciseCard(ex, i, currentDay, mesoIndex, targetWeek, activeDayNum, isPastMeso);
             DOM.workoutListContainer.appendChild(card);

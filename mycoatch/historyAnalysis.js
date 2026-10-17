@@ -22,7 +22,7 @@ function actualSets(exercise) {
         const reps = numericValue(set.reps ?? set.actualReps);
         if (weight === null || weight <= 0 || reps === null || reps <= 0) return [];
         const rpe = numericValue(set.rpe);
-        return [{ weight, reps, rpe: rpe !== null && rpe >= 6 && rpe <= 10 ? rpe : null }];
+        return [{ weight, reps, rpe: !set.dropSegments?.length && !set.intensityTechnique && rpe !== null && rpe >= 6 && rpe <= 10 ? rpe : null }];
     });
 }
 
@@ -98,3 +98,4 @@ export function analyzeCompletedMesocycle(mesocycle) {
             ? 'maintain_or_progress' : 'insufficient_data');
     return result;
 }
+
