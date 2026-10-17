@@ -126,7 +126,15 @@ async function initApp() {
     }
     
     renderWorkoutList();
-    restoreActiveRestTimer();
+    // An expired, completed or archived workout cannot reopen a rest clock.
+    const years=state.workoutData?.history?.years||{};
+    const year=years[String(state.currentYear)] ||
+        years[String(new Date().getFullYear())];
+    const meso=year?.mesocycles?.[state.activeMesocycleIndex||0];
+    const week=meso?.weeks?.find(w=>Number(w.weekNumber)===Number(state.activeWeek||1)) ||
+        meso?.weeks?.[0];
+    const day=week?.days?.[Math.max(0,(state.activeDay||1)-1)]||week?.days?.[0];
+    restoreActiveRestTimer({allowRestore:Boolean(day && !day.completed && !meso?.locked)});
     setupEventListeners();
     setupAuthListeners();
     initAudioUnlock();

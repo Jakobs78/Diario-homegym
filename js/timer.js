@@ -184,7 +184,11 @@ export function initTimerEvents() {
  * Restore an unexpired rest after PWA refresh/background reload in the same
  * browser tab, without inventing or extending the original rest duration.
  */
-export function restoreActiveRestTimer(){
+export function restoreActiveRestTimer({allowRestore=true}={}) {
+    if(!allowRestore) {
+        stopTimer();
+        return false;
+    }
     if(endTime)return false;
     let saved=null;
     try{saved=Number(sessionStorage.getItem(REST_TIMER_KEY));}catch{}

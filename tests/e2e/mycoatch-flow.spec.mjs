@@ -2047,3 +2047,125 @@ test('offline save queue coalesces newer full snapshots for the same athlete',as
   assert.deepEqual(monitor.remoteRequests,[]);
   assert.deepEqual(monitor.pageErrors,[]);
 });
+
+
+test('no recovery timer after the final working set of a day, even with a pending warmup',async({page})=>{
+  const monitor=await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    const day=state.workoutData.history.years['2026'].mesocycles[0].weeks[0].days[0];
+    day.exercises.push({
+      name:'Warmup',isWarmup:true,isExcluded:true,block:2,
+      reps:'10',kgMin:'20',kgMax:'20',targetRpe:'@6',
+      loggedSets:[{weight:'20',reps:'10',rpe:'6',isLocked:false,completed:false}]
+    });
+    renderWorkoutList();
+  });
+  for(let i=0;i<3;i++){
+    await page.locator('.ex-card[data-ex="0"] .set-lock-check[data-set="'+i+'"]').check();
+    if(i<2)await expect(page.locator('#floating-timer')).toHaveClass(/active/);
+  }
+  await expect(page.locator('#floating-timer')).not.toHaveClass(/active/);
+  const result=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const day=state.workoutData.history.years['2026'].mesocycles[0].weeks[0].days[0];
+    return {
+      completed:day.completed,
+      warmupChecked:day.exercises[1].loggedSets[0].isLocked,
+      deadline:sessionStorage.getItem('homegym_rest_timer_deadline_v1')
+    };
+  });
+  assert.equal(result.completed,true);
+  assert.equal(result.warmupChecked,false);
+  assert.equal(result.deadline,null);
+  assert.deepEqual(monitor.remoteRequests,[]);
+  assert.deepEqual(monitor.pageErrors,[]);
+});
+
+test('locked mesocycle remains browsable but cannot reset, repeat or edit saved workouts',async({page})=>{
+  const monitor=await openIsolatedApp(page);
+  await prepareLiveWorkout(page);
+  await page.locator('.set-lock-check[data-set="0"]').check();
+  await expect(page.locator('#reset-session-timer-btn')).toBeVisible();
+  const before=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    return JSON.stringify(state.workoutData.history.years['2026'].mesocycles[0]);
+  });
+  await page.locator('#toggle-lock-meso-btn').click();
+  await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Sblocca');
+  await expect(page.locator('.set-lock-check[data-set="1"]')).toBeDisabled();
+  await expect(page.locator('.ex-user-notes')).toBeDisabled();
+  await expect(page.locator('#reset-session-timer-btn')).toHaveClass(/is-hidden/);
+  await expect(page.locator('#pause-session-timer-btn')).toHaveClass(/is-hidden/);
+  // Even directly exposed module actions must reject a delete of a locked mesocycle.
+  const blocked=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {deleteCurrentMesocycle}=await import('/js/mesocycle.js');
+    const oldWindowConfirm=window.confirm;
+    window.confirm=()=>{throw Error('Locked mesocycle must not enter delete dialog');};
+    try{deleteCurrentMesocycle();}finally{window.confirm=oldWindowConfirm;}
+    return {count:state.workoutData.history.years['2026'].mesocycles.length,
+      locked:state.workoutData.history.years['2026'].mesocycles[0].locked};
+  });
+  assert.equal(blocked.count,1);
+  assert.equal(blocked.locked,true);
+  await page.locator('#week-selector').selectOption('2');
+  await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Sblocca');
+  await page.locator('#week-selector').selectOption('1');
+  const after=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const meso=structuredClone(state.workoutData.history.years['2026'].mesocycles[0]);
+    delete meso.locked;
+    return JSON.stringify(meso);
+  });
+  const expected=JSON.parse(before);delete expected.locked;
+  assert.deepEqual(JSON.parse(after),expected);
+  await page.locator('#toggle-lock-meso-btn').click();
+  await expect(page.locator('.set-lock-check[data-set="1"]')).toBeEnabled();
+  assert.deepEqual(monitor.remoteRequests,[]);
+  assert.deepEqual(monitor.pageErrors,[]);
+});
+
+test('sound button uses a user gesture and rest still plays 5 short beeps and a long final beep',async({page})=>{
+  // Replace actual speaker output with a deterministic WebAudio observation.
+  await page.addInitScript(()=>{
+    window.__beepEvents=[];
+    class AudioContextFake {
+      constructor(){this.state='running';this.currentTime=0;this.destination={};}
+      createOscillator(){
+        const osc={value:0,type:'sine',onended:null};
+        osc.frequency={setValueAtTime(f){osc.value=f;}};
+        osc.connect=()=>{};osc.disconnect=()=>{};
+        osc.start=()=>{window.__beepEvents.push(osc.value);};
+        osc.stop=()=>{};
+        return osc;
+      }
+      createGain(){
+        return {gain:{setValueAtTime(){},exponentialRampToValueAtTime(){},value:0},
+          connect(){},disconnect(){}};
+      }
+      resume(){return Promise.resolve();}
+      close(){this.state='closed';return Promise.resolve();}
+    }
+    window.AudioContext=AudioContextFake;
+    window.webkitAudioContext=AudioContextFake;
+  });
+  const monitor=await openIsolatedApp(page);
+  await page.evaluate(async()=>{
+    const {startTimer}=await import('/js/timer.js');
+    startTimer('6s');
+  });
+  await expect(page.locator('#floating-timer')).toHaveClass(/active/);
+  await page.locator('#timer-test-audio').click();
+  await expect(page.locator('#timer-audio-status')).toContainText('Test audio richiesto');
+  await page.evaluate(()=>{window.__beepEvents=[];});
+  await page.waitForTimeout(6600);
+  await expect(page.locator('#floating-timer')).not.toHaveClass(/active/);
+  const tones=await page.evaluate(()=>window.__beepEvents);
+  assert.equal(tones.filter(n=>n===880).length,5,JSON.stringify(tones));
+  assert.equal(tones.filter(n=>n===1700).length,1,JSON.stringify(tones));
+  assert.deepEqual(monitor.remoteRequests,[]);
+  assert.deepEqual(monitor.pageErrors,[]);
+});
