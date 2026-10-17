@@ -3101,3 +3101,15 @@ body.dark-mode .group-title-badge {
     font-size: .71rem;
   }
 }
+
+.unified-header-box .meso-guided-closure-trigger { display: inline-flex; align-items: center; justify-content: center; gap: .3rem; }
+@media(max-width:480px) {
+  .unified-header-box .meso-guided-closure-text { display: none; }
+  .unified-header-box .meso-guided-closure-trigger {
+    width: 38px;
+    min-width: 38px;
+    min-height: 38px;
+    padding: 4px;
+    font-size: 1rem;
+  }
+}
