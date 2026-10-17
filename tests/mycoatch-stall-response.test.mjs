@@ -60,7 +60,7 @@ test('isolamento ad alte reps: tre settimane identiche rilevano stallo di reps, 
     // A second +1 accessory series in the same response would be gratuitous.
     assert.equal(decision.action, 'build_reps');
     assert.equal(decision.stallStrategy.code, 'continue_double_progression');
-    assert.equal(planAdaptiveDecisions(report).byMuscle.Spalle_Laterali?.volumeDelta ?? 0, 0);
+    assert.equal(planAdaptiveDecisions(report).byMuscle[exercise.category]?.volumeDelta ?? 0, 0);
     assert.equal(JSON.stringify(diary), before);
 });
 
