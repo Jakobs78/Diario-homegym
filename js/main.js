@@ -433,7 +433,10 @@ function setupEventListeners() {
         }
         for(const field of equipmentForm?.querySelectorAll('.equipment-plate-pairs')||[]){
             const weight=field.dataset.plate;
-            field.value=athlete.platePairs?.[weight]??2;
+            // Missing stock is unknown; in an existing inventory an omitted
+            // denomination means zero, consistently with the plate calculator.
+            field.value=athlete.platePairs
+                ? athlete.platePairs[weight]??0 : '';
         }
     };
     // The native <details> "toggle" event is asynchronous and could fire
@@ -460,7 +463,7 @@ function setupEventListeners() {
         const platePairs={};
         for(const field of equipmentForm.querySelectorAll('.equipment-plate-pairs')){
             const n=Number(field.value);
-            if(!Number.isInteger(n)||n<0||n>24){
+            if(field.value.trim()===''||!Number.isInteger(n)||n<0||n>24){
                 if(status)status.textContent='Inserisci da 0 a 24 coppie per ciascun disco.';
                 return;
             }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v44-circuits-dropsets-equipment';
+const CACHE_NAME = 'workout-app-v45-homegym-coach';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
