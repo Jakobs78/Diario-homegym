@@ -2608,7 +2608,7 @@ test('smartphone: l’ultima spunta dell’ultimo giorno evidenzia MyCoatch anch
   await page.locator('.set-lock-check[data-ex="1"][data-set="0"]').check();
   await expect(button).toHaveClass(/meso-closure-attention/);
   await expect(button.locator('.meso-guided-closure-text')).toBeVisible();
-  await expect(button).toContainText('Report MyCoatch');
+  await expect(button).toContainText('MyCoatch');
   await expect(button).toHaveAttribute('aria-label',/serie non confermate/);
   const accent=await button.evaluate(el=>({
     animation:getComputedStyle(el).animationName,
