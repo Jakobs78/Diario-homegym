@@ -40,3 +40,9 @@ test('due settimane reali recenti possono autorizzare progressioni',()=>{
  const report=analyzeTrainingHistory(recent,{calendarWeeks:true});
  assert.equal(Object.values(planAdaptiveDecisions(report).byExercise)[0].action,'increase_load');
 });
+
+test('volume e aderenza raggruppano settimane reali, anche se il diario usa settimane nominali diverse',()=>{
+ const {history:recent}=prepareRecentEvidence(history(['2026-10-13','2026-10-14','2026-10-15']),{now});
+ const report=analyzeTrainingHistory(recent,{calendarWeeks:true});
+ for(const muscle of Object.values(report.byMuscle))assert.ok(muscle.weeksObserved<=1);
+});

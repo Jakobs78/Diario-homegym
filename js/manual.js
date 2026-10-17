@@ -16,7 +16,7 @@ const manualContent = `
 
 <div class="manual-section" style="margin-bottom: 20px; background: rgba(245, 158, 11, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b;">
     <h3 style="color: #b45309; margin-bottom: 8px; margin-top: 0;">⚡ Architettura Offline-First</h3>
-    <p style="margin-bottom: 8px; line-height: 1.5;"><strong>HomeGym Diary</strong> è progettata con un'architettura <em>Offline-First</em>: tutti i tuoi progressi, set ed esercizi vengono salvati <strong>istantaneamente sulla memoria locale del browser (<code>localStorage</code>)</strong>, permettendoti di allenarti senza alcuna interruzione anche in assenza di segnale o Wi-Fi.</p>
+    <p style="margin-bottom: 8px; line-height: 1.5;"><strong>HomeGym Diary</strong> è progettata con un'architettura <em>Offline-First</em>: tutti i tuoi progressi, set ed esercizi vengono salvati <strong>nell’archivio locale del browser</strong>, permettendoti di allenarti senza alcuna interruzione anche in assenza di segnale o Wi-Fi.</p>
     <ul style="padding-left: 20px; line-height: 1.6; margin-bottom: 0;">
         <li><strong>Dispositivo ad uso personale:</strong> Poiché la memoria locale è legata al browser dello smartphone per garantire la continuità offline, l'app è intesa per l'utilizzo su un <strong>dispositivo personale</strong>. Evita di alternare account diversi sullo stesso dispositivo per non mescolare i dati presenti nella cache locale prima del sync.</li>
         <li><strong>Sincronizzazione Cloud:</strong> Non appena il dispositivo torna online, i dati locali vengono sincronizzati in background sul tuo account cloud protetto da Supabase.</li>

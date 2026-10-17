@@ -1,6 +1,6 @@
 // mycoatch/mycoatch-adapter.js
 import { MyCoatch, downloadMesocycleCSV } from './index.js';
-import { CONFIG } from '../js/config.js';
+import { getFromLocalStorageForUser } from '../js/storage.js';
 import { state } from '../js/state.js';
 import { pullDataFromSupabase } from '../js/sync.js';
 import { formatCoachReview } from './mesocycleComparison.js';
@@ -23,9 +23,8 @@ export async function generateAndDownloadMesocycleCSV(options = {}) {
 
         let userHistory = hasHistory(state.workoutData) ? state.workoutData : null;
         if (!userHistory) {
-            const rawLocalData = localStorage.getItem(CONFIG.STORAGE_KEY);
-            if (rawLocalData) {
-                const local = JSON.parse(rawLocalData);
+            const local = getFromLocalStorageForUser(state.currentUser);
+            if (local) {
                 if (hasHistory(local)) userHistory = local;
             }
         }
@@ -90,8 +89,7 @@ export async function createVisualCoachProposal(options={}) {
     let history=hasHistory(state.workoutData)?state.workoutData:null;
     if(!history){
         try{
-            const raw=localStorage.getItem(CONFIG.STORAGE_KEY);
-            const local=raw?JSON.parse(raw):null;
+            const local=getFromLocalStorageForUser(state.currentUser);
             if(hasHistory(local))history=local;
         }catch { /* No assumption about corrupted browser cache */ }
     }
@@ -134,3 +132,4 @@ export function startCoachChatAndGenerate() {
     modal.classList.remove('hidden');
     time?.focus();
 }
+

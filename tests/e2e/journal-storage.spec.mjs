@@ -52,3 +52,17 @@ test('scrittura concorrente da altra scheda non viene sovrascritta',async({page}
  });
  expect(result).toEqual({rejected:true,disk:'other-tab',memory:'stale-tab',failed:true});
 });
+
+test('una vecchia copia localStorage non ripristina un account già cancellato',async({page})=>{
+ await harness(page);
+ await page.evaluate(async()=>{
+  const s=await import('/js/journalStore.js');await s.initializeJournalStorage();
+  s.journalStorage.setItem('workoutApp_data_user_A','original');await s.flushJournalStorage();
+  s.journalStorage.removeItem('workoutApp_data_user_A');await s.flushJournalStorage();
+  localStorage.setItem('workoutApp_data_user_A','stale-copy');
+ });
+ await page.reload();
+ expect(await page.evaluate(async()=>{
+  const s=await import('/js/journalStore.js');await s.initializeJournalStorage();return s.journalStorage.getItem('workoutApp_data_user_A');
+ })).toBe(null);
+});

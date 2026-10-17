@@ -58,7 +58,7 @@ export function initializeJournalStorage() {
         // Copy only journal keys. A crash before cleanup is safe: existing DB
         // values always win over leftover legacy copies on the next startup.
         const legacy=[];
-        for(let i=0;i<localStorage.length;i++){
+        for(let i=0;!localStorage.getItem(MARKER) && i<localStorage.length;i++){
             const key=localStorage.key(i);
             if(isJournalKey(key))legacy.push([key,localStorage.getItem(key)]);
         }
