@@ -44,8 +44,15 @@ window.switchAnalyticsTab = switchAnalyticsTab;
 // ==========================================
 // 2. GESTIONE AUTENTICAZIONE & STATO
 // ==========================================
-supabase.auth.onAuthStateChange(async (event, session) => {
+// Supabase auth callbacks must return synchronously: an awaited database
+// query inside onAuthStateChange can deadlock the client after login.
+let latestAuthEvent=0;
+supabase.auth.onAuthStateChange((_event, session) => {
+    const authEvent=++latestAuthEvent;
+    setTimeout(async () => {
+    if(authEvent!==latestAuthEvent)return;
     try {await initializeJournalStorage();}catch(error){console.error(error);return;}
+    if(authEvent!==latestAuthEvent)return;
     if (session?.user) {
         const owner=getStoredLocalOwner();
         state.currentUser = session.user;
@@ -74,6 +81,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     } else {
         console.log("⚠️ Utente non autenticato: uso localStorage.");
     }
+    },0);
 });
 
 // ==========================================
