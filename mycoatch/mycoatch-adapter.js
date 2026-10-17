@@ -4,6 +4,11 @@ import { getFromLocalStorageForUser } from '../js/storage.js';
 import { state } from '../js/state.js';
 import { pullDataFromSupabase } from '../js/sync.js';
 import { formatCoachReview } from './mesocycleComparison.js';
+import { locateClosedMesocycle } from './closureHandoff.js';
+
+// UI-only locator; never store workout data in global/module state.
+let selectedClosure = null;
+const withClosure = options => selectedClosure ? { ...options, closureSource: selectedClosure } : options;
 
 /**
  * Adapter per l'estrazione dello storico e la generazione diretta del CSV.
@@ -35,7 +40,7 @@ export async function generateAndDownloadMesocycleCSV(options = {}) {
         userHistory ||= {};
 
         // 2. Generazione del mesociclo tramite l'engine adattivo
-        const newMesocycle = MyCoatch.generateNextFromHistory(userHistory, options);
+        const newMesocycle = MyCoatch.generateNextFromHistory(userHistory, withClosure(options));
 
         if (!newMesocycle) {
             throw new Error("Impossibile generare il mesociclo. Verificare i dati di input.");
@@ -97,7 +102,7 @@ export async function createVisualCoachProposal(options={}) {
         const remote=await pullDataFromSupabase(state.currentUser);
         if(hasHistory(remote))history=remote;
     }
-    const proposal=MyCoatch.generateNextFromHistory(history||{},options);
+    const proposal=MyCoatch.generateNextFromHistory(history||{},withClosure(options));
     return {
         proposal,csv:MyCoatch.exportAsCSV(),
         review:formatCoachReview(proposal.coachReport.comparison,proposal.coachReport)
@@ -109,7 +114,13 @@ export function clearVisualCoachProposal(){MyCoatch.clearProposal();}
 export function downloadVisualCoachProposal(){return downloadMesocycleCSV();}
 
 /** Opens MyCoatch configuration. */
-export function startCoachChatAndGenerate() {
+export function startCoachChatAndGenerate(mesocycleOrEvent = null) {
+    selectedClosure = locateClosedMesocycle(state.workoutData,
+        mesocycleOrEvent?.coachClosure?.status === 'closed' ? mesocycleOrEvent : null);
+    if (mesocycleOrEvent?.coachClosure?.status === 'closed' && !selectedClosure) {
+        alert('Il mesociclo concluso non è più presente nello storico attivo. Ricarica il report.');
+        return;
+    }
     const modal = document.getElementById('mycoatch-config-modal');
     if (!modal) {
         alert('Configurazione MyCoatch non disponibile. Ricarica la pagina.');
