@@ -2806,3 +2806,24 @@ test('PDF mesociclo: esportazione completa con pagine, note, risultati, archivio
   for(const pageLines of report.result.pages)for(const line of pageLines)
     expect(line.y).toBeLessThanOrEqual(290);
 });
+
+
+for (const width of [320, 390, 430]) test('PWA installabile con layout mobile a '+width+'px',async({page})=>{
+  await page.setViewportSize({width,height:844});
+  const monitoring=await openIsolatedApp(page);
+  const manifest = await page.evaluate(async()=>{
+    const response=await fetch('/manifest.webmanifest');
+    return {ok:response.ok, content:await response.json()};
+  });
+  expect(manifest.ok).toBe(true);
+  expect(manifest.content.display).toBe('standalone');
+  expect(manifest.content.icons).toHaveLength(2);
+  await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href','/manifest.webmanifest');
+  await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute('sizes','180x180');
+  const iconResponse=await page.request.get('/icons/icon-192.png');
+  expect(iconResponse.status()).toBe(200);
+  expect(iconResponse.headers()['content-type']).toContain('image/png');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  assert.deepEqual(monitoring.remoteRequests,[]);
+  assert.deepEqual(monitoring.pageErrors,[]);
+});

@@ -3175,3 +3175,24 @@ body.dark-mode .group-title-badge {
     outline-offset: 1px;
   }
 }
+
+
+/* PWA iOS/Android: respect notches, gestures and home indicators.
+   Insets are zero in ordinary desktop browsers, preserving the current layout. */
+@supports (padding: max(0px, 0px)) {
+    body {
+        padding-top: max(4px, env(safe-area-inset-top, 0px));
+        padding-right: max(6px, env(safe-area-inset-right, 0px));
+        padding-left: max(6px, env(safe-area-inset-left, 0px));
+    }
+    .container {
+        padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+    }
+    #floating-timer {
+        bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+        max-width: calc(100vw - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+    }
+    .bottom-sheet-content {
+        padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    }
+}
