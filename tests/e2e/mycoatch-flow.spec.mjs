@@ -151,7 +151,8 @@ test('percorso reale: tempo scelto, storico multianno, anteprima, download, impo
   const rows = csv.trim().split(/\r?\n/);
   assert.ok(rows.length > 25);
   for (const row of rows.slice(1)) assert.equal(row.split(';').length, 12, row);
-  assert.ok(rows.some(row => row.includes('[DURATA STIMATA]')));
+  assert.ok(rows.some(row => row.includes('[SPLIT MYCOATCH]')));
+  assert.ok(rows.every(row => !row.includes('[DURATA STIMATA]')));
   assert.ok(rows.some(row => row.includes('[SUPERSERIE]')));
   assert.ok(dialogues.some(d => d.type === 'confirm' &&
     d.text.includes('2 mesocicli') && d.text.includes('Confermi la proposta')));
@@ -724,7 +725,8 @@ test('scelta atleta: fondamentali alternativi, controllo attrezzi, CSV e antepri
   assert.ok(previews.some(p => p.includes('Movimenti cardine:') &&
     p.includes('Panca Inclinata con Manubri') &&
     p.includes('Stacco da Terra Convenzionale')));
-  assert.match(csv, /\[SCELTA MYCOATCH\]/);
+  assert.doesNotMatch(csv, /\[SCELTA MYCOATCH\]/);
+  assert.match(csv, /\[SPLIT MYCOATCH\]/);
   for (const line of csv.trim().split(/\r?\n/).slice(1)) {
     assert.equal(line.split(';').length, 12);
   }
