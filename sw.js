@@ -74,6 +74,7 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/prescriptionPolicy.js',
   '/mycoatch/intensityTechniquePolicy.js',
   '/mycoatch/exercisesDB.js',
+  '/mycoatch/exerciseInstructions.js',
   '/mycoatch/exerciseSelection.js',
   '/mycoatch/athleteProfile.js',
   '/mycoatch/calibrationReview.js',
