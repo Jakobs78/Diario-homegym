@@ -18,8 +18,8 @@ const plan = (config = {}, previous = null) =>
 
 test('catalogo di 52 esercizi con ID stabili, categorie e dotazioni esplicite', () => {
     assert.equal(EXERCISE_DATABASE.length, 52);
-    assert.equal(new Set(EXERCISE_DATABASE.map(e => e.id)).size, 51);
-    assert.equal(new Set(EXERCISE_DATABASE.map(e => e.name)).size, 51);
+    assert.equal(new Set(EXERCISE_DATABASE.map(e => e.id)).size, 52);
+    assert.equal(new Set(EXERCISE_DATABASE.map(e => e.name)).size, 52);
     assert.ok(EXERCISE_DATABASE.every(ex =>
         /^[a-z0-9_]+$/.test(ex.id) &&
         ex.primaryMuscle === ex.category &&
