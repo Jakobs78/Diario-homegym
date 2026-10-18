@@ -2814,7 +2814,11 @@ test('PDF mesociclo: esportazione completa con pagine, note, risultati, archivio
   expect(report.result.filename.endsWith('_diario_completo.pdf')).toBe(true);
   expect(report.result.pages.length).toBeGreaterThan(1);
   const lines=report.result.pages.flat().map(x=>x.line).join(' ');
-  for(const text of ['Settimana 1','Giorno 1','Squat archivio','Coach ripetizione',
+  for(const text of ['MYCOATCH','BILANCIO DI FINE MESOCICLO',
+     'VOLUME ATTRIBUITO AI MUSCOLI','QUOTA','ESEG./PIANO',
+     'SERIE ALLENANTI','RPE osservati','archiviate',
+     'EVIDENZE PER PROGRAMMARE IL PROSSIMO MESOCICLO',
+     'Settimana 1','Giorno 1','Squat archivio','Coach ripetizione',
      'Nota ripetizione','Squat','TARGET:','NOTE ALLENATORE','NOTE PERSONALI',
      'COACH-MARKER','PERSONAL-MARKER','95','8.5','100','70 kg',
      'Confermata','Non confermata','Pagina 1'])expect(lines).toContain(text);
