@@ -12,6 +12,7 @@ import { shouldStartRecoveryTimer, hasPendingWorkingSets, isCircuit, circuitMemb
 import { updatePlatesBadgeUI } from './exerciseCard.js';
 import { updateSessionAndCompletionState, updateSessionHeaderUI } from './sessionTimer.js';
 import { validateCompletedSet } from '../mycoatch/liveCoach.js';
+import { stepRpe } from './rpeStepper.js';
 import { updateLiveCoachPanel, showLiveCoachInputError, showLiveCoachToast } from './liveCoachUI.js';
 
 
@@ -30,6 +31,26 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
     const workoutListContainer = document.getElementById('workout-list-container');
     if (!workoutListContainer) return;
     bindDropFields(workoutListContainer,currentDay,{readOnly:isPastMeso,save:()=>saveAndSync(state.workoutData),render:renderCallback});
+
+    // Only the editable perceived RPE changes. Keep MyCoatch's prescription unchanged.
+    workoutListContainer.querySelectorAll('.rpe-step-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            if (isPastMeso || button.disabled) return;
+            const exIdx = Number(button.dataset.ex);
+            const setIdx = Number(button.dataset.set);
+            const ex = currentDay.exercises?.[exIdx];
+            const set = ex?.loggedSets?.[setIdx];
+            if (!set || set.isLocked || set.completed) return;
+            const input = workoutListContainer.querySelector(
+                '.set-rpe[data-ex="' + exIdx + '"][data-set="' + setIdx + '"]');
+            if (!input || input.disabled) return;
+            const target = ex?.sets?.[setIdx]?.targetRpe ?? ex?.targetRpe ?? ex?.rpeTarget ?? ex?.rpe;
+            const changed = stepRpe(input.value, Number(button.dataset.direction), target);
+            if (changed === null) return;
+            input.value = changed;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+    });
 
     workoutListContainer.querySelectorAll('.set-input, .ex-user-notes').forEach(input => {
         input.addEventListener('focus', (e) => e.target.select());

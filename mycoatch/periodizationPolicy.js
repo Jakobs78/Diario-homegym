@@ -1,6 +1,6 @@
 // Decisioni prudenziali di programmazione: RPE prescritto non misurato.
 // Fatica in una sola regione non prova necessità di scarico globale.
-import { assessRecoveryScope } from './recoveryScope.js';
+import { assessRecoveryScope, recoveryRegion } from './recoveryScope.js';
 
 export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}) {
   const count = Number(config.durationWeeks ?? 4);
@@ -8,6 +8,27 @@ export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}
   const assessment=assessRecoveryScope(history);
   const signals=assessment.recoverySignals;
   const recoveryFirst=assessment.recoveryRequired;
+  // Do not enforce a universal 4th-week deload if several independent,
+  // comparable exercises from at least two body regions show stable progression.
+  // If data is insufficient, the original conservative deload remains.
+  const measured = Object.values(history?.byExercise || {}).filter(ex =>
+    ex?.progressionEvidence?.recentWeeksQualified === true &&
+    Number(ex?.progressionEvidence?.distinctWeeks || 0) >= 2 &&
+    !ex?.fatigueConcern && recoveryRegion(ex?.category));
+  const regions = new Set(measured.map(ex=>recoveryRegion(ex.category)));
+  const progressing = measured.filter(ex=>
+    ex?.progressionEvidence?.readyForLoad === true ||
+    ex?.progressionEvidence?.readyForReps === true ||
+    ex?.readyForLoad === true || ex?.readyForReps === true);
+  const enoughEvidence = measured.length >= 3 && regions.size >= 2 &&
+    progressing.length >= 1 && assessment.scope === 'none';
+  const athleteChoice = Object.hasOwn(config,'deloadWeek') &&
+    config.deloadWeek !== undefined && config.deloadWeek !== null;
+  const deloadRationale = recoveryFirst
+    ? 'Recupero globale prioritario: scarico iniziale per segnali ripetuti su più regioni.'
+    : athleteChoice ? 'Settimana di scarico scelta esplicitamente dall’atleta.'
+      : enoughEvidence ? 'Nessuno scarico automatico: progressi confrontabili su almeno due regioni; rivaluta il recupero ogni settimana.'
+        : 'Scarico di sicurezza nell’ultima settimana: dati longitudinali ancora insufficienti per escluderlo.';
   // La preferenza dell'atleta puo' spostare o rimuovere lo scarico
   // soltanto in assenza di fatica ripetuta e attendibile. Se il recupero
   // e' prioritario, nessuna opzione puo' posticiparlo.
@@ -15,7 +36,7 @@ export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}
     config.deloadWeek === false ? null :
     Number.isInteger(config.deloadWeek) ? config.deloadWeek :
     config.deloadWeek === true ? count :
-    count >= 4 ? count : null;
+    count >= 4 && !enoughEvidence ? count : null;
   if (deloadWeek !== null && (deloadWeek < 1 || deloadWeek > count))
     throw Error('Settimana di scarico non valida');
   const weeks = Array.from({length: count}, (_, i) => {
@@ -35,5 +56,6 @@ export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}
   return {version: 1, blockNumber: Math.max(1, (history.inspectedMesocycles || 0) + 1),
     recoveryFirst, recoveryScope:assessment.scope,
     fatiguedMuscles:assessment.fatiguedMuscles,
-    recoverySignals: signals, deloadWeek, weeks};
+    recoverySignals: signals, deloadWeek, deloadRationale,
+    evidence: {comparableExercises:measured.length,bodyRegions:regions.size,progressingExercises:progressing.length},weeks};
 }

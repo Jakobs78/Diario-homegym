@@ -15,14 +15,11 @@ const ex=(sets=[set(8,6),set(8,6),set(8,6)],extra={})=>({
     loggedSets:sets,...extra
 });
 
-test('all checked sets with RPE 6 vs prescribed 7 propose a measured, capped load step',()=>{
+test('easy sets below top reps do not yet qualify for a load step',()=>{
     const lift=ex();
     const saved=JSON.stringify(lift);
     const answer=recommendNextSessionLoad(lift,{equipmentSettings:{barbell:2.5}});
-    assert.equal(answer.suggestedWeight,72.5);
-    assert.equal(answer.evidence,'lower_rpe');
-    assert.equal(answer.confidence,'single_session_provisional');
-    assert.equal(answer.configured,true);
+    assert.equal(answer,null,'build repetitions before adding weight');
     assert.equal(JSON.stringify(lift),saved,'No workout mutation before or after ✓');
 });
 
@@ -45,18 +42,18 @@ test('unfinished, absent RPE, harder RPE or mixed-load sets never authorize weig
 });
 
 test('working sets only: an earlier warmup set does not block a valid progression',()=>{
-    const lift=ex([set(10,6,20,{isWarmup:true}),set(9,6),set(8,6)]);
+    const lift=ex([set(10,6,20,{isWarmup:true}),set(12,7),set(12,7)]);
     assert.equal(recommendNextSessionLoad(lift)?.suggestedWeight,72.5);
     const alone=ex([set(8,6)]);
     assert.equal(recommendNextSessionLoad(alone),null);
 });
 
 test('real equipment increments are honored; a large smallest step is withheld',()=>{
-    assert.equal(recommendNextSessionLoad(ex(),{equipmentSettings:{barbell:1.25}})?.suggestedWeight,71.25);
-    const impossible=recommendNextSessionLoad(ex(),{equipmentSettings:{barbell:5}});
+    assert.equal(recommendNextSessionLoad(ex([set(12,7),set(12,7)]),{equipmentSettings:{barbell:1.25}})?.suggestedWeight,71.25);
+    const impossible=recommendNextSessionLoad(ex([set(12,7),set(12,7)]),{equipmentSettings:{barbell:5}});
     assert.equal(impossible.eligible,true);
     assert.equal(impossible.suggestedWeight,null);
-    const db=ex([set(10,6,12.5),set(11,6,12.5)],{
+    const db=ex([set(12,7,12.5),set(12,7,12.5)],{
         name:'Curl manubri',equipment:'dumbbell',reps:'10-12'
     });
     assert.equal(recommendNextSessionLoad(db,{equipmentSettings:{dumbbell:1}})?.suggestedWeight,13.5);

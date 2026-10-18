@@ -14,6 +14,7 @@ function cue(exercise) {
     if (name.includes('Rematore') || name.includes('Pulley'))
         return 'Schiena stabile, tira i gomiti indietro e controlla il ritorno.';
     if (name.includes('Alzate')) return 'Solleva senza slanci, controlla la discesa.';
+    if (name.includes('Leg Curl')) return 'Bacino stabile, fletti il ginocchio senza slanci e controlla il ritorno.';
     if (name.includes('Curl')) return 'Gomiti stabili, evita di oscillare.';
     if (name.includes('Pushdown')) return 'Gomiti fermi lungo il busto, estendi senza slanci.';
     if (name.includes('Crunch')) return 'Fletti il tronco, non tirare con le braccia.';
@@ -27,7 +28,6 @@ function cue(exercise) {
         return 'Addome attivo, spinta controllata e niente slanci.';
     if (name.includes('Calf Raise')) return 'Massima escursione controllata, senza rimbalzi.';
     if (name.includes('Pallof')) return 'Resisti alla rotazione, busto stabile.';
-    if (name.includes('Leg Curl')) return 'Fletti il ginocchio senza muovere il bacino.';
     if (name.includes('Face Pull') || name.includes('Reverse Fly'))
         return 'Gomiti controllati, evita di compensare con la schiena.';
     if (name.includes('Pulldown')) return 'Porta le braccia verso i fianchi senza oscillare.';
@@ -50,7 +50,8 @@ export function conciseExerciseInstruction(exercise) {
     } else if (verbose.includes('[WARM-UP]')) parts.push('[WARM-UP] Serie leggere di avvicinamento.');
     if (verbose.includes('[RIFERIMENTO ATLETA]')) {
         const reference = /\[RIFERIMENTO ATLETA\]\s*(\d+(?:[.,]\d+)?)\s*kg/.exec(verbose);
-        if (reference) parts.push('[RIFERIMENTO ATLETA] ' + reference[1] + ' kg dichiarati, da verificare.');
+        if (reference) parts.push('[RIFERIMENTO ATLETA] ' + reference[1] + ' kg dichiarati, da verificare.' +
+            (verbose.includes('Peso non prescritto automaticamente') ? ' Non adottati come carico automatico.' : ''));
     }
     if (verbose.includes('[VOLUME INIZIALE]'))
         parts.push('[VOLUME INIZIALE] Solo le serie previste nella scheda.');

@@ -91,11 +91,14 @@ export function previewFutureLoadReview(meso,weekNum,dayIndex,exerciseIndex,{equ
         }
     }
     if(!changes.length)return null;
+    // A single exercise exposure is provisional: it can propose an update only
+    // to the next untouched comparable exposure, never to all future weeks.
+    const nextExposure=changes[0];
     return {id,source:{weekNumber:Number(weekNum),dayIndex,exerciseIndex,
         name:source.name,from:advice.previousWeight,to:advice.suggestedWeight},
         reason:advice.reason,confidence:advice.confidence,
         sourceSignature:JSON.stringify(source.loggedSets||[]),
-        changes};
+        changes:[nextExposure]};
 }
 export function getAppliedFutureLoadReview(meso,weekNum,dayIndex,exerciseIndex) {
     return activeRecord(meso,idFor(weekNum,dayIndex,exerciseIndex))||null;

@@ -1994,7 +1994,7 @@ test('warm-up marked by deliberate gesture stays in history but never blocks ses
 });
 
 
-test('all confirmed sets at RPE 6 versus target 8 give a real next-session load proposal, not an automatic edit',async({page})=>{
+test('all confirmed sets at upper rep range and low RPE can propose a small load step without auto edit',async({page})=>{
   const monitor=await openIsolatedApp(page);
   await prepareLiveWorkout(page);
   await page.evaluate(async()=>{
@@ -2008,7 +2008,7 @@ test('all confirmed sets at RPE 6 versus target 8 give a real next-session load 
   });
   for(let i=0;i<3;i++){
     await page.locator('.set-kg[data-set="'+i+'"]').fill('80');
-    await page.locator('.set-reps[data-set="'+i+'"]').fill('6');
+    await page.locator('.set-reps[data-set="'+i+'"]').fill('8');
     await page.locator('.set-rpe[data-set="'+i+'"]').fill('6');
     await page.locator('.set-lock-check[data-set="'+i+'"]').check();
   }
@@ -2025,7 +2025,7 @@ test('all confirmed sets at RPE 6 versus target 8 give a real next-session load 
       prescription:ex.sets,loadingSteps:state.workoutData.athlete.loadingSteps};
   });
   assert.equal(state.actual.length,3);
-  assert.ok(state.actual.every(s=>s[0]===80&&s[1]==='6'&&s[2]===6&&s[3]));
+  assert.ok(state.actual.every(s=>s[0]===80&&s[1]==='8'&&s[2]===6&&s[3]));
   assert.deepEqual(state.loadingSteps,{barbell:2.5,dumbbell:1,machine:2.5});
   assert.ok(!JSON.stringify(state.prescription||[]).includes('82.5'));
   assert.deepEqual(monitor.remoteRequests,[]);
@@ -2340,7 +2340,7 @@ test('MyCoatch previews, approves and undoes load increases only for untouched f
   for(let i=0;i<3;i++){
     const row=page.locator('.ex-card[data-ex="0"] .workout-set-row[data-set-index="'+i+'"]');
     await row.locator('.set-kg').fill('80');
-    await row.locator('.set-reps').fill('6');
+    await row.locator('.set-reps').fill('8');
     await row.locator('.set-rpe').fill('6');
     await row.locator('.set-lock-check').check();
   }
@@ -2348,7 +2348,7 @@ test('MyCoatch previews, approves and undoes load increases only for untouched f
   await expect(review).toBeVisible();
   await review.locator('summary').click();
   await expect(review).toContainText('80 → 82.5 kg');
-  await expect(review.locator('.mycoatch-future-load-targets li')).toHaveCount(2);
+  await expect(review.locator('.mycoatch-future-load-targets li')).toHaveCount(1);
   const before=await page.evaluate(async()=>{
     const {state}=await import('/js/state.js');
     const m=state.workoutData.history.years['2026'].mesocycles[0];
@@ -2368,7 +2368,7 @@ test('MyCoatch previews, approves and undoes load increases only for untouched f
       log:m.coachFutureLoadReviews};
   });
   assert.equal(after.source,before.source,'historical performed sets unchanged');
-  assert.deepEqual(after.future,['82.5','82.5']);
+  assert.deepEqual(after.future,['82.5','80'],'a single exposure may only update the next unstarted session');
   assert.equal(after.log.length,1);
   await page.locator('#week-selector').selectOption('2');
   await expect(page.locator('.ex-card[data-ex="0"] .set-kg[data-set="0"]'))

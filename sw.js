@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v50-cable-setup-short-notes-20261018';
+const CACHE_NAME = 'workout-app-v51-mycoatch-guided-adaptive-20261018';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -48,6 +48,7 @@ const ASSETS_TO_CACHE = [
   '/js/workoutEvents.js',
   '/js/exerciseCard.js',
   '/js/setPrefill.js',
+  '/js/rpeStepper.js',
   '/js/setVolumeComparison.js',
   '/js/futureLoadReviewUI.js',
   '/js/workoutSemantics.js',
@@ -87,6 +88,7 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/mycoatch-adapter.js',
   '/mycoatch/liveCoach.js',
   '/mycoatch/loadProposal.js',
+  '/mycoatch/nextSessionReps.js',
   '/mycoatch/barbellInventory.js',
   '/mycoatch/futureLoadReview.js',
   '/mycoatch/sessionReadiness.js',

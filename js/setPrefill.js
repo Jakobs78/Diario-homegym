@@ -1,3 +1,5 @@
+import { recommendNextSessionReps } from '../mycoatch/nextSessionReps.js';
+
 /**
  * Suggerimenti visuali per le serie: mai dati di prestazione confermati.
  * I campi compilati manualmente hanno precedenza sulle proposte.
@@ -144,8 +146,13 @@ export function getSetPrefill(exercise, index, { previousExercise = null } = {})
         !priorSet.is_warmup && comparablePlan &&
         weightFor(priorSet) && repsFor(priorSet) &&
         repsCompatible(repsFor(priorSet), exercise);
+    const nextReps = fromLastWeek
+        ? recommendNextSessionReps(previousExercise, exercise) : null;
+    const coachedReps = nextReps?.kind === 'build_reps'
+        ? String(nextReps.reps[index]) : null;
     const source = filled(current.weight) || filled(current.reps) || filled(current.rpe)
         ? 'current_entry' : sameSession ? 'confirmed_previous_set' :
+        coachedReps !== null ? 'mycoatch_next_reps' :
         fromLastWeek ? 'confirmed_previous_week' : 'csv_target';
     return {
         weight: filled(current.weight) ? String(current.weight)
@@ -153,7 +160,8 @@ export function getSetPrefill(exercise, index, { previousExercise = null } = {})
                 : fromLastWeek ? weightFor(priorSet) : plan.weight,
         reps: filled(current.reps) ? String(current.reps)
             : sameSession ? repsFor(previous)
-                : fromLastWeek ? repsFor(priorSet) : plan.reps,
+                : coachedReps !== null ? coachedReps
+                    : fromLastWeek ? repsFor(priorSet) : plan.reps,
         // RPE = obiettivo della seduta corrente, NON fatica percepita
         // nell'ultima sessione. Se il piano non indica un RPE, proponi solo
         // una misura reale e confermata, privilegiando lo stesso esercizio.
@@ -162,6 +170,9 @@ export function getSetPrefill(exercise, index, { previousExercise = null } = {})
             (sameSession && targetRpe(previous?.rpe)) ||
             (fromLastWeek && targetRpe(priorSet?.rpe)) || '',
         source,
+        reason: coachedReps !== null ? nextReps.reason :
+            fromLastWeek ? 'Carico e ripetizioni provenienti da serie precedenti confermate con prescrizione confrontabile.' :
+            'Prescrizione attuale senza incremento automatico.',
         isSuggestedWeight: !filled(current.weight),
         isSuggestedReps: !filled(current.reps),
         isSuggestedRpe: !filled(current.rpe)

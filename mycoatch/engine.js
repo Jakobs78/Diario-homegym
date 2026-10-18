@@ -346,13 +346,14 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 if (onboarding.calibrationWeek && w === 1) {
                     noteFinal += ' | [CALIBRAZIONE MYCOATCH] Prima settimana: tecnica pulita, carico leggero/moderato e RPE prescritto, non tentare massimali. Compila kg e reps reali per adattare la prossima proposta.';
                 }
-                if (reference && !hasConfirmedHistory) {
+                if (reference) {
                     noteFinal += ' | [RIFERIMENTO ATLETA] ' + reference.kg + ' kg × ' +
                         reference.reps + ' reps' +
                         (reference.rpe !== null ? ' @RPE ' + reference.rpe : '') +
                         '. Dato dichiarato, NON risultato confermato dal diario.' +
                         (usingReference ? ' Peso provvisorio: riconferma durante la seduta.' :
-                            ' Peso non prescritto automaticamente.');
+                            hasConfirmedHistory ? ' Peso non prescritto automaticamente: precedenza allo storico confermato o calibrazione.' :
+                            ' Peso non prescritto automaticamente: controlla data, range, RPE e variante.');
                 }
                 if (onboarding.experience === 'beginner') {
                     noteFinal += ' | [VOLUME INIZIALE] Massimo 2 serie per esercizio nella proposta iniziale.';
