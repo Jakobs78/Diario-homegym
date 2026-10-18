@@ -263,7 +263,7 @@ test('40 minuti: riequilibrio reale visibile e importabile senza assumere sposta
   await page.locator('#mycoatch-submit').click();
   const csv = await readFile(await (await downloaded).path(), 'utf8');
   assert.equal(csv.split(/\r?\n/)[0], HEADER);
-  assert.match(csv, /\[VOLUME RIDISTRIBUITO\]/);
+  assert.doesNotMatch(csv, /\[VOLUME RIDISTRIBUITO\]/);
 
   const expected = await page.evaluate(async () => {
     const { MyCoatch } = await import('/mycoatch/index.js');
