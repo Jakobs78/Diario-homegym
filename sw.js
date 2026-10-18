@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v50-visible-closure-consents-20261018';
+const CACHE_NAME = 'workout-app-v50-cable-setup-short-notes-20261018';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
