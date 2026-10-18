@@ -55,7 +55,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             </div>
             ${isExExcluded
                 ? '<span class="badge-danger">RISCALDAMENTO · ESCLUSO DAI MASSIMALI E DAL VOLUME ALLENANTE</span>'
-                : '<span class="exercise-exclude-hint text-xs text-muted flex-italic">(Doppio click o swipe per escludere: riscaldamento)</span>'}
+                : '<span class="exercise-exclude-hint text-xs text-muted flex-italic">Doppio click o swipe o clicca su W del SET per escludere il riscaldamento</span>'}
         </div>
         
         <!-- Nome Esercizio in primo piano -->
@@ -269,7 +269,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         renderWorkoutList();
     };
 
-    // Ripristino del gesto intenzionale: doppio click su desktop e swipe orizzontale >=300px su telefono.
+    // Gesto intenzionale: doppio click su desktop e solo swipe a sinistra >=300px su telefono.
     // I campi, gli elementi interattivi e le note non devono attivare l'esclusione.
     exCard.addEventListener('dblclick', event => {
         // I doppi tocchi sul telefono non equivalgono a un doppio click da PC.
@@ -277,7 +277,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         if (event.target.closest('input, select, textarea, button, a, label, summary, details, .exercise-coach-notes')) return;
         toggleExclusion();
     });
-    enableCardSwipeGesture(exCard, toggleExclusion, toggleExclusion);
+    enableCardSwipeGesture(exCard, toggleExclusion);
 
     const selectSet=(idx)=>{
         if(!Number.isInteger(idx)||idx<0||idx>=logs.length)return;
