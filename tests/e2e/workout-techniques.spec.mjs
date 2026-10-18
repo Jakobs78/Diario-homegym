@@ -310,3 +310,30 @@ test('bilancieri impostati una volta: scelta automatica e layout compatto a 320p
  });
  expect(assigned).toEqual({weight:9,diameter:'29'});
 });
+
+
+test('RPE +/-0,5 mobile: la spunta salva solo il valore percepito, non cambia il target',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await setupPlan(page,'drop');
+ const card=page.locator('.ex-card[data-ex="1"]');
+ const field=card.locator('.set-rpe[data-set="0"]');
+ await expect(field).toHaveValue('8');
+ await expect(card.locator('.rpe-target-label').first()).toHaveText('Ob. 8');
+ await card.locator('.rpe-step-btn[data-set="0"][data-direction="1"]').click();
+ await expect(field).toHaveValue('8.5');
+ await card.locator('.rpe-step-btn[data-set="0"][data-direction="1"]').click();
+ await expect(field).toHaveValue('9');
+ await expect(card.locator('.rpe-target-label').first()).toHaveText('Ob. 8');
+ await card.locator('.set-kg[data-set="0"]').fill('10');
+ await card.locator('.set-reps[data-set="0"]').fill('12');
+ await card.locator('.set-lock-check[data-set="0"]').check();
+ const confirmed=await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');
+  const ex=Object.values(state.workoutData.history.years)[0].mesocycles[0].weeks[0].days[0].exercises[1];
+  return {rpe:ex.loggedSets[0].rpe,target:ex.rpe,locked:ex.loggedSets[0].isLocked};
+ });
+ expect(Number(confirmed.rpe)).toBe(9);
+ expect(String(confirmed.target)).toBe('8');
+ expect(confirmed.locked).toBe(true);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
