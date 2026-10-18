@@ -80,7 +80,12 @@ export function initCoachPreview(readCoachOptions,configModal) {
                 }
                 weeks.append(container);
             }
-            explanation.textContent=proposal.review;
+            const deloadReason=proposal.proposal.periodization?.deloadRationale;
+            const warnings=proposal.proposal.weeks?.[0]?.weeklyCoverage?.warnings || [];
+            explanation.textContent=[proposal.review,
+                deloadReason ? 'Scarico: '+deloadReason : '',
+                ...warnings.map(w=>'Verifica volume: '+w)
+            ].filter(Boolean).join('\n\n');
             feedback.textContent='';
             preview.classList.remove('hidden');
             document.getElementById('mycoatch-preview-apply')?.focus();
