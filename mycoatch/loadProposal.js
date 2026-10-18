@@ -76,15 +76,15 @@ export function recommendNextSessionLoad(ex,{
     // for a different prescribed intensity.
     if(!values.every(v=>v.kg===kg&&v.reps>=range.min))return null;
     const extraReps=values.every(v=>v.reps>=range.max&&v.reps<=range.max+2&&v.rpe<=target);
-    const lowerEffort=values.every(v=>v.rpe<=target-1 && v.reps>=range.min &&
-        v.reps<=range.max+2);
-    if(!extraReps&&!lowerEffort)return null;
+    // First build repetitions. Even easy working sets below the top of the
+    // range never authorize a load increase from one training session.
+    if(!extraReps)return null;
     const {step,type,configured}=getAvailableLoadStep(ex,equipmentSettings||{},kg);
     const cap=type==='dumbbell'?0.1:0.05;
     if(step/kg>cap+1e-9)return {
         eligible:true,suggestedWeight:null,previousWeight:kg,step,
         reason:'Prestazione superiore al target, ma il più piccolo incremento indicato è troppo grande rispetto al carico. Servono microcarichi o un’altra seduta di conferma.',
-        evidence:extraReps?'extra_reps':'lower_rpe',configured,type
+        evidence:'top_reps',configured,type
     };
     const proposed=roundLoad(kg+step);
     if(type==='barbell' && (equipmentSettings?.plateInventories || equipmentSettings?.platePairs)){
@@ -93,15 +93,13 @@ export function recommendNextSessionLoad(ex,{
         if(!plates?.exact)return {
             eligible:true,suggestedWeight:null,previousWeight:kg,step,
             reason:'Verifica il bilanciere, il diametro e i dischi compatibili: il nuovo carico non è confermato componibile. Mantieni il peso o completa l’attrezzatura.',
-            evidence:extraReps?'extra_reps':'lower_rpe',configured,type
+            evidence:'top_reps',configured,type
         };
     }
     return {
         eligible:true,suggestedWeight:proposed,previousWeight:kg,step,
-        evidence:extraReps?'extra_reps':'lower_rpe',
-        reason:extraReps
-            ? 'Tutte le serie confermate hanno raggiunto il limite alto delle ripetizioni con RPE entro target.'
-            : 'Tutte le serie confermate hanno rispettato le ripetizioni con RPE almeno un punto sotto il target.',
+        evidence:'top_reps',
+        reason:'Tutte le serie confermate hanno raggiunto il limite alto delle ripetizioni con RPE entro target.',
         configured,type,
         confidence:'single_session_provisional',
         advisory:'Proposta per la prossima seduta, non modifica automatica della scheda. Rivaluta tecnica, recupero e disponibilità reale dei pesi.'
