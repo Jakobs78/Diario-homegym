@@ -3275,3 +3275,5 @@ body.dark-mode .group-title-badge {
 .ex-card .rpe-step-btn:disabled { opacity:.4; cursor:not-allowed; }
 .ex-card .rpe-target-label { display:block; color:var(--text-muted); font-size:.66rem; font-weight:650; line-height:1.15; margin:2px 0; }
 @media(max-width:390px) { .ex-card .rpe-step-btn { width:20px; min-width:20px; flex-basis:20px; } }
+
+.mycoatch-next-rep-hint {font-size:.8rem;line-height:1.45;margin:4px 0 9px;padding:8px 10px;border-left:3px solid var(--accent-color);background:var(--block-bg);border-radius:6px;}
