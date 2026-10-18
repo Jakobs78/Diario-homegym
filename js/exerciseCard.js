@@ -175,6 +175,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         const isRepsExceeding = isValueExceedingTarget(displayReps, ex.minReps || ex.reps, ex.maxReps || ex.reps);
 
         const targetRpeStr = String(ex.targetRpe || ex.rpeTarget || ex.rpe || '').replace('@', '').trim();
+        const setTargetRpeStr = String(ex.sets?.[setIdx]?.targetRpe ?? targetRpeStr).replace(/^@/, '').trim();
         let minRpe = ex.minRpe;
         let maxRpe = ex.maxRpe;
         if (!minRpe && !maxRpe && targetRpeStr.includes('-')) {
@@ -231,7 +232,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                         <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe ios-no-zoom ${rpeClass} ${isUnsavedRpe ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayRpe)}" placeholder="RPE" title="RPE percepito: correggi il valore suggerito prima del ✓. Il target rimane invariato." aria-label="RPE percepito nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>
                         <button type="button" class="rpe-step-btn" data-ex="${exIdx}" data-set="${setIdx}" data-direction="1" aria-label="Aumenta RPE di 0,5 nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>+</button>
                     </div>
-                    <small class="rpe-target-label" title="Obiettivo RPE di MyCoatch, non prestazione effettuata">Ob. ${escapeHtml(targetRpeStr || '—')}</small>
+                    <small class="rpe-target-label" title="Obiettivo RPE di MyCoatch, non prestazione effettuata">Ob. ${escapeHtml(setTargetRpeStr || '—')}</small>
                 </td>
                 <td class="td-check text-center">
                     <input type="checkbox" class="set-lock-check custom-big-check" aria-label="Conferma o riapri serie ${setIdx+1}" title="${hasDropPrescription(ex,setIdx)?'Conferma base e scarichi insieme':'Conferma serie'}" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''}>
