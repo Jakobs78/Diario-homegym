@@ -73,5 +73,5 @@ test('iPhone startup metadata and safe area styles do not change workout logic',
     }
     assert.match(sw,/key\.startsWith\('workout-app-'\)/,
         'cleanup must only remove app-specific caches');
-    assert.match(sw,/const CACHE_NAME = 'workout-app-v50-/);
+    assert.match(sw,/const CACHE_NAME = 'workout-app-v\\d+-/);
 });
