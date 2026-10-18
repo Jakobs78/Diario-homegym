@@ -26,9 +26,30 @@ export const OPTIONAL_ACCESSORIES = Object.freeze([
     Object.freeze({ id: 'incline_bench', label: 'Panca inclinabile' }),
     Object.freeze({ id: 'pullup_bar', label: 'Barra per trazioni' }),
     Object.freeze({ id: 'ankle_strap', label: 'Cavigliera per cavi' }),
+    Object.freeze({ id: 'rope_attachment', label: 'Corda per pushdown' }),
+    Object.freeze({ id: 'triangle_handle', label: 'Impugnatura triangolare lat machine' }),
     Object.freeze({ id: 'ez_bar', label: 'Bilanciere EZ' }),
     Object.freeze({ id: 'dip_station', label: 'Parallele per dip' })
 ]);
+
+// Model pulley topology separately from the generic word "cable".
+// A single high/low central pulley cannot perform bilateral cable flyes.
+export const CABLE_SETUPS = Object.freeze([
+    'none', 'high_only', 'low_only', 'single_high_low', 'dual_adjustable'
+]);
+const HIGH_CABLE_EXERCISES = new Set([
+    'Pulldown ai Cavi a Braccia Tese', 'Pushdown ai Cavi',
+    'Pushdown ai Cavi con Corda', 'Estensioni Tricipiti Sopra la Testa ai Cavi',
+    'Crunch ai Cavi', 'Face Pull ai Cavi'
+]);
+const LOW_CABLE_EXERCISES = new Set([
+    'Pulley Basso a T', 'Curl ai Cavi Bassi', 'Leg Curl ai Cavi (cavigliera)',
+    'Alzate Laterali ai Cavi', 'Pull-through ai Cavi'
+]);
+const DUAL_CABLE_EXERCISES = new Set([
+    'Croci ai Cavi in Allungamento', 'Reverse Fly ai Cavi'
+]);
+const MID_CABLE_EXERCISES = new Set(['Pallof Press ai Cavi']);
 
 const catalogByName = new Map(EXERCISE_DATABASE.map(exercise => [
     canonicalExerciseKey(exercise.name), exercise
@@ -53,6 +74,8 @@ export function normalizeSelectionPreferences(config = {}) {
     const availableAccessories = normalizeList(
         config.availableAccessories, DEFAULT_HOME_GYM_ACCESSORIES, accessoryIds, 'accessori'
     );
+    const cableSetup = config.cableSetup ?? 'single_high_low';
+    if (!CABLE_SETUPS.includes(cableSetup)) throw new Error('Configurazione dei cavi non valida.');
     const raw = config.preferredLifts ?? {};
     if (!raw || typeof raw !== 'object' || Array.isArray(raw) ||
         Object.keys(raw).some(key => !Object.hasOwn(FUNDAMENTAL_CHOICES, key))) {
@@ -78,11 +101,23 @@ export function normalizeSelectionPreferences(config = {}) {
             throw new Error('La variante selezionata è fra gli esercizi da evitare: ' + name);
         }
     }
-    return { availableEquipment, availableAccessories, preferredLifts,
+    return { availableEquipment, availableAccessories, cableSetup, preferredLifts,
         ...(config.excludedExercises === undefined ? {} : { excludedExercises: excluded }) };
 }
 
 export function isExerciseAvailable(exercise, preferences) {
+    const cableSetup = preferences.cableSetup ?? 'single_high_low';
+    const hasHigh = ['high_only', 'single_high_low', 'dual_adjustable'].includes(cableSetup);
+    const hasLow = ['low_only', 'single_high_low', 'dual_adjustable'].includes(cableSetup);
+    const hasDual = cableSetup === 'dual_adjustable';
+    if (exercise.equipment === 'cable') {
+        if (cableSetup === 'none' ||
+            (HIGH_CABLE_EXERCISES.has(exercise.name) && !hasHigh) ||
+            (LOW_CABLE_EXERCISES.has(exercise.name) && !hasLow) ||
+            (DUAL_CABLE_EXERCISES.has(exercise.name) && !hasDual) ||
+            (MID_CABLE_EXERCISES.has(exercise.name) && !hasDual)) return false;
+    }
+    if (exercise.equipment === 'lat_machine' && !hasHigh) return false;
     return preferences.availableEquipment.includes(exercise.equipment) &&
         !(preferences.excludedExercises || []).includes(exercise.name) &&
         (exercise.requires || []).every(x => preferences.availableAccessories.includes(x));
@@ -110,7 +145,7 @@ const SLOT_PREFERENCES = {
         'Panca Inclinata con Manubri', 'Panca Inclinata con Bilanciere',
         'Push-up a Terra', 'Panca Piana con Bilanciere'
     ],
-    'Petto:isolation': ['Croci ai Cavi in Allungamento'],
+    'Petto:isolation': ['Croci ai Cavi in Allungamento', 'Croci con Manubri su Panca Piana'],
     'Quadricipiti:squat': [
         'Front Squat', 'Bulgarian Split Squat con Manubri',
         'Affondi con Manubri', 'Goblet Squat con Manubrio'

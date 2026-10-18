@@ -459,10 +459,20 @@
                     </fieldset>
                     <fieldset class="mycoatch-preferences-group">
                         <legend>Accessori che possiedi (facoltativi)</legend>
-                        <p class="mycoatch-form-hint">Si presume una home gym con rack, bilanciere, manubri, panca piana e cavi/lat machine. Spunta soltanto gli accessori che hai davvero.</p>
+                        <p class="mycoatch-form-hint">Indica il tipo di cavo presente nel rack. Un cavo centrale alto/basso consente lat machine, tirate e crunch, ma non le croci a due pulegge. Seleziona solo gli accessori che possiedi.</p>
+                        <label for="mycoatch-cable-setup">Configurazione cavi/pulegge</label>
+                        <select id="mycoatch-cable-setup" name="cableSetup">
+                            <option value="single_high_low" selected>Cavo centrale: puleggia alta e bassa (non doppio cavo)</option>
+                            <option value="high_only">Solo puleggia alta</option>
+                            <option value="low_only">Solo puleggia bassa</option>
+                            <option value="dual_adjustable">Due pulegge regolabili indipendenti (crossover)</option>
+                            <option value="none">Nessun cavo</option>
+                        </select>
                         <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="incline_bench"> Panca inclinabile</label>
                         <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="pullup_bar"> Sbarra per trazioni</label>
                         <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="ankle_strap"> Cavigliera per cavi</label>
+                        <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="rope_attachment"> Corda per pushdown</label>
+                        <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="triangle_handle"> Impugnatura triangolare per lat machine</label>
                         <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="ez_bar"> Bilanciere EZ</label>
                         <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="dip_station"> Parallele per dip</label>
                     </fieldset>

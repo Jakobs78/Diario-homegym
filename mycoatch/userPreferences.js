@@ -41,6 +41,7 @@ export function parseCoachPreferences(fields = {}) {
         preferredLifts: fields.preferredLifts,
         availableAccessories: fields.availableAccessories,
         availableEquipment: fields.availableEquipment,
+        cableSetup: fields.cableSetup,
         excludedExercises: athleteProfile?.excludedExercises
     });
 

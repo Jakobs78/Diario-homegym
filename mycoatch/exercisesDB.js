@@ -6,6 +6,7 @@ const RAW_EXERCISES = [
     { name: "Panca Inclinata con Manubri", category: "Petto", pattern: "horizontal_push", equipment: "dumbbell", cnsCost: 6, profile: "Enfasi fascio clavicolare - Ottimizzazione ROM", defaultReps: "8-10", defaultKg: "" },
     { name: "Dip alle Parallele (sovraccarico)", category: "Petto", pattern: "vertical_push", equipment: "bodyweight", cnsCost: 7, profile: "Forte enfasi in allungamento sul basso petto", defaultReps: "8-12", defaultKg: "" },
     { name: "Croci ai Cavi in Allungamento", category: "Petto", pattern: "isolation", equipment: "cable", cnsCost: 3, profile: "Resistenza costante - Picco in massimo allungamento", defaultReps: "12-15", defaultKg: "" },
+    { name: "Croci con Manubri su Panca Piana", category: "Petto", pattern: "isolation", equipment: "dumbbell", cnsCost: 3, defaultReps: "10-15", defaultKg: "" },
 
     // --- SCHIENA / TRAZIONE ---
     { name: "Trazioni alla Sbarra (Pull-up)", category: "Back_Lats", pattern: "vertical_pull", equipment: "bodyweight", cnsCost: 7, profile: "Catena cinetica chiusa - Gran dorsale e teres major", defaultReps: "6-8", defaultKg: "" },
@@ -76,6 +77,7 @@ const STABLE_IDS = new Map([
     ["Panca Inclinata con Manubri", "panca_inclinata_con_manubri"],
     ["Dip alle Parallele (sovraccarico)", "dip_alle_parallele_sovraccarico"],
     ["Croci ai Cavi in Allungamento", "croci_ai_cavi_in_allungamento"],
+    ["Croci con Manubri su Panca Piana", "croci_con_manubri_su_panca_piana"],
     ["Trazioni alla Sbarra (Pull-up)", "trazioni_alla_sbarra_pull_up"],
     ["Lat Machine con Triangolo", "lat_machine_con_triangolo"],
     ["Rematore con Bilanciere", "rematore_con_bilanciere"],
@@ -139,6 +141,9 @@ const CATEGORY_SECONDARIES = {
 };
 const REQUIRES = {
     'Panca Piana con Bilanciere': ['rack', 'flat_bench'],
+    'Croci con Manubri su Panca Piana': ['flat_bench'],
+    'Lat Machine con Triangolo': ['triangle_handle'],
+    'Pushdown ai Cavi con Corda': ['rope_attachment'],
     'Squat con Bilanciere': ['rack'],
     'Front Squat': ['rack'],
     'Panca Inclinata con Bilanciere': ['rack', 'incline_bench'],

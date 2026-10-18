@@ -71,7 +71,8 @@ test('note specifiche al movimento, RIR coerente e regola di progressione esport
  const rows=MyCoatch.exportAsCSV().trim().split('\n').map(row=>row.split(';')); 
  assert.ok(rows.length>50);
  assert.ok(rows.every(r=>r.length===12));
- assert.match(MyCoatch.exportAsCSV(),/PROGRESSIONE/);
+ assert.doesNotMatch(MyCoatch.exportAsCSV(),/\[PROGRESSIONE\]|\[SCELTA MYCOATCH\]/);
+ assert.match(MyCoatch.exportAsCSV(),/esecuzione controllata|Movimento controllato|Tronco stabile|Scapole stabili/);
 });
 test('non confonde configurazione mancante con un peso non componibile',()=>{
  const ex={name:'Panca Piana con Bilanciere',equipment:'barbell'};

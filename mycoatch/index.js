@@ -8,6 +8,7 @@ import { analyzeUserHistory } from './autoregulation.js';
 import { assessExerciseLive } from './liveCoach.js';
 import { estimateE1rm } from './historyAnalysis.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
+import { conciseExerciseInstruction } from './exerciseInstructions.js';
 import { calibrationHandoffForMesocycle } from './calibrationReview.js';
 import { planMacrocycle } from './macrocyclePlanner.js';
 import { prepareRecentEvidence } from './recentEvidence.js';
@@ -223,7 +224,7 @@ export const MyCoatch = {
 
                     // ESTRAZIONE E CODIFICA DELLE TECNICHE DI INTENSITÀ NEL CSV
                     // Se l'ultimo set dell'esercizio contiene una tecnica di intensità, iniettiamo il tag a inizio nota
-                    let noteFinalStr = ex.notes || "";
+                    let noteFinalStr = conciseExerciseInstruction(ex);
                     const lastSetObj = Array.isArray(ex.sets) ? ex.sets[ex.sets.length - 1] : null;
 
                     if (lastSetObj && lastSetObj.intensityTechnique) {

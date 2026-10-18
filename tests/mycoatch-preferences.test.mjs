@@ -27,6 +27,7 @@ test('trasmette esattamente la durata scelta a MyCoatch', () => {
         focus: 'hybrid', primaryGoal: 'powerbuilding',
         availableEquipment: [...DEFAULT_HOME_GYM_EQUIPMENT],
         availableAccessories: [...DEFAULT_HOME_GYM_ACCESSORIES],
+        cableSetup: 'single_high_low',
         preferredLifts: {}
     });
 });

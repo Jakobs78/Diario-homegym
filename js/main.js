@@ -267,6 +267,7 @@ function setupEventListeners() {
                 focus: document.getElementById('select-focus')?.value,
                 preferredLifts: Object.fromEntries(['bench', 'squat', 'military', 'hinge']
                     .map(lift => [lift, document.getElementById('mycoatch-lift-' + lift)?.value || 'auto'])),
+                cableSetup: document.getElementById('mycoatch-cable-setup')?.value || 'single_high_low',
                 availableAccessories: [...DEFAULT_HOME_GYM_ACCESSORIES,
                     ...Array.from(document.querySelectorAll('.mycoatch-accessory-check:checked'),
                         input => input.value)],
