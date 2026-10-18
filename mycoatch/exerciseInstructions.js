@@ -50,7 +50,8 @@ export function conciseExerciseInstruction(exercise) {
     } else if (verbose.includes('[WARM-UP]')) parts.push('[WARM-UP] Serie leggere di avvicinamento.');
     if (verbose.includes('[RIFERIMENTO ATLETA]')) {
         const reference = /\[RIFERIMENTO ATLETA\]\s*(\d+(?:[.,]\d+)?)\s*kg/.exec(verbose);
-        if (reference) parts.push('[RIFERIMENTO ATLETA] ' + reference[1] + ' kg dichiarati, da verificare.');
+        if (reference) parts.push('[RIFERIMENTO ATLETA] ' + reference[1] + ' kg dichiarati, da verificare.' +
+            (verbose.includes('Peso non prescritto automaticamente') ? ' Non adottati come carico automatico.' : ''));
     }
     if (verbose.includes('[VOLUME INIZIALE]'))
         parts.push('[VOLUME INIZIALE] Solo le serie previste nella scheda.');
