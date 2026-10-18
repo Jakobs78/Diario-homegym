@@ -61,5 +61,6 @@ export function conciseExerciseInstruction(exercise) {
         exercise.equipment !== 'bodyweight')
         parts.push('Carico: calibra kg in base a reps e RPE.');
     parts.push(cue(exercise));
-    return parts.join(' | ');
+    // The legacy 12-column CSV must not gain a pseudo-separator in Note.
+    return parts.join(' | ').replace(/;/g, ',');
 }
