@@ -6,6 +6,7 @@
 // ==========================================
 import { state } from './state.js';
 import { buildMesocyclePdfDetails } from './mesocyclePdfModel.js';
+import { buildMesocycleCoachPdfReport } from './mesocyclePdfCoachReport.js';
 import { saveAndSync } from './storage.js';
 import { renderWorkoutList, showNotification } from './ui.js';
 import { closeMesocycleInMemory, summarizeMesocycleClosure } from './mesocycleClosure.js';
@@ -190,7 +191,8 @@ export function exportMesoToPDF(mesoData) {
     if (!mesoData) { alert('Nessun mesociclo da esportare.'); return; }
     const {jsPDF} = window.jspdf;
     const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-    const rows = buildMesocyclePdfDetails(mesoData);
+    const coachReport = buildMesocycleCoachPdfReport(mesoData);
+    const rows = [...coachReport.rows, ...buildMesocyclePdfDetails(mesoData)];
     const left = 14, right = 196, width = right - left, bottom = 278;
     const dark = [15, 23, 42], muted = [71, 85, 105], blue = [3, 105, 161];
     let y = 18;
@@ -241,7 +243,51 @@ export function exportMesoToPDF(mesoData) {
     y += 7;
 
     for (const row of rows) {
-        if (row.kind === 'week') {
+        if (row.kind === 'coach-section') {
+            ensure(14);
+            doc.setFillColor(219, 234, 254);
+            doc.rect(left, y - 5, width, 10, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.setTextColor(...dark);
+            // Split long headings to prevent clipping on a narrow A4 page.
+            const titles = doc.splitTextToSize(row.title, width - 6);
+            if (titles.length > 1) {
+                // A long heading follows the ordinary line-level paginator.
+                doc.rect(left, y - 5, width, 10, 'F');
+                wrapped(row.title, left + 3, 10, 5, dark, 'bold');
+                y += 6;
+            } else {
+                doc.text(row.title, left + 3, y + 1.5);
+                y += 13;
+            }
+        } else if (row.kind === 'coach-text') {
+            ensure(6);
+            wrapped(row.text, left + 2, 8.4, 4.5, dark, 'normal');
+            y += 3;
+        } else if (row.kind === 'coach-muscle-head') {
+            ensure(12);
+            doc.setFillColor(241, 245, 249);
+            doc.rect(left, y - 4, width, 8, 'F');
+            doc.setFont('helvetica','bold');
+            doc.setFontSize(7.2);
+            doc.setTextColor(...muted);
+            ['MUSCOLO','DIR.','IND.','CREDITI','QUOTA','ESEG./PIANO'].forEach((s,idx) =>
+                doc.text(s,[16,75,97,117,142,162][idx],y));
+            y += 9;
+        } else if (row.kind === 'coach-muscle') {
+            ensure(8);
+            doc.setFillColor(248, 250, 252);
+            doc.rect(left, y - 4, width, 7, 'F');
+            doc.setFont('helvetica','normal');
+            doc.setFontSize(7.6);
+            doc.setTextColor(...dark);
+            const vals=[row.title,String(row.direct),String(row.indirect),
+                String(row.credited),row.share===null?'n.d.':row.share+'%',
+                row.execution===null?'n.d.':row.execution+'%'];
+            vals.forEach((s,idx)=>doc.text(s,[16,75,97,117,142,162][idx],y));
+            y += 8;
+        } else if (row.kind === 'week') {
             ensure(16);
             doc.setFillColor(226, 232, 240);
             doc.rect(left, y - 5, width, 10, 'F');
