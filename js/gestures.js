@@ -31,6 +31,9 @@ export function enableCardSwipeGesture(cardElement, onSwipeLeft, onSwipeRight) {
         currentX=touch.clientX;currentY=touch.clientY;
         const dx=currentX-startX,dy=currentY-startY;
         const absX=Math.abs(dx),absY=Math.abs(dy);
+        // Disabled directions must not even move or fade the card.
+        if(dx>0 && typeof onSwipeRight!=='function')return;
+        if(dx<0 && typeof onSwipeLeft!=='function')return;
         if(absY>absX && !swiping)return;
         if(absX>30 && absX>absY*2){
             swiping=true;

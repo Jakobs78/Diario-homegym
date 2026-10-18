@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v50-pwa-mobile-install-20261017';
+const CACHE_NAME = 'workout-app-v50-left-swipe-warmup-20261018';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
