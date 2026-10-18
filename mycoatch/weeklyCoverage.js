@@ -72,6 +72,13 @@ export function auditWeeklyCoverage(days, templates = []) {
             'Fondamentale ' + anchor.lift + ' non presente nel giorno ' + anchor.dayNumber
         );
     }
+    // Volume is a programming estimate, never a diagnosis. Flag large
+    // imbalances for preview without inserting unrequested series.
+    const backSets = (direct.Back_Lats || 0) + (direct.Back_Thickness || 0);
+    if(direct.Petto >= 8 && backSets < direct.Petto * .75)
+        warnings.push('Volume diretto di dorso (' + backSets + ') inferiore al petto (' + direct.Petto + '): verifica priorità e recupero prima di riequilibrare.');
+    if(shoulderHeadDirectIsolationSets.laterale >= 4 && shoulderHeadDirectIsolationSets.posteriore === 0)
+        warnings.push('Deltoide posteriore: nessuna serie di isolamento dedicata. Verifica se serve in base al lavoro di tirata e alle priorità.');
     if (exercisesUnknown.length) warnings.push(
         'Esercizi non riconosciuti nel catalogo: ' + exercisesUnknown.join(', ')
     );
