@@ -48,6 +48,8 @@ export function conciseExerciseInstruction(exercise) {
         const warmup = /\[WARM-UP AUTO\]:?\s*([^|.]+)/.exec(verbose);
         parts.push('[WARM-UP AUTO] ' + (warmup?.[1]?.trim() || 'Avvicinamento progressivo.'));
     } else if (verbose.includes('[WARM-UP]')) parts.push('[WARM-UP] Serie leggere di avvicinamento.');
+    if (verbose.includes('[CALIBRAZIONE MYCOATCH]'))
+        parts.push('[CALIBRAZIONE MYCOATCH] Prima settimana: carico leggero, tecnica prima del peso.');
     if (verbose.includes('Scarico:') || verbose.includes('🛡️ Scarico'))
         parts.push('SCARICO: carichi/serie ridotti come da scheda.');
     const drop = exercise?.sets?.at(-1)?.intensityTechnique;
