@@ -1,7 +1,7 @@
 /** Accessible half-point RPE control. Only the athlete's explicit tap edits the draft. */
 const numeric = raw => {
     const text = String(raw ?? '').trim().replace(/^@/, '').replace(',', '.');
-    if (!/^\\d+(?:\\.\\d+)?$/.test(text)) return null;
+    if (!/^\d+(?:\.\d+)?$/.test(text)) return null;
     const n = Number(text);
     return Number.isFinite(n) && n >= 6 && n <= 10 ? n : null;
 };
