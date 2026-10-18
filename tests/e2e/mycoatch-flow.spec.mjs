@@ -1664,7 +1664,8 @@ test('mobile 320px: meso lock always visible, no nav, exclusion by double-click 
   await page.locator('#toggle-lock-meso-btn').click();
   await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Blocca mesociclo');
   const card=page.locator('.ex-card[data-ex="0"]');
-  await expect(card.locator('.exercise-exclude-hint')).toContainText('Doppio click o swipe per escludere');
+  await expect(card.locator('.exercise-exclude-hint')).toHaveText(
+    'Doppio click o swipe o clicca su W del SET per escludere il riscaldamento');
   await expect(card.locator('.exercise-exclude-btn')).toHaveCount(0);
   await card.locator('.ex-name').dblclick();
   await expect(page.locator('.ex-card[data-ex="0"]')).toHaveClass(/is-excluded/);
@@ -1674,7 +1675,7 @@ test('mobile 320px: meso lock always visible, no nav, exclusion by double-click 
   assert.ok(overflow<=2,'Unexpected horizontal overflow: '+overflow);
 });
 
-test('gesture: 299px ignores, 310px toggles, reverse toggles back, inputs cannot trigger',async({page})=>{
+test('gesture: only left 300px+ toggles; right ignored; inputs cannot trigger',async({page})=>{
   await page.setViewportSize({width:375,height:780});
   await openIsolatedApp(page);
   const swipe=async(x1,x2,selector='.ex-name')=>page.evaluate(([start,end,sel])=>{
@@ -1688,7 +1689,21 @@ test('gesture: 299px ignores, 310px toggles, reverse toggles back, inputs cannot
   await expect(page.locator('.ex-card[data-ex="0"]')).not.toHaveClass(/is-excluded/);
   await swipe(342,32);
   await expect(page.locator('.ex-card[data-ex="0"]')).toHaveClass(/is-excluded/);
-  await swipe(32,342);
+  // Right swipe never reverses exclusion and does not translate the card.
+  const visual=await page.evaluate(()=>{
+    const card=document.querySelector('.ex-card[data-ex="0"]');
+    const el=card.querySelector('.ex-name');
+    const touch=x=>new Touch({identifier:8,target:el,clientX:x,clientY:240,pageX:x,pageY:240});
+    el.dispatchEvent(new TouchEvent('touchstart',{bubbles:true,touches:[touch(32)],changedTouches:[touch(32)]}));
+    el.dispatchEvent(new TouchEvent('touchmove',{bubbles:true,touches:[touch(342)],changedTouches:[touch(342)]}));
+    const during={transform:card.style.transform,opacity:card.style.opacity};
+    el.dispatchEvent(new TouchEvent('touchend',{bubbles:true,touches:[],changedTouches:[touch(342)]}));
+    return {...during,after:card.style.transform};
+  });
+  expect(visual).toEqual({transform:'',opacity:'',after:''});
+  await expect(page.locator('.ex-card[data-ex="0"]')).toHaveClass(/is-excluded/);
+  // A second left swipe still restores the working-exercise state.
+  await swipe(342,32);
   await expect(page.locator('.ex-card[data-ex="0"]')).not.toHaveClass(/is-excluded/);
   await swipe(342,32,'.set-kg');
   await expect(page.locator('.ex-card[data-ex="0"]')).not.toHaveClass(/is-excluded/);
