@@ -35,6 +35,7 @@ const ASSETS_TO_CACHE = [
   '/js/fullBackup.js',
   '/js/coachPreviewUI.js',
   '/js/mesocyclePdfModel.js',
+  '/js/mesocyclePdfCoachReport.js',
   '/js/mesocycle.js',
   '/js/mesocycleClosure.js',
   '/js/mesocycleClosureUI.js',
