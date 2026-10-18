@@ -2495,10 +2495,27 @@ test('chiusura guidata integrata: blocca il ciclo, conserva i dati, esporta repo
   await expect(page.locator('#mesocycle-closure-panel')).toContainText('Sedute complete: 3/3');
   const checks=page.locator('#mesocycle-closure-panel input[type=checkbox]');
   await expect(checks).toHaveCount(1);
+  const consentArea=page.locator('.mycoatch-meso-closure-confirmations');
+  await expect(consentArea).toContainText('Prima di concludere: spunta le conferme');
+  await expect(consentArea.locator('.mycoatch-meso-closure-check')).toHaveCount(1);
+  await expect(consentArea.locator('.mycoatch-meso-closure-progress')).toContainText('0/1');
   const finish=page.getByRole('button',{name:/Concludi e blocca il mesociclo/});
-  await expect(finish).toBeDisabled();
+  await expect(finish).toBeEnabled(); // Always actionable; explains missing consent.
+  await expect(finish).toHaveAttribute('data-confirmations-pending','true');
+  await finish.click();
+  await expect(page.locator('.mycoatch-meso-closure-feedback'))
+    .toContainText('spunta la conferma evidenziata');
+  await expect(checks.first()).toBeFocused();
+  const untouched=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const m=state.workoutData.history.years['2026'].mesocycles[0];
+    return {locked:Boolean(m.locked),closure:m.coachClosure};
+  });
+  expect(untouched).toEqual({locked:false,closure:undefined});
   await checks.first().check();
-  await expect(finish).toBeEnabled();
+  await expect(consentArea.locator('.mycoatch-meso-closure-check')).toHaveClass(/is-confirmed/);
+  await expect(consentArea.locator('.mycoatch-meso-closure-progress')).toContainText('1/1');
+  await expect(finish).toHaveAttribute('data-confirmations-pending','false');
   page.on('dialog', dialog=>dialog.accept());
   await finish.click();
   await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Sblocca');
@@ -2575,11 +2592,26 @@ test('mesociclo parziale: doppio consenso obbligatorio e chiusura non automatica
   await expect(page.locator('#mesocycle-closure-panel')).toContainText('Sedute complete: 2/3');
   const boxes=page.locator('#mesocycle-closure-panel input[type=checkbox]');
   await expect(boxes).toHaveCount(2);
+  const consentArea=page.locator('.mycoatch-meso-closure-confirmations');
+  await expect(consentArea.locator('.mycoatch-meso-closure-check')).toHaveCount(2);
+  await expect(consentArea.locator('.mycoatch-meso-closure-progress')).toContainText('0/2');
   const finish=page.getByRole('button',{name:/Concludi e blocca il mesociclo/});
-  await boxes.first().check();
-  await expect(finish).toBeDisabled();
-  await boxes.last().check();
   await expect(finish).toBeEnabled();
+  await expect(finish).toHaveAttribute('data-confirmations-pending','true');
+  await finish.click(); // No confirmations means no prompt and no state change.
+  await expect(page.locator('.mycoatch-meso-closure-feedback'))
+    .toContainText('spunta le conferme evidenziate');
+  await expect(boxes.first()).toBeFocused();
+  await boxes.first().check();
+  await expect(consentArea.locator('.mycoatch-meso-closure-progress')).toContainText('1/2');
+  await finish.click();
+  await expect(page.locator('.mycoatch-meso-closure-feedback'))
+    .toContainText('spunta la conferma evidenziata');
+  await expect(boxes.last()).toBeFocused();
+  await expect(finish).toHaveAttribute('data-confirmations-pending','true');
+  await boxes.last().check();
+  await expect(consentArea.locator('.mycoatch-meso-closure-progress')).toContainText('2/2');
+  await expect(finish).toHaveAttribute('data-confirmations-pending','false');
   let confirmCalls=0;
   page.on('dialog',async d=>{
     if(d.type()==='confirm'){confirmCalls++;await d.dismiss();}
@@ -2597,6 +2629,47 @@ test('mesociclo parziale: doppio consenso obbligatorio e chiusura non automatica
   expect(after.checked).toBe(false);
 });
 
+
+
+test('mobile 320px: mandatory closure consent cards stay visible and guide a blocked tap',async({page})=>{
+  await page.setViewportSize({width:320,height:720});
+  await openIsolatedApp(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=1;
+    const meso=state.workoutData.history.years['2026'].mesocycles[0];
+    meso.weeks[1].days[0].exercises[0].loggedSets[0].isLocked=false;
+    meso.weeks[1].days[0].exercises[0].loggedSets[0].completed=false;
+    renderWorkoutList();
+  });
+  await page.locator('#review-close-meso-btn').click();
+  const area=page.locator('.mycoatch-meso-closure-confirmations');
+  const boxes=area.locator('input[type=checkbox]');
+  await expect(boxes).toHaveCount(2);
+  for(const box of await area.locator('.mycoatch-meso-closure-check').all()){
+    const metrics=await box.evaluate(el=>{
+      const box=el.getBoundingClientRect();
+      const input=el.querySelector('input').getBoundingClientRect();
+      return {boxWidth:box.width,inputWidth:input.width,scrollWidth:el.scrollWidth,clientWidth:el.clientWidth};
+    });
+    expect(metrics.inputWidth).toBeGreaterThanOrEqual(24);
+    expect(metrics.boxWidth).toBeGreaterThan(230);
+    expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth+2);
+  }
+  const btn=page.getByRole('button',{name:/Concludi e blocca il mesociclo/});
+  await btn.click();
+  await expect(boxes.first()).toBeFocused();
+  await expect(area).toHaveClass(/requires-attention/);
+  await expect(page.locator('.mycoatch-meso-closure-feedback')).toContainText('spunta le conferme');
+  const docWidth=await page.evaluate(()=>document.documentElement.scrollWidth);
+  expect(docWidth).toBeLessThanOrEqual(322);
+  const untouched=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    return state.workoutData.history.years['2026'].mesocycles[0].coachClosure;
+  });
+  expect(untouched).toBeUndefined();
+});
 
 test('smartphone: l’ultima spunta dell’ultimo giorno evidenzia MyCoatch anche con esercizi incompleti',async({page})=>{
   await page.setViewportSize({width:375,height:812});
