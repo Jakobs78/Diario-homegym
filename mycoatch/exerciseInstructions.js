@@ -48,6 +48,12 @@ export function conciseExerciseInstruction(exercise) {
         const warmup = /\[WARM-UP AUTO\]:?\s*([^|.]+)/.exec(verbose);
         parts.push('[WARM-UP AUTO] ' + (warmup?.[1]?.trim() || 'Avvicinamento progressivo.'));
     } else if (verbose.includes('[WARM-UP]')) parts.push('[WARM-UP] Serie leggere di avvicinamento.');
+    if (verbose.includes('[RIFERIMENTO ATLETA]')) {
+        const reference = /\[RIFERIMENTO ATLETA\]\s*(\d+(?:[.,]\d+)?)\s*kg/.exec(verbose);
+        if (reference) parts.push('[RIFERIMENTO ATLETA] ' + reference[1] + ' kg dichiarati, da verificare.');
+    }
+    if (verbose.includes('[VOLUME INIZIALE]'))
+        parts.push('[VOLUME INIZIALE] Solo le serie previste nella scheda.');
     if (verbose.includes('[CALIBRAZIONE MYCOATCH]'))
         parts.push('[CALIBRAZIONE MYCOATCH] Prima settimana: carico leggero, tecnica prima del peso.');
     if (verbose.includes('Scarico:') || verbose.includes('🛡️ Scarico'))
