@@ -3105,12 +3105,80 @@ body.dark-mode .group-title-badge {
 .mycoatch-meso-closure-content { margin-top: .65rem; }
 .mycoatch-meso-closure-content p { margin: .4rem 0; }
 .mycoatch-meso-closure-content ul { margin: .35rem 0 .7rem; padding-left: 1.5rem; }
-.mycoatch-meso-closure-check {
-  display: flex; align-items: flex-start; gap: .65rem;
-  margin: .7rem 0; cursor: pointer;
+/* Required consents: prominent on phones, with visible completion feedback. */
+.mycoatch-meso-closure-confirmations {
+  margin: 16px 0 12px;
+  padding: 12px;
+  border: 2px solid #d97706;
+  border-radius: 12px;
+  background: rgba(217,119,6,.07);
 }
-.mycoatch-meso-closure-check input { margin-top: .25rem; flex-shrink: 0; }
+.mycoatch-meso-closure-confirmation-title {
+  display: block;
+  color: var(--text-color);
+  font-size: 1rem;
+  line-height: 1.45;
+}
+.mycoatch-meso-closure-progress {
+  margin: 8px 0 12px !important;
+  font-size: .9rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.mycoatch-meso-closure-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 60px;
+  margin: 10px 0;
+  padding: 13px 12px;
+  border: 2px solid #d97706;
+  border-radius: 10px;
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-size: .94rem;
+  font-weight: 650;
+  line-height: 1.45;
+  cursor: pointer;
+  scroll-margin-block: 25vh;
+}
+.mycoatch-meso-closure-check.is-confirmed {
+  border-color: var(--success-color);
+  background: rgba(22,163,74,.08);
+}
+.mycoatch-meso-closure-check input {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--accent-color);
+  cursor: pointer;
+}
+.mycoatch-meso-closure-check:focus-within {
+  outline: 3px solid var(--accent-color);
+  outline-offset: 2px;
+}
+.mycoatch-meso-closure-confirmations.requires-attention .mycoatch-meso-closure-check:not(.is-confirmed) {
+  outline: 2px solid #d97706;
+  outline-offset: 2px;
+}
+.mycoatch-meso-closure-warning {
+  font-weight: 600;
+  line-height: 1.5;
+}
+.mycoatch-meso-closure-feedback {
+  font-weight: 700;
+  line-height: 1.5;
+}
+.mycoatch-meso-closure-feedback:empty { display: none; }
 .mycoatch-meso-closure-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: .7rem; }
+.mycoatch-meso-close-button { min-height: 48px; white-space: normal; }
+.mycoatch-meso-close-button[data-confirmations-pending="true"] { opacity: .85; }
+@media (max-width: 480px) {
+  .mycoatch-meso-closure-confirmations { padding: 10px; }
+  .mycoatch-meso-close-button { width: 100%; }
+}
 
 /* Do not push exercises below the fold before the athlete opens the review. */
 #mesocycle-closure-panel[hidden] { display: none !important; }
