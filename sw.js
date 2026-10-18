@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v50-left-swipe-warmup-20261018';
+const CACHE_NAME = 'workout-app-v50-coach-muscle-pdf-20261018';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -35,6 +35,7 @@ const ASSETS_TO_CACHE = [
   '/js/fullBackup.js',
   '/js/coachPreviewUI.js',
   '/js/mesocyclePdfModel.js',
+  '/js/mesocyclePdfCoachReport.js',
   '/js/mesocycle.js',
   '/js/mesocycleClosure.js',
   '/js/mesocycleClosureUI.js',
