@@ -6,7 +6,7 @@ import {
     getAppliedFutureLoadReview,canUndoFutureLoadReview
 } from '../mycoatch/futureLoadReview.js';
 import {getSetPrefill} from '../js/setPrefill.js';
-const performed=(kg=80,reps=9,rpe=6,other={})=>({
+const performed=(kg=80,reps=10,rpe=7,other={})=>({
     weight:String(kg),reps:String(reps),rpe:String(rpe),isLocked:true,completed:true,...other
 });
 const draft=()=>({weight:'',reps:'',rpe:'',isLocked:false,completed:false});
