@@ -88,6 +88,7 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/mycoatch-adapter.js',
   '/mycoatch/liveCoach.js',
   '/mycoatch/loadProposal.js',
+  '/mycoatch/nextSessionReps.js',
   '/mycoatch/barbellInventory.js',
   '/mycoatch/futureLoadReview.js',
   '/mycoatch/sessionReadiness.js',
