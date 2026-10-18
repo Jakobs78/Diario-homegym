@@ -2008,7 +2008,7 @@ test('all confirmed sets at upper rep range and low RPE can propose a small load
   });
   for(let i=0;i<3;i++){
     await page.locator('.set-kg[data-set="'+i+'"]').fill('80');
-    await page.locator('.set-reps[data-set="'+i+'"]').fill('6');
+    await page.locator('.set-reps[data-set="'+i+'"]').fill('8');
     await page.locator('.set-rpe[data-set="'+i+'"]').fill('6');
     await page.locator('.set-lock-check[data-set="'+i+'"]').check();
   }
@@ -2025,7 +2025,7 @@ test('all confirmed sets at upper rep range and low RPE can propose a small load
       prescription:ex.sets,loadingSteps:state.workoutData.athlete.loadingSteps};
   });
   assert.equal(state.actual.length,3);
-  assert.ok(state.actual.every(s=>s[0]===80&&s[1]==='6'&&s[2]===6&&s[3]));
+  assert.ok(state.actual.every(s=>s[0]===80&&s[1]==='8'&&s[2]===6&&s[3]));
   assert.deepEqual(state.loadingSteps,{barbell:2.5,dumbbell:1,machine:2.5});
   assert.ok(!JSON.stringify(state.prescription||[]).includes('82.5'));
   assert.deepEqual(monitor.remoteRequests,[]);
