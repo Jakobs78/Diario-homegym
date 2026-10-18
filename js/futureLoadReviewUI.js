@@ -56,7 +56,7 @@ export function createFutureLoadReviewPanel(meso,weekNumber,dayIndex,{
         item.append(el('p','',record.reason));
         item.append(el('small','',
             applied?'Revisione applicata su tua conferma.':
-            'Proposta provvisoria da una seduta. Non sostituisce una progressione consolidata su due settimane.'));
+            'Proposta provvisoria: aggiorna solo la prossima esposizione. Rivaluta le serie prima di qualunque altro aumento.'));
         const summary=el('strong','',record.changes.length+
             ' esposizion'+(record.changes.length===1?'e':'i')+
             (applied?' aggiornat'+(record.changes.length===1?'a':'e'): ' modificabil'+(record.changes.length===1?'e':'i')));
