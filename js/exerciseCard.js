@@ -220,8 +220,13 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                 <td class="td-input">
                     <input type="text" inputmode="numeric" autocomplete="off" class="set-input set-reps ios-no-zoom ${repsClass} ${isUnsavedReps ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayReps)}" placeholder="${escapeHtml(defaultTargetReps)}" ${isDisabled ? 'disabled' : ''}>
                 </td>
-                <td class="td-input">
-                    <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe ios-no-zoom ${rpeClass} ${isUnsavedRpe ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayRpe)}" placeholder="RPE" title="RPE proposto: verifica che corrisponda alla fatica percepita. La spunta ✓ conferma tutti i valori della serie." ${isDisabled ? 'disabled' : ''}>
+                <td class="td-input td-rpe-stepper">
+                    <div class="rpe-stepper" role="group" aria-label="Correggi l'RPE percepito nella serie ${setIdx + 1}">
+                        <button type="button" class="rpe-step-btn" data-ex="${exIdx}" data-set="${setIdx}" data-direction="-1" aria-label="Diminuisci RPE di 0,5 nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>−</button>
+                        <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe ios-no-zoom ${rpeClass} ${isUnsavedRpe ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayRpe)}" placeholder="RPE" title="RPE percepito: correggi il valore suggerito prima del ✓. Il target rimane invariato." aria-label="RPE percepito nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>
+                        <button type="button" class="rpe-step-btn" data-ex="${exIdx}" data-set="${setIdx}" data-direction="1" aria-label="Aumenta RPE di 0,5 nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>+</button>
+                    </div>
+                    <small class="rpe-target-label" title="Obiettivo RPE di MyCoatch, non prestazione effettuata">Ob. ${escapeHtml(targetRpeStr || '—')}</small>
                 </td>
                 <td class="td-check text-center">
                     <input type="checkbox" class="set-lock-check custom-big-check" aria-label="Conferma o riapri serie ${setIdx+1}" title="${hasDropPrescription(ex,setIdx)?'Conferma base e scarichi insieme':'Conferma serie'}" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''}>
