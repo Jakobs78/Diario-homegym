@@ -89,38 +89,87 @@ export function createMesocycleClosurePanel(mesocycle) {
         if (!review.plannedSessions) {
             body.append(node('p', 'Nessuna seduta programmata: non è possibile concludere il mesociclo.'));
         } else {
+            // Keep the existing consent rules, but make the prerequisites
+            // visible and actionable instead of silently disabling the button.
+            const confirmations = node('section', undefined,
+                'mycoatch-meso-closure-confirmations');
+            confirmations.setAttribute('aria-label', 'Conferme obbligatorie per la chiusura');
+            confirmations.append(node('strong',
+                '⚠️ Prima di concludere: spunta le conferme',
+                'mycoatch-meso-closure-confirmation-title'));
+            const progress = node('p', undefined, 'mycoatch-meso-closure-progress');
+            progress.id = 'mesocycle-closure-confirmation-status';
+            progress.setAttribute('role', 'status');
+            progress.setAttribute('aria-live', 'polite');
+            confirmations.append(progress);
+
             const ready = node('label', undefined, 'mycoatch-meso-closure-check');
             const consent = node('input');
             consent.type = 'checkbox';
             ready.append(consent, node('span',
-                'Ho controllato il riepilogo e voglio concludere questo mesociclo, bloccandolo in sola lettura.'));
-            body.append(ready);
+                '1. Ho controllato il riepilogo e voglio concludere questo mesociclo, bloccandolo in sola lettura.'));
+            confirmations.append(ready);
+
             let incomplete = null;
+            let incompleteLabel = null;
             if (review.status !== 'complete') {
                 const warning = node('p',
                     'Il mesociclo NON è completamente registrato: la chiusura non inventerà sedute o serie. ' +
-                    'Puoi tornare ad allenarti oppure chiuderlo anticipatamente.');
+                    'Puoi tornare ad allenarti oppure chiuderlo anticipatamente.',
+                    'mycoatch-meso-closure-warning');
                 warning.setAttribute('role', 'status');
-                body.append(warning);
-                const label = node('label', undefined, 'mycoatch-meso-closure-check');
+                confirmations.append(warning);
+                incompleteLabel = node('label', undefined, 'mycoatch-meso-closure-check');
                 incomplete = node('input');
                 incomplete.type = 'checkbox';
-                label.append(incomplete, node('span',
-                    'Confermo espressamente la chiusura anticipata con sedute incomplete.'));
-                body.append(label);
+                incompleteLabel.append(incomplete, node('span',
+                    '2. Confermo espressamente la chiusura anticipata con sedute incomplete.'));
+                confirmations.append(incompleteLabel);
             }
+            body.append(confirmations);
+
             const apply = node('button',
-                '🔒 Concludi e blocca il mesociclo', 'btn btn-primary btn-sm');
+                '🔒 Concludi e blocca il mesociclo',
+                'btn btn-primary btn-sm mycoatch-meso-close-button');
             apply.type = 'button';
-            apply.disabled = true;
-            const refresh = () => apply.disabled =
-                !consent.checked || Boolean(incomplete && !incomplete.checked);
-            consent.addEventListener('change', refresh);
-            incomplete?.addEventListener('change', refresh);
-            const feedback = node('p');
+            apply.setAttribute('aria-describedby', progress.id);
+            const checks = [ready, ...(incompleteLabel ? [incompleteLabel] : [])];
+            const refresh = () => {
+                ready.classList.toggle('is-confirmed', consent.checked);
+                if (incompleteLabel) incompleteLabel.classList.toggle('is-confirmed', incomplete.checked);
+                const missing = checks.filter(label => !label.querySelector('input').checked);
+                const completed = checks.length - missing.length;
+                progress.textContent = missing.length
+                    ? 'Conferme: ' + completed + '/' + checks.length +
+                      '. Spunta ' + missing.length + ' casell' +
+                      (missing.length === 1 ? 'a' : 'e') + ' per poter concludere.'
+                    : '✓ Conferme: ' + checks.length + '/' + checks.length +
+                      '. Ora puoi concludere e bloccare il mesociclo.';
+                apply.dataset.confirmationsPending = String(missing.length > 0);
+                if (!missing.length) confirmations.classList.remove('requires-attention');
+                return missing;
+            };
+            const feedback = node('p', undefined, 'mycoatch-meso-closure-feedback');
             feedback.setAttribute('role', 'alert');
+            const onChange = () => {
+                refresh();
+                feedback.textContent = '';
+            };
+            consent.addEventListener('change', onChange);
+            incomplete?.addEventListener('change', onChange);
+            refresh();
             apply.addEventListener('click', async () => {
-                if (apply.disabled) return;
+                const missing = refresh();
+                if (missing.length) {
+                    confirmations.classList.add('requires-attention');
+                    feedback.textContent = 'Prima di concludere, spunta ' +
+                        (missing.length === 1 ? 'la conferma evidenziata' :
+                            'le conferme evidenziate') + ' qui sopra.';
+                    const first = missing[0];
+                    first.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+                    first.querySelector('input')?.focus({ preventScroll: true });
+                    return;
+                }
                 if (!confirm('Concludere e bloccare il mesociclo? Potrai ancora consultarlo e scaricare i dati. Per modificarlo dovrai riaprirlo esplicitamente.')) return;
                 apply.disabled = true;
                 try {
@@ -131,6 +180,7 @@ export function createMesocycleClosurePanel(mesocycle) {
                     if (panel) panel.open = true;
                 } catch (error) {
                     feedback.textContent = error.message || 'Impossibile registrare la chiusura.';
+                    apply.disabled = false;
                     refresh();
                 }
             });
