@@ -53,19 +53,19 @@ test('future progression preview lists only untouched matching sessions and appl
     const preview=previewFutureLoadReview(m,1,0,0,settings);
     assert.equal(preview.source.from,80);
     assert.equal(preview.source.to,82.5);
-    assert.equal(preview.changes.length,2);
+    assert.equal(preview.changes.length,1);
     assert.deepEqual(m,before,'preview never changes the diary');
     const record=applyFutureLoadReview(m,preview,settings);
-    assert.equal(record.changes.length,2);
+    assert.equal(record.changes.length,1);
     assert.equal(m.weeks[1].days[0].exercises[0].kgMin,'82.5');
-    assert.equal(m.weeks[2].days[0].exercises[0].kgMax,'82.5');
+    assert.equal(m.weeks[2].days[0].exercises[0].kgMax,'80','only the next exposure can change');
     assert.deepEqual(m.weeks[0],before.weeks[0],'source performance and prescription untouched');
     assert.equal(getSetPrefill(m.weeks[1].days[0].exercises[0],0,{
         previousExercise:m.weeks[0].days[0].exercises[0]
     }).weight,'82.5');
     assert.equal(getAppliedFutureLoadReview(m,1,0,0).id,'1:0:0');
     assert.equal(canUndoFutureLoadReview(m,record),true);
-    assert.deepEqual(undoFutureLoadReview(m,record),{restored:2});
+    assert.deepEqual(undoFutureLoadReview(m,record),{restored:1});
     assert.equal(m.weeks[1].days[0].exercises[0].kgMin,'80');
     assert.equal(m.weeks[2].days[0].exercises[0].kgMax,'80');
     assert.equal(record.undoneAt===undefined,false,'the persisted record tracks undo');
@@ -92,10 +92,10 @@ test('different future targets are not overwritten or flattened',()=>{
 });
 test('approval is rejected if source or target changed since preview; no partial writes',()=>{
     const m=mesocycle(),p=previewFutureLoadReview(m,1,0,0,settings);
-    m.weeks[2].days[0].exercises[0].loggedSets[0].rpe='7';
+    m.weeks[1].days[0].exercises[0].loggedSets[0].rpe='7';
     assert.throws(()=>applyFutureLoadReview(m,p,settings),/cambiate/);
     assert.equal(m.weeks[1].days[0].exercises[0].kgMin,'80');
-    m.weeks[2].days[0].exercises[0].loggedSets[0].rpe='';
+    m.weeks[1].days[0].exercises[0].loggedSets[0].rpe='';
     m.weeks[0].days[0].exercises[0].loggedSets[0].rpe='8';
     assert.throws(()=>applyFutureLoadReview(m,p,settings),/cambiate/);
     assert.equal(m.coachFutureLoadReviews,undefined);
@@ -109,7 +109,7 @@ test('lock prevents approval and undo; begun updated workout prevents undo of th
     m.locked=true;
     assert.equal(canUndoFutureLoadReview(m,record),false);
     m.locked=false;
-    m.weeks[2].days[0].exercises[0].loggedSets[0].weight='82.5';
+    m.weeks[1].days[0].exercises[0].loggedSets[0].weight='82.5';
     assert.equal(canUndoFutureLoadReview(m,record),false);
     assert.throws(()=>undoFutureLoadReview(m,record),/Non posso/);
 });
