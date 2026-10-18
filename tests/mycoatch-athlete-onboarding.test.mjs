@@ -212,7 +212,7 @@ test('dati convalidati nello storico hanno precedenza sul carico dichiarato', ()
     }), {}, history);
     assert.equal(meso.athleteOnboarding.calibrationWeek, false);
     assert.equal(meso.weeks[0].days[0].exercises[0].kgMin, '');
-    assert.ok(!meso.weeks[0].days[0].exercises[0].notes.includes('RIFERIMENTO ATLETA'));
+    assert.match(meso.weeks[0].days[0].exercises[0].notes,/RIFERIMENTO ATLETA.*non prescritto automaticamente/i);
 });
 
 test('anteprima esplicita profilo, calibrazione, esclusioni, e carichi dichiarati', () => {
