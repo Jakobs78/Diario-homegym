@@ -12,6 +12,7 @@ import { conciseExerciseInstruction } from './exerciseInstructions.js';
 import { calibrationHandoffForMesocycle } from './calibrationReview.js';
 import { planMacrocycle } from './macrocyclePlanner.js';
 import { prepareRecentEvidence } from './recentEvidence.js';
+import { deriveDurationCalibration } from './durationCalibration.js';
 import { resolveClosedMesocycle } from './closureHandoff.js';
 
 export const MyCoatch = {
@@ -50,6 +51,8 @@ export const MyCoatch = {
             });
         }
         const config = structuredClone(coachState.getConfig());
+        // Non eredita stime di altre persone: dati recenti del diario corrente.
+        config.durationCalibration = deriveDurationCalibration(userHistory);
         // Resolve per request, even with no goalSettings: never reuse another
         // athlete's load increments or inventory from the module state.
         config.loadingSteps=loadingSteps;
@@ -85,6 +88,7 @@ export const MyCoatch = {
                 notice: 'Origine scelta esplicitamente; le decisioni sui carichi usano solo serie recenti valide di tutto lo storico, non il solo report.'
             } : null,
             recency,
+            durationCalibration:config.durationCalibration,
             inspectedYears: originalReport.inspectedYears,
             inspectedMesocycles: originalReport.inspectedMesocycles,
             sessionsAnalyzed: originalReport.sessionsAnalyzed,
