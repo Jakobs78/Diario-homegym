@@ -40,10 +40,10 @@ function cue(exercise) {
 export function conciseExerciseInstruction(exercise) {
     const verbose = String(exercise?.notes || '');
     const parts = [];
-    const split = /^\[SPLIT MYCOATCH\]\s*(Upper [AB]|Lower [AB]|Full Body [ABC])/i.exec(verbose);
+    const split = /^\[SPLIT MYCOATCH\]\s*(Upper [AB]|Lower [AB]|Full Body [ABCD])/i.exec(verbose);
     if (split) parts.push('[SPLIT MYCOATCH] ' + split[1]);
-    if (verbose.includes('[SUPERSERIE]')) parts.push('[SUPERSERIE] Con il prossimo esercizio; recupera dopo la coppia.');
-    if (verbose.includes('[TRISET]')) parts.push('[TRISET] Tre esercizi consecutivi; recupera dopo il gruppo.');
+    if (verbose.includes('[SUPERSERIE]')) parts.push('[SUPERSERIE] superset: con il prossimo esercizio; recupera dopo la coppia.');
+    if (verbose.includes('[TRISET]')) parts.push('[TRISET] triset: tre esercizi consecutivi; recupera dopo il gruppo.');
     if (verbose.includes('[WARM-UP AUTO]')) {
         const warmup = /\[WARM-UP AUTO\]:?\s*([^|.]+)/.exec(verbose);
         parts.push('[WARM-UP AUTO] ' + (warmup?.[1]?.trim() || 'Avvicinamento progressivo.'));
@@ -60,7 +60,7 @@ export function conciseExerciseInstruction(exercise) {
     if (verbose.includes('Scarico:') || verbose.includes('🛡️ Scarico'))
         parts.push('SCARICO: carichi/serie ridotti come da scheda.');
     const drop = exercise?.sets?.at(-1)?.intensityTechnique;
-    if (drop === 'DROP_SET') parts.push('[DROP_SET] [DROP_SCOPE:LAST] Scarica il peso solo dopo l’ultima serie.');
+    if (drop === 'DROP_SET') parts.push('[DROP_SET] [DROP_SCOPE:LAST] dropset: riduci il peso solo dopo l’ultima serie.');
     else if (drop === 'REST_PAUSE') parts.push('[REST_PAUSE] Ultima serie: pausa breve e riparti.');
     if (verbose.includes('[ATTREZZATURA DA CONFIGURARE]'))
         parts.push('Carico: configura il bilanciere prima di allenarti.');
