@@ -145,8 +145,7 @@ export function getSetPrefill(exercise, index, { previousExercise = null, crossE
     // the first number of two different ranges. Count/slot must also match.
     const priorComparable=Boolean(previousExercise) &&
         String(exercise?.reps??exercise?.targetReps??'').trim()===
-            String(previousExercise?.reps??previousExercise?.targetReps??'').trim() &&
-        (exercise?.loggedSets||[]).length===(previousExercise?.loggedSets||[]).length;
+            String(previousExercise?.reps??previousExercise?.targetReps??'').trim();
     const fromLastWeek = !exercise?.coachWeeklyLoadReview && !sameSession && priorSet &&
         confirmed(priorSet) && !priorSet.isWarmup && !priorSet.warmup &&
         !priorSet.is_warmup && comparablePlan && priorComparable &&
