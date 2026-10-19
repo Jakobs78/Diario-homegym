@@ -156,7 +156,9 @@ export function getSetPrefill(exercise, index, { previousExercise = null, crossE
         ? recommendNextSessionReps(previousExercise, exercise) : null;
     const coachedReps = nextReps?.kind === 'build_reps'
         ? String(nextReps.reps[index]) : null;
-    const crossKg = !plan.weight && !exercise?.coachWeeklyLoadReview &&\n        Number(crossExposureAdvice?.kg)>0 ? String(crossExposureAdvice.kg) : '';\n    const source = filled(current.weight) || filled(current.reps) || filled(current.rpe)
+    const crossKg = !plan.weight && !exercise?.coachWeeklyLoadReview &&
+        Number(crossExposureAdvice?.kg)>0 ? String(crossExposureAdvice.kg) : '';
+    const source = filled(current.weight) || filled(current.reps) || filled(current.rpe)
         ? 'current_entry' : sameSession ? 'confirmed_previous_set' :
         coachedReps !== null ? 'mycoatch_next_reps' :
         fromLastWeek ? 'confirmed_previous_week' :\n        crossKg ? 'estimated_cross_exposure' : 'csv_target';
