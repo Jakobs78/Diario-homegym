@@ -2,6 +2,7 @@
 import { MyCoatch, downloadMesocycleCSV } from './index.js';
 import { getFromLocalStorageForUser } from '../js/storage.js';
 import { state } from '../js/state.js';
+import { latestSavedProfile } from './profileJournal.js';
 import { pullDataFromSupabase } from '../js/sync.js';
 import { formatCoachReview } from './mesocycleComparison.js';
 import { locateClosedMesocycle } from './closureHandoff.js';
@@ -140,6 +141,21 @@ export function startCoachChatAndGenerate(mesocycleOrEvent = null) {
     const feedback = document.getElementById('mycoatch-form-feedback');
     if (feedback) feedback.textContent = '';
 
+    const saved=latestSavedProfile(state.workoutData);
+    if(saved){
+        const set=(id,value)=>{const node=document.getElementById(id);if(node)node.value=value??'';};
+        set('mycoatch-experience',saved.experience);
+        set('mycoatch-calibration',saved.calibration);
+        set('mycoatch-priority-muscle',saved.priorityMuscle);
+        document.querySelectorAll('.mycoatch-avoid-check').forEach(node=>{
+            node.checked=saved.excludedExercises?.includes(node.value)===true;
+        });
+        for(const lift of ['bench','squat','military','hinge']){
+            const ref=saved.referenceLoads?.[lift]||{};
+            for(const part of ['kg','reps','rpe'])set('mycoatch-load-'+lift+'-'+part,ref[part]);
+            set('mycoatch-load-'+lift+'-date',ref.performedOn);
+        }
+    }
     modal.classList.remove('hidden');
     time?.focus();
 }
