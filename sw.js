@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v52-iphone-contextual-loads-20261019';
+const CACHE_NAME = 'workout-app-v53-mycoatch-load-duration-20261019';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -29,6 +29,7 @@ const ASSETS_TO_CACHE = [
   '/js/journalStore.js',
   '/js/historyWindow.js',
   '/mycoatch/recentEvidence.js',
+  '/mycoatch/durationCalibration.js',
   '/mycoatch/crossExposureLoad.js',
   '/mycoatch/closureHandoff.js',
   '/mycoatch/stallResponse.js',
