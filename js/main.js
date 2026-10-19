@@ -259,6 +259,24 @@ function setupEventListeners() {
         input.max = new Date().toISOString().slice(0, 10);
     }
 
+    function readAthleteProfileFields() {
+        return {
+                    experience: document.getElementById('mycoatch-experience')?.value,
+                    calibration: document.getElementById('mycoatch-calibration')?.value,
+                    priorityMuscle: document.getElementById('mycoatch-priority-muscle')?.value || null,
+                    excludedExercises: Array.from(
+                        document.querySelectorAll('.mycoatch-avoid-check:checked'),
+                        input => input.value
+                    ),
+                    referenceLoads: Object.fromEntries(['bench', 'squat', 'military', 'hinge']
+                        .map(lift => [lift, {
+                            kg: document.getElementById('mycoatch-load-' + lift + '-kg')?.value || '',
+                            reps: document.getElementById('mycoatch-load-' + lift + '-reps')?.value || '',
+                            rpe: document.getElementById('mycoatch-load-' + lift + '-rpe')?.value || '',
+                            performedOn: document.getElementById('mycoatch-load-' + lift + '-date')?.value || ''
+                        }]));
+    }
+
     function readCoachOptions() {
         return parseCoachPreferences({
                 selectedTime: timeSelect?.value,
@@ -273,28 +291,13 @@ function setupEventListeners() {
                 availableAccessories: [...DEFAULT_HOME_GYM_ACCESSORIES,
                     ...Array.from(document.querySelectorAll('.mycoatch-accessory-check:checked'),
                         input => input.value)],
-                athleteProfile: {
-                    experience: document.getElementById('mycoatch-experience')?.value,
-                    calibration: document.getElementById('mycoatch-calibration')?.value,
-                    priorityMuscle: document.getElementById('mycoatch-priority-muscle')?.value || null,
-                    excludedExercises: Array.from(
-                        document.querySelectorAll('.mycoatch-avoid-check:checked'),
-                        input => input.value
-                    ),
-                    referenceLoads: Object.fromEntries(['bench', 'squat', 'military', 'hinge']
-                        .map(lift => [lift, {
-                            kg: document.getElementById('mycoatch-load-' + lift + '-kg')?.value || '',
-                            reps: document.getElementById('mycoatch-load-' + lift + '-reps')?.value || '',
-                            rpe: document.getElementById('mycoatch-load-' + lift + '-rpe')?.value || '',
-                            performedOn: document.getElementById('mycoatch-load-' + lift + '-date')?.value || ''
-                        }]))
-                }
+                athleteProfile: readAthleteProfileFields()}
             })
     }
 
     document.getElementById('mycoatch-save-profile')?.addEventListener('click',async()=>{
         try {
-            const staged=stageProfileRevision(state.workoutData,readCoachOptions().athleteProfile);
+            const staged=stageProfileRevision(state.workoutData,readAthleteProfileFields());
             if(staged.changed){
                 commitProfileRevision(state.workoutData,staged);
                 const saved=await saveAndSync(state.workoutData,'SAVE_MYCOATCH_PROFILE');
