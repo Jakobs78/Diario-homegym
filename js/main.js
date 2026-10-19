@@ -31,6 +31,7 @@ import { startCoachChatAndGenerate, generateAndDownloadMesocycleCSV,
 } from '../mycoatch/mycoatch-adapter.js';
 import { initCoachPreview } from './coachPreviewUI.js';
 import { parseCoachPreferences } from '../mycoatch/userPreferences.js';
+import { stageProfileRevision, commitProfileRevision } from '../mycoatch/profileJournal.js';
 import { DEFAULT_HOME_GYM_ACCESSORIES } from '../mycoatch/exercisesDB.js';
 import {normalizeOwnedBarbells,barbellOptionValue} from './equipmentUI.js';
 import { downloadFullBackup, restoreFullBackupFile } from './fullBackup.js';
@@ -290,6 +291,18 @@ function setupEventListeners() {
                 }
             })
     }
+
+    document.getElementById('mycoatch-save-profile')?.addEventListener('click',async()=>{
+        try {
+            const staged=stageProfileRevision(state.workoutData,readCoachOptions().athleteProfile);
+            if(staged.changed){
+                commitProfileRevision(state.workoutData,staged);
+                const saved=await saveAndSync(state.workoutData,'SAVE_MYCOATCH_PROFILE');
+                if(saved===false)throw Error('Salvataggio non completato: verifica la sincronizzazione e conserva un backup.');
+            }
+            if(coachFeedback)coachFeedback.textContent='Profilo versione '+staged.version+(staged.changed?' salvato nel diario.':' già aggiornato.');
+        }catch(err){if(coachFeedback)coachFeedback.textContent=err.message;}
+    });
 
     initCoachPreview(readCoachOptions,coachModal);
 
