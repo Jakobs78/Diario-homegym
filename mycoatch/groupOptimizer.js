@@ -76,7 +76,7 @@ export function groupAccessories(exercises, size = 2, options = {}) {
     return result;
 }
 
-function optionsFor(exercises, availableMinutes, allowGrouping = true, excludedMuscles=[]) {
+function optionsFor(exercises, availableMinutes, allowGrouping = true, excludedMuscles=[], paceFactor=1) {
     const solo = resetGroups(exercises);
     const variants = [{ label: 'singole', exercises: solo }];
     if (allowGrouping && availableMinutes <= 60) {
@@ -87,13 +87,13 @@ function optionsFor(exercises, availableMinutes, allowGrouping = true, excludedM
     }
     return variants.map(option => ({
         ...option,
-        seconds: estimateDaySeconds(option.exercises),
+        seconds: estimateDaySeconds(option.exercises,{paceFactor}),
         groups: option.exercises.filter(ex => ex.groupType && ex.isGroupLast).length
     }));
 }
 
-function choosePlan(exercises, maxSeconds, maxSessionMinutes, allowGrouping = true, excludedMuscles=[]) {
-    const candidates = optionsFor(exercises, maxSessionMinutes, allowGrouping, excludedMuscles);
+function choosePlan(exercises, maxSeconds, maxSessionMinutes, allowGrouping = true, excludedMuscles=[], paceFactor=1) {
+    const candidates = optionsFor(exercises, maxSessionMinutes, allowGrouping, excludedMuscles, paceFactor);
     const fitting = candidates.filter(plan => plan.seconds <= maxSeconds);
     if (fitting.length) {
         // Se la seduta sta nel tempo, evitare raggruppamenti non necessari.
@@ -153,6 +153,7 @@ function selectLeastEssential(exercises) {
 export function optimizeSession(exercises, maxSessionMinutes, options = {}) {
     const allowGrouping = options.allowGrouping !== false;
     const excludedMuscles=options.excludedGroupingMuscles || [];
+    const paceFactor=options.paceFactor ?? 1;
     const minutes = Number(maxSessionMinutes);
     if (!Number.isInteger(minutes) || minutes < 25 || minutes > 180) {
         throw new Error('Seleziona un tempo disponibile valido da 25 a 180 minuti.');
@@ -163,7 +164,7 @@ export function optimizeSession(exercises, maxSessionMinutes, options = {}) {
 
     const secondsBudget = minutes * 60;
     const base = resetGroups(exercises);
-    let candidate = choosePlan(base, secondsBudget, minutes, allowGrouping, excludedMuscles);
+    let candidate = choosePlan(base, secondsBudget, minutes, allowGrouping, excludedMuscles, paceFactor);
     let reducedSets = 0;
     let reducedPrioritySets = 0;
     let removedExercises = 0;
@@ -207,7 +208,7 @@ export function optimizeSession(exercises, maxSessionMinutes, options = {}) {
             priority.sets = priority.sets.slice(0, priority.setsCount);
             reducedPrioritySets++;
         }
-        candidate = choosePlan(base, secondsBudget, minutes, allowGrouping, excludedMuscles);
+        candidate = choosePlan(base, secondsBudget, minutes, allowGrouping, excludedMuscles, paceFactor);
     }
     if (candidate.seconds > secondsBudget) {
         throw new Error('Impossibile rispettare il limite di tempo richiesto.');
