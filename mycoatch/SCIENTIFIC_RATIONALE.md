@@ -107,3 +107,42 @@ Un coach software spiegabile e prudente che adatta **proposte** di microciclo/me
 - La proposta di strategia è un'ipotesi reversibile: migliorare aderenza, raccogliere RPE, conservare la doppia progressione, rivedere il recupero o valutare un piccolo aumento del volume solo nei casi consentiti. Rivalutazione suggerita dopo due settimane, senza modifiche automatiche dei risultati passati.
 - Il confronto tra due mesocicli richiede almeno due settimane comparabili per ciascun blocco a carico, range e RPE target invariati. Riporta la variazione media della ripetizione minima **come osservazione**, non come prova che una modifica della scheda abbia causato il miglioramento, né come misura di ipertrofia.
 - Tutte le soglie e le regole sono euristiche software prudenti; i test automatici ne verificano la coerenza tecnica, non la validità fisiologica su atleti reali.
+
+
+## Prescrizioni diverse dello stesso esercizio nella settimana (19 ottobre 2026)
+
+**Evidenza esterna consultata, non incontro reale con preparatori.** L'articolo
+di Helms, Cronin, Storey e Zourdos (2016), DOI
+[10.1519/SSC.0000000000000218](https://doi.org/10.1519/SSC.0000000000000218),
+descrive l'autoregolazione con RPE/RIR nel resistance training. La guida
+pubblicata da Stronger by Science,
+[How to Choose the Right Load Progression Strategy](https://www.strongerbyscience.com/weekly-load-progression/),
+mostra esplicitamente progressioni differenziate per sedute della stessa
+alzata con ripetizioni diverse. ACSM 2026,
+DOI [10.1249/MSS.0000000000003897](https://doi.org/10.1249/MSS.0000000000003897),
+non fornisce una formula infallibile per il peso esatto di ogni seduta.
+
+**Decisione di progetto e limiti.** La prescrizione specifica dell'esposizione
+(anche 50 kg fissi) prevale sempre. Se il peso non è indicato, la scheda può
+mostrare una proposta *provvisoria* da una seduta precedente completa dello
+stesso esercizio, anche di un altro giorno della settimana, soltanto quando
+le due prescrizioni differiscono e i dati permettono una stima conservativa:
+serie omogenee >=2, tutte confermate, kg/reps/RPE reali, nessun fallimento del
+minimo ripetizioni, nessun set con RPE oltre target e nessuna tecnica speciale.
+L'e1RM di ogni set è stimato con Epley + RIR; il **minimo** delle stime ammesse
+riduce il rischio di sovrastima. Differenze eccessive (>8% fra stime o
+trasferimento oltre +15%/-20% dai kg di partenza), target <6, assenza di
+inventario bilanciere verificabile o salto non componibile impediscono una
+stima numerica. Il candidato è arrotondato **verso il basso** a un incremento
+compatibile e verificato; manubri e macchine necessitano almeno di incrementi
+espressamente configurati. Non stimiamo carichi speciali, top/backoff,
+dropset, riposo/recupero o routine incomplete. Gli RPE leggeri 5–5,5 possono
+essere registrati se prescritti, ma NON contribuiscono a e1RM o progressioni
+basate su RPE>=6. La proposta visualizzata non salva una prestazione, non
+modifica retroattivamente il diario e richiede avvicinamento e conferma
+dell'atleta. In assenza di evidenza sufficiente si lascia il peso vuoto.
+
+La scheda iPhone mantiene il target programmato visibile, mostra la
+provenienza di un eventuale carico stimato, permette di espandere lo storico
+delle prestazioni e apre le note del coach soltanto quando contengono testo.
+Questi dettagli di interfaccia non riscrivono il motore di progressione.

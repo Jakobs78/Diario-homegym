@@ -8,7 +8,7 @@ import {equipmentKind,automaticallyShowPlates,selectableBarbells,suggestedBarbel
  * Summary: Genera dinamicamente le card per ogni esercizio gestendo lo stato di esclusione dai massimali, i selettori del bilanciere, il calcolo dei dischi per lato e l'evidenziatura automatica fuori target per KG (inclusi Topset), REPS ed RPE (con supporto al feedback verde di miglioramento).
  */
 
-import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, isValueOutOfRange, calculateSetVolumeTrend, isValueExceedingTarget, parseRPE, escapeHtml } from './helpers.js';
+import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, findPriorExerciseExposures, isValueOutOfRange, calculateSetVolumeTrend, isValueExceedingTarget, parseRPE, escapeHtml } from './helpers.js';
 import { state } from './state.js';
 import { enableCardSwipeGesture } from './gestures.js';
 import { isWarmupExercise } from './workoutSemantics.js';
@@ -16,6 +16,7 @@ import { saveAndSync } from './storage.js';
 import { renderWorkoutList } from './ui.js';
 import { getSetPrefill } from './setPrefill.js';
 import { recommendNextSessionReps } from '../mycoatch/nextSessionReps.js';
+import { recommendCrossExposureLoad } from '../mycoatch/crossExposureLoad.js';
 import { compareConfirmedSetVolume } from './setVolumeComparison.js';
 
 // UI-only state: never stored in the journal or mistaken for a performed set.
@@ -50,7 +51,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     let cardHtml = `
         <div class="ex-card-header flex-between mb-sm">
             <div class="flex-center gap-md">
-                <div class="block-title m-0">BLOCCO ${ex.block || (exIdx + 1)}</div>
+                <!-- Il numero del blocco rimane nei dati e nei gruppi, non sulla singola card. -->
                 ${isDropsetPlan ? '<span class="badge-dropset">🔥 DROP SET</span>' : ''}
 
             </div>
@@ -65,6 +66,13 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     `;
 
     const prevExercise = findPreviousExercise(state.workoutData, mesoIndex, targetWeek.weekNumber, activeDayNum - 1, ex, false, state.currentYear);
+    const recentExposures = findPriorExerciseExposures(
+        state.workoutData,mesoIndex,targetWeek.weekNumber,activeDayNum,ex,state.currentYear);
+    const equipmentSettings = {...athleteEquipment,...(athleteEquipment.loadingSteps||{})};
+    const crossExposureAdvice = recommendCrossExposureLoad(ex,recentExposures,equipmentSettings);
+    const prefillFor = setIndex=>getSetPrefill(ex,setIndex,{
+        previousExercise:prevExercise,crossExposureAdvice
+    });
     let lastSessionSetsHtml = '';
     const nextRepAdvice = recommendNextSessionReps(prevExercise, ex);
 
@@ -89,37 +97,42 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         }
     }
 
-    // Performed history stays in plain sight; coach and personal notes follow the target.
-    if (lastSessionSetsHtml) {
-        cardHtml += `
-            <section class="exercise-history-box exercise-notes-box mb-md"
-                     aria-label="Ultima sessione precedente">
-                <div class="history-title mb-xs">↩ ULTIMA SESSIONE PRECEDENTE</div>
-                <div class="history-content">${lastSessionSetsHtml}</div>
-            </section>
-        `;
-    }
+    // Historical numbers remain available but do not consume workout space.
+    // Never discard their evidence just because the card is compact.
+    const previousSessionMarkup = lastSessionSetsHtml ? `
+        <details class="exercise-history-box exercise-notes-box mb-md"
+                 aria-label="Ultima sessione precedente">
+            <summary class="history-title">↩ Ultima sessione · Mostra prestazioni</summary>
+            <div class="history-content">${lastSessionSetsHtml}</div>
+        </details>` : '';
 
     if (nextRepAdvice?.kind === 'build_reps' && !isPastMeso)
         cardHtml += `<p class="mycoatch-next-rep-hint">🤖 MyCoatch · ${escapeHtml(nextRepAdvice.reason)}</p>`;
 
+    const notesPresent = Boolean(String(ex.notes||'').trim());
+    const expandNotes = notesPresent || Boolean(String(ex.userNotes||'').trim());
+    // Context label: this load was inferred from another prescription, not
+    // copied from an identical day and never asserted to be an exact e1RM.
+    const crossLabel = crossExposureAdvice
+        ? `<p class="mycoatch-load-origin" role="note">🤖 Carico iniziale suggerito:
+                <strong>${escapeHtml(crossExposureAdvice.kg)} kg</strong> · stima prudente da seduta con ripetizioni/RPE diversi. Verifica con avvicinamento.</p>`
+        : '';
     cardHtml += `
-        <!-- Box Target -->
         <div class="target-box mb-md">
             <strong>TARGET:</strong> ${formatExerciseSummary(ex)}
         </div>
-
-        <section class="exercise-coach-notes" aria-label="Note del coach e note personali">
+        ${crossLabel}
+        ${previousSessionMarkup}
+        <details class="exercise-coach-notes" aria-label="Note del coach e note personali" ${expandNotes ? 'open' : ''}>
+            <summary>📝 Note coach${notesPresent ? ' · presenti' : ''} e personali</summary>
             <div class="exercise-coach-notes-body">
-                <div class="note-allenatore-title">📝 NOTE COACH</div>
-                <div class="note-allenatore-text">${ex.notes ? escapeHtml(ex.notes) : '<span class="text-muted">Nessuna nota del coach.</span>'}</div>
+                ${notesPresent ? `<div class="note-allenatore-text">${escapeHtml(ex.notes)}</div>` : ''}
                 <label class="workout-notes-label" for="ex-user-notes-${exIdx}">✍️ Note personali</label>
                 <input type="text" id="ex-user-notes-${exIdx}" placeholder="Aggiungi una nota all'esercizio..."
                     value="${escapeHtml(ex.userNotes || '')}" class="ex-user-notes w-100"
                     data-ex="${exIdx}" ${isPastMeso ? 'disabled' : ''}>
             </div>
-        </section>
-
+        </details>
     `;
 
     cardHtml += dropScopeControl(ex,exIdx,isPastMeso);
@@ -152,7 +165,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                 escapeHtml(comparison.absolute)+'</small></span>'
             : '';
 
-        const suggested = getSetPrefill(ex, setIdx, { previousExercise: prevExercise });
+        const suggested = prefillFor(setIdx);
         const displayWeight = isLocked ? (setObj.weight ?? '') : suggested.weight;
         const displayReps = isLocked ? (setObj.reps ?? '') : suggested.reps;
         // Precompila come kg/reps. Il valore diventa prestazione SOLO con il check ✓.
@@ -325,7 +338,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     exCard.dataset.platesAutoEligible=String(equipment==='barbell');
     const disclosure=exCard.querySelector('.plates-disclosure');
     if(disclosure){
-        disclosure.open=automaticallyShowPlates(ex,getSetPrefill(ex,selected,{previousExercise:prevExercise}).weight);
+        disclosure.open=automaticallyShowPlates(ex,prefillFor(selected).weight);
         disclosure.querySelector('summary').addEventListener('click',()=>{disclosure.dataset.manual='true';});
     }
     selectSet(selected);

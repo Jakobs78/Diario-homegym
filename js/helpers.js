@@ -502,3 +502,37 @@ export function checkFatigueAlert(ex, exIdx) {
         alertEl.classList.add('is-hidden');
     }
 }
+
+
+/**
+ * Earlier COMPLETED workouts of the exact movement in this mesocycle,
+ * newest first, including another day of the same week. UI/read only.
+ * Unlike findPreviousExercise, this searches across weekday slots so a
+ * different-repetition exposure can supply cautious calibration evidence.
+ */
+export function findPriorExerciseExposures(workoutData,mesoIdx,weekNum,dayNum,exercise,year=null){
+    const years=workoutData?.history?.years||{};
+    const current=years[String(year||new Date().getFullYear())]?.mesocycles?.[mesoIdx];
+    if(!current||!exercise?.name)return [];
+    const expected=slugify(exercise.name);
+    const result=[];
+    const weeks=[...(current.weeks||[])].sort((a,b)=>Number(b.weekNumber)-Number(a.weekNumber));
+    for(const week of weeks){
+        const w=Number(week.weekNumber);
+        if(!Number.isFinite(w)||w>Number(weekNum))continue;
+        const days=[...(week.days||[])].map((day,index)=>({day,index}))
+            .sort((a,b)=>b.index-a.index);
+        for(const {day,index} of days){
+            const position=Number(day.dayNumber??index+1);
+            if(w===Number(weekNum)&&position>=Number(dayNum))continue;
+            // An unfinished workout cannot become evidence for another day.
+            if(day.completed!==true)continue;
+            for(const prior of day.exercises||[]){
+                if(slugify(prior?.name)===expected && !prior.isWarmup &&
+                    !prior.isExcluded && !prior.is_excluded)
+                    result.push(prior);
+            }
+        }
+    }
+    return result.slice(0,8);
+}

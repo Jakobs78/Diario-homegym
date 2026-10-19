@@ -36,7 +36,7 @@ function isWarmup(set) {
 
 function validRpe(value) {
     const valueNumber = decimal(value);
-    return valueNumber !== null && valueNumber >= 6 && valueNumber <= 10
+    return valueNumber !== null && valueNumber >= 5 && valueNumber <= 10
         ? valueNumber : null;
 }
 
@@ -119,8 +119,13 @@ export function validateCompletedSet(values, exercise = {}, set = {}) {
     }
     const rawRpe = String(values?.rpe ?? '').trim();
     const rpe = rawRpe === '' ? null : validRpe(rawRpe);
-    if (rawRpe !== '' && rpe === null) {
-        return { ok: false, message: 'RPE non valido: usa un numero da 6 a 10 oppure lascia vuoto.' };
+    // An RPE of 5 or 5.5 is permitted only for a light prescribed session.
+    // These real recordings are NOT used for e1RM (which requires >=6).
+    const prescription = plannedRpe(exercise);
+    const minimumRpe = prescription !== null && prescription < 6 ? 5 : 6;
+    if (rawRpe !== '' && (rpe === null || rpe < minimumRpe)) {
+        return { ok: false, message: 'RPE non valido: usa un numero da ' +
+            minimumRpe + ' a 10 oppure lascia vuoto.' };
     }
     return {
         ok: true,

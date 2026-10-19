@@ -3,7 +3,7 @@ const numeric = raw => {
     const text = String(raw ?? '').trim().replace(/^@/, '').replace(',', '.');
     if (!/^\d+(?:\.\d+)?$/.test(text)) return null;
     const n = Number(text);
-    return Number.isFinite(n) && n >= 6 && n <= 10 ? n : null;
+    return Number.isFinite(n) && n >= 5 && n <= 10 ? n : null;
 };
 
 export function stepRpe(current, direction, prescribed = null) {
@@ -11,6 +11,9 @@ export function stepRpe(current, direction, prescribed = null) {
     // A blank field remains unknown until the athlete explicitly taps a button.
     const base = numeric(current) ?? numeric(prescribed);
     if (base === null) return null;
-    const value = Math.min(10, Math.max(6, Math.round((base + direction * 0.5) * 2) / 2));
+    // Very light prescriptions can target 5.5. Preserve the usual >=6
+    // floor for conventional sessions, without preventing a genuine 5.5.
+    const lower = (numeric(prescribed) ?? 6) < 6 ? 5 : 6;
+    const value = Math.min(10, Math.max(lower, Math.round((base + direction * 0.5) * 2) / 2));
     return String(value);
 }

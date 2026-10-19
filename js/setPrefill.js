@@ -23,7 +23,7 @@ const targetRpe = value => {
     const s = String(value ?? '').trim().replace(/^@/, '').replace(',', '.');
     if (!/^\d+(?:\.\d+)?$/.test(s)) return '';
     const n = Number(s);
-    return n >= 6 && n <= 10 ? String(n) : '';
+    return n >= 5 && n <= 10 ? String(n) : '';
 };
 const confirmed = set => set?.isLocked === true || set?.completed === true;
 const weightFor = set => cleanDecimal(set?.weight ?? set?.actualKg);
@@ -97,7 +97,7 @@ function repsCompatible(reps, exercise) {
  * Le proposte restano solo sullo schermo. Le statistiche MyCoatch leggono
  * esclusivamente set con checked/confirmed e dati reali.
  */
-export function getSetPrefill(exercise, index, { previousExercise = null } = {}) {
+export function getSetPrefill(exercise, index, { previousExercise = null, crossExposureAdvice = null } = {}) {
     const logs = Array.isArray(exercise?.loggedSets) ? exercise.loggedSets : [];
     const current = logs[index] || {};
     const plan = plannedFor(exercise, index);
@@ -141,23 +141,31 @@ export function getSetPrefill(exercise, index, { previousExercise = null } = {})
         (!plan.rpe || !priorPlan?.rpe || plan.rpe === priorPlan.rpe) &&
         !exercise?.isDeload && !exercise?.isDeloadWeek &&
         !(priorSet?.intensityTechnique && !logs[index]?.intensityTechnique);
+    // Prevent copying a 7–9@7 day into a 5–7@8 day, or matching only
+    // the first number of two different ranges. Count/slot must also match.
+    const priorComparable=Boolean(previousExercise) &&
+        String(exercise?.reps??exercise?.targetReps??'').trim()===
+            String(previousExercise?.reps??previousExercise?.targetReps??'').trim();
     const fromLastWeek = !exercise?.coachWeeklyLoadReview && !sameSession && priorSet &&
         confirmed(priorSet) && !priorSet.isWarmup && !priorSet.warmup &&
-        !priorSet.is_warmup && comparablePlan &&
+        !priorSet.is_warmup && comparablePlan && priorComparable &&
         weightFor(priorSet) && repsFor(priorSet) &&
         repsCompatible(repsFor(priorSet), exercise);
     const nextReps = fromLastWeek
         ? recommendNextSessionReps(previousExercise, exercise) : null;
     const coachedReps = nextReps?.kind === 'build_reps'
         ? String(nextReps.reps[index]) : null;
+    const crossKg = !plan.weight && !exercise?.coachWeeklyLoadReview &&
+        Number(crossExposureAdvice?.kg)>0 ? String(crossExposureAdvice.kg) : '';
     const source = filled(current.weight) || filled(current.reps) || filled(current.rpe)
         ? 'current_entry' : sameSession ? 'confirmed_previous_set' :
         coachedReps !== null ? 'mycoatch_next_reps' :
-        fromLastWeek ? 'confirmed_previous_week' : 'csv_target';
+        fromLastWeek ? 'confirmed_previous_week' :
+        crossKg ? 'estimated_cross_exposure' : 'csv_target';
     return {
         weight: filled(current.weight) ? String(current.weight)
             : sameSession ? weightFor(previous)
-                : fromLastWeek ? weightFor(priorSet) : plan.weight,
+                : fromLastWeek ? weightFor(priorSet) : plan.weight || crossKg,
         reps: filled(current.reps) ? String(current.reps)
             : sameSession ? repsFor(previous)
                 : coachedReps !== null ? coachedReps
@@ -172,6 +180,7 @@ export function getSetPrefill(exercise, index, { previousExercise = null } = {})
         source,
         reason: coachedReps !== null ? nextReps.reason :
             fromLastWeek ? 'Carico e ripetizioni provenienti da serie precedenti confermate con prescrizione confrontabile.' :
+            crossKg ? crossExposureAdvice.reason :
             'Prescrizione attuale senza incremento automatico.',
         isSuggestedWeight: !filled(current.weight),
         isSuggestedReps: !filled(current.reps),

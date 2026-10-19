@@ -1624,6 +1624,9 @@ test('scheda mobile: storico uno sotto l’altro, note sopra i set, testo leggib
     renderWorkoutList();
   });
   const card=page.locator('.ex-card[data-ex="0"]');
+  const disclosure=card.locator('details.exercise-history-box');
+  await expect(disclosure).not.toHaveAttribute('open','');
+  await disclosure.locator('summary').click();
   const rows=card.locator('.history-content > div');
   await expect(rows).toHaveCount(2);
   await expect(rows.nth(0)).toContainText('72.5kg');
@@ -2920,4 +2923,79 @@ for (const width of [320, 390, 430]) test('PWA installabile con layout mobile a 
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   assert.deepEqual(monitoring.remoteRequests,[]);
   assert.deepEqual(monitoring.pageErrors,[]);
+});
+
+
+test('iPhone: no redundant BLOCCO label; notes open only with text and history collapsible',async({page})=>{
+  await page.setViewportSize({width:375,height:812});
+  await openIsolatedApp(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    const meso=state.workoutData.history.years['2026'].mesocycles[0];
+    const day=meso.weeks[1].days[0];
+    const base=day.exercises[0];
+    base.notes='Presa salda e controllo in discesa.';
+    day.exercises.push({...structuredClone(base),name:'Curl Concentrato Singolo',
+      notes:'',userNotes:'',loggedSets:[{weight:'',reps:'',rpe:'',isLocked:false}]});
+    state.activeWeek=2;state.activeDay=1;renderWorkoutList();
+  });
+  const first=page.locator('.ex-card[data-ex="0"]');
+  const second=page.locator('.ex-card[data-ex="1"]');
+  await expect(first.locator('.block-title')).toHaveCount(0);
+  await expect(second.locator('.block-title')).toHaveCount(0);
+  await expect(first.locator('.exercise-exclude-hint')).toContainText('swipe');
+  await expect(first.locator('details.exercise-coach-notes')).toHaveAttribute('open','');
+  await expect(second.locator('details.exercise-coach-notes')).not.toHaveAttribute('open','');
+  const prev=first.locator('details.exercise-history-box');
+  await expect(prev).not.toHaveAttribute('open','');
+  await prev.locator('summary').click();
+  await expect(prev).toHaveAttribute('open','');
+  const fits=await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1);
+  assert.equal(fits,true,'card must not overflow iPhone viewport');
+});
+
+test('iPhone: same bench twice weekly with different RPE/reps uses loadable estimate, not copy',async({page})=>{
+  await page.setViewportSize({width:375,height:812});
+  await openIsolatedApp(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    const {canonicalExerciseKey}=await import('/mycoatch/exerciseIdentity.js');
+    const meso=state.workoutData.history.years['2026'].mesocycles[0];
+    const name='Panca Piana con Bilanciere';
+    const source={block:1,name,reps:'7-9',targetRpe:'7',rpe:'7',kgMin:'60',kgMax:'60',
+      set:'3 set',sets:[{},{},{}],loggedSets:[0,1,2].map(()=>({
+        weight:'60',reps:'8',rpe:'7',isLocked:true,completed:true
+      }))};
+    const target={block:1,name,reps:'5-7',targetRpe:'8',rpe:'8',kgMin:'',kgMax:'',
+      set:'2 set',notes:'Fermo breve al petto.',sets:[{},{}],
+      loggedSets:[{weight:'',reps:'',rpe:'',isLocked:false},{weight:'',reps:'',rpe:'',isLocked:false}]};
+    meso.weeks[0].days=[
+      {dayNumber:1,dayName:'Upper A',completed:true,exercises:[source]},
+      {dayNumber:2,dayName:'Upper B',completed:false,exercises:[target]}
+    ];
+    state.workoutData.athlete ||= {};
+    state.workoutData.athlete.barbellAssignments={
+      [canonicalExerciseKey(name)]:{weight:10,diameter:29}
+    };
+    state.workoutData.athlete.plateInventories={'29':{'20':2,'10':2,'5':2,'2.5':2,'1.25':2}};
+    state.workoutData.athlete.loadingSteps={barbell:2.5};
+    state.activeWeek=1;state.activeDay=2;renderWorkoutList();
+  });
+  const card=page.locator('.ex-card[data-ex="0"]');
+  const first=card.locator('.workout-set-row').first();
+  await expect(first.locator('.set-kg')).toHaveValue('65');
+  await expect(first.locator('.set-reps')).toHaveValue('5');
+  await expect(first.locator('.set-rpe')).toHaveValue('8');
+  await expect(first).toHaveAttribute('data-prefill-source','estimated_cross_exposure');
+  await expect(card.locator('.mycoatch-load-origin')).toContainText('stima prudente');
+  await expect(card.locator('details.exercise-coach-notes')).toHaveAttribute('open','');
+  const saved=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const ex=state.workoutData.history.years['2026'].mesocycles[0].weeks[0].days[1].exercises[0];
+    return ex.loggedSets.map(s=>({weight:s.weight,locked:s.isLocked}));
+  });
+  assert.deepEqual(saved,[{weight:'',locked:false},{weight:'',locked:false}],
+    'suggested kg must never become an actual checked performance');
 });

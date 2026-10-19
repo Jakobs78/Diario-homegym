@@ -3277,3 +3277,67 @@ body.dark-mode .group-title-badge {
 @media(max-width:390px) { .ex-card .rpe-step-btn { width:20px; min-width:20px; flex-basis:20px; } }
 
 .mycoatch-next-rep-hint {font-size:.8rem;line-height:1.45;margin:4px 0 9px;padding:8px 10px;border-left:3px solid var(--accent-color);background:var(--block-bg);border-radius:6px;}
+
+
+/* Workout cards: compact, readable on iPhone; only presentation is changed.
+   Notes with content start open, but can be collapsed by the athlete. */
+.ex-card .ex-card-header {margin-bottom:2px !important;min-height:24px;}
+.ex-card .ex-name {margin:3px 0 8px !important;line-height:1.28;}
+.ex-card .target-box {
+    padding:7px 10px;
+    margin-bottom:7px !important;
+    background:var(--block-bg);
+    border-radius:9px;
+    line-height:1.35;
+}
+.ex-card .mycoatch-load-origin {
+    margin:0 0 8px;
+    padding:7px 9px;
+    border-left:3px solid var(--accent-color);
+    background:var(--block-bg);
+    border-radius:7px;
+    color:var(--text-color);
+    font-size:.77rem;
+    line-height:1.4;
+}
+.ex-card details.exercise-history-box {
+    padding:0;
+    margin:0 0 8px;
+    background:transparent;
+    border:1px solid var(--border-color);
+    border-left:3px solid var(--accent-color);
+}
+.ex-card details.exercise-history-box > summary {
+    min-height:40px;
+    padding:9px 11px;
+    cursor:pointer;
+    font-weight:750;
+    color:var(--text-color);
+    font-size:.78rem;
+}
+.ex-card details.exercise-history-box > .history-content {
+    padding:3px 11px 10px;
+    border-top:1px solid var(--border-color);
+}
+.ex-card .exercise-coach-notes {
+    margin:0 0 8px;
+    background:var(--block-bg);
+}
+.ex-card .exercise-coach-notes > summary {
+    padding:8px 11px;
+    min-height:40px;
+    font-size:.79rem;
+}
+.ex-card .exercise-coach-notes-body {padding:2px 11px 10px;gap:6px;}
+.ex-card .set-table {margin-top:2px;}
+.ex-card .set-table .workout-set-row:has(.set-lock-check:checked) td {
+    background:color-mix(in srgb, #22c55e 6%, var(--card-bg));
+}
+.ex-card .set-table .workout-set-row.is-active-set td {
+    background:color-mix(in srgb, var(--accent-color) 9%, var(--card-bg));
+}
+@media (max-width:480px) {
+    .ex-card .exercise-exclude-hint {max-width:210px;font-size:.7rem;line-height:1.3;}
+    .ex-card .ex-name {font-size:1.13rem !important;}
+    .ex-card .target-box {font-size:.82rem;}
+}
