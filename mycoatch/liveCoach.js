@@ -36,7 +36,7 @@ function isWarmup(set) {
 
 function validRpe(value) {
     const valueNumber = decimal(value);
-    return valueNumber !== null && valueNumber >= 6 && valueNumber <= 10
+    return valueNumber !== null && valueNumber >= 5 && valueNumber <= 10
         ? valueNumber : null;
 }
 
