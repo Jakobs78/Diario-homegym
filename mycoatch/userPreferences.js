@@ -68,7 +68,7 @@ export function parseCoachPreferences(fields = {}) {
         userAge,
         daysPerWeek,
         focus,
-        splitPreference,
+        ...(splitPreference !== 'auto' ? { splitPreference } : {}),
         ...selection,
         ...(athleteProfile ? { athleteProfile } : {}),
         primaryGoal: focus === 'strength' ? 'powerlifting' :
