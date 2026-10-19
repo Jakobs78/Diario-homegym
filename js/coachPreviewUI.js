@@ -13,6 +13,7 @@ export function initCoachPreview(readCoachOptions,configModal) {
     const feedback=document.getElementById('mycoatch-preview-error');
     if(!preview||!launch)return;
     let proposal=null;
+    let acceptedOptions=null;
     const create=(tag,content,cls)=>{
         const node=document.createElement(tag);
         if(cls)node.className=cls;
@@ -20,7 +21,7 @@ export function initCoachPreview(readCoachOptions,configModal) {
         return node;
     };
     const close=()=>{
-        proposal=null;clearVisualCoachProposal();
+        proposal=null;acceptedOptions=null;clearVisualCoachProposal();
         preview.classList.add('hidden');
         launch.focus();
     };
@@ -42,6 +43,7 @@ export function initCoachPreview(readCoachOptions,configModal) {
         launch.disabled=true;
         try{
             proposal=await createVisualCoachProposal(options);
+            acceptedOptions=structuredClone(options);
             summary.textContent='Programma '+options.daysPerWeek+' giorni/settimana · '+
                 options.maxSessionMinutes+' min per sessione · '+proposal.proposal.weeks.length+
                 ' settimane. La scheda esistente rimane intatta finché non applichi.';
@@ -90,7 +92,7 @@ export function initCoachPreview(readCoachOptions,configModal) {
             preview.classList.remove('hidden');
             document.getElementById('mycoatch-preview-apply')?.focus();
         }catch(err){
-            proposal=null;clearVisualCoachProposal();
+            proposal=null;acceptedOptions=null;clearVisualCoachProposal();
             const output=document.getElementById('mycoatch-form-feedback');
             if(output)output.textContent=err.message;
         }finally{launch.disabled=false;}
@@ -98,7 +100,7 @@ export function initCoachPreview(readCoachOptions,configModal) {
     document.getElementById('mycoatch-preview-apply')?.addEventListener('click',()=>{
         if(!proposal)return;
         // The same validated CSV parser already tested by existing app E2E.
-        const result=importWorkoutPlan(proposal.csv);
+        const result=importWorkoutPlan(proposal.csv,acceptedOptions);
         if(!result.success){
             feedback.textContent=result.error||'Non è stato possibile applicare la proposta.';
             return;

@@ -31,6 +31,7 @@ import { startCoachChatAndGenerate, generateAndDownloadMesocycleCSV,
 } from '../mycoatch/mycoatch-adapter.js';
 import { initCoachPreview } from './coachPreviewUI.js';
 import { parseCoachPreferences } from '../mycoatch/userPreferences.js';
+import { stageProfileRevision, commitProfileRevision } from '../mycoatch/profileJournal.js';
 import { DEFAULT_HOME_GYM_ACCESSORIES } from '../mycoatch/exercisesDB.js';
 import {normalizeOwnedBarbells,barbellOptionValue} from './equipmentUI.js';
 import { downloadFullBackup, restoreFullBackupFile } from './fullBackup.js';
@@ -258,21 +259,8 @@ function setupEventListeners() {
         input.max = new Date().toISOString().slice(0, 10);
     }
 
-    function readCoachOptions() {
-        return parseCoachPreferences({
-                selectedTime: timeSelect?.value,
-                customTime: customTime?.value,
-                daysPerWeek: document.getElementById('select-days')?.value,
-                splitPreference: document.getElementById('mycoatch-split')?.value || 'auto',
-                userAge: document.getElementById('input-age')?.value,
-                focus: document.getElementById('select-focus')?.value,
-                preferredLifts: Object.fromEntries(['bench', 'squat', 'military', 'hinge']
-                    .map(lift => [lift, document.getElementById('mycoatch-lift-' + lift)?.value || 'auto'])),
-                cableSetup: document.getElementById('mycoatch-cable-setup')?.value || 'single_high_low',
-                availableAccessories: [...DEFAULT_HOME_GYM_ACCESSORIES,
-                    ...Array.from(document.querySelectorAll('.mycoatch-accessory-check:checked'),
-                        input => input.value)],
-                athleteProfile: {
+    function readAthleteProfileFields() {
+        return {
                     experience: document.getElementById('mycoatch-experience')?.value,
                     calibration: document.getElementById('mycoatch-calibration')?.value,
                     priorityMuscle: document.getElementById('mycoatch-priority-muscle')?.value || null,
@@ -287,9 +275,38 @@ function setupEventListeners() {
                             rpe: document.getElementById('mycoatch-load-' + lift + '-rpe')?.value || '',
                             performedOn: document.getElementById('mycoatch-load-' + lift + '-date')?.value || ''
                         }]))
-                }
+        };
+    }
+
+    function readCoachOptions() {
+        return parseCoachPreferences({
+                selectedTime: timeSelect?.value,
+                customTime: customTime?.value,
+                daysPerWeek: document.getElementById('select-days')?.value,
+                splitPreference: document.getElementById('mycoatch-split')?.value || 'auto',
+                userAge: document.getElementById('input-age')?.value,
+                focus: document.getElementById('select-focus')?.value,
+                preferredLifts: Object.fromEntries(['bench', 'squat', 'military', 'hinge']
+                    .map(lift => [lift, document.getElementById('mycoatch-lift-' + lift)?.value || 'auto'])),
+                cableSetup: document.getElementById('mycoatch-cable-setup')?.value || 'single_high_low',
+                availableAccessories: [...DEFAULT_HOME_GYM_ACCESSORIES,
+                    ...Array.from(document.querySelectorAll('.mycoatch-accessory-check:checked'),
+                        input => input.value)],
+                athleteProfile: readAthleteProfileFields()
             })
     }
+
+    document.getElementById('mycoatch-save-profile')?.addEventListener('click',async()=>{
+        try {
+            const staged=stageProfileRevision(state.workoutData,readAthleteProfileFields());
+            if(staged.changed){
+                commitProfileRevision(state.workoutData,staged);
+                const saved=await saveAndSync(state.workoutData,'SAVE_MYCOATCH_PROFILE');
+                if(saved===false)throw Error('Salvataggio non completato: verifica la sincronizzazione e conserva un backup.');
+            }
+            if(coachFeedback)coachFeedback.textContent='Profilo versione '+staged.version+(staged.changed?' salvato nel diario.':' già aggiornato.');
+        }catch(err){if(coachFeedback)coachFeedback.textContent=err.message;}
+    });
 
     initCoachPreview(readCoachOptions,coachModal);
 

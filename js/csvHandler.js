@@ -7,6 +7,7 @@
 // 1. IMPORT & DIPENDENZE
 // ==========================================
 import { state } from './state.js';
+import { stageProfileRevision, commitProfileRevision, profileSnapshot } from '../mycoatch/profileJournal.js';
 import { saveAndSync } from './storage.js';
 import { applyTrisetDropsetGrouping, normalizeExerciseName } from './helpers.js';
 import { isMesocycleCompleted } from './historySafety.js';
@@ -98,7 +99,7 @@ function findColumnIndex(headers, targets) {
 // ==========================================
 // 4. IMPORTAZIONE PIANO DI ALLENAMENTO
 // ==========================================
-export function importWorkoutPlan(csvText) {
+export function importWorkoutPlan(csvText, coachOptions = null) {
     try {
         // Non toccare state/history prima che TUTTO il file sia valido.
         // In caso di annullamento o errore non creare nemmeno anni vuoti.
@@ -239,6 +240,13 @@ export function importWorkoutPlan(csvText) {
         if (!state.workoutData.history.years) state.workoutData.history.years = {};
         if (!state.workoutData.history.years[currentYear]) {
             state.workoutData.history.years[currentYear] = { mesocycles: [] };
+        }
+        // The profile snapshot belongs to this imported plan, not to a later
+        // mutable form state. Manual CSV imports keep their original behavior.
+        if(coachOptions?.athleteProfile) {
+            const staged=stageProfileRevision(state.workoutData,coachOptions.athleteProfile);
+            newMesocycle.coachProfileSnapshot=profileSnapshot(staged,coachOptions);
+            commitProfileRevision(state.workoutData,staged);
         }
         const target = state.workoutData.history.years[currentYear].mesocycles;
         target.push(newMesocycle);
