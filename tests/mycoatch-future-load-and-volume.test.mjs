@@ -124,3 +124,36 @@ test('warmups, unfinished sources and unavailable plate increments never rewrite
     const noPlates={equipmentSettings:{barbell:2.5,barbellWeight:20,platePairs:{}}};
     assert.equal(previewFutureLoadReview(m,1,0,0,noPlates),null);
 });
+
+test('CSV con carichi futuri vuoti: proposta reversibile e solo sulla prossima esposizione',()=>{
+    const m=mesocycle();
+    for(const week of m.weeks)for(const day of week.days)for(const ex of day.exercises){
+        ex.kgMin='';ex.kgMax='';
+    }
+    const before=structuredClone(m);
+    const proposal=previewFutureLoadReview(m,1,0,0,settings);
+    assert.equal(proposal.source.from,80,'carico realmente eseguito');
+    assert.equal(proposal.changes.length,1);
+    assert.equal(proposal.changes[0].before.kgMin,'');
+    assert.deepEqual(m,before,'anteprima senza modifiche');
+    const applied=applyFutureLoadReview(m,proposal,settings);
+    assert.equal(m.weeks[1].days[0].exercises[0].kgMin,'82.5');
+    assert.equal(m.weeks[2].days[0].exercises[0].kgMin,'','solo la prossima esposizione');
+    assert.deepEqual(undoFutureLoadReview(m,applied),{restored:1});
+    assert.equal(m.weeks[1].days[0].exercises[0].kgMin,'');
+    assert.equal(m.weeks[1].days[0].exercises[0].kgMax,'');
+});
+test('CSV importato non sovrascrive target espliciti o parziali',()=>{
+    const m=mesocycle();
+    const first=m.weeks[1].days[0].exercises[0];
+    const second=m.weeks[2].days[0].exercises[0];
+    m.weeks[0].days[0].exercises[0].kgMin='';
+    m.weeks[0].days[0].exercises[0].kgMax='';
+    first.kgMin='75';first.kgMax='75';
+    second.kgMin='';second.kgMax='';
+    assert.equal(previewFutureLoadReview(m,1,0,0,settings).changes[0].weekNumber,3);
+    first.kgMin='';first.kgMax='85';
+    assert.equal(previewFutureLoadReview(m,1,0,0,settings).changes[0].weekNumber,3);
+    second.loggedSets[0].reps='9';
+    assert.equal(previewFutureLoadReview(m,1,0,0,settings),null);
+});
