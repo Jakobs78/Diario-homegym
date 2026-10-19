@@ -65,7 +65,7 @@ export function createFutureLoadReviewPanel(meso,weekNumber,dayIndex,{
         for(const c of record.changes){
             list.append(el('li','',
                 'Settimana '+c.weekNumber+' · '+c.dayName+' · '+
-                c.exerciseName+': '+String(c.before.kgMin??c.before.kgMax)+
+                c.exerciseName+': '+String(c.before.kgMin || c.before.kgMax || 'kg da calibrare')+
                 ' → '+c.after+' kg'));
         }
         item.append(list);
