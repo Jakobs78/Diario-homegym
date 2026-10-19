@@ -274,7 +274,8 @@ function setupEventListeners() {
                             reps: document.getElementById('mycoatch-load-' + lift + '-reps')?.value || '',
                             rpe: document.getElementById('mycoatch-load-' + lift + '-rpe')?.value || '',
                             performedOn: document.getElementById('mycoatch-load-' + lift + '-date')?.value || ''
-                        }]));
+                        }]))
+        };
     }
 
     function readCoachOptions() {
@@ -291,7 +292,7 @@ function setupEventListeners() {
                 availableAccessories: [...DEFAULT_HOME_GYM_ACCESSORIES,
                     ...Array.from(document.querySelectorAll('.mycoatch-accessory-check:checked'),
                         input => input.value)],
-                athleteProfile: readAthleteProfileFields()}
+                athleteProfile: readAthleteProfileFields()
             })
     }
 
