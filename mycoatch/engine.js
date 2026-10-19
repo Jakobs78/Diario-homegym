@@ -87,7 +87,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
     // 2. Vincoli di tempo
     // Il vincolo è il tempo realmente stimato, non un taglio prefissato degli slot.
 
-    const templateDays = getTemplateForDays(daysPerWeek);
+    const templateDays = getTemplateForDays(daysPerWeek, config.splitPreference);
     const athleteProfile = normalizeAthleteProfile(config.athleteProfile);
     const hasConfirmedHistory = Number(safeHistory.sessionsAnalyzed) > 0 ||
         Object.keys(analysis?.byExercise || {}).length > 0;
@@ -180,6 +180,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 daySelectionCounts.set(exercise.id,
                     (daySelectionCounts.get(exercise.id) || 0) + 1);
                 return [{ ...exercise, anchorKey: slot.anchor || null,
+                    repIntent: slot.repIntent || null,
                     priorityProtected: Boolean(slot.priorityProtected),
                     isOptional: Boolean(slot.optional),
                     selectionReason:slot.addedForFocus
@@ -501,7 +502,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             // Il CSV originale non contiene la colonna "nome giornata":
             // conserviamo lo split nella nota del primo esercizio, così
             // l'importatore può mostrare Upper A / Lower A / Upper B / Lower B.
-            const dayLabel = String(day.dayName).match(/^(Upper [AB]|Lower [AB]|Full Body [ABC])\b/)?.[1];
+            const dayLabel = String(day.dayName).match(/^(Upper [AB]|Lower [AB]|Full Body [ABCD])\b/)?.[1];
             const splitNote = dayLabel ? `[SPLIT MYCOATCH] ${dayLabel}` : '';
             const calibrated = (config.durationCalibration?.sampleCount ?? 0) >= 3;
             const durationNote = `[DURATA STIMATA] ${day.estimatedMinutes} minuti su ${maxSessionMinutes} disponibili, inclusi riscaldamento generale, avvicinamento e lavoro su entrambi i lati. ${calibrated ? 'Stima prudente calibrata su ' + config.durationCalibration.sampleCount + ' sedute reali. ' : ''}Il timer del diario parte dopo la prima serie confermata, quindi misura solo parte della seduta. Stima orientativa.`;
@@ -580,7 +581,10 @@ function generateContextNote(ex, rpe, isDeload) {
         (HIGH_REP_EXERCISES[ex.name] ? ' Valuta il progresso con ripetizioni, tecnica e RPE a parità di carico, senza dedurre stalli dal solo e1RM.' : '');
 }
 
-export function getTemplateForDays(daysPerWeek = 3) {
+export function getTemplateForDays(daysPerWeek = 3, splitPreference = 'auto') {
+    if (!['auto', 'upperlower', 'fullbody'].includes(splitPreference)) {
+        throw new Error('Struttura settimanale MyCoatch non valida.');
+    }
     if (daysPerWeek === 3) {
         // Con tre sedute si preferisce la Full Body: i quattro fondamentali
         // restano distribuiti nella settimana, senza tre lower consecutivi.
@@ -623,6 +627,55 @@ export function getTemplateForDays(daysPerWeek = 3) {
         ];
     }
     if (daysPerWeek !== 4) throw new Error('MyCoatch supporta 3 o 4 giorni a settimana.');
+
+    // Opzione esplicita: quattro Full Body con due esposizioni distinte per
+    // ciascun fondamentale. Il template Upper/Lower precedente resta invariato.
+    if (splitPreference === 'fullbody') return [
+        {
+            name: 'Full Body A (RDL forza, panca volume)',
+            slots: [
+                { muscle: 'Femorali', pattern: 'hinge', anchor: 'hinge', repIntent: 'strength' },
+                { muscle: 'Petto', pattern: 'horizontal_push', anchor: 'bench', repIntent: 'volume' },
+                { muscle: 'Back_Lats', pattern: 'vertical_pull' },
+                { muscle: 'Spalle', pattern: 'isolation', prefer: ['Alzate Posteriori con Manubri', 'Face Pull ai Cavi'] },
+                { muscle: 'Polpacci', pattern: 'isolation' },
+                { muscle: 'Core', pattern: 'isolation', optional: true }
+            ]
+        },
+        {
+            name: 'Full Body B (squat forza, military volume)',
+            slots: [
+                { muscle: 'Quadricipiti', pattern: 'squat', anchor: 'squat', repIntent: 'strength' },
+                { muscle: 'Spalle', pattern: 'vertical_push', anchor: 'military', repIntent: 'volume' },
+                { muscle: 'Back_Thickness', pattern: 'horizontal_pull' },
+                { muscle: 'Femorali', pattern: 'isolation', optional: true },
+                { muscle: 'Spalle', pattern: 'isolation', prefer: ['Alzate Laterali con Manubri', 'Alzate Laterali ai Cavi'] },
+                { muscle: 'Bicipiti', pattern: 'isolation' }
+            ]
+        },
+        {
+            name: 'Full Body C (RDL volume, military forza)',
+            slots: [
+                { muscle: 'Femorali', pattern: 'hinge', anchor: 'hinge', repIntent: 'volume' },
+                { muscle: 'Spalle', pattern: 'vertical_push', anchor: 'military', repIntent: 'strength' },
+                { muscle: 'Back_Lats', pattern: 'vertical_pull' },
+                { muscle: 'Tricipiti', pattern: 'isolation' },
+                { muscle: 'Spalle', pattern: 'isolation', prefer: ['Alzate Laterali con Manubri', 'Alzate Laterali ai Cavi'] },
+                { muscle: 'Polpacci', pattern: 'isolation', optional: true }
+            ]
+        },
+        {
+            name: 'Full Body D (squat volume, panca forza)',
+            slots: [
+                { muscle: 'Quadricipiti', pattern: 'squat', anchor: 'squat', repIntent: 'volume' },
+                { muscle: 'Petto', pattern: 'horizontal_push', anchor: 'bench', repIntent: 'strength' },
+                { muscle: 'Back_Thickness', pattern: 'horizontal_pull' },
+                { muscle: 'Spalle', pattern: 'isolation', prefer: ['Alzate Posteriori con Manubri', 'Face Pull ai Cavi'] },
+                { muscle: 'Bicipiti', pattern: 'isolation' },
+                { muscle: 'Core', pattern: 'isolation', optional: true }
+            ]
+        }
+    ];
 
     return [
         {

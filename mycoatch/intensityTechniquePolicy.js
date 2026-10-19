@@ -49,7 +49,7 @@ export function suggestDropset(exercise, {
     return {
         technique: 'DROP_SET',
         extraSeconds: 40,
-        note: '[TECNICA MIRATA] Solo dopo l’ultima serie: riduci il carico di circa 20–25%, esegui altre ripetizioni pulite e interrompi se perdi tecnica. Il segmento extra NON equivale a una nuova serie confermata. Facoltativo.'
+        note: '[TECNICA MIRATA] dropset: solo dopo l’ultima serie: riduci il carico di circa 20–25%, esegui altre ripetizioni pulite e interrompi se perdi tecnica. Il segmento extra NON equivale a una nuova serie confermata. Facoltativo.'
     };
 }
 

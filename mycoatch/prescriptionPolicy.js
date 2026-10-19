@@ -29,6 +29,15 @@ export function prescribeExerciseReps(exercise, {
     if (!isolation && focus === 'strength' && index === 0) reps = '3-5';
     else if (!isolation && focus === 'hypertrophy' && index === 0) reps = '6-8';
 
+    // Nella Full Body a quattro giorni, le due esposizioni dello stesso
+    // fondamentale hanno funzioni distinte. Non applicare un unico range a
+    // tutti gli atleti o ai template già esistenti.
+    if (focus === 'hybrid' && !isolation &&
+        ['strength', 'volume'].includes(exercise.repIntent)) {
+        const lower = exercise.pattern === 'squat' || exercise.pattern === 'hinge';
+        reps = exercise.repIntent === 'strength' ? '4-6' : (lower ? '6-10' : '8-12');
+    }
+
     if (calibrationWeek && weekNumber === 1 && !isolation) reps = '6-10';
     if (experience === 'beginner') {
         if (HIGH_REP_ISOLATIONS[exercise.name]) reps = '12-20';

@@ -337,6 +337,11 @@
                         <option value="3">3 giorni</option>
                         <option value="4" selected>4 giorni</option>
                     </select>
+                    <label for="mycoatch-split">Struttura settimanale (4 giorni)</label>
+                    <select id="mycoatch-split" name="splitPreference">
+                        <option value="auto" selected>Upper / Lower (struttura originale)</option>
+                        <option value="fullbody">Full Body × 4 (forza + ipertrofia differenziate)</option>
+                    </select>
                     <label for="input-age">Età</label>
                     <input id="input-age" type="number" min="18" max="100" step="1" inputmode="numeric" placeholder="Età in anni" required>
                     <label for="select-focus">Obiettivo principale</label>
@@ -427,7 +432,7 @@
                     </fieldset>
                     <fieldset class="mycoatch-preferences-group">
                         <legend>Fondamentali prioritari (varianti facoltative)</legend>
-                        <p class="mycoatch-form-hint">4 giorni: Upper A → Lower A → Upper B → Lower B. MyCoatch mantiene le alzate cardine, ma puoi scegliere una variante equivalente se più adatta a te.</p>
+                        <p class="mycoatch-form-hint">4 giorni: puoi scegliere Upper/Lower (originale) oppure quattro Full Body. MyCoatch mantiene le alzate cardine e consente varianti compatibili con l'attrezzatura.</p>
                         <label for="mycoatch-lift-bench">Panca (Upper A / Full Body A)</label>
                         <select id="mycoatch-lift-bench" name="bench">
                             <option value="auto">Automatica — panca piana bilanciere</option>

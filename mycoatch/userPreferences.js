@@ -22,6 +22,7 @@ export function parseCoachPreferences(fields = {}) {
     const userAge = Number(fields.userAge);
     const daysPerWeek = Number(fields.daysPerWeek);
     const focus = String(fields.focus || '');
+    const splitPreference = String(fields.splitPreference || 'auto');
 
     if (maxSessionMinutes === null) {
         throw new Error('Indica quanti minuti hai a disposizione (da 25 a 180).');
@@ -34,6 +35,10 @@ export function parseCoachPreferences(fields = {}) {
     }
     if (!['hybrid', 'strength', 'hypertrophy'].includes(focus)) {
         throw new Error("Seleziona un obiettivo di allenamento.");
+    }
+
+    if (!['auto', 'upperlower', 'fullbody'].includes(splitPreference)) {
+        throw new Error('Scegli una struttura settimanale valida.');
     }
 
     const athleteProfile = normalizeAthleteProfile(fields.athleteProfile);
@@ -63,6 +68,7 @@ export function parseCoachPreferences(fields = {}) {
         userAge,
         daysPerWeek,
         focus,
+        ...(splitPreference !== 'auto' ? { splitPreference } : {}),
         ...selection,
         ...(athleteProfile ? { athleteProfile } : {}),
         primaryGoal: focus === 'strength' ? 'powerlifting' :

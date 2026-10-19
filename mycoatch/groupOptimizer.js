@@ -2,8 +2,8 @@ import { estimateDaySeconds } from './timeEstimator.js';
 
 const MIN_ACCESSORY_SETS = 2;
 const GROUP_NOTES = {
-    superset: '[SUPERSERIE] Esegui con il prossimo esercizio, poi recupera al termine della coppia.',
-    triset: '[TRISET] Esegui i prossimi tre esercizi in sequenza, poi recupera al termine del gruppo.'
+    superset: '[SUPERSERIE] superset: esegui con il prossimo esercizio, poi recupera al termine della coppia.',
+    triset: '[TRISET] triset: esegui i prossimi tre esercizi in sequenza, poi recupera al termine del gruppo.'
 };
 
 /**
@@ -18,7 +18,11 @@ function resetGroups(exercises) {
         delete copy.isGroupLast;
         // Un piano ricalcolato non deve conservare vecchie etichette TRISET
         // o SUPERSERIE: l'importatore le userebbe per raggruppare i vicini sbagliati.
-        for (const note of Object.values(GROUP_NOTES)) {
+        for (const note of [
+            ...Object.values(GROUP_NOTES),
+            '[SUPERSERIE] Esegui con il prossimo esercizio, poi recupera al termine della coppia.',
+            '[TRISET] Esegui i prossimi tre esercizi in sequenza, poi recupera al termine del gruppo.'
+        ]) {
             if (String(copy.notes || '').startsWith(note)) {
                 copy.notes = String(copy.notes).slice(note.length).replace(/^\\s*\\|\\s*/, '').trim();
             }
