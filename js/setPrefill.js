@@ -161,7 +161,8 @@ export function getSetPrefill(exercise, index, { previousExercise = null, crossE
     const source = filled(current.weight) || filled(current.reps) || filled(current.rpe)
         ? 'current_entry' : sameSession ? 'confirmed_previous_set' :
         coachedReps !== null ? 'mycoatch_next_reps' :
-        fromLastWeek ? 'confirmed_previous_week' :\n        crossKg ? 'estimated_cross_exposure' : 'csv_target';
+        fromLastWeek ? 'confirmed_previous_week' :
+        crossKg ? 'estimated_cross_exposure' : 'csv_target';
     return {
         weight: filled(current.weight) ? String(current.weight)
             : sameSession ? weightFor(previous)
@@ -179,7 +180,8 @@ export function getSetPrefill(exercise, index, { previousExercise = null, crossE
             (fromLastWeek && targetRpe(priorSet?.rpe)) || '',
         source,
         reason: coachedReps !== null ? nextReps.reason :
-            fromLastWeek ? 'Carico e ripetizioni provenienti da serie precedenti confermate con prescrizione confrontabile.' :\n            crossKg ? crossExposureAdvice.reason :
+            fromLastWeek ? 'Carico e ripetizioni provenienti da serie precedenti confermate con prescrizione confrontabile.' :
+            crossKg ? crossExposureAdvice.reason :
             'Prescrizione attuale senza incremento automatico.',
         isSuggestedWeight: !filled(current.weight),
         isSuggestedReps: !filled(current.reps),
