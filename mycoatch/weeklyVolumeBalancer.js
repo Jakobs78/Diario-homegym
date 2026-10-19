@@ -124,7 +124,7 @@ function fitsWithoutSacrifice(oldExercises, plannedExercises, optimized) {
     });
 }
 
-function findReceiver(days, deficit, maxSessionMinutes, crossFocusCount, maxAccessorySets, excludedGroupingMuscles=[]) {
+function findReceiver(days, deficit, maxSessionMinutes, crossFocusCount, maxAccessorySets, excludedGroupingMuscles=[], paceFactor=1) {
     const from = days[deficit.fromIndex];
     const options = [];
 
@@ -138,7 +138,7 @@ function findReceiver(days, deficit, maxSessionMinutes, crossFocusCount, maxAcce
             let optimized;
             try {
                 optimized = optimizeSession(proposed.exercises, maxSessionMinutes,
-                    {excludedGroupingMuscles});
+                    {excludedGroupingMuscles,paceFactor});
             } catch {
                 continue;
             }
@@ -228,6 +228,7 @@ export function rebalanceWeeklyAccessories(days, requestedDays, maxSessionMinute
     const preventTransfers = isDeloadWeek || options.preventTransfers === true;
     const blockedTransfers=new Set(options.blockedTransferMuscles || []);
     const excludedGroupingMuscles=options.excludedGroupingMuscles || [];
+    const paceFactor=options.paceFactor ?? 1;
     const maxAccessorySets = Number.isInteger(options.maxAccessorySets) &&
         options.maxAccessorySets >= 1 && options.maxAccessorySets <= MAX_ACCESSORY_SETS_PER_EXERCISE
         ? options.maxAccessorySets : MAX_ACCESSORY_SETS_PER_EXERCISE;
@@ -252,7 +253,7 @@ export function rebalanceWeeklyAccessories(days, requestedDays, maxSessionMinute
                     blockedTransfers.has(deficit.source.category)) continue;
                 const choice = findReceiver(
                     updatedDays, deficit, maxSessionMinutes, crossFocusCount,
-                    maxAccessorySets, excludedGroupingMuscles
+                    maxAccessorySets, excludedGroupingMuscles, paceFactor
                 );
                 if (!choice) continue;
 

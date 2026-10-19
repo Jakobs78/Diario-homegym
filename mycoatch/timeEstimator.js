@@ -64,7 +64,14 @@ function groupSeconds(group, firstIndex) {
  * Restituisce una previsione della durata della giornata, utile per il vincolo
  * sul tempo scelto. Non rappresenta una misurazione effettiva dell'allenamento.
  */
-export function estimateDaySeconds(exercises) {
+// Il timer del diario parte alla prima serie confermata: riscaldamento e
+// prima serie sono esclusi dalla misura reale. Vanno stimati separatamente.
+export function firstSetStartOffsetSeconds(exercises) {
+    if (!Array.isArray(exercises) || !exercises.length) return 0;
+    return 300 + setupSeconds(exercises[0], 0) + repetitionSeconds(exercises[0]);
+}
+
+export function estimateDaySeconds(exercises, { paceFactor = 1 } = {}) {
     if (!Array.isArray(exercises) || !exercises.length) return 0;
     let seconds = 0;
 
@@ -88,11 +95,16 @@ export function estimateDaySeconds(exercises) {
         }
     }
 
-    // Margine pratico per spostamenti e registrazione delle serie.
-    return seconds + 90 + 300;
+    // Correggi soltanto la parte osservabile dal timer. Non accorciare
+    // automaticamente avvicinamento e recuperi: il fattore minimo è 1.
+    const baseline = seconds + 90 + 300;
+    const factor = Number.isFinite(Number(paceFactor))
+        ? Math.min(1.25, Math.max(1, Number(paceFactor))) : 1;
+    const initial = firstSetStartOffsetSeconds(exercises);
+    return Math.ceil(initial + Math.max(0, baseline - initial) * factor);
 }
 
-export function estimateDayMinutes(exercises) {
-    return Math.ceil(estimateDaySeconds(exercises) / 60);
+export function estimateDayMinutes(exercises, options = {}) {
+    return Math.ceil(estimateDaySeconds(exercises, options) / 60);
 }
 

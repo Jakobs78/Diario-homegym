@@ -441,6 +441,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     // Le superserie alzano mediamente l'RPE percepito:
                     // non accelerare sedute con fatica ripetuta documentata.
                     allowGrouping:!guardrails.recoveryRequired,
+                    paceFactor:config.durationCalibration?.factor ?? 1,
                      excludedGroupingMuscles
                 });
             registerSelectedWeeklySets(scheduledWeeklySets,timedPlan.exercises);
@@ -468,6 +469,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 preventTransfers:guardrails.recoveryRequired,
                  blockedTransferMuscles:excludedGroupingMuscles,
                  excludedGroupingMuscles,
+                paceFactor:config.durationCalibration?.factor ?? 1,
                 maxAccessorySets: onboarding.volumeCap ?? 4
             }
         );
@@ -501,7 +503,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             // l'importatore può mostrare Upper A / Lower A / Upper B / Lower B.
             const dayLabel = String(day.dayName).match(/^(Upper [AB]|Lower [AB]|Full Body [ABC])\b/)?.[1];
             const splitNote = dayLabel ? `[SPLIT MYCOATCH] ${dayLabel}` : '';
-            const durationNote = `[DURATA STIMATA] ${day.estimatedMinutes} minuti su ${maxSessionMinutes} disponibili, inclusi 5 minuti di riscaldamento generale, avvicinamento e lavoro su entrambi i lati. Stima orientativa: registra la durata reale.`;
+            const calibrated = (config.durationCalibration?.sampleCount ?? 0) >= 3;
+            const durationNote = `[DURATA STIMATA] ${day.estimatedMinutes} minuti su ${maxSessionMinutes} disponibili, inclusi riscaldamento generale, avvicinamento e lavoro su entrambi i lati. ${calibrated ? 'Stima prudente calibrata su ' + config.durationCalibration.sampleCount + ' sedute reali. ' : ''}Il timer del diario parte dopo la prima serie confermata, quindi misura solo parte della seduta. Stima orientativa.`;
             const adjustments = [];
             if (day.reducedPrioritySets) adjustments.push(`${day.reducedPrioritySets} serie dei movimenti prioritari ridotte per rispettare il tempo, valuta più minuti per recuperare il volume`);
             if (day.reducedAccessorySets) adjustments.push(`${day.reducedAccessorySets} serie accessorie ridotte`);

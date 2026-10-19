@@ -38,12 +38,20 @@ const samePlan=(source,future)=>
     sameTarget(source.reps||source.targetReps,future.reps||future.targetReps) &&
     sameTarget(source.targetRpe||source.rpeTarget||source.rpe,
                future.targetRpe||future.rpeTarget||future.rpe);
+// CSV importati: carico vuoto significa "da calibrare", non zero.
+// Range e target espliciti diversi restano invariati.
+const baseline=ex=>{
+    const low=numeric(ex?.kgMin), high=numeric(ex?.kgMax);
+    if(low===null && high===null)return {kind:'empty'};
+    if(low!==null && high!==null && low>0 && Math.abs(low-high)<.001)
+        return {kind:'fixed',kg:low};
+    return {kind:'invalid'};
+};
 const sameBaseline=(source,future)=>{
-    const start=numeric(source.kgMin??source.kgMax);
-    const next=numeric(future.kgMin??future.kgMax);
-    const nextMax=numeric(future.kgMax??future.kgMin);
-    return start!==null&&start>0&&next!==null&&nextMax!==null&&
-        Math.abs(next-start)<.001 && Math.abs(nextMax-start)<.001;
+    const current=baseline(source),next=baseline(future);
+    if(current.kind==='invalid'||next.kind==='invalid')return false;
+    if(next.kind==='empty')return true;
+    return current.kind==='fixed' && Math.abs(current.kg-next.kg)<.001;
 };
 const idFor=(w,d,i)=>[Number(w),Number(d),Number(i)].join(':');
 const getDay=(meso,w,d)=>(meso?.weeks||[]).find(x=>weekOrder(x)===Number(w))?.days?.[d];

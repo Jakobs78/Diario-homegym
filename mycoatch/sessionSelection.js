@@ -89,7 +89,8 @@ export function selectExercisesForTime(exercises, maxSessionMinutes, options = {
     // Il nucleo obbligatorio viene programmato per primo. Se non basta il
     // tempo, l'ottimizzatore può ridurne le serie, MA non cancellarlo.
     const optimizerOptions={allowGrouping:options.allowGrouping!==false,
-        excludedGroupingMuscles:options.excludedGroupingMuscles || []};
+        excludedGroupingMuscles:options.excludedGroupingMuscles || [],
+        paceFactor:options.paceFactor ?? 1};
     const basePlan=optimizeSession(protectedExercises,maxSessionMinutes,optimizerOptions);
     const ranking=exercises.map((ex,index)=>({ex,index}))
         .filter(({ex,index})=>!isProtected(ex,index))
