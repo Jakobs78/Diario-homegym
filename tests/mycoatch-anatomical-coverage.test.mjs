@@ -163,31 +163,36 @@ test('transferred posterior sets remain posterior and do not inflate lateral rai
   assert.equal(coverage.shoulderHeadCoverage.directIsolationSets.posteriore,2);
 });
 
-test('the direct API and the athlete profile both respect exercise exclusions',()=>{
+test('direct API excludes rear variants while profile exclusions are also respected',()=>{
   const avoided=['Alzate Posteriori con Manubri','Face Pull ai Cavi','Reverse Fly ai Cavi'];
   const base={
     daysPerWeek:4,durationWeeks:4,maxSessionMinutes:60,
     userAge:35,focus:'hybrid',splitPreference:'upperlower'
   };
+  const profile={
+    experience:'intermediate',calibration:'guided',
+    priorityMuscle:null,excludedExercises:['Stacco Rumeno (RDL)'],
+    referenceLoads:{}
+  };
   for(const config of [
     {...base,excludedExercises:avoided},
-    {...base,athleteProfile:{
-      experience:'intermediate',calibration:'guided',
-      priorityMuscle:null,excludedExercises:avoided,referenceLoads:{}
-    }},
-    {...base,excludedExercises:[avoided[0]],athleteProfile:{
-      experience:'intermediate',calibration:'guided',
-      priorityMuscle:null,excludedExercises:avoided.slice(1),referenceLoads:{}
-    }}
+    {...base,excludedExercises:avoided,athleteProfile:profile}
   ]){
     const plan=generateSmartMesocycle(config,emptyHistory);
     for(const week of plan.weeks){
       const present=week.days.flatMap(day=>day.exercises.map(ex=>ex.name));
       for(const name of avoided)assert.ok(!present.includes(name),name);
+      if(config.athleteProfile)
+        assert.ok(!present.includes('Stacco Rumeno (RDL)'),'profile exclusion');
       assert.equal(week.weeklyCoverage.functionalCoverage.rearDeltoids.scheduledSets,0);
       assert.equal(week.weeklyCoverage.functionalCoverage.rearDeltoids.status,'not_programmed');
     }
   }
   assert.throws(()=>generateSmartMesocycle({...base,excludedExercises:'wrong'},emptyHistory),
     /Lista di esercizi da evitare non valida/);
+  // Athlete UI intentionally limits its 'avoid' list to main barbell lifts,
+  // while the direct engine exclusion list accepts all catalog exercises.
+  assert.throws(()=>generateSmartMesocycle({...base,athleteProfile:{
+    ...profile,excludedExercises:avoided
+  }},emptyHistory),/esercizi da evitare non è riconosciuto/);
 });
