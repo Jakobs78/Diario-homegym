@@ -46,7 +46,7 @@ export function conciseExerciseInstruction(exercise) {
     const parts = [];
     const split = /^\[SPLIT MYCOATCH\]\s*(Upper [AB]|Lower [AB]|Full Body [ABCD])/i.exec(verbose);
     if (split) parts.push('[SPLIT MYCOATCH] ' + split[1]);
-    if (verbose.includes('[SUPERSERIE]')) parts.push('[SUPERSERIE] Esegui questo esercizio e quello successivo uno dopo l'altro; riposa dopo averli completati entrambi.');
+    if (verbose.includes('[SUPERSERIE]')) parts.push('[SUPERSERIE] Esegui questo esercizio e quello successivo uno dopo l’altro; riposa dopo averli completati entrambi.');
     if (verbose.includes('[TRISET]')) parts.push('[TRISET] Esegui tre esercizi consecutivi; fai la pausa prevista solo dopo il terzo.');
     if (verbose.includes('[WARM-UP AUTO]')) {
         const warmup = /\[WARM-UP AUTO\]:?\s*([^|.]+)/.exec(verbose);
