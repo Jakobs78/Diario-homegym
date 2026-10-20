@@ -111,8 +111,9 @@ export function snapshotEquipmentState(athlete = {}) {
 export function profileSnapshot(staged,{
     splitPreference='auto',daysPerWeek=null,maxSessionMinutes=null,focus=null,
     userAge=null,preferredLifts={},availableEquipment=[],
-    availableAccessories=[],cableSetup=null
-}={},equipmentAtGeneration={}) {
+    availableAccessories=[],cableSetup=null,
+    equipmentAtGeneration:previewEquipment={}
+}={},equipmentAtGeneration=null) {
     if(!staged?.profile||!Number.isInteger(staged.version))
         throw Error('Profilo non disponibile.');
     const settings={
@@ -128,6 +129,6 @@ export function profileSnapshot(staged,{
         schemaVersion:2,profileVersion:staged.version,
         profile:clone(staged.profile),
         settings:clone(settings),
-        equipment:snapshotEquipmentState(equipmentAtGeneration)
+        equipment:snapshotEquipmentState(equipmentAtGeneration ?? previewEquipment)
     };
 }
