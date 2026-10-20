@@ -45,10 +45,10 @@ export function createFutureLoadReviewPanel(meso,weekNumber,dayIndex,{
     const details=el('details','mycoatch-future-load-review');
     details.id='mycoatch-future-load-review';
     details.append(el('summary','mycoatch-future-load-summary',
-        '📈 MyCoatch · Aggiorna solo le prossime sedute'));
+        '📈 MyCoatch · Valuta un aumento di peso nelle prossime sedute'));
     const content=el('div','mycoatch-future-load-content');
     content.append(el('p','',
-        'La prestazione confermata suggerisce un incremento. Qui puoi vedere le singole sedute interessate; nulla viene applicato senza conferma. Il programma passato rimane intatto.'));
+        'Hai completato una serie con risultati che possono giustificare un piccolo aumento di peso. Controlla i kg attuali e quelli proposti per ciascuna futura seduta. Premendo il pulsante di conferma aggiorni solo gli allenamenti non ancora iniziati: quelli già eseguiti non vengono riscritti.'));
     for(const {ex,applied,preview} of choices){
         const item=el('section','mycoatch-future-load-item');
         const record=applied||preview;
@@ -56,7 +56,7 @@ export function createFutureLoadReviewPanel(meso,weekNumber,dayIndex,{
         item.append(el('p','',record.reason));
         item.append(el('small','',
             applied?'Revisione applicata su tua conferma.':
-            'Proposta provvisoria: aggiorna solo la prossima esposizione. Rivaluta le serie prima di qualunque altro aumento.'));
+            'Questa è una proposta, non un nuovo record già raggiunto. Verifica dopo la prossima seduta che ripetizioni, tecnica e RPE siano rimasti adeguati prima di aumentare ancora.'));
         const summary=el('strong','',record.changes.length+
             ' esposizion'+(record.changes.length===1?'e':'i')+
             (applied?' aggiornat'+(record.changes.length===1?'a':'e'): ' modificabil'+(record.changes.length===1?'e':'i')));
@@ -73,7 +73,7 @@ export function createFutureLoadReviewPanel(meso,weekNumber,dayIndex,{
         status.setAttribute('role','alert');
         if(!readOnly && !applied && preview){
             const button=el('button','btn btn-secondary btn-sm mycoatch-future-load-apply',
-                'Conferma e aggiorna solo queste sedute future');
+                'Applica questi kg agli allenamenti futuri elencati');
             button.type='button';
             button.addEventListener('click',async()=>{
                 button.disabled=true;
@@ -93,7 +93,7 @@ export function createFutureLoadReviewPanel(meso,weekNumber,dayIndex,{
             item.append(button);
         }else if(!readOnly && applied){
             const undo=el('button','btn btn-secondary btn-sm mycoatch-future-load-undo',
-                'Annulla aggiornamento e ripristina i kg precedenti');
+                'Ripristina i pesi previsti prima della modifica');
             undo.type='button';
             undo.disabled=!canUndoFutureLoadReview(meso,applied);
             undo.addEventListener('click',async()=>{
