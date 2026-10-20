@@ -49,7 +49,7 @@ export function initCoachPreview(readCoachOptions,configModal) {
                 equipmentAtGeneration:proposal.equipmentSnapshot || {}});
             summary.textContent='Proposta di '+options.daysPerWeek+' allenamenti a settimana · '+
                 options.maxSessionMinutes+' min per sessione · '+proposal.proposal.weeks.length+
-                ' settimane. Stai solo consultando un’anteprima: la scheda e lo storico non cambiano finché non scegli esplicitamente di importare la proposta.';
+                ' settimane. La scheda esistente rimane intatta durante l’anteprima: non cambi né la scheda né lo storico finché non scegli esplicitamente di importare la proposta.';
             weeks.replaceChildren();
             for(const week of proposal.proposal.weeks){
                 const container=create('details',undefined,'mycoatch-preview-week');
