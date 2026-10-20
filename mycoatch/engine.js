@@ -99,8 +99,18 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
     const effectiveFocusMuscle = guardrails.effectiveFocusMuscle;
     const excludedGroupingMuscles=[...new Set(EXERCISE_DATABASE
         .filter(ex=>isRegionAffected(guardrails,ex.category)).map(ex=>ex.category))];
+    // Exclusions can enter via the direct engine API as well as the athlete
+    // profile. Never let an empty profile exclusion list silently replace
+    // explicit user exclusions. Invalid list types still fail validation.
+    const directExclusions=config.excludedExercises;
+    const profileExclusions=athleteProfile?.excludedExercises || [];
+    const excludedExercises=directExclusions === undefined
+        ? profileExclusions
+        : Array.isArray(directExclusions)
+            ? [...new Set([...directExclusions,...profileExclusions])]
+            : directExclusions;
     const selectionPreferences = normalizeSelectionPreferences({
-        ...config, excludedExercises: athleteProfile?.excludedExercises || []
+        ...config, excludedExercises
     });
     
     // Calcolo della frequenza settimanale reale per ogni gruppo muscolare nel template
