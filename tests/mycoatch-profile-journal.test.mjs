@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {stageProfileRevision,commitProfileRevision,latestSavedProfile,profileSnapshot,snapshotEquipmentState,assessMesocycleProfileContinuity} from '../mycoatch/profileJournal.js';
+import {stageProfileRevision,commitProfileRevision,latestSavedProfile,profileSnapshot,snapshotEquipmentState,equipmentMatchesSnapshot,assessMesocycleProfileContinuity} from '../mycoatch/profileJournal.js';
 
 const profile=(experience='intermediate')=>({
     experience,calibration:'guided',priorityMuscle:null,
@@ -178,4 +178,17 @@ test('gli snapshot v1 già salvati restano confrontabili senza migrazioni',()=>{
     }};
     assert.equal(assessMesocycleProfileContinuity(existing,d).status,'same_profile');
     assert.equal(Object.hasOwn(existing.coachProfileSnapshot,'equipment'),false);
+});
+
+test('anteprima annullabile dopo cambio inventario, senza cancellare dati',()=>{
+    const initial={plateInventories:{'50':{'2.5':2}},loadingSteps:{barbell:2.5},
+        barbellWeight:20,accountEmail:'not-relevant'};
+    const captured=snapshotEquipmentState(initial);
+    assert.equal(equipmentMatchesSnapshot(captured,initial),true);
+    initial.plateInventories['50']['2.5']=0;
+    assert.equal(equipmentMatchesSnapshot(captured,initial),false);
+    assert.equal(captured.plateInventories['50']['2.5'],2);
+    initial.plateInventories['50']['2.5']=2;
+    initial.accountEmail='changed-but-not-relevant';
+    assert.equal(equipmentMatchesSnapshot(captured,initial),true);
 });
