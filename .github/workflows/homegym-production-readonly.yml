@@ -1,6 +1,10 @@
 name: HomeGym production smoke test (read-only)
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/homegym-production-readonly.yml'
+      - 'tests/live/**'
   workflow_dispatch:
 
 permissions:
@@ -11,7 +15,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  syntax-check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check live suite module syntax without secrets or network
+        run: |
+          node --check tests/live/playwright.config.mjs
+          node --check tests/live/readonly-production.spec.mjs
   production-readonly:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
