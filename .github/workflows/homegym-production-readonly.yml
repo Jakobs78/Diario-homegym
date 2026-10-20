@@ -1,0 +1,42 @@
+name: HomeGym production smoke test (read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: homegym-production-readonly
+  cancel-in-progress: false
+
+jobs:
+  production-readonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout reviewed test code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify dedicated test account is configured
+        env:
+          HOMEGYM_E2E_EMAIL: ${{ secrets.HOMEGYM_E2E_EMAIL }}
+          HOMEGYM_E2E_PASSWORD: ${{ secrets.HOMEGYM_E2E_PASSWORD }}
+        run: |
+          test -n "$HOMEGYM_E2E_EMAIL" || { echo "Missing HOMEGYM_E2E_EMAIL GitHub Actions secret"; exit 1; }
+          test -n "$HOMEGYM_E2E_PASSWORD" || { echo "Missing HOMEGYM_E2E_PASSWORD GitHub Actions secret"; exit 1; }
+          echo "Dedicated account configured. Values are never printed."
+      - name: Install isolated Playwright runner
+        run: npm install --no-save --no-package-lock --ignore-scripts @playwright/test@1.55.0
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Authenticated read-only smoke test on deployed application
+        env:
+          HOMEGYM_E2E_EMAIL: ${{ secrets.HOMEGYM_E2E_EMAIL }}
+          HOMEGYM_E2E_PASSWORD: ${{ secrets.HOMEGYM_E2E_PASSWORD }}
+        run: npx playwright test --config tests/live/playwright.config.mjs
+      # Deliberately NO screenshots, traces, storage state or backup artifacts:
+      # authentication cookies, test-account diary and tokens stay ephemeral.
