@@ -289,7 +289,7 @@ export function formatCoachReview(comparison, report) {
                     ' serie dirette' + (item.plannedSets === null ? '' :
                     ' su ' + item.plannedSets + ' previste') +
                     ' (' + ({not_programmed:'non previsto nel programma',omitted_after_optimization:'eliminato per rispettare il tempo',reduced_after_optimization:'serie ridotte per rispettare il tempo'}[item.status] || 'da verificare') + ')').join(' · ') +
-                '. Le spinte e le tirate possono comunque coinvolgere questi muscoli. Il conteggio non misura direttamente la crescita.');
+                '. Spinte e tirate possono comunque dare lavoro indiretto a questi muscoli. Il conteggio non misura direttamente la crescita.');
         }
         if(coverage.shoulderHeadCoverage){
             const heads=coverage.shoulderHeadCoverage.directIsolationSets;
