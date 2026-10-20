@@ -64,8 +64,15 @@ test('login, authenticated Supabase read, browser persistence, backup and logout
   await expect(page.locator('#auth-overlay')).toBeVisible();
   await page.locator('#auth-email').fill(EMAIL);
   await page.locator('#auth-password').fill(PASSWORD);
+  // The login handler deliberately reloads the entire application.
+  // Wait for that new document, not merely for the old overlay to vanish.
+  const loginReload = page.waitForEvent('load',{timeout:45000});
   await page.locator('#auth-submit-btn').click();
+  await loginReload;
   await expect(page.locator('#auth-overlay')).toBeHidden({timeout:45000});
+  await expect.poll(async () => page.evaluate(() =>
+    Boolean(window.supabase?.createClient && window.state?.currentUser?.id)
+  ),{timeout:30000,intervals:[750,1500,2500]}).toBe(true);
 
   const firstSession = async () => page.evaluate(async expectedEmail => {
     const {supabase} = await import('/js/config.js');
@@ -170,8 +177,11 @@ test('login, authenticated Supabase read, browser persistence, backup and logout
   expect(parsed).toEqual(archive.data);
   // Neither the backup nor its contents are uploaded as CI artifacts.
 
-  await page.reload({waitUntil:'domcontentloaded'});
+  await page.reload({waitUntil:'load'});
   await expect(page.locator('#auth-overlay')).toBeHidden({timeout:30000});
+  await expect.poll(async () => page.evaluate(() =>
+    Boolean(window.supabase?.createClient && window.state?.currentUser?.id)
+  ),{timeout:30000}).toBe(true);
   const stillSignedIn = await page.evaluate(async expectedEmail => {
     const {supabase} = await import('/js/config.js');
     const {data:{user},error} = await supabase.auth.getUser();
@@ -180,7 +190,9 @@ test('login, authenticated Supabase read, browser persistence, backup and logout
   expect(stillSignedIn).toBe(true);
 
   await page.locator('#app-utility-menu summary').click();
+  const logoutReload = page.waitForEvent('load',{timeout:30000});
   await page.locator('#user-info-bar').click();
+  await logoutReload;
   await expect(page.locator('#auth-overlay')).toBeVisible({timeout:30000});
   const signedOut = await page.evaluate(async () => {
     const {supabase} = await import('/js/config.js');
