@@ -164,11 +164,25 @@ test('login, authenticated Supabase read, browser persistence, backup and logout
 
   // Verify the app can export a real full-fidelity archive from its UI, and
   // parse it without invoking the destructive restore action.
-  await page.locator('#open-tools-btn').click();
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.locator('[data-action="backup-json"]').click()
-  ]);
+  let download=null;
+  const pageErrors=[];
+  page.on('pageerror', error => pageErrors.push(error.name));
+  for(let attempt=0;attempt<2&&!download;attempt++){
+    await page.locator('#open-tools-btn').click();
+    await expect(page.locator('#tools-modal')).not.toHaveClass(/hidden/);
+    const [result]=await Promise.all([
+      page.waitForEvent('download',{timeout:12000}).catch(()=>null),
+      page.locator('[data-action="backup-json"]').click()
+    ]);
+    download=result;
+    if(!result){
+      // No personal data, URL, downloaded bytes or auth headers in logs.
+      console.log('LIVE_BACKUP_UI_RETRY',{
+        attempt:attempt+1,clientErrorTypes:pageErrors
+      });
+    }
+  }
+  expect(download,'Il pulsante di backup non avvia il download JSON').toBeTruthy();
   const bytes = await readFile(await download.path(), 'utf8');
   const archive = JSON.parse(bytes);
   expect(archive.format).toBe('homegym-diary-full-backup');
