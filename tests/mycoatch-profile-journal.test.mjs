@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {stageProfileRevision,commitProfileRevision,latestSavedProfile,profileSnapshot,assessMesocycleProfileContinuity} from '../mycoatch/profileJournal.js';
+import {stageProfileRevision,commitProfileRevision,latestSavedProfile,profileSnapshot,snapshotEquipmentState,equipmentMatchesSnapshot,assessMesocycleProfileContinuity} from '../mycoatch/profileJournal.js';
 
 const profile=(experience='intermediate')=>({
     experience,calibration:'guided',priorityMuscle:null,
@@ -118,4 +118,77 @@ test('mesocicli precedenti privi di snapshot restano leggibili senza conclusioni
         {coachProfileSnapshot:profileSnapshot(stageProfileRevision(d,profile()))},
         diary());
     assert.equal(copied.status,'unverifiable');
+});
+
+test('snapshot v2 conserva attrezzatura e preferenze esatte della proposta',()=>{
+    const d=diary();
+    const v1=stageProfileRevision(d,profile());
+    commitProfileRevision(d,v1);
+    const equipment={
+        barbellWeight:20,ownedBarbells:[{weight:20,diameter:'50'}],
+        defaultBarbell:{weight:20,diameter:'50'},
+        loadingSteps:{barbell:2.5,dumbbell:2.5,machine:2.5},
+        plateInventories:{'50':{'2.5':2,'5':2},'29':{}},
+        accountEmail:'not-part-of-snapshot',
+        mycoatchProfileJournal:{some:'private state'}
+    };
+    const options={
+        userAge:48,focus:'hybrid',daysPerWeek:4,splitPreference:'fullbody',
+        maxSessionMinutes:60,cableSetup:'single_high_low',
+        preferredLifts:{bench:'Panca Piana con Bilanciere'},
+        availableEquipment:['barbell','dumbbell','rack','lat_machine'],
+        availableAccessories:['ankle_strap'],
+        equipmentAtGeneration:equipment
+    };
+    const s=profileSnapshot(v1,options);
+    assert.equal(s.schemaVersion,2);
+    assert.equal(s.profileVersion,1);
+    assert.equal(s.settings.userAge,48);
+    assert.equal(s.settings.maxSessionMinutes,60);
+    assert.equal(s.settings.cableSetup,'single_high_low');
+    assert.equal(s.settings.preferredLifts.bench,'Panca Piana con Bilanciere');
+    assert.deepEqual(s.settings.availableAccessories,['ankle_strap']);
+    assert.deepEqual(s.equipment.ownedBarbells,[{weight:20,diameter:'50'}]);
+    assert.equal(s.equipment.plateInventories['50']['2.5'],2);
+    assert.equal(Object.hasOwn(s.equipment,'accountEmail'),false);
+    assert.equal(Object.hasOwn(s.equipment,'mycoatchProfileJournal'),false);
+    const saved=JSON.stringify(s);
+    equipment.plateInventories['50']['2.5']=0;
+    options.preferredLifts.bench='Panca Inclinata con Manubri';
+    commitProfileRevision(d,stageProfileRevision(d,profile('advanced')));
+    assert.equal(JSON.stringify(s),saved);
+});
+
+test('snapshot attrezzatura ignora campi personali non pertinenti',()=>{
+    const state=snapshotEquipmentState({email:'hidden',name:'hidden',
+        loadingSteps:{barbell:1.25},plateInventories:{'50':{'1.25':4}}});
+    assert.deepEqual(state,{
+        loadingSteps:{barbell:1.25},
+        plateInventories:{'50':{'1.25':4}}
+    });
+});
+
+test('gli snapshot v1 già salvati restano confrontabili senza migrazioni',()=>{
+    const d=diary();
+    const v1=stageProfileRevision(d,profile());
+    commitProfileRevision(d,v1);
+    const existing={coachProfileSnapshot:{
+        schemaVersion:1,profileVersion:1,profile:structuredClone(v1.profile),
+        settings:{daysPerWeek:4,maxSessionMinutes:60}
+    }};
+    assert.equal(assessMesocycleProfileContinuity(existing,d).status,'same_profile');
+    assert.equal(Object.hasOwn(existing.coachProfileSnapshot,'equipment'),false);
+});
+
+test('anteprima annullabile dopo cambio inventario, senza cancellare dati',()=>{
+    const initial={plateInventories:{'50':{'2.5':2}},loadingSteps:{barbell:2.5},
+        barbellWeight:20,accountEmail:'not-relevant'};
+    const captured=snapshotEquipmentState(initial);
+    assert.equal(equipmentMatchesSnapshot(captured,initial),true);
+    initial.plateInventories['50']['2.5']=0;
+    assert.equal(equipmentMatchesSnapshot(captured,initial),false);
+    assert.equal(captured.plateInventories['50']['2.5'],2);
+    initial.plateInventories['50']['2.5']=2;
+    initial.accountEmail='changed-but-not-relevant';
+    assert.equal(equipmentMatchesSnapshot(captured,initial),true);
 });
