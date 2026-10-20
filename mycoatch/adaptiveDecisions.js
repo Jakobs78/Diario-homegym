@@ -3,11 +3,6 @@
  * kg, reps, volume e RPE descrivono prestazione, stimolo e tolleranza al lavoro.
  */
 import { getAvailableLoadStep, resolvePlannedLoad } from './loadProposal.js';
-function incrementFor(weight, equipment) {
-    if (equipment === 'dumbbell') return weight < 12.5 ? 0.5 : 1;
-    if (equipment === 'cable' || equipment === 'lat_machine') return weight < 12.5 ? 0.5 : 1.25;
-    return weight < 12.5 ? 1 : 2.5; // bilanciere
-}
 const roundLoad = kg => Math.max(0, Math.round(kg * 4) / 4);
 
 export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
@@ -28,9 +23,20 @@ export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
 
         if (exercise.fatigueConcern && kg !== null) {
             action = 'reduce_load';
-            const reduction = incrementFor(kg, exercise.equipment);
-            plannedKg = roundLoad(Math.max(kg * 0.95, kg - reduction));
-            reason = 'RPE ripetutamente superiore al target o ripetizioni sotto target con calo e1RM: alleggerimento prudente e verifica del recupero.';
+            // Use the athlete's actual loading increment, and never suggest
+            // a reduction whose physical load is unavailable. A fatigue
+            // signal is not permission to invent smaller plates or dumbbells.
+            const {step}=getAvailableLoadStep(exercise,loadingSteps,kg);
+            const candidate=roundLoad(Math.max(kg * 0.95,kg-step));
+            const resolved=resolvePlannedLoad(exercise,candidate,loadingSteps);
+            if(resolved.weight !== null && resolved.weight < kg) {
+                plannedKg=resolved.weight;
+                reason='RPE realmente elevato in esposizioni confrontabili: valuta un alleggerimento componibile e il recupero prima della prossima seduta.';
+            } else {
+                action='review_recovery';
+                plannedKg=kg;
+                reason='Segnali ripetuti di fatica: il carico inferiore non risulta componibile o sarebbe identico. Non inventare dischi; rivaluta recupero e prescrizione.';
+            }
         } else if (exercise.readyForLoad && kg !== null &&
                    exercise.status !== 'regressing') {
             const increment = getAvailableLoadStep(exercise,loadingSteps,kg).step;
