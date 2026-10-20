@@ -255,7 +255,7 @@ export function formatCoachReview(comparison, report) {
                 .sort((a, b) => b[1].indirectSetCredits - a[1].indirectSetCredits)
                 .slice(0, 5);
             if (relevant.length) {
-                lines.push('VOLUME MUSCOLARE FRAZIONARIO — settimane proposte (serie dirette + 0,5 per coinvolgimento secondario; stima NON misurazione di crescita):');
+                lines.push('COME SI DISTRIBUISCE IL LAVORO MUSCOLARE — conteggio orientativo della prima settimana: ogni serie diretta vale 1, mentre una serie che coinvolge il muscolo come secondario vale 0,5. Questi numeri aiutano a confrontare la scheda, non misurano quanta massa crescerà:');
                 lines.push(relevant.map(([muscle, v]) => muscle + ': ' +
                     v.directSets + ' dirette + ' +
                     v.indirectSetCredits + ' crediti indiretti = ' +
@@ -270,9 +270,9 @@ export function formatCoachReview(comparison, report) {
             lines.push('ATTENZIONE: un fondamentale prioritario non è stato conservato.');
         }
         if (coverage.notDirectlyCovered.length) {
-            lines.push('Gruppi senza serie DIRETTE nella prima settimana: ' +
+            lines.push('Gruppi senza esercizi dedicati nella prima settimana: ' +
                 coverage.notDirectlyCovered.join(', ') +
-                '. Un contributo indiretto non viene contato come serie diretta.');
+                '. Potrebbero comunque lavorare durante altri esercizi: assenza di serie dedicate non significa che non vengano allenati.');
         }
         // These metrics were already calculated but never shown in the
         // athlete's approval dialog. Surface meaningful functional gaps
@@ -284,12 +284,12 @@ export function formatCoachReview(comparison, report) {
             item.status==='omitted_after_optimization' ||
             item.status==='reduced_after_optimization');
         if(gaps.length){
-            lines.push('COPERTURA FUNZIONALE — verifica prima di accettare la scheda: ' +
+            lines.push('COPERTURA FUNZIONALE — esercizi mancanti o ridotti per alcuni movimenti, controlla prima di scaricare: ' +
                 gaps.map(item=>item.label + ': ' + item.scheduledSets +
                     ' serie dirette' + (item.plannedSets === null ? '' :
                     ' su ' + item.plannedSets + ' previste') +
-                    ' (' + item.status.replaceAll('_',' ') + ')').join(' · ') +
-                '. Le tirate/spinte possono dare lavoro indiretto; non è una misura di crescita.');
+                    ' (' + ({not_programmed:'non previsto nel programma',omitted_after_optimization:'eliminato per rispettare il tempo',reduced_after_optimization:'serie ridotte per rispettare il tempo'}[item.status] || 'da verificare') + ')').join(' · ') +
+                '. Spinte e tirate possono comunque dare lavoro indiretto a questi muscoli. Il conteggio non misura direttamente la crescita.');
         }
         if(coverage.shoulderHeadCoverage){
             const heads=coverage.shoulderHeadCoverage.directIsolationSets;
@@ -297,7 +297,7 @@ export function formatCoachReview(comparison, report) {
                 heads.laterale + ' serie · posteriore ' + heads.posteriore +
                 ' serie; spinte verticali ' +
                 coverage.shoulderHeadCoverage.verticalPressSets +
-                ' serie (non equivalgono a isolamento del posteriore).');
+                ' serie. La spinta sopra la testa non sostituisce automaticamente il lavoro specifico per i posteriori.');
         }
     }
     if (comparison.unavailableOptionalSlots.length) {
@@ -309,17 +309,17 @@ export function formatCoachReview(comparison, report) {
         .map(d => `G${d.day} ${d.minutes} min`).join(' · '));
 
     if (comparison.timeAwareSelections?.length) {
-        lines.push('SCELTA INIZIALE ESERCIZI IN BASE AL TEMPO (stime, prima dell’eventuale recupero settimanale degli accessori):');
+        lines.push('SCELTA INIZIALE ESERCIZI IN BASE AL TEMPO — prima MyCoatch conserva i fondamentali, poi aggiunge i complementari che rientrano nei minuti disponibili. Alcune serie possono essere spostate in altri giorni:');
         for (const plan of comparison.timeAwareSelections) {
             const chosen=plan.selected.slice(0, 4)
                 .map(item=>item.exercise+' ('+item.reason+')').join(' · ');
             const excluded=plan.excluded.slice(0,3).map(item=>item.exercise);
             lines.push('G'+plan.day+': '+plan.protected.length+
-                ' movimenti prioritari protetti; '+
+                'movimenti prioritari protetti (esercizi principali mantenuti); '+
                 (chosen || 'nessun accessorio aggiunto oltre i fondamentali')+
                 (excluded.length ? '; non inseriti: '+excluded.join(', ')+
                     (plan.excluded.length>excluded.length ? ' e altri' : '')+
-                    ' (priorità e minuti disponibili)' : '')+'.');
+                    ' (per mantenere la seduta entro i minuti richiesti)' : '')+'.');
         }
     }
     for (const a of comparison.adaptations.slice(0, 5)) {
