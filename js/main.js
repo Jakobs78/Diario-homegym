@@ -312,6 +312,9 @@ function setupEventListeners() {
                 coachFeedback.textContent='Profilo versione '+staged.version+
                     (staged.changed?' salvato nel diario.':' già aggiornato.')+note;
             }
+            // Refresh the read-only continuity note, without changing any
+            // loaded mesocycle, set or approved prescription.
+            if(staged.changed)renderWorkoutList();
         }catch(err){if(coachFeedback)coachFeedback.textContent=err.message;}
     });
 
