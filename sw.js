@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v56-mycoatch-functional-coverage-20261020';
+const CACHE_NAME = 'workout-app-v57-mycoatch-manual-dossier-20261020';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -81,6 +81,7 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/exerciseSelection.js',
   '/mycoatch/athleteProfile.js',
   '/mycoatch/profileJournal.js',
+  '/mycoatch/reviewDossier.js',
   '/mycoatch/calibrationReview.js',
   '/mycoatch/weeklyCoverage.js',
   '/mycoatch/volumeAccounting.js',
