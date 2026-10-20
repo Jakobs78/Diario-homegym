@@ -49,8 +49,15 @@ export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}
     const typical = config.focus === 'strength' ? [7.5, 8, 8.5] : [7.5, 8, 8];
     const guided = onboarding.calibrationWeek ? onboarding.rpeTargets?.[i] : null;
     const raw = guided === undefined || guided === null ? typical[Math.min(i, 2)] : Number(guided);
+    // Some guided onboards preallocate a very light final week assuming
+    // the legacy deload. In the opt-in adaptive Full Body programme this is
+    // a consolidation week instead: do not silently assign a recovery RPE.
+    const priorGuided=Number(onboarding.rpeTargets?.[i-1]);
+    const effort=evidenceBasedDeload && !isDeload && onboarding.calibrationWeek &&
+        i===count-1 && Number.isFinite(priorGuided) ?
+        Math.max(raw,priorGuided) : raw;
     const ceiling = onboarding.experience === 'beginner' ? 8 : 8.5;
-    const targetRpe = isDeload ? 6.5 : Math.min(ceiling, Math.max(6, Number.isFinite(raw) ? raw : 7.5));
+    const targetRpe = isDeload ? 6.5 : Math.min(ceiling, Math.max(6, Number.isFinite(effort) ? effort : 7.5));
     const phase = isDeload ? 'recovery' :
       onboarding.calibrationWeek && i === 0 ? 'calibration' :
       i === count - 1 ? 'consolidation' : 'accumulation';
