@@ -94,10 +94,10 @@ async function initApp() {
     initDevBanner();
     initBackgroundSync(state);
     
-    // Until the authenticated owner's ID is verified, do not display an
-    // unattributed legacy diary behind a changing authentication overlay.
-    let localData = getStoredLocalOwner() ? getFromLocalStorage()
-        : {athlete:{email:null},history:{years:{}}};
+    // Offline users must be able to reopen their local journal. This state
+    // is not rendered until getUser resolves below; as soon as a signed-in
+    // account is known, it is replaced by its strictly scoped snapshot.
+    let localData = getFromLocalStorage();
     state.workoutData = localData;
     updateSyncStatusUI();
     
