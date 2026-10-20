@@ -80,6 +80,52 @@ export function conciseExerciseInstruction(exercise) {
         ? 'Piedi stabili e scapole ferme, abbassa e spingi in controllo.'
         : fullCue.split(/[.!?] /)[0].slice(0,105)+'.';
     parts.push(parts.join(' | ').length+fullCue.length+3<275 ? fullCue : briefCue);
+    // This CSV note is displayed in a compact card. Longer explanations
+    // live in the preview/report and manual. Preserve every control token and
+    // every explicitly computed warm-up kilogram value while compressing
+    // optional prose only on crowded rows.
+    let note=parts.join(' | ').replace(/;/g, ',');
+    if(note.length>=300){
+        const compressed=parts.map(part=>{
+            if(part.startsWith('[SPLIT MYCOATCH]'))return part;
+            if(part.startsWith('[SUPERSERIE]'))
+                return '[SUPERSERIE] superset: 2 esercizi, poi pausa.';
+            if(part.startsWith('[TRISET]'))
+                return '[TRISET] triset: 3 esercizi, poi pausa.';
+            if(part.startsWith('[WARM-UP AUTO]'))
+                return part; // Preserve the real preparatory set targets.
+            if(part.startsWith('[WARM-UP]'))
+                return '[WARM-UP] Serie leggere progressive.';
+            if(part.startsWith('[RIFERIMENTO ATLETA]'))
+                return part.replace(/ kg.*$/,' kg dichiarati: verifica reps e RPE.');
+            if(part.startsWith('[VOLUME INIZIALE]'))
+                return '[VOLUME INIZIALE] Non aggiungere serie.';
+            if(part.startsWith('[CALIBRAZIONE MYCOATCH]'))
+                return '[CALIBRAZIONE MYCOATCH] Registra kg, reps e RPE.';
+            if(part.startsWith('SCARICO:'))
+                return 'SCARICO: meno serie e fatica.';
+            if(part.startsWith('[DROP_SET]'))
+                return '[DROP_SET] [DROP_SCOPE:LAST] dropset solo dopo ultima serie.';
+            if(part.startsWith('[REST_PAUSE]'))
+                return '[REST_PAUSE] Pausa breve solo nell’ultima serie.';
+            if(part.startsWith('Carico') || part.startsWith('Il peso') ||
+               part.startsWith('Peso da definire'))
+                return 'Carico: verifica kg, ripetizioni e RPE.';
+            return part===fullCue || part===briefCue
+                ? 'Tecnica: esegui con controllo, senza slanci.' : part;
+        });
+        note=compressed.join(' | ').replace(/;/g, ',');
+        if(note.length>=300){
+            // Some rare rows combine more than six coaching markers.
+            // All markers are kept, but repeated explanatory prose is not.
+            note=compressed.map(part=>{
+                if(part.startsWith('[WARM-UP AUTO]') ||
+                   part.startsWith('[SPLIT MYCOATCH]'))return part;
+                const tags=part.match(/^(?:\[[^\]]+\]\s*)+/)?.[0];
+                return tags ? tags.trim() : '';
+            }).filter(Boolean).join(' | ');
+        }
+    }
     // The legacy 12-column CSV must not gain a pseudo-separator in Note.
-    return parts.join(' | ').replace(/;/g, ',');
+    return note;
 }
