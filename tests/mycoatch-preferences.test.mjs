@@ -62,3 +62,23 @@ test('integrazione: tutte le vie di generazione usano il modulo MyCoatch', () =>
     assert.match(script, /generateAndDownloadMesocycleCSV\(options\)/);
     assert.match(script, /startCoachChatAndGenerate/);
 });
+
+test('scarico: scelta esplicita validata, automatico legacy invariato',()=>{
+    const fields={selectedTime:'60',userAge:'49',daysPerWeek:'4',focus:'hybrid',
+        splitPreference:'fullbody'};
+    const automatic=parseCoachPreferences({...fields,deloadChoice:'auto'});
+    assert.equal(automatic.splitPreference,'fullbody');
+    assert.equal(Object.hasOwn(automatic,'deloadWeek'),false);
+    assert.equal(parseCoachPreferences({...fields,deloadChoice:'last'}).deloadWeek,true);
+    assert.equal(parseCoachPreferences({...fields,deloadChoice:'none'}).deloadWeek,false);
+    assert.throws(()=>parseCoachPreferences({...fields,deloadChoice:'week2'}),/scarico/);
+});
+test('form espone gestione dello scarico senza attivare scelta obbligatoria',()=>{
+    const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
+    assert.match(html,/id="mycoatch-deload-choice"/);
+    assert.match(html,/<option value="auto" selected>/);
+    assert.match(html,/<option value="last">/);
+    assert.match(html,/<option value="none">/);
+    const main=readFileSync(new URL('../js/main.js',import.meta.url),'utf8');
+    assert.match(main,/mycoatch-deload-choice/);
+});
