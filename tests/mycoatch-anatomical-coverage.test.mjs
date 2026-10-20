@@ -4,6 +4,7 @@ import { EXERCISE_DATABASE } from '../mycoatch/exercisesDB.js';
 import { selectExerciseForSlot, normalizeSelectionPreferences, isExerciseAvailable } from '../mycoatch/exerciseSelection.js';
 import { generateSmartMesocycle, getTemplateForDays } from '../mycoatch/engine.js';
 import { auditWeeklyCoverage } from '../mycoatch/weeklyCoverage.js';
+import { compareMesocyclePlans, formatCoachReview } from '../mycoatch/mesocycleComparison.js';
 import { rebalanceWeeklyAccessories } from '../mycoatch/weeklyVolumeBalancer.js';
 
 const emptyHistory={sessionsAnalyzed:0,byExercise:{},exerciseNotes:{},
@@ -195,4 +196,24 @@ test('direct API excludes rear variants while profile exclusions are also respec
   assert.throws(()=>generateSmartMesocycle({...base,athleteProfile:{
     ...profile,excludedExercises:avoided
   }},emptyHistory),/esercizi da evitare non è riconosciuto/);
+});
+
+test('approval preview explicitly discloses missing posterior work and current head counts',()=>{
+  const config={
+    daysPerWeek:4,durationWeeks:4,maxSessionMinutes:60,
+    userAge:36,focus:'hybrid',splitPreference:'upperlower',
+    excludedExercises:[
+      'Alzate Posteriori con Manubri',
+      'Face Pull ai Cavi','Reverse Fly ai Cavi'
+    ]
+  };
+  const plan=generateSmartMesocycle(config,emptyHistory);
+  const text=formatCoachReview(compareMesocyclePlans(null,plan,{}),{
+    inspectedMesocycles:0,sessionsAnalyzed:0
+  });
+  assert.match(text,/COPERTURA FUNZIONALE/);
+  assert.match(text,/Deltoidi posteriori/);
+  assert.match(text,/DELTOIDI, isolamento diretto:/);
+  assert.match(text,/posteriore 0 serie/);
+  assert.match(text,/lavoro indiretto/i);
 });
