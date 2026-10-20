@@ -180,6 +180,16 @@ export async function saveAndSync(data = state.workoutData, actionType = 'UPDATE
     // Journal and queued JSON are serialized synchronously before yielding.
     const ownerId=state.currentUser?.id || getStoredLocalOwner() || null;
     if(!journalStorageReady()){storageFailure=true;updateSyncStatusUI();return false;}
+    // Fail before updating a persistent snapshot if earlier offline edits
+    // cannot be read. Otherwise a rejected save changes the stored diary
+    // without creating a matching cloud-sync action.
+    try {getQueue({forWrite:true});}
+    catch(error) {
+        storageFailure=true;
+        console.error('Salvataggio sospeso: la coda offline è illeggibile.',error);
+        updateSyncStatusUI();
+        return false;
+    }
     if(!saveToLocalStorage(data)){
         updateSyncStatusUI();
         return false; // Do not pretend a diary is saved when storage is full.
