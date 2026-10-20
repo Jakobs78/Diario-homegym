@@ -337,3 +337,64 @@ test('RPE +/-0,5 mobile: la spunta salva solo il valore percepito, non cambia il
  expect(confirmed.locked).toBe(true);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+
+test('REPS +/-1: prefill editable, check confirms actual reps without editing target',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await setupPlan(page,'drop');
+ const card=page.locator('.ex-card[data-ex="1"]');
+ const reps=card.locator('.set-reps[data-set="0"]');
+ const nextReps=card.locator('.set-reps[data-set="1"]');
+ await expect(reps).toHaveValue('10');
+ await expect(nextReps).toHaveValue('10');
+ await card.locator('.reps-step-btn[data-set="0"][data-direction="1"]').click();
+ await expect(reps).toHaveValue('11');
+ await card.locator('.reps-step-btn[data-set="0"][data-direction="1"]').click();
+ await expect(reps).toHaveValue('12');
+ await card.locator('.reps-step-btn[data-set="0"][data-direction="-1"]').click();
+ await expect(reps).toHaveValue('11');
+ await expect(nextReps).toHaveValue('10');
+ await expect(reps).not.toHaveClass(/text-placeholder-active/);
+ const draft=await page.evaluate(async()=>{
+   const {state}=await import('/js/state.js');
+   const ex=Object.values(state.workoutData.history.years)[0].mesocycles[0].weeks[0].days[0].exercises[1];
+   return {actual:ex.loggedSets[0].reps,locked:ex.loggedSets[0].isLocked||false,target:ex.reps};
+ });
+ expect(draft).toEqual({actual:'11',locked:false,target:'10-12'});
+ await card.locator('.set-kg[data-set="0"]').fill('10');
+ await card.locator('.set-lock-check[data-set="0"]').check();
+ const confirmed=await page.evaluate(async()=>{
+   const {state}=await import('/js/state.js');
+   const ex=Object.values(state.workoutData.history.years)[0].mesocycles[0].weeks[0].days[0].exercises[1];
+   return {actual:ex.loggedSets[0].reps,locked:ex.loggedSets[0].isLocked,target:ex.reps};
+ });
+ expect(confirmed).toEqual({actual:'11',locked:true,target:'10-12'});
+ await expect(page.locator('.ex-card[data-ex="1"] .reps-step-btn[data-set="0"][data-direction="1"]')).toBeDisabled();
+});
+
+test('mobile reps controls fit and every gesture instruction begins at left edge',async({page})=>{
+ for(const width of [320,390]){
+   await page.setViewportSize({width,height:844});
+   await setupPlan(page,'drop');
+   const card=page.locator('.ex-card[data-ex="0"]');
+   const hint=card.locator('.exercise-exclude-hint');
+   await expect(hint).toContainText('Doppio click o swipe');
+   const layout=await card.evaluate(element=>{
+     const hint=element.querySelector('.exercise-exclude-hint');
+     const rect=element.getBoundingClientRect();
+     const h=hint.getBoundingClientRect();
+     const steppers=[...element.querySelectorAll('.reps-stepper,.rpe-stepper')];
+     return {hintOffset:h.left-rect.left,align:getComputedStyle(hint).textAlign,
+       controlsWithinCard:steppers.every(node=>{
+         const r=node.getBoundingClientRect();
+         return r.left>=rect.left-1 && r.right<=rect.right+1;
+       }),
+       noPageOverflow:document.documentElement.scrollWidth<=window.innerWidth+1};
+   });
+   expect(layout.hintOffset).toBeGreaterThanOrEqual(0);
+   expect(layout.hintOffset).toBeLessThan(30);
+   expect(layout.align).toBe('left');
+   expect(layout.controlsWithinCard).toBe(true);
+   expect(layout.noPageOverflow).toBe(true);
+ }
+});
