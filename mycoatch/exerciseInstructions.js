@@ -8,9 +8,9 @@ function cue(exercise) {
     const name = exercise.name || '';
     if (name === 'Hamstring Walkout a Corpo Libero')
         return 'Parti dal ponte con il bacino sollevato: allontana lentamente i talloni e riportali verso i glutei senza lasciare cadere il bacino. A corpo libero registra 0 kg.';
-    if (name.includes('Croci')) return 'Mantieni i gomiti leggermente flessi e quasi fermi; apri fino all'ampiezza che controlli e richiudi senza sbattere i pesi o usare slancio.';
+    if (name.includes('Croci')) return 'Mantieni i gomiti leggermente flessi e quasi fermi; apri fino all’ampiezza che controlli e richiudi senza sbattere i pesi o usare slancio.';
     if (name.includes('Lat Machine') || name.includes('Trazioni'))
-        return 'Tieni il busto stabile e tira la barra o l'impugnatura verso la parte alta del torace guidando i gomiti verso il basso. Risali lentamente senza slanciarti.';
+        return 'Tieni il busto stabile e tira la barra o l’impugnatura verso la parte alta del torace guidando i gomiti verso il basso. Risali lentamente senza slanciarti.';
     if (name.includes('Rematore') || name.includes('Pulley'))
         return 'Mantieni la schiena stabile; porta i gomiti indietro senza strappare con il busto e accompagna lentamente il peso al ritorno.';
     if (name.includes('Alzate Posteriori') || name.includes('Reverse Fly'))
@@ -21,17 +21,17 @@ function cue(exercise) {
     if (name.includes('Leg Curl')) return 'Non muovere il bacino: piega il ginocchio avvicinando il tallone al gluteo, poi distendi lentamente senza lasciar cadere il peso.';
     if (name.includes('Curl')) return 'Tieni i gomiti vicini al busto e piega le braccia senza dondolare con la schiena. Scendi in modo controllato.';
     if (name.includes('Pushdown')) return 'Mantieni i gomiti vicini ai fianchi: distendi le braccia verso il basso senza muovere le spalle, poi ritorna lentamente.';
-    if (name.includes('Crunch')) return 'Avvicina il torace al bacino flettendo l'addome, senza tirare il collo con le mani. Torna lentamente alla partenza.';
+    if (name.includes('Crunch')) return 'Avvicina il torace al bacino flettendo l’addome, senza tirare il collo con le mani. Torna lentamente alla partenza.';
     if (name.includes('Squat') || name.includes('Affondi') || name.includes('Leg Press'))
-        return 'Mantieni il busto stabile, scendi con controllo fino a un'ampiezza che riesci a ripetere e risali spingendo con tutta la pianta del piede.';
+        return 'Mantieni il busto stabile, scendi con controllo fino a un’ampiezza che riesci a ripetere e risali spingendo con tutta la pianta del piede.';
     if (name.includes('Stacco')) return 'Spingi il bacino indietro mantenendo la schiena stabile e il peso vicino alle gambe. Scendi finché controlli la posizione, poi risali estendendo le anche.';
     if (name.includes('Hip Thrust') || name.includes('Glute Bridge'))
         return 'Spingi attraverso i piedi e solleva il bacino contraendo i glutei; fermati con il tronco allineato alle cosce, senza inarcare la zona lombare.';
-    if (name.includes('Panca')) return 'Appoggia bene i piedi e mantieni le scapole stabili sulla panca. Abbassa il peso in controllo e spingi senza perdere l'assetto.';
+    if (name.includes('Panca')) return 'Appoggia bene i piedi e mantieni le scapole stabili sulla panca. Abbassa il peso in controllo e spingi senza perdere l’assetto.';
     if (name.includes('Military') || name.includes('Spinte'))
-        return 'Contrai addome e glutei per stabilizzare il busto: spingi sopra la testa senza piegarti all'indietro, poi scendi lentamente.';
+        return 'Contrai addome e glutei per stabilizzare il busto: spingi sopra la testa senza piegarti all’indietro, poi scendi lentamente.';
     if (name.includes('Calf Raise')) return 'Solleva i talloni fino alla massima altezza controllabile, fermati brevemente e scendi lentamente senza rimbalzare.';
-    if (name.includes('Pallof')) return 'Tieni il busto fermo mentre allontani l'impugnatura dal petto: il cavo tira lateralmente, ma spalle e bacino restano rivolti avanti.';
+    if (name.includes('Pallof')) return 'Tieni il busto fermo mentre allontani l’impugnatura dal petto: il cavo tira lateralmente, ma spalle e bacino restano rivolti avanti.';
     if (name.includes('Face Pull') || name.includes('Reverse Fly'))
         return 'Tira verso il viso aprendo i gomiti in modo controllato, senza inarcare la schiena o strattonare il cavo.';
     if (name.includes('Pulldown')) return 'Porta le braccia verso i fianchi senza oscillare.';
