@@ -378,7 +378,7 @@ test('mobile reps controls fit and every gesture instruction begins at left edge
    await setupPlan(page,'drop');
    const card=page.locator('.ex-card[data-ex="0"]');
    const hint=card.locator('.exercise-exclude-hint');
-   await expect(hint).toContainText('Doppio click o swipe');
+   await expect(hint).toContainText('Doppio clic sulla card');
    const layout=await card.evaluate(element=>{
      const hint=element.querySelector('.exercise-exclude-hint');
      const rect=element.getBoundingClientRect();
