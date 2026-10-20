@@ -14,12 +14,14 @@ export function stageProfileRevision(data, raw, at=new Date()) {
         !x.profile||typeof x.profile!=='object'))throw Error('Cronologia profilo non valida.');
     const latest=history.at(-1);
     const effective=latest?.profile || null;
+    const baseVersion=latest?.version || 0;
     if(effective && JSON.stringify(effective)===JSON.stringify(profile))
-        return { changed:false,version:latest.version, profile:clone(profile),journal:clone(journal) };
+        return { changed:false,baseVersion,version:latest.version,
+            profile:clone(profile),journal:clone(journal) };
     const version=(latest?.version || 0)+1;
     const timestamp=at.toISOString();
     return {
-        changed:true,version,profile:clone(profile),
+        changed:true,baseVersion,version,profile:clone(profile),
         journal:{schemaVersion:1,currentVersion:version,
             versions:[...history,{version,savedAt:timestamp,profile:clone(profile)}]}
     };
@@ -27,10 +29,58 @@ export function stageProfileRevision(data, raw, at=new Date()) {
 
 /** Commit only after the calling workflow validates the whole workout plan. */
 export function commitProfileRevision(data,staged) {
-    if(!staged?.journal)throw Error('Revisione profilo mancante.');
+    if(!staged?.journal || !Number.isInteger(staged.baseVersion))
+        throw Error('Revisione profilo mancante.');
+    // Another tab or a second proposal may already have saved a newer
+    // version. Refuse to overwrite its version history with stale data.
+    const currentVersion=savedRecord(data)?.versions?.at(-1)?.version || 0;
+    if(currentVersion!==staged.baseVersion)
+        throw Error('Il profilo è stato aggiornato altrove: ricarica i dati prima di salvare.');
     data.athlete ||= {};
     data.athlete.mycoatchProfileJournal=clone(staged.journal);
     return data.athlete.mycoatchProfileJournal;
+}
+
+/**
+ * Read-only check: a saved mesocycle never inherits a newer profile silently.
+ * A newer revision with identical content is harmless but still traceable.
+ * Imported/legacy mesocycles may have no snapshot at all.
+ */
+export function assessMesocycleProfileContinuity(mesocycle, data) {
+    const snapshot=mesocycle?.coachProfileSnapshot;
+    const journal=savedRecord(data);
+    const current=journal?.versions?.at(-1);
+    const currentVersion=Number.isInteger(current?.version) ? current.version : null;
+    if(!snapshot) return {
+        status:'legacy_no_snapshot',profileVersion:null,currentVersion,
+        message:'Questo mesociclo non possiede uno snapshot MyCoatch: il profilo usato in origine non è verificabile.'
+    };
+    const profileVersion=snapshot.profileVersion;
+    if(!Number.isInteger(profileVersion)||profileVersion<1 || !snapshot.profile)
+        return {
+            status:'invalid_snapshot',profileVersion:null,currentVersion,
+            message:'Snapshot del profilo non valido: nessuna modifica automatica alla scheda.'
+        };
+    if(currentVersion===null || profileVersion>currentVersion)
+        return {
+            status:'unverifiable',profileVersion,currentVersion,
+            message:'Il profilo originale è archiviato nel mesociclo, ma la versione corrente non è confrontabile.'
+        };
+    if(JSON.stringify(snapshot.profile)===JSON.stringify(current.profile))
+        return {
+            status:'same_profile',profileVersion,currentVersion,
+            message:'Il profilo usato per il mesociclo coincide con quello attualmente salvato.'
+        };
+    if(profileVersion===currentVersion)
+        return {
+            status:'inconsistent',profileVersion,currentVersion,
+            message:'La versione corrente e lo snapshot differiscono: controlla il backup prima di generare una nuova scheda.'
+        };
+    return {
+        status:'updated_since_plan',profileVersion,currentVersion,
+        message:'Il profilo attuale (v'+currentVersion+') è diverso da quello usato per questa scheda (v'+profileVersion+'). '+
+            'Le serie, i carichi e lo storico del mesociclo restano invariati. Le nuove impostazioni saranno valutate soltanto in una nuova proposta.'
+    };
 }
 
 export function latestSavedProfile(data) {
