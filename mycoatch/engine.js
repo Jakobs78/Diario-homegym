@@ -436,6 +436,9 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                         (index === 0 ? "180s" : "150s"),
                     category: ex.category,
                     pattern: ex.pattern,
+                    // Keep the planned anatomical role through the time
+                    // balancer; the CSV format itself remains unchanged.
+                    shoulderHeadIsolation: ex.shoulderHeadIsolation || null,
                     equipment: ex.equipment,
                     topset: topsetStr,
                     rpe: exerciseRpeString,
