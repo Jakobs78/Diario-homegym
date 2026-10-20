@@ -115,6 +115,10 @@ export function compareMesocyclePlans(previous, generated, analysis) {
  * Testo compatto da mostrare come conferma prima del download.
  * Il CSV mantiene lo schema a 12 colonne.
  */
+function italianMuscleName(key) {
+    const names={Back_Lats:'Dorsali (trazioni e lat machine)',Back_Thickness:'Dorso (rematori e tirate orizzontali)',Core:'Addome e stabilizzatori del tronco'};
+    return names[key] || key;
+}
 function italianCoverageStatus(value) {
     switch(value) {
         case 'not_programmed': return 'nessun esercizio diretto previsto';
@@ -126,7 +130,7 @@ function italianCoverageStatus(value) {
 
 export function formatCoachReview(comparison, report) {
     const lines = ['MYCOATCH — PERCHÉ È STATA PROPOSTA QUESTA SCHEDA'];
-    lines.push(`Dati usati per personalizzare il piano: ${report.inspectedMesocycles} mesocicli precedenti e ${report.sessionsAnalyzed} sedute con serie effettivamente confermate. Le serie solo precompilate non contano come allenamenti eseguiti.`);
+    lines.push(`Dati usati per personalizzare il piano: ${report.inspectedMesocycles} ${report.inspectedMesocycles === 1 ? 'mesociclo precedente' : 'mesocicli precedenti'} e ${report.sessionsAnalyzed} ${report.sessionsAnalyzed === 1 ? 'seduta' : 'sedute'} con serie effettivamente confermate. Le serie solo precompilate non contano come allenamenti eseguiti.`);
     if (report.closureHandoff) {
         const h = report.closureHandoff, r = h.review;
         lines.push('Programma di partenza scelto per il confronto: "' + h.name +
@@ -265,7 +269,7 @@ export function formatCoachReview(comparison, report) {
                 .slice(0, 5);
             if (relevant.length) {
                 lines.push('COME È DISTRIBUITO IL LAVORO TRA I MUSCOLI: una serie conta 1 per il muscolo principale e, per convenzione, 0,5 per un muscolo che collabora. Sono crediti di conteggio, NON serie aggiuntive da eseguire né una misura della crescita:');
-                lines.push(relevant.map(([muscle, v]) => muscle + ': ' +
+                lines.push(relevant.map(([muscle, v]) => italianMuscleName(muscle) + ': ' +
                     v.directSets + ' dirette + ' +
                     v.indirectSetCredits + ' crediti stimati da esercizi multiarticolari = ' +
                     v.fractionalSets).join(' · '));
@@ -343,7 +347,7 @@ export function formatCoachReview(comparison, report) {
         if (volume.shortfallSets) {
             const missed = Object.entries(volume.byMuscle || {})
                 .filter(([, values]) => values.shortfallSets > 0)
-                .map(([muscle, values]) => `${muscle}: -${values.shortfallSets}`)
+                .map(([muscle, values]) => `${italianMuscleName(muscle)}: -${values.shortfallSets}`)
                 .join(', ');
             lines.push(`Attenzione: per rispettare il tempo sono state eliminate ${volume.shortfallSets} serie rispetto alla proposta iniziale (${missed}). Per recuperarle sarebbe necessario aumentare la durata o rivedere le priorità, non aggiungerle senza considerare la fatica.`);
         }
