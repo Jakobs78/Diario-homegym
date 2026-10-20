@@ -249,8 +249,18 @@ export async function processSyncQueue() {
             // A local journal snapshot belongs only to its original account.
             // Leave another account's pending edits in the queue for later.
             const currentId=String(state.currentUser?.id || '');
-            const expectedId=String(action.ownerId || getStoredLocalOwner() || '');
-            if(expectedId && currentId!==expectedId)continue;
+            const expectedId=String(action.ownerId ?? '');
+            // An unowned legacy queue entry could belong to any athlete who
+            // previously used this browser. The global local-owner marker may
+            // have been overwritten since it was enqueued. Never attribute
+            // the snapshot to the currently signed-in account by guessing.
+            if(!expectedId){
+                storageFailure=true;
+                console.warn('Coda offline senza proprietario verificabile: invio bloccato, dati conservati.');
+                updateSyncStatusUI();
+                continue;
+            }
+            if(currentId!==expectedId)continue;
             uploadingActionId=action.id;
             const result = await pushDataToSupabase(state.currentUser, action.payload, action.timestamp);
             if (!result?.ok) {
