@@ -63,6 +63,9 @@ test('offline edits for one account never discard another account queue', async 
     })};
     const journal = await import('/js/journalStore.js');
     await journal.initializeJournalStorage();
+    // Load the application modules while the local HTTP server is reachable.
+    await import('/js/state.js');
+    await import('/js/storage.js');
   });
 
   // The app is now loaded. Make the browser offline so the actual saveAndSync
@@ -103,6 +106,11 @@ test('offline edits for one account never discard another account queue', async 
     accountAEntries:1,currentAValue:'A_LAST',totalEntries:2
   });
 
+  // Avoid a background upload when network connectivity is restored.
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    state.currentUser=null;
+  });
   await context.setOffline(false);
   await page.reload();
   const persisted = await page.evaluate(async () => {
