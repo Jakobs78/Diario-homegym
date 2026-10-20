@@ -369,7 +369,7 @@ test('REPS +/-1: prefill editable, check confirms actual reps without editing ta
    return {actual:ex.loggedSets[0].reps,locked:ex.loggedSets[0].isLocked,target:ex.reps};
  });
  expect(confirmed).toEqual({actual:'11',locked:true,target:'10-12'});
- await expect(page.locator('.ex-card[data-ex="1"] .reps-step-btn[data-set="0"]')).toBeDisabled();
+ await expect(page.locator('.ex-card[data-ex="1"] .reps-step-btn[data-set="0"][data-direction="1"]')).toBeDisabled();
 });
 
 test('mobile reps controls fit and every gesture instruction begins at left edge',async({page})=>{
