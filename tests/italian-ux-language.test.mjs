@@ -14,7 +14,7 @@ test('menu actions explain their effect and preserve stable action identifiers',
     'import-plan','export-csv','import-history','backup-json','restore-json',
     'reset-meso','clear-data','delete-account'
   ]){
-    const escaped=action.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    const escaped=action;
     const matched=new RegExp('<button[^>]+data-action="'+escaped+'">([\\s\\S]*?)<\\/button>').exec(html);
     assert.ok(matched,'menu action missing '+action);
     assert.match(matched[1],/class="sheet-item-help">[^<]{35,}/,action);
@@ -75,7 +75,7 @@ test('report explicitly distinguishes estimated credits, recorded RPE and CSV do
     inspectedMesocycles:0,sessionsAnalyzed:0
   });
   assert.match(text,/COME È DISTRIBUITO IL LAVORO TRA I MUSCOLI:/);
-  assert.match(text,/MOVIMENTI SPECIFICI DA CONTROLLARE/);
+  assert.match(text,/SPALLE: lavoro mirato per il deltoide laterale/);
   assert.match(text,/scaricare soltanto il file CSV/);
   assert.match(text,/download NON importa la scheda/i);
   assert.match(text,/RPE 8 corrisponde a circa due ripetizioni/);
