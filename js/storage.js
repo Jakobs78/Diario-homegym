@@ -225,8 +225,15 @@ export function saveToLocalStorage(data, {preserveUpdatedAt = false} = {}) {
             const previous=journalStorage.getItem(CONFIG.STORAGE_KEY);
             // The archive and the new snapshot are staged in the same
             // IndexedDB transaction. On storage failure neither commits.
-            if(previous!==null && journalStorage.getItem(LEGACY_UNOWNED_KEY)===null)
-                journalStorage.setItem(LEGACY_UNOWNED_KEY,previous);
+            if(previous!==null){
+                const archived=journalStorage.getItem(LEGACY_UNOWNED_KEY);
+                // If two distinct unattributed diaries exist, one backup key
+                // cannot preserve both. Fail closed instead of replacing
+                // somebody's newest unowned journal with cloud hydration.
+                if(archived!==null && archived!==previous)
+                    throw Error('Esistono copie legacy non attribuite diverse: nessuna sovrascrittura consentita. Esporta il backup prima di continuare.');
+                if(archived===null)journalStorage.setItem(LEGACY_UNOWNED_KEY,previous);
+            }
         }
         journalStorage.setItem(CONFIG.STORAGE_KEY, encoded);
         if(id){
