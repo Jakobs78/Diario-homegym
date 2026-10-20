@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v64-mycoatch-muscle-coverage-20261020';
+const CACHE_NAME = 'workout-app-v65-reps-controls-20261020';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -51,6 +51,7 @@ const ASSETS_TO_CACHE = [
   '/js/exerciseCard.js',
   '/js/setPrefill.js',
   '/js/rpeStepper.js',
+  '/js/repsStepper.js',
   '/js/setVolumeComparison.js',
   '/js/futureLoadReviewUI.js',
   '/js/workoutSemantics.js',
