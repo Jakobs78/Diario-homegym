@@ -52,7 +52,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         <div class="ex-card-header flex-between mb-sm">
             <div class="flex-center gap-md">
                 ${!isExExcluded
-                    ? '<span class="exercise-exclude-hint text-xs text-muted flex-italic">Doppio click o swipe o clicca su W del SET per escludere il riscaldamento</span>'
+                    ? '<span class="exercise-exclude-hint text-xs text-muted flex-italic">Doppio clic sulla card (PC) o swipe a sinistra (telefono) per segnare tutto l’esercizio come riscaldamento. W modifica solo una serie.</span>'
                     : ''}
                 <!-- Il numero del blocco rimane nei dati e nei gruppi, non sulla singola card. -->
                 ${isDropsetPlan ? '<span class="badge-dropset">🔥 DROP SET</span>' : ''}
@@ -104,7 +104,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     const previousSessionMarkup = lastSessionSetsHtml ? `
         <details class="exercise-history-box exercise-notes-box mb-md"
                  aria-label="Ultima sessione precedente">
-            <summary class="history-title">↩ Ultima sessione · Mostra prestazioni</summary>
+            <summary class="history-title">↩ Confronta con l’ultima seduta registrata</summary>
             <div class="history-content">${lastSessionSetsHtml}</div>
         </details>` : '';
 
@@ -126,7 +126,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         ${crossLabel}
         ${previousSessionMarkup}
         <details class="exercise-coach-notes" aria-label="Note del coach e note personali" ${expandNotes ? 'open' : ''}>
-            <summary>📝 Note coach${notesPresent ? ' · presenti' : ''} e personali</summary>
+            <summary>📝 Istruzioni MyCoatch${notesPresent ? ' · presenti' : ''} e note personali</summary>
             <div class="exercise-coach-notes-body">
                 ${notesPresent ? `<div class="note-allenatore-text">${escapeHtml(ex.notes)}</div>` : ''}
                 <label class="workout-notes-label" for="ex-user-notes-${exIdx}">✍️ Note personali</label>
@@ -251,7 +251,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                         <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe ios-no-zoom ${rpeClass} ${isUnsavedRpe ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayRpe)}" placeholder="RPE" title="RPE percepito: correggi il valore suggerito prima del ✓. Il target rimane invariato." aria-label="RPE percepito nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>
                         <button type="button" class="rpe-step-btn" data-ex="${exIdx}" data-set="${setIdx}" data-direction="1" aria-label="Aumenta RPE di 0,5 nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>+</button>
                     </div>
-                    <small class="rpe-target-label" title="Obiettivo RPE di MyCoatch, non prestazione effettuata">Ob. ${escapeHtml(setTargetRpeStr || '—')}</small>
+                    <small class="rpe-target-label" title="Obiettivo RPE di MyCoatch, non prestazione effettuata">Target ${escapeHtml(setTargetRpeStr || '—')}</small>
                 </td>
                 <td class="td-check text-center">
                     <input type="checkbox" class="set-lock-check custom-big-check" aria-label="Conferma o riapri serie ${setIdx+1}" title="${hasDropPrescription(ex,setIdx)?'Conferma base e scarichi insieme':'Conferma serie'}" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''}>
