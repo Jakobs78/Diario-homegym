@@ -49,7 +49,7 @@ test('coach PDF combines closure review, weekly metrics and muscle percent share
     assert.equal(report.muscles.reduce((sum,r)=>sum+(r.share||0),0)>99,true);
     assert.equal(report.muscles.reduce((sum,r)=>sum+(r.share||0),0)<101,true);
     assert.ok(report.rows.some(x=>x.kind==='coach-section'&&x.title.includes('MYCOATCH')));
-    assert.ok(report.rows.some(x=>x.kind==='coach-section'&&x.title.includes('MUSCOLI')));
+    assert.ok(report.rows.some(x=>x.kind==='coach-section'&&x.title.includes('MUSCOLARI')));
     assert.ok(report.rows.some(x=>x.kind==='coach-text'&&x.text.includes('RPE mancanti')));
     assert.ok(report.rows.some(x=>x.kind==='coach-text'&&x.text.includes('Esercizio Sconosciuto ABC')));
     assert.ok(report.rows.some(x=>x.kind==='coach-text'&&x.text.includes('archiviate')));
