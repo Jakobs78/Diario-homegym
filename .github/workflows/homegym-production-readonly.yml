@@ -28,9 +28,9 @@ jobs:
           node --check tests/live/playwright.config.mjs
           node --check tests/live/readonly-production.spec.mjs
   production-readonly:
-    # One-time authenticated PR validation on this trusted same-repository branch;
-    # never expose test-account secrets to forks or arbitrary PR branches.
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'audit/live-readonly-github-actions-20261020')
+    # Secrets never run on a pull request. Launch manually only after review
+    # from the protected default branch.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
