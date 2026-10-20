@@ -208,7 +208,7 @@ test('anteprima spiega le 4 alzate, lo split e gli accessori mancanti', () => {
     assert.match(review, /Esercizi principali su cui MyCoatch costruisce la progressione:/);
     assert.match(review, /Panca Piana con Bilanciere/);
     assert.match(review, /Military Press con Bilanciere/);
-    assert.match(review, /Accessori facoltativi esclusi per attrezzatura/);
+    assert.match(review, /Esercizi complementari non inseriti perché manca l’attrezzatura dichiarata/);
     assert.match(review, /G2 Femorali/);
     assert.match(review, /Vuoi scaricare soltanto il file CSV/);
 });
