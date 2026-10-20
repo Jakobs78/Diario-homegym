@@ -10,7 +10,7 @@ test('offline Supabase requests reject as network failures while static PWA asse
       status:200,contentType:'text/html',
       body:'<!doctype html><meta charset="utf-8"><title>Offline SW boundary test</title>'
     }));
-    await page.goto('/sw-network-boundary-harness.html');
+    await page.goto('http://127.0.0.1:4173/sw-network-boundary-harness.html');
     const status=await page.evaluate(async()=>{
       const reg=await navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'});
       await navigator.serviceWorker.ready;
