@@ -77,7 +77,7 @@ export function pauseSyncForAccountDeletion(){
 export async function removeAccountLocalData(user){
     if(!user?.id)throw Error('Account da eliminare non identificato.');
     const id=String(user.id), owner=getStoredLocalOwner();
-    const queue=getQueue().filter(action=>action.ownerId
+    const queue=getQueue({forWrite:true}).filter(action=>action.ownerId
         ? String(action.ownerId)!==id : owner!==id);
     journalStorage.removeItem(scopedKey(id));
     journalStorage.removeItem(revisionKey(user));
@@ -97,18 +97,24 @@ export async function removeAccountLocalData(user){
 // ==========================================
 // 2. GESTIONE CODA OFFLINE (SYNC QUEUE)
 // ==========================================
-function getQueue() {
+function getQueue({forWrite=false} = {}) {
     const queue = journalStorage.getItem(QUEUE_KEY);
-    try{return queue ? JSON.parse(queue) : [];}
-    catch(error){
+    try {
+        const parsed=queue ? JSON.parse(queue) : [];
+        if(!Array.isArray(parsed))throw Error('La coda non contiene una lista di operazioni.');
+        return parsed;
+    } catch(error) {
         storageFailure=true;
         console.error('Coda sync illeggibile: dati non cancellati.',error);
+        // A display-only check may show the storage warning, but no mutation
+        // may replace or discard an unreadable queue belonging to any account.
+        if(forWrite)throw Error('Coda sync illeggibile: operazioni precedenti conservate. Esporta un backup e non cambiare dispositivo.');
         return [];
     }
 }
 
 function enqueueAction(action) {
-    const queue = getQueue();
+    const queue = getQueue({forWrite:true});
     // Each queued action is a FULL journal snapshot. Only the latest
     // snapshot for a given account is needed. Never discard other accounts'
     // records, or the snapshot currently being uploaded on the network.
@@ -215,7 +221,9 @@ export async function processSyncQueue() {
         return;
     }
 
-    const queue = getQueue();
+    let queue;
+    try {queue=getQueue({forWrite:true});}
+    catch {updateSyncStatusUI();return;}
     if (queue.length === 0) {
         updateSyncStatusUI();
         return;
@@ -244,7 +252,7 @@ export async function processSyncQueue() {
             }
             // Keep edits enqueued during the network request; only delete
             // entries that were actually acknowledged by the cloud.
-            const remaining=getQueue().filter(item=>item.id!==action.id);
+            const remaining=getQueue({forWrite:true}).filter(item=>item.id!==action.id);
             if(remaining.length)journalStorage.setItem(QUEUE_KEY,JSON.stringify(remaining));
             else clearQueue();
         }
@@ -348,7 +356,7 @@ function renderSyncConflictControls(conflict) {
         try{
             const selected=structuredClone(state.workoutData);
             const selectedSnapshot=JSON.stringify(selected);
-            const selectedActions=new Set(getQueue().filter(a=>String(a.ownerId||'')===String(user.id)).map(a=>a.id));
+            const selectedActions=new Set(getQueue({forWrite:true}).filter(a=>String(a.ownerId||'')===String(user.id)).map(a=>a.id));
             const result=await resolveSyncConflict(user,choice,selected);
             if(!result.ok){
                 status.textContent='Il cloud è cambiato: verifica nuovamente il conflitto. I dati locali restano intatti.';
@@ -368,7 +376,7 @@ function renderSyncConflictControls(conflict) {
             }
             // Drop only acknowledged actions: later edits made while the
             // network request ran must remain queued for the next sync.
-            const queue=getQueue().filter(action=>{
+            const queue=getQueue({forWrite:true}).filter(action=>{
                 if(String(action.ownerId||'')!==String(user.id))return true;
                 return !selectedActions.has(action.id);
             });
