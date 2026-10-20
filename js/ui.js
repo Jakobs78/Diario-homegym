@@ -391,7 +391,7 @@ export function renderWorkoutList() {
     });
     unifiedHeaderBox.appendChild(dayTabsContainer);
     DOM.workoutListContainer.appendChild(unifiedHeaderBox);
-    const closurePanel = createMesocycleClosurePanel(meso);
+    const closurePanel = createMesocycleClosurePanel(meso, state.workoutData);
     closurePanel.open = closureWasOpen;
     closurePanel.hidden = !closureWasOpen;
     DOM.workoutListContainer.appendChild(closurePanel);
