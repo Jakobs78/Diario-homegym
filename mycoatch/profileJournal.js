@@ -103,6 +103,12 @@ export function snapshotEquipmentState(athlete = {}) {
         .map(key=>[key,clone(source[key])]));
 }
 
+/** A previously previewed prescription must not outlive equipment edits. */
+export function equipmentMatchesSnapshot(captured, athlete) {
+    return JSON.stringify(snapshotEquipmentState(captured)) ===
+        JSON.stringify(snapshotEquipmentState(athlete));
+}
+
 /**
  * Snapshot v2: athlete profile plus the DECISION-RELEVANT generation settings
  * and owned loading equipment as resolved when the preview was generated.
