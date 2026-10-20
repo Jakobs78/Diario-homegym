@@ -64,6 +64,7 @@ const DEFAULT_WORKOUT_DATA = {
 let syncDebounceTimer = null;
 let isSyncing = false;
 let storageFailure = false;
+let queueUnreadable = false;
 let uploadingActionId=null;
 let deletingAccount=false;
 
@@ -102,8 +103,10 @@ function getQueue({forWrite=false} = {}) {
     try {
         const parsed=queue ? JSON.parse(queue) : [];
         if(!Array.isArray(parsed))throw Error('La coda non contiene una lista di operazioni.');
+        queueUnreadable=false;
         return parsed;
     } catch(error) {
+        queueUnreadable=true;
         storageFailure=true;
         console.error('Coda sync illeggibile: dati non cancellati.',error);
         // A display-only check may show the storage warning, but no mutation
@@ -131,11 +134,14 @@ function clearQueue() {
 
 export function hasPendingSync() {
     const currentId=state.currentUser?.id ? String(state.currentUser.id) : null;
-    const owner=getStoredLocalOwner();
-    return getQueue().some(action=>
-        !currentId || (action.ownerId
-            ? String(action.ownerId)===currentId
-            : !owner || owner===currentId));
+    const queue=getQueue();
+    // A corrupt queue or a legacy entry without an authenticated owner must
+    // NEVER make cloud hydration decide that local changes are safely synced.
+    // It remains pending until explicitly recovered, even if the current user
+    // is different from the unowned diary's eventual rightful owner.
+    if(queueUnreadable)return true;
+    return queue.some(action=>
+        !action.ownerId || !currentId || String(action.ownerId)===currentId);
 }
 
 // ==========================================
