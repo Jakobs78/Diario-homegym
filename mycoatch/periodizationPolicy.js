@@ -8,9 +8,10 @@ export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}
   const assessment=assessRecoveryScope(history);
   const signals=assessment.recoverySignals;
   const recoveryFirst=assessment.recoveryRequired;
-  // Do not enforce a universal 4th-week deload if several independent,
-  // comparable exercises from at least two body regions show stable progression.
-  // If data is insufficient, the original conservative deload remains.
+  // The new Full Body protocol uses recovery evidence rather than an
+  // automatic week-four deload. Preserve the prior conservative template
+  // for legacy Upper/Lower and three-day programmes.
+  const evidenceBasedDeload = config.splitPreference === 'fullbody';
   const measured = Object.values(history?.byExercise || {}).filter(ex =>
     ex?.progressionEvidence?.recentWeeksQualified === true &&
     Number(ex?.progressionEvidence?.distinctWeeks || 0) >= 2 &&
@@ -26,9 +27,12 @@ export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}
     config.deloadWeek !== undefined && config.deloadWeek !== null;
   const deloadRationale = recoveryFirst
     ? 'Recupero globale prioritario: scarico iniziale per segnali ripetuti su più regioni.'
-    : athleteChoice ? 'Settimana di scarico scelta esplicitamente dall’atleta.'
-      : enoughEvidence ? 'Nessuno scarico automatico: progressi confrontabili su almeno due regioni; rivaluta il recupero ogni settimana.'
-        : 'Scarico di sicurezza nell’ultima settimana: dati longitudinali ancora insufficienti per escluderlo.';
+    : config.deloadWeek === false ? 'Nessuno scarico a calendario su richiesta esplicita; rivaluta recupero e risultati.'
+      : athleteChoice ? 'Settimana di scarico scelta esplicitamente dall’atleta.'
+      : enoughEvidence ? 'Nessuno scarico automatico: progressi confrontabili su più regioni; rivaluta il recupero ogni settimana.'
+      : evidenceBasedDeload
+        ? 'Full Body: niente scarico automatico senza segnali ripetuti di fatica; dati limitati, serve verifica settimanale.'
+        : 'Scarico prudenziale finale del template originale: dati di recupero insufficienti per una gestione adattiva.';
   // La preferenza dell'atleta puo' spostare o rimuovere lo scarico
   // soltanto in assenza di fatica ripetuta e attendibile. Se il recupero
   // e' prioritario, nessuna opzione puo' posticiparlo.
@@ -36,7 +40,7 @@ export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}
     config.deloadWeek === false ? null :
     Number.isInteger(config.deloadWeek) ? config.deloadWeek :
     config.deloadWeek === true ? count :
-    count >= 4 && !enoughEvidence ? count : null;
+    count >= 4 && !enoughEvidence && !evidenceBasedDeload ? count : null;
   if (deloadWeek !== null && (deloadWeek < 1 || deloadWeek > count))
     throw Error('Settimana di scarico non valida');
   const weeks = Array.from({length: count}, (_, i) => {
@@ -45,8 +49,15 @@ export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}
     const typical = config.focus === 'strength' ? [7.5, 8, 8.5] : [7.5, 8, 8];
     const guided = onboarding.calibrationWeek ? onboarding.rpeTargets?.[i] : null;
     const raw = guided === undefined || guided === null ? typical[Math.min(i, 2)] : Number(guided);
+    // Some guided onboards preallocate a very light final week assuming
+    // the legacy deload. In the opt-in adaptive Full Body programme this is
+    // a consolidation week instead: do not silently assign a recovery RPE.
+    const priorGuided=Number(onboarding.rpeTargets?.[i-1]);
+    const effort=evidenceBasedDeload && !isDeload && onboarding.calibrationWeek &&
+        i===count-1 && Number.isFinite(priorGuided) ?
+        Math.max(raw,priorGuided) : raw;
     const ceiling = onboarding.experience === 'beginner' ? 8 : 8.5;
-    const targetRpe = isDeload ? 6.5 : Math.min(ceiling, Math.max(6, Number.isFinite(raw) ? raw : 7.5));
+    const targetRpe = isDeload ? 6.5 : Math.min(ceiling, Math.max(6, Number.isFinite(effort) ? effort : 7.5));
     const phase = isDeload ? 'recovery' :
       onboarding.calibrationWeek && i === 0 ? 'calibration' :
       i === count - 1 ? 'consolidation' : 'accumulation';

@@ -28,3 +28,30 @@ test('local fatigue alone does not impose global first-week deload',()=>{
  assert.equal(p.recoveryScope,'local');
  assert.equal(p.deloadWeek,4);
 });
+
+
+test('Full Body a 4 giorni: nessuno scarico fisso in assenza di segnali',()=>{
+ const p=deriveMesocyclePolicy({durationWeeks:4,splitPreference:'fullbody'},
+    {byExercise:{}},{});
+ assert.equal(p.deloadWeek,null);
+ assert.equal(p.weeks[3].isDeload,false);
+ assert.match(p.deloadRationale,/niente scarico automatico/);
+});
+test('Full Body: mantenimento dello scarico esplicito e recupero prioritario',()=>{
+ const base={durationWeeks:4,splitPreference:'fullbody'};
+ assert.equal(deriveMesocyclePolicy({...base,deloadWeek:true},{byExercise:{}},{}).deloadWeek,4);
+ assert.equal(deriveMesocyclePolicy({...base,deloadWeek:3},{byExercise:{}},{}).deloadWeek,3);
+ const fatigue={byExercise:{
+    bench:qualified('Petto',{fatigueConcern:true}),
+    squat:qualified('Quadricipiti',{fatigueConcern:true})
+ }};
+ assert.equal(deriveMesocyclePolicy({...base,deloadWeek:false},fatigue,{}).deloadWeek,1);
+});
+test('Full Body guidato: l ultima settimana di consolidamento non riusa RPE da scarico',()=>{
+ const guided={calibrationWeek:true,experience:'beginner',rpeTargets:[6.5,7,7.5,6]};
+ const result=deriveMesocyclePolicy({durationWeeks:4,splitPreference:'fullbody'},
+    {byExercise:{}},guided);
+ assert.equal(result.weeks[3].phase,'consolidation');
+ assert.equal(result.weeks[3].isDeload,false);
+ assert.equal(result.weeks[3].targetRpe,7.5);
+});
