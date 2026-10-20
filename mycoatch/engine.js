@@ -99,8 +99,18 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
     const effectiveFocusMuscle = guardrails.effectiveFocusMuscle;
     const excludedGroupingMuscles=[...new Set(EXERCISE_DATABASE
         .filter(ex=>isRegionAffected(guardrails,ex.category)).map(ex=>ex.category))];
+    // Exclusions can enter via the direct engine API as well as the athlete
+    // profile. Never let an empty profile exclusion list silently replace
+    // explicit user exclusions. Invalid list types still fail validation.
+    const directExclusions=config.excludedExercises;
+    const profileExclusions=athleteProfile?.excludedExercises || [];
+    const excludedExercises=directExclusions === undefined
+        ? profileExclusions
+        : Array.isArray(directExclusions)
+            ? [...new Set([...directExclusions,...profileExclusions])]
+            : directExclusions;
     const selectionPreferences = normalizeSelectionPreferences({
-        ...config, excludedExercises: athleteProfile?.excludedExercises || []
+        ...config, excludedExercises
     });
     
     // Calcolo della frequenza settimanale reale per ogni gruppo muscolare nel template
@@ -155,7 +165,9 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     canonicalExerciseKey(x.name) === canonicalExerciseKey(name));
                 const matchesSlot = ex => {
                     const meta = catalogFor(ex?.name);
-                    return meta?.category === slot.muscle && meta?.pattern === slot.pattern;
+                    return meta?.category === slot.muscle && meta?.pattern === slot.pattern &&
+                        (!slot.shoulderHeadIsolation ||
+                         meta.shoulderHeadIsolation === slot.shoulderHeadIsolation);
                 };
                 const previousName = matchesSlot(priorAtIndex) ? priorAtIndex.name :
                     priorExercises.find(matchesSlot)?.name || null;
@@ -434,6 +446,9 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                         (index === 0 ? "180s" : "150s"),
                     category: ex.category,
                     pattern: ex.pattern,
+                    // Keep the planned anatomical role through the time
+                    // balancer; the CSV format itself remains unchanged.
+                    shoulderHeadIsolation: ex.shoulderHeadIsolation || null,
                     equipment: ex.equipment,
                     topset: topsetStr,
                     rpe: exerciseRpeString,
@@ -645,7 +660,7 @@ export function getTemplateForDays(daysPerWeek = 3, splitPreference = 'auto') {
                 { muscle: 'Femorali', pattern: 'hinge', anchor: 'hinge', repIntent: 'strength' },
                 { muscle: 'Petto', pattern: 'horizontal_push', anchor: 'bench', repIntent: 'volume' },
                 { muscle: 'Back_Lats', pattern: 'vertical_pull' },
-                { muscle: 'Spalle', pattern: 'isolation', prefer: ['Alzate Posteriori con Manubri', 'Face Pull ai Cavi'] },
+                { muscle: 'Spalle', pattern: 'isolation', shoulderHeadIsolation: 'posteriore', prefer: ['Alzate Posteriori con Manubri', 'Face Pull ai Cavi'] },
                 { muscle: 'Polpacci', pattern: 'isolation' },
                 { muscle: 'Core', pattern: 'isolation', optional: true }
             ]
@@ -657,7 +672,7 @@ export function getTemplateForDays(daysPerWeek = 3, splitPreference = 'auto') {
                 { muscle: 'Spalle', pattern: 'vertical_push', anchor: 'military', repIntent: 'volume' },
                 { muscle: 'Back_Thickness', pattern: 'horizontal_pull' },
                 { muscle: 'Femorali', pattern: 'isolation', optional: true },
-                { muscle: 'Spalle', pattern: 'isolation', prefer: ['Alzate Laterali con Manubri', 'Alzate Laterali ai Cavi'] },
+                { muscle: 'Spalle', pattern: 'isolation', shoulderHeadIsolation: 'laterale', prefer: ['Alzate Laterali con Manubri', 'Alzate Laterali ai Cavi'] },
                 { muscle: 'Bicipiti', pattern: 'isolation' }
             ]
         },
@@ -668,7 +683,7 @@ export function getTemplateForDays(daysPerWeek = 3, splitPreference = 'auto') {
                 { muscle: 'Spalle', pattern: 'vertical_push', anchor: 'military', repIntent: 'strength' },
                 { muscle: 'Back_Lats', pattern: 'vertical_pull' },
                 { muscle: 'Tricipiti', pattern: 'isolation' },
-                { muscle: 'Spalle', pattern: 'isolation', prefer: ['Alzate Laterali con Manubri', 'Alzate Laterali ai Cavi'] },
+                { muscle: 'Spalle', pattern: 'isolation', shoulderHeadIsolation: 'laterale', prefer: ['Alzate Laterali con Manubri', 'Alzate Laterali ai Cavi'] },
                 { muscle: 'Polpacci', pattern: 'isolation', optional: true }
             ]
         },
@@ -678,7 +693,7 @@ export function getTemplateForDays(daysPerWeek = 3, splitPreference = 'auto') {
                 { muscle: 'Quadricipiti', pattern: 'squat', anchor: 'squat', repIntent: 'volume' },
                 { muscle: 'Petto', pattern: 'horizontal_push', anchor: 'bench', repIntent: 'strength' },
                 { muscle: 'Back_Thickness', pattern: 'horizontal_pull' },
-                { muscle: 'Spalle', pattern: 'isolation', prefer: ['Alzate Posteriori con Manubri', 'Face Pull ai Cavi'] },
+                { muscle: 'Spalle', pattern: 'isolation', shoulderHeadIsolation: 'posteriore', prefer: ['Alzate Posteriori con Manubri', 'Face Pull ai Cavi'] },
                 { muscle: 'Bicipiti', pattern: 'isolation' },
                 { muscle: 'Core', pattern: 'isolation', optional: true }
             ]
@@ -692,7 +707,7 @@ export function getTemplateForDays(daysPerWeek = 3, splitPreference = 'auto') {
                 { muscle: 'Petto', pattern: 'horizontal_push', anchor: 'bench' },
                 { muscle: 'Back_Lats', pattern: 'vertical_pull' },
                 { muscle: 'Petto', pattern: 'isolation' },
-                { muscle: 'Spalle', pattern: 'isolation', prefer: [
+                { muscle: 'Spalle', pattern: 'isolation', shoulderHeadIsolation: 'laterale', prefer: [
                     'Alzate Laterali con Manubri', 'Alzate Laterali ai Cavi'
                 ] },
                 { muscle: 'Bicipiti', pattern: 'isolation' }
@@ -725,7 +740,7 @@ export function getTemplateForDays(daysPerWeek = 3, splitPreference = 'auto') {
                 // la spinta verticale non sostituisce sempre serie dirette di estensione.
                 { muscle: 'Tricipiti', pattern: 'isolation' },
                 { muscle: 'Back_Lats', pattern: 'vertical_pull', optional: true },
-                { muscle: 'Spalle', pattern: 'isolation', prefer: [
+                { muscle: 'Spalle', pattern: 'isolation', shoulderHeadIsolation: 'posteriore', prefer: [
                     'Alzate Posteriori con Manubri', 'Face Pull ai Cavi',
                     'Reverse Fly ai Cavi'
                 ], optional: true }

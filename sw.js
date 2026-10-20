@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v63-mycoatch-warmup-20261020';
+const CACHE_NAME = 'workout-app-v64-mycoatch-muscle-coverage-20261020';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [

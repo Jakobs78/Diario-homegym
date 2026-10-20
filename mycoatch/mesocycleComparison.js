@@ -274,6 +274,31 @@ export function formatCoachReview(comparison, report) {
                 coverage.notDirectlyCovered.join(', ') +
                 '. Un contributo indiretto non viene contato come serie diretta.');
         }
+        // These metrics were already calculated but never shown in the
+        // athlete's approval dialog. Surface meaningful functional gaps
+        // before downloading; don't force extra volume or claim zero
+        // stimulus from rows/presses when isolated rear work is absent.
+        const functional=Object.values(coverage.functionalCoverage || {});
+        const gaps=functional.filter(item=>
+            item.status==='not_programmed' ||
+            item.status==='omitted_after_optimization' ||
+            item.status==='reduced_after_optimization');
+        if(gaps.length){
+            lines.push('COPERTURA FUNZIONALE — verifica prima di accettare la scheda: ' +
+                gaps.map(item=>item.label + ': ' + item.scheduledSets +
+                    ' serie dirette' + (item.plannedSets === null ? '' :
+                    ' su ' + item.plannedSets + ' previste') +
+                    ' (' + item.status.replaceAll('_',' ') + ')').join(' · ') +
+                '. Le tirate/spinte possono dare lavoro indiretto; non è una misura di crescita.');
+        }
+        if(coverage.shoulderHeadCoverage){
+            const heads=coverage.shoulderHeadCoverage.directIsolationSets;
+            lines.push('DELTOIDI, isolamento diretto: laterale ' +
+                heads.laterale + ' serie · posteriore ' + heads.posteriore +
+                ' serie; spinte verticali ' +
+                coverage.shoulderHeadCoverage.verticalPressSets +
+                ' serie (non equivalgono a isolamento del posteriore).');
+        }
     }
     if (comparison.unavailableOptionalSlots.length) {
         lines.push('Accessori facoltativi esclusi per attrezzatura: ' +

@@ -196,6 +196,12 @@ export function selectExerciseForSlot(slot, options = {}) {
     const usedNames = new Set((options.selectedToday || []).map(canonicalExerciseKey));
     const candidates = EXERCISE_DATABASE.filter(ex =>
         ex.category === slot.muscle && ex.pattern === slot.pattern &&
+        // The user's previous lateral raise is NOT an equivalent substitute
+        // for a slot specifically reserved for posterior deltoid isolation.
+        // A missing targeted accessory is reported, never silently replaced
+        // by an anatomically different exercise.
+        (!slot.shoulderHeadIsolation ||
+            ex.shoulderHeadIsolation === slot.shoulderHeadIsolation) &&
         !usedNames.has(canonicalExerciseKey(ex.name)) &&
         isExerciseAvailable(ex, preferences)
     );
