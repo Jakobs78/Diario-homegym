@@ -47,8 +47,12 @@ test('login, authenticated Supabase read, browser persistence, backup and logout
   if (!EMAIL || !PASSWORD) throw Error('Configure GitHub Actions secrets for the dedicated test account.');
 
   const responses = [];
+  const authResponses = [];
   page.on('response', response => {
     const url = new URL(response.url());
+    if (url.hostname.endsWith('.supabase.co') && url.pathname.startsWith('/auth/v1/')) {
+      authResponses.push({endpoint:url.pathname.split('/').slice(0,4).join('/'),status:response.status()});
+    }
     if (url.hostname.endsWith('.supabase.co') &&
         url.pathname === '/rest/v1/workouts') {
       // Record metadata only. Never capture payload, email, URL or token.
@@ -63,13 +67,38 @@ test('login, authenticated Supabase read, browser persistence, backup and logout
   await page.locator('#auth-submit-btn').click();
   await expect(page.locator('#auth-overlay')).toBeHidden({timeout:45000});
 
-  const firstSession = await page.evaluate(async expectedEmail => {
+  const firstSession = async () => page.evaluate(async expectedEmail => {
     const {supabase} = await import('/js/config.js');
     const {data,error} = await supabase.auth.getUser();
     return {ok:!error && !!data?.user?.id,
       accountMatches:data?.user?.email?.toLowerCase()===expectedEmail.toLowerCase()};
   }, EMAIL);
-  expect(firstSession).toEqual({ok:true,accountMatches:true});
+  try {
+    await expect.poll(firstSession,{timeout:20000,intervals:[750,1500,2500]})
+      .toEqual({ok:true,accountMatches:true});
+  } catch (error) {
+    // Safe diagnostics: never log identity, URLs, tokens, credentials or content.
+    const diagnostics = await page.evaluate(async () => {
+      const {supabase} = await import('/js/config.js');
+      const {data:{session},error:sessionError} = await supabase.auth.getSession();
+      const {data:{user},error:userError} = await supabase.auth.getUser();
+      return {
+        cachedSession:!!session,
+        userPresent:!!user,
+        getSessionErrorStatus:sessionError?.status ?? null,
+        getSessionErrorCode:sessionError?.code ?? null,
+        getUserErrorStatus:userError?.status ?? null,
+        getUserErrorCode:userError?.code ?? null,
+        appOfflineFlag:!!(await import('/js/state.js')).state.currentUser?.isOffline,
+        authErrorShown:getComputedStyle(document.getElementById('auth-error')).display !== 'none',
+        authOverlayShown:getComputedStyle(document.getElementById('auth-overlay')).display !== 'none'
+      };
+    });
+    console.log('LOGIN_DIAGNOSTICS',JSON.stringify({
+      authResponses,diagnostics,blockedCloudWrites:page.blockedCloudWrites()
+    }));
+    throw error;
+  }
 
   // This is a real authenticated Supabase SELECT (not a mocked frontend read).
   const cloud = await page.evaluate(async () => {
