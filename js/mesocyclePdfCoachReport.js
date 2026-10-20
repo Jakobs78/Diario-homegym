@@ -121,9 +121,9 @@ export function buildMesocycleCoachPdfReport(mesocycle) {
         text('SERIE ALLENANTI: ' + closure.completedSets + '/' + closure.plannedSets +
             ' confermate e valide (' + (closure.setCompletionPercent ?? 'n.d.') + '%). ' +
             'Serie spuntate con dati non validi: ' + closure.invalidConfirmedSets + '.'),
-        text('RPE osservati: ' + closure.measuredRpeSets + '/' + closure.completedSets +
-            ' serie valide; RPE medio misurato ' + noValue(closure.averageRpe) + '.'),
-        text('Ripetizioni archiviate: ' + closure.archivedRepeats +
+        text('RPE (sforzo percepito) registrati: ' + closure.measuredRpeSets + '/' + closure.completedSets +
+            ' serie completate; media dello sforzo registrato ' + noValue(closure.averageRpe) + '.'),
+        text('Sedute ripetute conservate nello storico: ' + closure.archivedRepeats +
             ' (descritte nel diario, non sommate alle sedute del programma).'),
         section('ANDAMENTO PER SETTIMANA'),
     ];
@@ -136,12 +136,12 @@ export function buildMesocycleCoachPdfReport(mesocycle) {
             ' serie valide · RPE ' + (original?.rpeMeasured ?? 0) + '/' +
             (original?.completedSets ?? 0) + ' (media ' +
             noValue(original?.averageRpe ?? null) + ')' +
-            ' · tonnellaggio descrittivo ' + pretty(week.tonnage) + ' kg x rip.'));
+            ' · peso × ripetizioni registrate: ' + pretty(week.tonnage) + ' kg x rip.'));
     }
     rows.push(
-        section('VOLUME ATTRIBUITO AI MUSCOLI'),
-        text('Contributo MyCoatch: 1 credito per una serie diretta, 0,5 per un ' +
-            'coinvolgimento indiretto significativo. La quota % indica la parte ' +
+        section('LAVORO ATTRIBUITO AI GRUPPI MUSCOLARI (STIMA)'),
+        text('Come leggere questa tabella: per convenzione una serie vale 1 credito per il muscolo principale e 0,5 per un ' +
+            'muscolo che collabora in modo significativo. I crediti sono un modo per distribuire le serie già fatte, NON altre serie da eseguire. La quota % indica la parte ' +
             'del volume attribuito ai distretti riconosciuti, NON la percentuale ' +
             'di crescita, attivazione o fatica muscolare.'),
         text('Serie fisiche valide riconosciute: ' + confirmedRecognized +
@@ -150,25 +150,25 @@ export function buildMesocycleCoachPdfReport(mesocycle) {
             ' kg x rip. (non include scarichi aggiuntivi e peso corporeo).'),
         {kind:'coach-muscle-head'},
         ...muscleRows,
-        text('Percentuali calcolate sui soli esercizi riconosciuti dal catalogo. ' +
-            'Una serie multiarticolare puo assegnare crediti a piu muscoli; ' +
-            'le quote NON rappresentano serie fisiche indipendenti.'),
+        text('Le percentuali comprendono solo esercizi riconosciuti nel catalogo di MyCoatch. ' +
+            'Un esercizio che coinvolge più muscoli può contribuire a diversi conteggi, perciò ' +
+            'non devi sommare i crediti come se fossero serie separate realmente eseguite.'),
         section('EVIDENZE PER PROGRAMMARE IL PROSSIMO MESOCICLO')
     );
     if (closure.exerciseChanges.length) {
-        rows.push(text('CONFRONTI TRA SETTIMANE COMPLETE E COMPARABILI:'));
+        rows.push(text('RISULTATI CONFRONTABILI TRA SETTIMANE COMPLETE (carichi e ripetizioni):'));
         for (const ex of closure.exerciseChanges) {
             rows.push(text(ex.name + ': sett. ' + ex.firstWeek + ' ' +
                 ex.firstKg + ' kg x ' + ex.firstMinReps + ' rip. min. / sett. ' +
                 ex.lastWeek + ' ' + ex.lastKg + ' kg x ' + ex.lastMinReps + ' rip. min.' +
                 (ex.deltaReps === null ? ' · carichi diversi: confronto ripetizioni non valido.' :
-                    ' · delta rip. stesso carico: ' + (ex.deltaReps > 0 ? '+' : '') +
+                    ' · differenza di ripetizioni con lo stesso peso: ' + (ex.deltaReps > 0 ? '+' : '') +
                     ex.deltaReps + '.')));
         }
     } else rows.push(text('Confronti di forza/progressione: dati insufficienti ' +
         'tra sedute complete con carichi confrontabili.'));
     if (closure.incompleteDays.length) {
-        rows.push(text('SEDUTE DA RIVEDERE (nessuna prestazione inventata):'));
+        rows.push(text('SEDUTE DA COMPLETARE O VERIFICARE (le serie non confermate non contano):'));
         for (const day of closure.incompleteDays) rows.push(text(
             'Sett. ' + day.weekNumber + ', ' + day.dayName + ': ' +
             day.confirmedSets + '/' + day.plannedSets + ' serie confermate.'));
@@ -184,9 +184,9 @@ export function buildMesocycleCoachPdfReport(mesocycle) {
         'Distretto/i con meno crediti registrati rispetto al piano: ' +
         underserved.map(row => row.title + ' (' + row.execution + '%)').join(', ') +
         '. Verificare sedute incomplete ed esclusioni prima di variare il volume.'));
-    rows.push(text('INTERPRETAZIONE: gli indicatori descrivono il lavoro registrato. ' +
+    rows.push(text('COME USARE IL REPORT: questi indicatori mostrano cosa hai effettivamente registrato, non ciò che avresti dovuto fare. '
         'Non misurano ipertrofia, recupero o la causa di eventuali cali. ' +
-        'La selezione degli esercizi e le progressioni future richiedono una ' +
+        'Prima di scegliere i carichi e gli esercizi delle prossime settimane, serve una ' +
         'valutazione del coach, dei sintomi e del recupero non registrati qui.'),
         section('DIARIO COMPLETO · PROGRAMMA E PRESTAZIONI'));
     return {
