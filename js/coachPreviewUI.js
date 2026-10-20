@@ -47,16 +47,16 @@ export function initCoachPreview(readCoachOptions,configModal) {
             proposal=await createVisualCoachProposal(options);
             acceptedOptions=structuredClone({...options,
                 equipmentAtGeneration:proposal.equipmentSnapshot || {}});
-            summary.textContent='Programma '+options.daysPerWeek+' giorni/settimana · '+
+            summary.textContent='Proposta di '+options.daysPerWeek+' allenamenti a settimana · '+
                 options.maxSessionMinutes+' min per sessione · '+proposal.proposal.weeks.length+
-                ' settimane. La scheda esistente rimane intatta finché non applichi.';
+                ' settimane. Stai solo consultando un’anteprima: la scheda e lo storico non cambiano finché non scegli esplicitamente di importare la proposta.';
             weeks.replaceChildren();
             for(const week of proposal.proposal.weeks){
                 const container=create('details',undefined,'mycoatch-preview-week');
                 if(week.weekNumber===1)container.open=true;
                 container.append(create('summary','Settimana '+week.weekNumber+
                     (week.isDeloadWeek?' · scarico':'')+
-                    ' · target RPE '+String(week.targetRpe??'vedi serie')));
+                    ' · intensità prevista (RPE) '+String(week.targetRpe??'vedi serie')));
                 for(const day of week.days||[]){
                     const panel=create('section',undefined,'mycoatch-preview-day');
                     panel.append(create('h4',day.dayName||'Giorno '+day.dayNumber));
@@ -70,21 +70,21 @@ export function initCoachPreview(readCoachOptions,configModal) {
                     const budget=Number(day.timeBudgetMinutes);
                     if(Number.isFinite(duration) && Number.isFinite(budget)) {
                         panel.append(create('p','Durata stimata: '+duration+
-                            ' min su '+budget+' disponibili (non misurata).'));
+                            ' minuti sui '+budget+' a disposizione. È un calcolo indicativo: comprende anche pause e preparazione, non è il tempo realmente impiegato.'));
                     }
                     panel.append(ul);container.append(panel);
                 }
                 const volumes=week.weeklyCoverage?.fractionalVolumeByMuscle;
                 if(volumes && Object.keys(volumes).length){
                     const breakdown=create('details',undefined,'mycoatch-preview-day');
-                    breakdown.append(create('summary','Volume previsto per distretto · stima, non crescita misurata'));
+                    breakdown.append(create('summary','Come sono distribuite le serie tra i gruppi muscolari (stima)'));
                     const list=create('ul');
                     for(const [muscle,stats] of Object.entries(volumes)){
                         if(!(stats?.directSets>0 || stats?.indirectSetCredits>0))continue;
                         list.append(create('li',muscle+': '+stats.directSets+
-                            ' serie dirette + '+stats.indirectSetCredits+
-                            ' contributi indiretti = '+stats.fractionalSets+
-                            ' equivalenti stimati'));
+                            ' serie con il muscolo come principale + '+stats.indirectSetCredits+
+                            ' contributi parziali dagli esercizi per altri muscoli = '+stats.fractionalSets+
+                            ' serie equivalenti per confrontare il programma (non misura della crescita)'));
                     }
                     breakdown.append(list);
                     container.append(breakdown);
@@ -92,13 +92,13 @@ export function initCoachPreview(readCoachOptions,configModal) {
                 const functions=week.weeklyCoverage?.functionalCoverage;
                 if(functions){
                     const details=create('details',undefined,'mycoatch-preview-day');
-                    details.append(create('summary','Copertura specifica dopo i tagli per il tempo'));
+                    details.append(create('summary','Esercizi specifici rimasti dopo l’adattamento alla durata della seduta'));
                     const list=create('ul');
                     for(const value of Object.values(functions)){
                         const original=value.plannedSets === null
                             ? '' : ' (previste '+value.plannedSets+')';
                         list.append(create('li',value.label+': '+
-                            value.scheduledSets+' serie dirette programmate'+original+
+                            value.scheduledSets+' serie dedicate nel programma'+original+
                             '. Valori descrittivi, non crescita misurata.'));
                     }
                     details.append(list);
@@ -125,7 +125,7 @@ export function initCoachPreview(readCoachOptions,configModal) {
         if(!proposal)return;
         if(!equipmentMatchesSnapshot(acceptedOptions?.equipmentAtGeneration,
             state.workoutData?.athlete)){
-            feedback.textContent='La configurazione dell’attrezzatura è cambiata dopo l’anteprima. Rigenera la proposta prima di applicarla.';
+            feedback.textContent='Hai modificato l’attrezzatura disponibile dopo la creazione dell’anteprima. Genera una nuova proposta, così MyCoatch può escludere esercizi che non puoi eseguire.';
             return;
         }
         // The same validated CSV parser already tested by existing app E2E.
@@ -137,7 +137,7 @@ export function initCoachPreview(readCoachOptions,configModal) {
         close();
         configModal?.classList.add('hidden');
         renderWorkoutList();
-        alert('Nuovo mesociclo salvato separatamente. Lo storico precedente è intatto.');
+        alert('La proposta è stata importata come nuovo mesociclo: puoi iniziare la nuova scheda. Le sedute registrate nei mesocicli precedenti non sono state cancellate.');
     });
     document.getElementById('mycoatch-preview-download')?.addEventListener('click',()=>{
         if(!proposal)return;
