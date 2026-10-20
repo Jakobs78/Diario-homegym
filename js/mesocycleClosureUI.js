@@ -5,6 +5,7 @@
 import { summarizeMesocycleClosure, formatMesocycleClosureForChat } from './mesocycleClosure.js';
 import { concludeCurrentMesocycle } from './mesocycle.js';
 import { startCoachChatAndGenerate } from '../mycoatch/mycoatch-adapter.js';
+import { assessMesocycleProfileContinuity } from '../mycoatch/profileJournal.js';
 import { buildMesocycleReviewDossier, formatMesocycleReviewDossierMarkdown,
     serializeMesocycleReviewDossierJson } from '../mycoatch/reviewDossier.js';
 
@@ -41,7 +42,7 @@ function downloadReviewDossier(content,name,extension,mime) {
     setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 
-export function createMesocycleClosurePanel(mesocycle) {
+export function createMesocycleClosurePanel(mesocycle, athleteDiary = null) {
     const review = summarizeMesocycleClosure(mesocycle);
     const closed = mesocycle.coachClosure?.status === 'closed';
     const detail = node('details', undefined, 'mycoatch-meso-closure');
@@ -60,6 +61,20 @@ export function createMesocycleClosurePanel(mesocycle) {
         'RPE medio osservato: ' + (review.averageRpe ?? 'dato insufficiente')
     ];
     for (const line of stats) body.append(node('p', line));
+    // Snapshot provenance is informative: never change an active training
+    // prescription merely because the athlete edited their saved profile.
+    const continuity=assessMesocycleProfileContinuity(mesocycle, athleteDiary);
+    if(continuity.status==='updated_since_plan' ||
+        continuity.status==='inconsistent' ||
+        continuity.status==='invalid_snapshot'){
+        const notice=node('p',continuity.message,'mycoatch-profile-continuity-notice');
+        notice.setAttribute('role','status');
+        body.append(notice);
+    } else if(continuity.status==='same_profile' && continuity.profileVersion !== null){
+        body.append(node('p','Profilo MyCoatch della scheda: versione '+
+            continuity.profileVersion+' (versione salvata: '+
+            continuity.currentVersion+').'));
+    }
     if (review.invalidConfirmedSets) body.append(node('p',
         'Attenzione: ' + review.invalidConfirmedSets +
         ' serie spuntate contengono dati non validi e non sono considerate complete.'));
