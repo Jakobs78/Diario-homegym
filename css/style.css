@@ -2669,8 +2669,8 @@ body.dark-mode .group-title-badge {
 .ex-card .active-set-label { color: var(--accent-color); font-size: .76rem; font-weight: 700; }
 .ex-card .set-table { margin-bottom: 8px; table-layout: fixed; }
 .ex-card .col-set { width: 11% !important; }
-.ex-card .col-kg { width: 26% !important; }
-.ex-card .col-reps { width: 25% !important; }
+.ex-card .col-kg { width: 24% !important; }
+.ex-card .col-reps { width: 27% !important; }
 .ex-card .col-rpe { width: 22% !important; }
 .ex-card .col-check { width: 16% !important; }
 .ex-card .set-table th { height: 31px !important; line-height: 31px !important; font-size: .78rem; }
@@ -2804,9 +2804,13 @@ body.dark-mode .group-title-badge {
 .ex-card .exercise-exclude-hint {
     font-size:.72rem;
     line-height:1.35;
-    text-align:right;
-    max-width:210px;
+    text-align:left;
+    max-width:none;
     overflow-wrap:anywhere;
+}
+.ex-card .ex-card-header > .flex-center {
+    justify-content:flex-start;
+    min-width:0;
 }
 .ex-card .workout-rpe-hint {
     color:var(--text-muted);
@@ -3265,6 +3269,15 @@ body.dark-mode .group-title-badge {
     }
 }
 
+
+/* Reps and perceived RPE: accessible +/-1 and +/-0.5 controls. */
+.ex-card .set-table .td-reps-stepper { padding: 2px 1px !important; }
+.ex-card .reps-stepper { display:flex; align-items:center; justify-content:center; gap:1px; width:100%; min-width:0; }
+.ex-card .reps-stepper .set-reps { width:0 !important; flex:1 1 0; min-width:0; padding:0 !important; font-size:16px !important; height:32px !important; min-height:32px !important; }
+.ex-card .reps-step-btn { width:22px; min-width:22px; height:36px; min-height:36px; flex:0 0 22px; padding:0; margin:0; border:1px solid var(--border-color); border-radius:6px; background:var(--block-bg); color:var(--text-color); font-size:18px; font-weight:800; touch-action:manipulation; cursor:pointer; }
+.ex-card .reps-step-btn:focus-visible { outline:2px solid var(--accent-color); outline-offset:1px; }
+.ex-card .reps-step-btn:disabled { opacity:.4; cursor:not-allowed; }
+@media(max-width:390px) { .ex-card .reps-step-btn { width:20px; min-width:20px; flex-basis:20px; } }
 
 /* MyCoatch: one editable perceived RPE with explicit +/- half-point controls. */
 .ex-card .set-table .td-rpe-stepper { padding: 2px 1px !important; }
