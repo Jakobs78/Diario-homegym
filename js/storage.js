@@ -13,6 +13,9 @@ import { journalStorage, initializeJournalStorage, flushJournalStorage, journalS
 
 const QUEUE_KEY = `${CONFIG.STORAGE_KEY}_sync_queue`;
 const OWNER_KEY = `${CONFIG.STORAGE_KEY}_owner`;
+// Preserve a diary created before account-scoped storage existed. Never infer
+// its owner from whichever account later signs into this browser.
+const LEGACY_UNOWNED_KEY = `${CONFIG.STORAGE_KEY}_legacy_unowned_recovery`;
 const scopedKey = id => `${CONFIG.STORAGE_KEY}_user_${id}`;
 const accountId=user=>String(user?.id||user?.email||'');
 const revisionKey=user=>`${CONFIG.STORAGE_KEY}_revision_${accountId(user)}`;
@@ -50,9 +53,58 @@ export function getFromLocalStorageForUser(user){
         catch {return structuredClone(DEFAULT_WORKOUT_DATA);}
     }
     const owner=getStoredLocalOwner();
-    // Never show a different signed-in athlete's cached diary.
-    return owner && owner!==id ? structuredClone(DEFAULT_WORKOUT_DATA)
-        : getFromLocalStorage(); // legacy installs without an owner marker
+    // The generic snapshot can be used only when its owner ID is verified.
+    // In particular, owner=null does NOT mean it belongs to this new user.
+    return owner===id ? getFromLocalStorage() : structuredClone(DEFAULT_WORKOUT_DATA);
+}
+
+// Exportable but never automatically attributed to the signed-in user.
+// Keep the original raw bytes even if subsequent cloud hydration replaces
+// the generic snapshot. The old account's diary stays recoverable.
+export function getUnownedLegacySnapshot(){
+    const archived=journalStorage.getItem(LEGACY_UNOWNED_KEY);
+    if(archived!==null)return archived;
+    return getStoredLocalOwner() ? null : journalStorage.getItem(CONFIG.STORAGE_KEY);
+}
+function downloadUnownedLegacySnapshot(){
+    const raw=getUnownedLegacySnapshot();
+    if(raw===null)return;
+    if(!confirm('Questo diario precedente non ha un proprietario verificabile. Scaricalo solo se è tuo; il file contiene dati personali. Nessun dato sarà caricato nel cloud. Continuare?'))return;
+    let parsed;
+    try{parsed=JSON.parse(raw);}catch{}
+    if(parsed?.history?.years && !Array.isArray(parsed.history.years)){
+        downloadFullBackup(parsed,{suffix:'legacy-non-attribuito'});
+    }else{
+        // A damaged snapshot must remain exportable without silently
+        // reparsing, changing, or discarding any of its content.
+        const url=URL.createObjectURL(new Blob([raw],{type:'application/octet-stream'}));
+        const a=document.createElement('a');
+        a.href=url;a.download='homegym-legacy-non-attribuito-originale.txt';
+        document.body.appendChild(a);a.click();a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),2000);
+    }
+}
+function renderLegacyRecoveryNotice(){
+    const id='legacy-unowned-recovery';
+    const existing=document.getElementById(id);
+    if(!state.currentUser?.id || getUnownedLegacySnapshot()===null){
+        existing?.remove();return;
+    }
+    if(existing)return;
+    const holder=document.getElementById('workout-list-container');
+    if(!holder?.parentElement)return;
+    const panel=document.createElement('section');
+    panel.id=id;
+    panel.setAttribute('role','status');
+    panel.style.cssText='padding:12px;margin:10px 0;border:1px solid currentColor;border-radius:8px;';
+    const description=document.createElement('p');
+    description.textContent='È stata trovata una copia del diario locale precedente, senza un account verificabile. Per sicurezza non è mostrata e non viene sincronizzata. Se è tua, esportala, conservala e ripristinala manualmente tramite Strumenti → Ripristina backup JSON dopo aver verificato l’account corretto.';
+    const button=document.createElement('button');
+    button.type='button';button.className='btn btn-secondary';
+    button.textContent='Scarica copia legacy non attribuita';
+    button.addEventListener('click',downloadUnownedLegacySnapshot);
+    panel.append(description,button);
+    holder.parentElement.insertBefore(panel,holder);
 }
 
 const DEFAULT_WORKOUT_DATA = {
@@ -168,8 +220,15 @@ export function saveToLocalStorage(data, {preserveUpdatedAt = false} = {}) {
         // Cloud hydration MUST NOT change the original modification timestamp.
         if (!preserveUpdatedAt) data.updatedAt = new Date().toISOString();
         const encoded=JSON.stringify(data);
-        journalStorage.setItem(CONFIG.STORAGE_KEY, encoded);
         const id=state.currentUser?.id;
+        if(id && !getStoredLocalOwner()){
+            const previous=journalStorage.getItem(CONFIG.STORAGE_KEY);
+            // The archive and the new snapshot are staged in the same
+            // IndexedDB transaction. On storage failure neither commits.
+            if(previous!==null && journalStorage.getItem(LEGACY_UNOWNED_KEY)===null)
+                journalStorage.setItem(LEGACY_UNOWNED_KEY,previous);
+        }
+        journalStorage.setItem(CONFIG.STORAGE_KEY, encoded);
         if(id){
             journalStorage.setItem(scopedKey(id),encoded);
             journalStorage.setItem(OWNER_KEY,String(id));
@@ -339,6 +398,7 @@ export function updateSyncStatusUI() {
     syncBadge.classList.toggle('is-offline', offline);
     syncBadge.classList.toggle('is-pending', pending || Boolean(conflict) || storageFailure);
     renderSyncConflictControls(conflict);
+    renderLegacyRecoveryNotice();
     syncBadge.style.cursor = pending || conflict || storageFailure ? 'pointer' : 'default';
     syncBadge.style.background = '';
     syncBadge.style.color = '';
