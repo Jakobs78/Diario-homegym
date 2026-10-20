@@ -103,6 +103,22 @@ function getQueue({forWrite=false} = {}) {
     try {
         const parsed=queue ? JSON.parse(queue) : [];
         if(!Array.isArray(parsed))throw Error('La coda non contiene una lista di operazioni.');
+        // A syntactically valid array can still be corrupted, e.g. [null],
+        // [{}], or entries missing their journal payload. Do not allow an
+        // enqueue/compact operation to throw AFTER changing the diary or to
+        // silently discard entries whose identity cannot be compared.
+        for(const action of parsed){
+            if(!action || typeof action!=='object' || Array.isArray(action) ||
+               !['string','number'].includes(typeof action.id) ||
+               String(action.id).trim()==='' ||
+               !Number.isFinite(action.timestamp) ||
+               !action.payload || typeof action.payload!=='object' ||
+               Array.isArray(action.payload) ||
+               !action.payload.history?.years ||
+               typeof action.payload.history.years!=='object' ||
+               Array.isArray(action.payload.history.years))
+                throw Error('Voce della coda offline non valida: conservata senza modificarla.');
+        }
         queueUnreadable=false;
         return parsed;
     } catch(error) {
