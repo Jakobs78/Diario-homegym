@@ -10,6 +10,8 @@ on:
       - 'mycoatch/**'
       - 'js/**'
       - 'index.html'
+      - 'sw.js'
+      - 'manifest.webmanifest'
       - 'tests/e2e/**'
       - '.github/workflows/mycoatch-e2e.yml'
 
