@@ -117,7 +117,7 @@ export function equipmentMatchesSnapshot(captured, athlete) {
 export function profileSnapshot(staged,{
     splitPreference='auto',daysPerWeek=null,maxSessionMinutes=null,focus=null,
     userAge=null,preferredLifts={},availableEquipment=[],
-    availableAccessories=[],cableSetup=null,
+    availableAccessories=[],cableSetup=null,deloadWeek=null,
     equipmentAtGeneration:previewEquipment={}
 }={},equipmentAtGeneration=null) {
     if(!staged?.profile||!Number.isInteger(staged.version))
@@ -129,7 +129,9 @@ export function profileSnapshot(staged,{
         preferredLifts:preferredLifts || {},
         availableEquipment:Array.isArray(availableEquipment) ? availableEquipment : [],
         availableAccessories:Array.isArray(availableAccessories) ? availableAccessories : [],
-        cableSetup
+        cableSetup,
+        deloadWeek:typeof deloadWeek === 'boolean' ||
+            Number.isInteger(deloadWeek) ? deloadWeek : null
     };
     return {
         schemaVersion:2,profileVersion:staged.version,
