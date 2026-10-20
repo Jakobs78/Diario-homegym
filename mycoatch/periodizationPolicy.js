@@ -32,7 +32,7 @@ export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}
       : enoughEvidence ? 'Nessuno scarico automatico: progressi confrontabili su più regioni; rivaluta il recupero ogni settimana.'
       : evidenceBasedDeload
         ? 'Full Body: niente scarico automatico senza segnali ripetuti di fatica; dati limitati, serve verifica settimanale.'
-        : 'Scarico prudenziale finale del template originale quando mancano dati di recupero confrontabili.';
+        : 'Scarico prudenziale finale del template originale: dati di recupero insufficienti per una gestione adattiva.';
   // La preferenza dell'atleta puo' spostare o rimuovere lo scarico
   // soltanto in assenza di fatica ripetuta e attendibile. Se il recupero
   // e' prioritario, nessuna opzione puo' posticiparlo.
