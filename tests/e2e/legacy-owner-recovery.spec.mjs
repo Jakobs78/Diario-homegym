@@ -136,3 +136,30 @@ test('corrupt unattributed legacy backup stays byte-identical and manually downl
   expect(download.suggestedFilename()).toMatch(/originale\.txt$/);
   expect(await readFile(await download.path(),'utf8')).toBe(raw);
 });
+
+
+test('multiple distinct ownerless journals fail closed instead of overwriting newest copy',async({page})=>{
+  await harness(page);
+  const outcome=await page.evaluate(async()=>{
+    const {journalStorage,flushJournalStorage}=await import('/js/journalStore.js');
+    const {state}=await import('/js/state.js');
+    const {saveToLocalStorage}=await import('/js/storage.js');
+    const oldest='{ "archived": "A" }';
+    const newest='{ "unattributed": "C" }';
+    journalStorage.setItem('workoutApp_data_legacy_unowned_recovery',oldest);
+    journalStorage.setItem('workoutApp_data',newest);
+    await flushJournalStorage();
+    state.currentUser={id:'B',email:'b@invalid.example'};
+    const result=saveToLocalStorage({athlete:{name:'B'},history:{years:{}}});
+    await flushJournalStorage();
+    return {
+      rejected:result===false,
+      oldestUntouched:journalStorage.getItem('workoutApp_data_legacy_unowned_recovery')===oldest,
+      newestUntouched:journalStorage.getItem('workoutApp_data')===newest,
+      ownerUnchanged:journalStorage.getItem('workoutApp_data_owner')===null
+    };
+  });
+  expect(outcome).toEqual({
+    rejected:true,oldestUntouched:true,newestUntouched:true,ownerUnchanged:true
+  });
+});
