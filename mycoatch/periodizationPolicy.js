@@ -8,9 +8,9 @@ export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}
   const assessment=assessRecoveryScope(history);
   const signals=assessment.recoverySignals;
   const recoveryFirst=assessment.recoveryRequired;
-  // Do not enforce a universal 4th-week deload if several independent,
-  // comparable exercises from at least two body regions show stable progression.
-  // If data is insufficient, the original conservative deload remains.
+  // A fourth-week deload is never compulsory. Insufficient history calls for
+  // cautious calibration and explicit recovery review, not an assumed need
+  // for a week of reduced work.
   const measured = Object.values(history?.byExercise || {}).filter(ex =>
     ex?.progressionEvidence?.recentWeeksQualified === true &&
     Number(ex?.progressionEvidence?.distinctWeeks || 0) >= 2 &&
@@ -27,16 +27,15 @@ export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}
   const deloadRationale = recoveryFirst
     ? 'Recupero globale prioritario: scarico iniziale per segnali ripetuti su più regioni.'
     : athleteChoice ? 'Settimana di scarico scelta esplicitamente dall’atleta.'
-      : enoughEvidence ? 'Nessuno scarico automatico: progressi confrontabili su almeno due regioni; rivaluta il recupero ogni settimana.'
-        : 'Scarico di sicurezza nell’ultima settimana: dati longitudinali ancora insufficienti per escluderlo.';
+      : enoughEvidence ? 'Nessuno scarico automatico: progressi confrontabili su più regioni; rivaluta il recupero ogni settimana.'
+        : 'Dati di recupero ancora limitati: nessuno scarico a calendario per default. Inizia con carichi prudenti e rivaluta le condizioni settimanalmente.';
   // La preferenza dell'atleta puo' spostare o rimuovere lo scarico
   // soltanto in assenza di fatica ripetuta e attendibile. Se il recupero
   // e' prioritario, nessuna opzione puo' posticiparlo.
   let deloadWeek = recoveryFirst ? 1 :
     config.deloadWeek === false ? null :
     Number.isInteger(config.deloadWeek) ? config.deloadWeek :
-    config.deloadWeek === true ? count :
-    count >= 4 && !enoughEvidence ? count : null;
+    config.deloadWeek === true ? count : null;
   if (deloadWeek !== null && (deloadWeek < 1 || deloadWeek > count))
     throw Error('Settimana di scarico non valida');
   const weeks = Array.from({length: count}, (_, i) => {
