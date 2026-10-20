@@ -27,7 +27,7 @@ test('an unreadable offline queue is preserved when a new diary save is attempte
     const originalBytes = journal.journalStorage.getItem('workoutApp_data');
 
     const results = [];
-    for (const damagedQueue of ['{incomplete-json', '{"wrong":"shape"}']) {
+    for (const damagedQueue of ['{incomplete-json', '{"wrong":"shape"}', '[null]', '[{}]', '[{"id":"lost-payload","timestamp":1}]']) {
       journal.journalStorage.setItem('workoutApp_data_sync_queue', damagedQueue);
       await journal.flushJournalStorage();
       const newDiary = structuredClone(baseline);
@@ -43,10 +43,9 @@ test('an unreadable offline queue is preserved when a new diary save is attempte
     }
     return results;
   });
-  expect(outcomes).toEqual([
-    {rejected:true,queueUntouched:true,diaryUntouched:true,visibleWarning:true},
-    {rejected:true,queueUntouched:true,diaryUntouched:true,visibleWarning:true}
-  ]);
+  expect(outcomes).toEqual(Array.from({length:5},()=>({
+    rejected:true,queueUntouched:true,diaryUntouched:true,visibleWarning:true
+  })));
 });
 
 
