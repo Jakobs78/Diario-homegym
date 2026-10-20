@@ -130,8 +130,10 @@ export function pauseSyncForAccountDeletion(){
 export async function removeAccountLocalData(user){
     if(!user?.id)throw Error('Account da eliminare non identificato.');
     const id=String(user.id), owner=getStoredLocalOwner();
-    const queue=getQueue({forWrite:true}).filter(action=>action.ownerId
-        ? String(action.ownerId)!==id : owner!==id);
+    // An ownerless legacy action must survive deletion of ANY account.
+    // The global marker may have changed since the offline action was made.
+    const queue=getQueue({forWrite:true}).filter(action=>
+        !action.ownerId || String(action.ownerId)!==id);
     journalStorage.removeItem(scopedKey(id));
     journalStorage.removeItem(revisionKey(user));
     journalStorage.removeItem(conflictKey(user));
@@ -266,12 +268,20 @@ export function getFromLocalStorage() {
 // ==========================================
 export async function saveAndSync(data = state.workoutData, actionType = 'UPDATE_WORKOUT') {
     // Journal and queued JSON are serialized synchronously before yielding.
-    const ownerId=state.currentUser?.id || getStoredLocalOwner() || null;
+    // The generic last-owner marker is not authentication evidence. Never
+    // enqueue unauthenticated edits on behalf of a previous signed-in user.
+    const ownerId=state.currentUser?.isOffline ? null : (state.currentUser?.id || null);
     if(!journalStorageReady()){storageFailure=true;updateSyncStatusUI();return false;}
     // Fail before updating a persistent snapshot if earlier offline edits
     // cannot be read. Otherwise a rejected save changes the stored diary
     // without creating a matching cloud-sync action.
-    try {getQueue({forWrite:true});}
+    try {
+        const previousQueue=getQueue({forWrite:true});
+        // Do not compact a previous anonymous athlete's pending diary.
+        // Without a verified owner, it must be recovered explicitly.
+        if(!ownerId && previousQueue.some(action=>!action.ownerId))
+            throw Error('Coda locale senza proprietario verificabile: salva un backup prima di proseguire.');
+    }
     catch(error) {
         storageFailure=true;
         console.error('Salvataggio sospeso: la coda offline è illeggibile.',error);
