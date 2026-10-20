@@ -124,3 +124,42 @@ test('offline edits for one account never discard another account queue', async 
     {owner:'test-account-B',name:'ACCOUNT_B_PRIVATE'}
   ]);
 });
+
+
+test('legacy queue with missing owner never writes into a different signed-in account',async({page})=>{
+  await page.route('**/sync-queue-harness.html',route=>route.fulfill({
+    status:200,contentType:'text/html',
+    body:'<!doctype html><meta charset="utf-8"><span id="sync-status"></span>'
+  }));
+  await page.goto('/sync-queue-harness.html');
+  const result=await page.evaluate(async()=>{
+    let cloudCalls=0;
+    window.supabase={createClient:()=>({
+      auth:{onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})},
+      from(){cloudCalls++;throw Error('An unrelated account must not receive legacy snapshots');}
+    })};
+    const journal=await import('/js/journalStore.js');
+    await journal.initializeJournalStorage();
+    const {state}=await import('/js/state.js');
+    const {processSyncQueue}=await import('/js/storage.js');
+    state.currentUser={id:'account-B',email:'b@invalid.example'};
+    // A global owner marker can reflect the CURRENT user, even though the
+    // old queue entry was created before account scoping existed.
+    journal.journalStorage.setItem('workoutApp_data_owner','account-B');
+    const orphan={id:'legacy-orphan',timestamp:1000,type:'UPDATE_WORKOUT',
+      payload:{athlete:{name:'PRIVATE_LEGACY_OWNER_UNKNOWN'},history:{years:{}}}};
+    const foreign={id:'account-A-entry',ownerId:'account-A',timestamp:2000,type:'UPDATE_WORKOUT',
+      payload:{athlete:{name:'ACCOUNT_A_PRIVATE'},history:{years:{}}}};
+    const original=JSON.stringify([orphan,foreign]);
+    journal.journalStorage.setItem('workoutApp_data_sync_queue',original);
+    await journal.flushJournalStorage();
+    await processSyncQueue();
+    await journal.flushJournalStorage();
+    return {
+      cloudCalls,
+      queueUntouched:journal.journalStorage.getItem('workoutApp_data_sync_queue')===original,
+      visibleWarning:document.getElementById('sync-status')?.textContent?.includes('Salvataggio')
+    };
+  });
+  expect(result).toEqual({cloudCalls:0,queueUntouched:true,visibleWarning:true});
+});
