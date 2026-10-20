@@ -2,7 +2,7 @@
 import { MyCoatch, downloadMesocycleCSV } from './index.js';
 import { getFromLocalStorageForUser } from '../js/storage.js';
 import { state } from '../js/state.js';
-import { latestSavedProfile } from './profileJournal.js';
+import { latestSavedProfile, snapshotEquipmentState } from './profileJournal.js';
 import { pullDataFromSupabase } from '../js/sync.js';
 import { formatCoachReview } from './mesocycleComparison.js';
 import { locateClosedMesocycle } from './closureHandoff.js';
@@ -103,9 +103,11 @@ export async function createVisualCoachProposal(options={}) {
         const remote=await pullDataFromSupabase(state.currentUser);
         if(hasHistory(remote))history=remote;
     }
+    const equipmentSnapshot=snapshotEquipmentState(
+        history?.athlete || state.workoutData?.athlete || {});
     const proposal=MyCoatch.generateNextFromHistory(history||{},withClosure(options));
     return {
-        proposal,csv:MyCoatch.exportAsCSV(),
+        proposal,equipmentSnapshot,csv:MyCoatch.exportAsCSV(),
         review:formatCoachReview(proposal.coachReport.comparison,proposal.coachReport)
     };
 }
