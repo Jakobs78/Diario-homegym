@@ -201,3 +201,62 @@ test('a corrupted offline queue cannot be mistaken for fully synced local data',
     pending:true,rejected:true,unchanged:true,damagedQueueUntouched:true,badgeWarning:true
   });
 });
+
+
+test('deleting account A never discards ownerless or B pending actions',async({page})=>{
+  await page.route('**/sync-queue-harness.html',r=>r.fulfill({
+    status:200,contentType:'text/html',body:'<!doctype html><span id="sync-status"></span>'
+  }));
+  await page.goto('/sync-queue-harness.html');
+  const value=await page.evaluate(async()=>{
+    window.supabase={createClient:()=>({
+      auth:{onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})},
+      from(){throw Error('No cloud writes permitted');}
+    })};
+    const {journalStorage,initializeJournalStorage,flushJournalStorage}=await import('/js/journalStore.js');
+    await initializeJournalStorage();
+    const {removeAccountLocalData}=await import('/js/storage.js');
+    const snapshot=name=>({athlete:{name},history:{years:{}}});
+    const actions=[
+      {id:'unknown',timestamp:1,type:'UPDATE_WORKOUT',payload:snapshot('UNOWNED_PRIVATE')},
+      {id:'a',ownerId:'A',timestamp:2,type:'UPDATE_WORKOUT',payload:snapshot('A')},
+      {id:'b',ownerId:'B',timestamp:3,type:'UPDATE_WORKOUT',payload:snapshot('B')}
+    ];
+    journalStorage.setItem('workoutApp_data_owner','A');
+    journalStorage.setItem('workoutApp_data',JSON.stringify(snapshot('A')));
+    journalStorage.setItem('workoutApp_data_sync_queue',JSON.stringify(actions));
+    await flushJournalStorage();
+    await removeAccountLocalData({id:'A'});
+    return {
+      remaining:JSON.parse(journalStorage.getItem('workoutApp_data_sync_queue'))
+        .map(x=>x.id),
+      ownedGenericRemoved:journalStorage.getItem('workoutApp_data')===null
+    };
+  });
+  expect(value).toEqual({remaining:['unknown','b'],ownedGenericRemoved:true});
+});
+
+test('a signed-out browser never attributes new pending edits to a previous account',async({page})=>{
+  await page.route('**/sync-queue-harness.html',r=>r.fulfill({
+    status:200,contentType:'text/html',body:'<!doctype html><span id="sync-status"></span>'
+  }));
+  await page.goto('/sync-queue-harness.html');
+  const value=await page.evaluate(async()=>{
+    window.supabase={createClient:()=>({
+      auth:{onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})},
+      from(){throw Error('No cloud writes permitted');}
+    })};
+    const {journalStorage,initializeJournalStorage,flushJournalStorage}=await import('/js/journalStore.js');
+    await initializeJournalStorage();
+    const {state}=await import('/js/state.js');
+    const {saveAndSync}=await import('/js/storage.js');
+    journalStorage.setItem('workoutApp_data_owner','account-A');
+    await flushJournalStorage();
+    state.currentUser=null;
+    const saved=await saveAndSync({athlete:{name:'UNVERIFIED_OFFLINE'},history:{years:{}}},'OFFLINE_TEST');
+    await flushJournalStorage();
+    const pending=JSON.parse(journalStorage.getItem('workoutApp_data_sync_queue'));
+    return {saved:saved!==false,ownerId:pending[0].ownerId};
+  });
+  expect(value).toEqual({saved:true,ownerId:null});
+});
