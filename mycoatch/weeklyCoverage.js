@@ -13,11 +13,80 @@ const MOVEMENT_GROUPS = Object.freeze([
 ]);
 
 /**
+ * Verifica della copertura specifica sul piano EFFETTIVAMENTE programmato.
+ * Ogni conteggio è una serie primaria/diretta; il lavoro indiretto rimane
+ * disponibile separatamente nel report generale.
+ *
+ * L'assenza di un esercizio non è una diagnosi di scarso sviluppo muscolare.
+ * Per la flessione del ginocchio si riconoscono solo le varianti realmente
+ * presenti nel catalogo corrente, evitando di equiparare uno stacco rumeno
+ * a un leg curl.
+ */
+const FUNCTIONAL_PATTERNS = Object.freeze({
+    rearDeltoids: {
+        label: 'Deltoidi posteriori (isolamento)',
+        applies: meta => meta.shoulderHeadIsolation === 'posteriore'
+    },
+    kneeFlexion: {
+        label: 'Femorali (flessione del ginocchio)',
+        applies: meta => meta.category === 'Femorali' &&
+            meta.pattern === 'isolation' && /leg curl|hamstring walkout/i.test(meta.name)
+    },
+    calves: {
+        label: 'Polpacci (diretto)',
+        applies: meta => meta.category === 'Polpacci'
+    },
+    core: {
+        label: 'Addominali e core (diretto)',
+        applies: meta => meta.category === 'Core'
+    }
+});
+
+function countFunctionalSets(days = []) {
+    const counts = Object.fromEntries(Object.keys(FUNCTIONAL_PATTERNS).map(key => [key, 0]));
+    for (const day of days) {
+        const exercises = Array.isArray(day) ? day : (day?.exercises || []);
+        for (const exercise of exercises) {
+            const meta = byName.get(canonicalExerciseKey(exercise.name));
+            const sets = Number(exercise.setsCount);
+            if (!meta || !Number.isInteger(sets) || sets < 1) continue;
+            for (const [key, rule] of Object.entries(FUNCTIONAL_PATTERNS)) {
+                if (rule.applies(meta)) counts[key] += sets;
+            }
+        }
+    }
+    return counts;
+}
+
+
+/**
  * Controllo DOPO il taglio al limite di tempo: la presenza di uno slot nel
  * template non significa che sia rimasto nel CSV. Le serie secondarie NON
  * sono considerate serie dirette intere.
  */
-export function auditWeeklyCoverage(days, templates = []) {
+export function auditWeeklyCoverage(days, templates = [], requestedDays = []) {
+    const actualFunctions = countFunctionalSets(days);
+    const intendedFunctions = requestedDays.length
+        ? countFunctionalSets(requestedDays) : null;
+    const functionalCoverage = Object.fromEntries(
+        Object.entries(FUNCTIONAL_PATTERNS).map(([key, rule]) => {
+            const scheduledSets = actualFunctions[key];
+            const plannedSets = intendedFunctions ? intendedFunctions[key] : null;
+            return [key, {
+                label: rule.label,
+                scheduledSets,
+                plannedSets,
+                shortfallSets: plannedSets === null ? null :
+                    Math.max(0, plannedSets - scheduledSets),
+                // 'not_planned' can also mean unavailable equipment or a
+                // different chosen strategy; it is not proof of no stimulus.
+                status: scheduledSets === 0
+                    ? (plannedSets > 0 ? 'omitted_after_optimization' : 'not_programmed')
+                    : (plannedSets !== null && scheduledSets < plannedSets
+                        ? 'reduced_after_optimization' : 'present')
+            }];
+        })
+    );
     const direct = Object.fromEntries(TRACKED_GROUPS.map(muscle => [muscle, 0]));
     const indirect = Object.fromEntries(TRACKED_GROUPS.map(muscle => [muscle, 0]));
     const patterns = Object.fromEntries(MOVEMENT_GROUPS.map(pattern => [pattern, 0]));
@@ -82,6 +151,19 @@ export function auditWeeklyCoverage(days, templates = []) {
     if (exercisesUnknown.length) warnings.push(
         'Esercizi non riconosciuti nel catalogo: ' + exercisesUnknown.join(', ')
     );
+    for (const item of Object.values(functionalCoverage)) {
+        if (item.status === 'omitted_after_optimization') {
+            warnings.push(item.label + ': ' + item.plannedSets +
+                ' serie previste prima della selezione per il tempo, nessuna serie diretta rimasta. ' +
+                'Verifica la distribuzione; lo stimolo indiretto non è conteggiato come lavoro diretto.');
+        } else if (item.status === 'reduced_after_optimization') {
+            warnings.push(item.label + ': riduzione da ' + item.plannedSets +
+                ' a ' + item.scheduledSets + ' serie dirette dopo l’ottimizzazione.');
+        } else if (item.status === 'not_programmed' && (days || []).length === 4) {
+            warnings.push(item.label + ': nessuna serie diretta nella settimana. ' +
+                'Controlla obiettivi e attrezzatura; non implica assenza di stimolo indiretto.');
+        }
+    }
     return {
         daysOrder: (days || []).map(day => String(day.dayName || '').split(' ')[0]),
         anchors,
@@ -99,6 +181,7 @@ export function auditWeeklyCoverage(days, templates = []) {
         fractionallyCountedPhysicalSets: fractionalVolume.physicalSets,
         setsByMovement: patterns,
         notDirectlyCovered,
+        functionalCoverage,
         warnings,
         accounting: 'direct_primary_sets_and_indirect_exercise_exposures_not_effective_sets'
     };

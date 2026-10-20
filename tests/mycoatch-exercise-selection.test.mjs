@@ -177,8 +177,16 @@ test('una variante già usata rimane se compatibile, senza cambiarla casualmente
 test('copertura muscolare distingue serie dirette e presenza indiretta', () => {
     const meso = plan({ maxSessionMinutes: 60 });
     const week = meso.weeks[0];
-    assert.deepEqual(week.weeklyCoverage, auditWeeklyCoverage(
-        week.days, getTemplateForDays(4)));
+    // Lo storico non ricostruisce le serie richieste prima dell'ottimizzazione:
+    // il nuovo audit mantiene le metriche legacy, aggiungendo un confronto
+    // planned/scheduled disponibile solo durante la generazione.
+    const legacy = auditWeeklyCoverage(week.days, getTemplateForDays(4));
+    for (const [key, value] of Object.entries(legacy)) {
+        if (key === 'functionalCoverage' || key === 'warnings') continue;
+        assert.deepEqual(week.weeklyCoverage[key], value, key);
+    }
+    assert.ok(week.weeklyCoverage.warnings.length >= legacy.warnings.length);
+    assert.ok(week.weeklyCoverage.functionalCoverage.rearDeltoids.plannedSets !== null);
     assert.ok(week.weeklyCoverage.directSetsByMuscle.Petto > 0);
     assert.ok(week.weeklyCoverage.directSetsByMuscle.Quadricipiti > 0);
     assert.ok(week.weeklyCoverage.directSetsByMuscle.Polpacci > 0);

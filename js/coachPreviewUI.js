@@ -63,6 +63,12 @@ export function initCoachPreview(readCoachOptions,configModal) {
                             ' serie × '+(ex.reps || '?')+' reps · RPE '+String(ex.rpe || '-')+
                             ' · recupero '+String(ex.restTime || ex.rest || '-')));
                     }
+                    const duration=Number(day.estimatedMinutes);
+                    const budget=Number(day.timeBudgetMinutes);
+                    if(Number.isFinite(duration) && Number.isFinite(budget)) {
+                        panel.append(create('p','Durata stimata: '+duration+
+                            ' min su '+budget+' disponibili (non misurata).'));
+                    }
                     panel.append(ul);container.append(panel);
                 }
                 const volumes=week.weeklyCoverage?.fractionalVolumeByMuscle;
@@ -79,6 +85,21 @@ export function initCoachPreview(readCoachOptions,configModal) {
                     }
                     breakdown.append(list);
                     container.append(breakdown);
+                }
+                const functions=week.weeklyCoverage?.functionalCoverage;
+                if(functions){
+                    const details=create('details',undefined,'mycoatch-preview-day');
+                    details.append(create('summary','Copertura specifica dopo i tagli per il tempo'));
+                    const list=create('ul');
+                    for(const value of Object.values(functions)){
+                        const original=value.plannedSets === null
+                            ? '' : ' (previste '+value.plannedSets+')';
+                        list.append(create('li',value.label+': '+
+                            value.scheduledSets+' serie dirette programmate'+original+
+                            '. Valori descrittivi, non crescita misurata.'));
+                    }
+                    details.append(list);
+                    container.append(details);
                 }
                 weeks.append(container);
             }
