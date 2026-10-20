@@ -262,9 +262,9 @@ export function formatCoachReview(comparison, report) {
                     v.fractionalSets).join(' · '));
             }
         }
-        lines.push('Distribuzione degli allenamenti nella settimana: ' + coverage.daysOrder.join(' → ') +
+        lines.push('Split programmato: ' + coverage.daysOrder.join(' → ') +
             ' (giorni numerati, non appuntamenti fissati in calendario).');
-        lines.push('Esercizi principali da mantenere nel programma: ' + coverage.anchors
+        lines.push('Movimenti cardine: ' + coverage.anchors
             .map(x => `G${x.dayNumber} ${x.exercise || x.lift + ' NON PRESENTE'}`).join(' · '));
         if (!coverage.allPriorityLiftsPresent) {
             lines.push('ATTENZIONE: un fondamentale prioritario non è stato conservato.');
@@ -284,7 +284,7 @@ export function formatCoachReview(comparison, report) {
             item.status==='omitted_after_optimization' ||
             item.status==='reduced_after_optimization');
         if(gaps.length){
-            lines.push('ESERCIZI MANCANTI O RIDOTTI PER ALCUNI MOVIMENTI — controlla prima di scaricare: ' +
+            lines.push('COPERTURA FUNZIONALE — esercizi mancanti o ridotti per alcuni movimenti, controlla prima di scaricare: ' +
                 gaps.map(item=>item.label + ': ' + item.scheduledSets +
                     ' serie dirette' + (item.plannedSets === null ? '' :
                     ' su ' + item.plannedSets + ' previste') +
@@ -293,23 +293,23 @@ export function formatCoachReview(comparison, report) {
         }
         if(coverage.shoulderHeadCoverage){
             const heads=coverage.shoulderHeadCoverage.directIsolationSets;
-            lines.push('SPALLE — serie specifiche per deltoide laterale: ' +
-                heads.laterale + ' serie, per deltoide posteriore: ' + heads.posteriore +
-                ' serie. Esercizi di spinta sopra la testa: ' +
+            lines.push('DELTOIDI, isolamento diretto: laterale ' +
+                heads.laterale + ' serie · posteriore ' + heads.posteriore +
+                ' serie; spinte verticali ' +
                 coverage.shoulderHeadCoverage.verticalPressSets +
                 ' serie. La spinta sopra la testa non sostituisce automaticamente il lavoro specifico per i posteriori.');
         }
     }
     if (comparison.unavailableOptionalSlots.length) {
-        lines.push('Esercizi accessori che MyCoatch non ha potuto inserire perché mancano attrezzi compatibili: ' +
+        lines.push('Accessori facoltativi esclusi per attrezzatura: ' +
             comparison.unavailableOptionalSlots
                 .map(x => `G${x.dayNumber} ${x.muscle} (${x.pattern})`).join(', ') + '.');
     }
-    lines.push('Durata stimata di ciascun allenamento (include pause e preparazione, non è una misura reale): ' + comparison.estimatedMinutesByDay
+    lines.push('Durate previste (stime): ' + comparison.estimatedMinutesByDay
         .map(d => `G${d.day} ${d.minutes} min`).join(' · '));
 
     if (comparison.timeAwareSelections?.length) {
-        lines.push('COME MYCOATCH HA RISPETTATO IL TEMPO DISPONIBILE — prima seleziona gli esercizi fondamentali, poi cerca di inserire i complementari. Alcune serie possono essere spostate in altri giorni:');
+        lines.push('SCELTA INIZIALE ESERCIZI IN BASE AL TEMPO — prima MyCoatch conserva i fondamentali, poi aggiunge i complementari che rientrano nei minuti disponibili. Alcune serie possono essere spostate in altri giorni:');
         for (const plan of comparison.timeAwareSelections) {
             const chosen=plan.selected.slice(0, 4)
                 .map(item=>item.exercise+' ('+item.reason+')').join(' · ');
