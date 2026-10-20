@@ -250,13 +250,19 @@ test('a signed-out browser never attributes new pending edits to a previous acco
     await initializeJournalStorage();
     const {state}=await import('/js/state.js');
     const {saveAndSync}=await import('/js/storage.js');
+    const original=JSON.stringify({athlete:{name:'ACCOUNT_A_OWNED'},history:{years:{}}});
     journalStorage.setItem('workoutApp_data_owner','account-A');
+    journalStorage.setItem('workoutApp_data',original);
     await flushJournalStorage();
     state.currentUser=null;
     const saved=await saveAndSync({athlete:{name:'UNVERIFIED_OFFLINE'},history:{years:{}}},'OFFLINE_TEST');
     await flushJournalStorage();
-    const pending=JSON.parse(journalStorage.getItem('workoutApp_data_sync_queue'));
-    return {saved:saved!==false,ownerId:pending[0].ownerId};
+    return {
+      rejected:saved===false,
+      ownerUnchanged:journalStorage.getItem('workoutApp_data_owner')==='account-A',
+      previousJournalUntouched:journalStorage.getItem('workoutApp_data')===original,
+      queueUnchanged:journalStorage.getItem('workoutApp_data_sync_queue')===null
+    };
   });
-  expect(value).toEqual({saved:true,ownerId:null});
+  expect(value).toEqual({rejected:true,ownerUnchanged:true,previousJournalUntouched:true,queueUnchanged:true});
 });
