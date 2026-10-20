@@ -41,8 +41,9 @@ jobs:
     # from the protected default branch.
     # Secrets never run on a pull request. Launch manually only after review
     # from the protected default branch.
-    # One-time read-only regression run on controlled internal audit branch.
-    if: (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.head_ref == 'audit/live-readonly-github-actions-20261020' && github.event.pull_request.head.repo.full_name == github.repository)
+    # Secrets never run on a pull request. Launch manually only after review
+    # from the protected default branch.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
