@@ -25,23 +25,23 @@ export function createWeeklyReviewPanel(mesocycle, weekNumber, {
     details.id='mycoatch-weekly-review';
     details.open=wasOpen;
     const summary=proposal.status==='ready'
-        ? '🤖 MyCoatch · Revisione settimana '+weekNumber+' da valutare'
+        ? '🤖 MyCoatch · Possibile riduzione dello sforzo nella settimana '+weekNumber
         : proposal.status==='pain'
             ? '⚠️ MyCoatch · Dolore segnalato nella settimana precedente'
-            : '✓ MyCoatch · Settimana '+weekNumber+' rivista';
+            : '✓ MyCoatch · Obiettivi RPE della settimana '+weekNumber+' aggiornati';
     details.append(node('summary','mycoatch-weekly-review-summary',summary));
     const body=node('div','mycoatch-weekly-review-content');
     body.append(node('p','',proposal.message));
     if(proposal.status==='ready'){
         body.append(node('p','mycoatch-weekly-review-data',
-            'Evidenze: '+proposal.affectedDays+'/'+proposal.confirmedDays+
+            'Perché viene suggerita: '+proposal.affectedDays+'/'+proposal.confirmedDays+
             ' giornate con segnali ripetuti · '+proposal.measuredSets+
-            ' RPE realmente misurati.'));
+            ' serie con RPE effettivamente registrato.'));
         const proposed=node('div','mycoatch-weekly-review-changes');
         const unique=[...new Map(proposal.changes.map(item=>[
             item.name+'|'+item.from+'|'+item.to,item
         ])).values()];
-        proposed.append(node('strong','','Nuovi target (prima → dopo):'));
+        proposed.append(node('strong','','RPE obiettivo per gli esercizi interessati (attuale → proposto):'));
         const list=node('ul');
         for(const item of unique.slice(0,6))
             list.append(node('li','',item.name+': RPE '+item.from+
@@ -51,12 +51,12 @@ export function createWeeklyReviewPanel(mesocycle, weekNumber, {
         proposed.append(list);
         body.append(proposed);
         body.append(node('small','',
-            'I kg non vengono cancellati dallo storico. Dopo la conferma i pesi '+
+            'Le prestazioni già registrate non vengono modificate. Dopo la conferma i pesi '+
             'non saranno precompilati: scegli il carico coerente con il nuovo RPE. '+
             'Serie e ripetizioni previste restano invariate.'));
         if(!readOnly){
             const apply=node('button','btn btn-secondary btn-sm mycoatch-weekly-apply',
-                'Conferma revisione');
+                'Applica i nuovi obiettivi RPE alla settimana');
             apply.type='button';
             apply.addEventListener('click',()=>{
                 try {
