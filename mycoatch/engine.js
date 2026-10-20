@@ -532,7 +532,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             targetRpe: weekPolicy.targetRpe,
             days: balanced.days,
             volumeBalance: balanced.report,
-            weeklyCoverage: auditWeeklyCoverage(balanced.days, templateDays),
+            weeklyCoverage: auditWeeklyCoverage(balanced.days, templateDays, intendedDays),
             optionalSlotsNotAvailable: excludedOptionalSlots
         });
     }
