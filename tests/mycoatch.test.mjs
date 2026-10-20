@@ -105,7 +105,7 @@ test('carico storico senza aumento settimanale forzato', () => {
 test('età 49 anni non implica scarico anticipato alla terza settimana', () => {
     const meso = generate();
     assert.notEqual(meso.weeks[2].days[0].exercises[0].rpe, '6.5');
-    assert.notEqual(meso.weeks[3].days[0].exercises[0].rpe, '6.5');
+    assert.equal(meso.weeks[3].days[0].exercises[0].rpe, '6.5');
 });
 
 test('MyCoatch produce CSV con 12 colonne, timer e note compatibili', () => {
