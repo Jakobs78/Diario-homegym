@@ -216,7 +216,7 @@ test('approval preview explicitly discloses missing posterior work and current h
   assert.match(text,/Deltoidi posteriori/);
   assert.match(text,/SPALLE: lavoro mirato per il deltoide laterale/);
   assert.match(text,/posteriore 0 serie/);
-  assert.match(text,/lavoro indiretto/i);
+  assert.match(text,/coinvolgerli indirettamente/i);
 });
 
 test('real MyCoatch CSV generation for 4x60 powerbuilding includes posterior isolation in each week',()=>{
