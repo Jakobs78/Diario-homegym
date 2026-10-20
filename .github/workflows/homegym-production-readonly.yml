@@ -39,8 +39,9 @@ jobs:
     # from the protected default branch.
     # Secrets never run on a pull request. Launch manually only after review
     # from the protected default branch.
-    # Temporary guarded internal audit run; never merged.
-    if: (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.head_ref == 'audit/live-readonly-github-actions-20261020' && github.event.pull_request.head.repo.full_name == github.repository)
+    # Secrets never run on a pull request. Launch manually only after review
+    # from the protected default branch.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -64,7 +65,7 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Authenticated production tests (writes explicitly opted-in only)
         env:
-          HOMEGYM_E2E_ENABLE_WRITE: ${{ ((github.event_name == 'workflow_dispatch' && inputs.enable_write_roundtrip) || (github.event_name == 'pull_request' && github.head_ref == 'audit/live-readonly-github-actions-20261020' && github.event.pull_request.head.repo.full_name == github.repository)) && 'YES_RESTORE_OR_ABORT' || '' }}
+          HOMEGYM_E2E_ENABLE_WRITE: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_write_roundtrip && 'YES_RESTORE_OR_ABORT' || '' }}
           HOMEGYM_E2E_EMAIL: ${{ secrets.HOMEGYM_E2E_EMAIL }}
           HOMEGYM_E2E_PASSWORD: ${{ secrets.HOMEGYM_E2E_PASSWORD }}
         run: npx playwright test --config tests/live/playwright.config.mjs
