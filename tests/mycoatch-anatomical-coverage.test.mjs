@@ -122,25 +122,36 @@ test('report distinguishes posterior absence when unavailable, without inventing
   }
 });
 
-test('accessory rebalancing never credits missing rear-delt sets to lateral raises',()=>{
-  const ex=(name,setsCount=2)=>({
-    name,category:'Spalle',pattern:'isolation',
-    equipment:'dumbbell',shoulderHeadIsolation:metaFor(name).shoulderHeadIsolation,
-    reps:'12-20',restTime:'90s',setsCount,
-    sets:Array.from({length:setsCount},(_,i)=>({setNumber:i+1,targetReps:'12-20'}))
-  });
-  const lateral=ex('Alzate Laterali con Manubri');
-  const rear=ex('Alzate Posteriori con Manubri');
+test('transferred posterior sets remain posterior and do not inflate lateral raises',()=>{
+  const ex=(name,setsCount,restTime='90s')=>{
+    const meta=metaFor(name);
+    assert.ok(meta,name);
+    return {
+      name,category:meta.category,pattern:meta.pattern,
+      equipment:meta.equipment,shoulderHeadIsolation:meta.shoulderHeadIsolation,
+      restTime,reps:'8-12',setsCount,
+      sets:Array.from({length:setsCount},(_,i)=>({setNumber:i+1,targetReps:'8-12'}))
+    };
+  };
+  const bench=ex('Panca Piana con Bilanciere',3,'180s');
+  const lat=ex('Lat Machine Presa Larga',3,'150s');
+  const military=ex('Military Press con Bilanciere',3,'180s');
+  const row=ex('Rematore con Bilanciere',3,'150s');
+  const lateral=ex('Alzate Laterali con Manubri',2);
+  const rear=ex('Alzate Posteriori con Manubri',2);
+  // Upper B lost a planned posterior accessory to a short time budget.
+  // Another Upper day has sufficient time but already contains laterals.
   const current=[
-    {dayNumber:1,dayName:'Upper A',exercises:[lateral],estimatedMinutes:20},
-    {dayNumber:2,dayName:'Upper B',exercises:[],estimatedMinutes:10}
+    {dayNumber:1,dayName:'Upper A',exercises:[bench,lat,lateral],estimatedMinutes:35},
+    {dayNumber:2,dayName:'Upper B',exercises:[military,row],estimatedMinutes:28}
   ];
-  const requested=[[lateral],[rear]];
-  const result=rebalanceWeeklyAccessories(current,requested,60,{maxAccessorySets:4});
-  const all=result.days.flatMap(day=>day.exercises);
-  assert.ok(!all.some(x=>x.name==='Alzate Laterali con Manubri'&&x.setsCount>2));
-  assert.equal(all.find(x=>x.name==='Alzate Posteriori con Manubri')?.setsCount,undefined);
-  // The second planned exercise is a first-two-slot placeholder, so the
-  // balancer must report a shortfall rather than manufacture volume.
-  assert.ok(result.report.shortfallSets>=0);
+  const result=rebalanceWeeklyAccessories(current,
+    [[bench,lat,lateral],[military,row,rear]],75,{maxAccessorySets:4});
+  const recipient=result.days[0].exercises;
+  assert.equal(recipient.find(x=>x.name==='Alzate Laterali con Manubri')?.setsCount,2);
+  assert.equal(recipient.find(x=>x.name==='Alzate Posteriori con Manubri')?.setsCount,2);
+  assert.ok(result.days.every(day=>day.estimatedMinutes<=75));
+  const coverage=auditWeeklyCoverage(result.days);
+  assert.equal(coverage.shoulderHeadCoverage.directIsolationSets.laterale,2);
+  assert.equal(coverage.shoulderHeadCoverage.directIsolationSets.posteriore,2);
 });
