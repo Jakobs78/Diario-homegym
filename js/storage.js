@@ -8,7 +8,7 @@
 import { CONFIG } from './config.js';
 import { state, resetState } from './state.js';
 import { pushDataToSupabase, deleteCloudData, resolveSyncConflict } from './sync.js';
-import { downloadFullBackup } from './fullBackup.js';
+import { downloadFullBackup, buildFullBackup, readFullBackup } from './fullBackup.js';
 import { journalStorage, initializeJournalStorage, flushJournalStorage, journalStorageFailed, journalStorageReady } from './journalStore.js';
 
 const QUEUE_KEY = `${CONFIG.STORAGE_KEY}_sync_queue`;
@@ -70,9 +70,15 @@ function downloadUnownedLegacySnapshot(){
     const raw=getUnownedLegacySnapshot();
     if(raw===null)return;
     if(!confirm('Questo diario precedente non ha un proprietario verificabile. Scaricalo solo se è tuo; il file contiene dati personali. Nessun dato sarà caricato nel cloud. Continuare?'))return;
-    let parsed;
-    try{parsed=JSON.parse(raw);}catch{}
-    if(parsed?.history?.years && !Array.isArray(parsed.history.years)){
+    let parsed,valid=false;
+    try{
+        parsed=JSON.parse(raw);
+        // An invalid nested diary must be exported in its raw form rather
+        // than wrapped in a misleading archive that cannot be restored.
+        readFullBackup(JSON.stringify(buildFullBackup(parsed)));
+        valid=true;
+    }catch{}
+    if(valid){
         downloadFullBackup(parsed,{suffix:'legacy-non-attribuito'});
     }else{
         // A damaged snapshot must remain exportable without silently
