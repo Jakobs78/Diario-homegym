@@ -2,6 +2,8 @@ import { createVisualCoachProposal, clearVisualCoachProposal,
     downloadVisualCoachProposal } from '../mycoatch/mycoatch-adapter.js';
 import { importWorkoutPlan } from './csvHandler.js';
 import { renderWorkoutList } from './ui.js';
+import { state } from './state.js';
+import { equipmentMatchesSnapshot } from '../mycoatch/profileJournal.js';
 
 /** Show actual week/day/exercise proposal before any journal modification. */
 export function initCoachPreview(readCoachOptions,configModal) {
@@ -121,6 +123,11 @@ export function initCoachPreview(readCoachOptions,configModal) {
     });
     document.getElementById('mycoatch-preview-apply')?.addEventListener('click',()=>{
         if(!proposal)return;
+        if(!equipmentMatchesSnapshot(acceptedOptions?.equipmentAtGeneration,
+            state.workoutData?.athlete)){
+            feedback.textContent='La configurazione dell’attrezzatura è cambiata dopo l’anteprima. Rigenera la proposta prima di applicarla.';
+            return;
+        }
         // The same validated CSV parser already tested by existing app E2E.
         const result=importWorkoutPlan(proposal.csv,acceptedOptions);
         if(!result.success){
