@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v61-mycoatch-deload-choice-ui-20261020';
+const CACHE_NAME = 'workout-app-v62-offline-network-errors-20261020';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -135,19 +135,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // 1. Escludi le chiamate a Supabase o API esterne dalla cache statica
-  if (url.hostname.includes('supabase.co')) {
-    // Strategia Network Only o Network First con fallback sui dati locali (LocalStorage/IndexedDB)
-    event.respondWith(
-      fetch(event.request).catch(() => {
-        // Se sei offline e fallisce la chiamata a Supabase, puoi gestire un fallback 
-        // o lasciare che l'app gestisca l'errore leggendo dal LocalStorage
-        return new Response(JSON.stringify({ error: 'offline' }), {
-          headers: { 'Content-Type': 'application/json' }
-        });
-      })
-    );
-    return;
+  // 1. Authentication, database and storage APIs must behave like real
+  // network requests, including real network failures while offline.
+  // Do NOT synthesize an HTTP 200 JSON {"error":"offline"} response:
+  // that disguises a failed request as a transport success to Supabase SDK.
+  if (url.hostname === 'supabase.co' || url.hostname.endsWith('.supabase.co')) {
+    return; // No respondWith: the browser propagates the network error.
   }
 
   // 2. Strategia Cache First per tutte le risorse statiche dell'app
