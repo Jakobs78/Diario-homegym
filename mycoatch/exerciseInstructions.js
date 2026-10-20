@@ -16,7 +16,7 @@ function cue(exercise) {
     if (name.includes('Alzate Posteriori')) return 'Inclina il busto mantenendo la schiena stabile, apri le braccia lateralmente con gomiti leggermente piegati e torna lentamente. Evita di alzare le spalle e di usare lo slancio.';
     if (name.includes('Alzate Laterali')) return 'Con gomiti appena piegati solleva i manubri ai lati, senza dondolare con il busto. Fermati all’altezza che controlli e abbassa lentamente.';
     if (name.includes('Alzate')) return 'Muovi le braccia con controllo, senza slanci e senza compensare con il tronco.';
-    if (name.includes('Leg Curl')) return 'Tieni fermo il bacino e piega il ginocchio avvicinando il tallone verso il gluteo. Ritorna lentamente senza aiutarti con il tronco.';
+    if (name.includes('Leg Curl')) return 'Bacino stabile, fletti il ginocchio portando il tallone verso il gluteo. Torna lentamente senza spingere con il tronco.';
     if (name.includes('Curl')) return 'Piega i gomiti tenendoli il più possibile fermi vicino al corpo. Evita di spingere con la schiena e abbassa lentamente il peso.';
     if (name.includes('Pushdown')) return 'Tieni i gomiti vicini ai fianchi, distendi gli avambracci spingendo l’impugnatura in basso e risali lentamente senza muovere le spalle.';
     if (name.includes('Crunch')) return 'Avvicina lo sterno al bacino contraendo l’addome, senza tirare il collo o aiutarti con le braccia. Torna lentamente alla posizione iniziale.';
@@ -44,25 +44,25 @@ export function conciseExerciseInstruction(exercise) {
     const parts = [];
     const split = /^\[SPLIT MYCOATCH\]\s*(Upper [AB]|Lower [AB]|Full Body [ABCD])/i.exec(verbose);
     if (split) parts.push('[SPLIT MYCOATCH] ' + split[1]);
-    if (verbose.includes('[SUPERSERIE]')) parts.push('[SUPERSERIE] Esegui questo esercizio e il successivo uno dopo l’altro, senza pausa tra i due. Recupera dopo aver completato entrambi, poi ripeti la coppia.');
-    if (verbose.includes('[TRISET]')) parts.push('[TRISET] Esegui tre esercizi consecutivi senza recupero tra uno e l’altro. Riposa soltanto dopo aver completato tutti e tre, poi riparti dal primo.');
+    if (verbose.includes('[SUPERSERIE]')) parts.push('[SUPERSERIE] Superserie (superset): esegui questo esercizio e il successivo senza pausa. Recupera dopo i due esercizi.');
+    if (verbose.includes('[TRISET]')) parts.push('[TRISET] Triset (triset): esegui tre esercizi consecutivi senza pausa. Recupera dopo il terzo, poi riparti dal primo.');
     if (verbose.includes('[WARM-UP AUTO]')) {
         const warmup = /\[WARM-UP AUTO\]:?\s*([^|.]+)/.exec(verbose);
-        parts.push('[WARM-UP AUTO] Prima delle serie allenanti esegui questi avvicinamenti con carichi progressivi: ' + (warmup?.[1]?.trim() || 'aumenta gradualmente il peso senza affaticarti') + '. Non contare gli avvicinamenti come serie di lavoro.');
-    } else if (verbose.includes('[WARM-UP]')) parts.push('[WARM-UP] Prima delle serie di lavoro esegui alcune serie leggere aumentando gradualmente il peso, senza arrivare alla fatica. Le serie di avvicinamento non sono serie allenanti.');
+        parts.push('[WARM-UP AUTO] Prima del lavoro esegui le serie di avvicinamento: ' + (warmup?.[1]?.trim() || 'aumenta gradualmente il peso senza affaticarti') + '. Sono riscaldamento, non serie allenanti.');
+    } else if (verbose.includes('[WARM-UP]')) parts.push('[WARM-UP] Prima del lavoro esegui serie leggere aumentando il peso senza arrivare alla fatica. Non contarle come serie allenanti.');
     if (verbose.includes('[RIFERIMENTO ATLETA]')) {
         const reference = /\[RIFERIMENTO ATLETA\]\s*(\d+(?:[.,]\d+)?)\s*kg/.exec(verbose);
         if (reference) parts.push('[RIFERIMENTO ATLETA] ' + reference[1] + ' kg dichiarati, da verificare.' +
             (verbose.includes('Peso non prescritto automaticamente') ? ' Non adottati come carico automatico.' : ''));
     }
     if (verbose.includes('[VOLUME INIZIALE]'))
-        parts.push('[VOLUME INIZIALE] Per il primo blocco sono state previste meno serie per iniziare gradualmente. Non aggiungerne per compensare: registra le prestazioni e valuta la risposta nelle settimane successive.');
+        parts.push('[VOLUME INIZIALE] Si parte con meno serie per verificare la risposta. Non aggiungerne: registra i risultati e rivaluta in seguito.');
     if (verbose.includes('[CALIBRAZIONE MYCOATCH]'))
-        parts.push('[CALIBRAZIONE MYCOATCH] Prima settimana di riferimento: scegli pesi gestibili, rispetta le ripetizioni e l’RPE richiesto, poi registra ciò che hai realmente fatto. Non cercare il massimale.');
+        parts.push('[CALIBRAZIONE MYCOATCH] Prima settimana: usa pesi gestibili e rispetta ripetizioni e RPE. Registra i risultati, senza provare il massimale.');
     if (verbose.includes('Scarico:') || verbose.includes('🛡️ Scarico'))
-        parts.push('SCARICO: settimana con meno serie e sforzo più basso per favorire il recupero. Segui i nuovi valori di serie, kg e RPE della riga; non aggiungere serie per compensare quelle tolte.');
+        parts.push('SCARICO: settimana per recuperare con meno serie e sforzo. Segui i nuovi target della riga senza aggiungere altro lavoro.');
     const drop = exercise?.sets?.at(-1)?.intensityTechnique;
-    if (drop === 'DROP_SET') parts.push('[DROP_SET] [DROP_SCOPE:LAST] Solo dopo l’ultima serie di lavoro riduci il peso e continua con ulteriori ripetizioni controllate. Registra il peso e le ripetizioni della fase aggiuntiva separatamente.');
+    if (drop === 'DROP_SET') parts.push('[DROP_SET] [DROP_SCOPE:LAST] Dropset (dropset): solo dopo l’ultima serie riduci il peso ed esegui altre ripetizioni. Registra il nuovo peso a parte.');
     else if (drop === 'REST_PAUSE') parts.push('[REST_PAUSE] Dopo l’ultima serie fai una pausa molto breve, poi completa altre ripetizioni con lo stesso carico finché la tecnica rimane corretta.');
     if (verbose.includes('[ATTREZZATURA DA CONFIGURARE]'))
         parts.push('Carico non assegnato: indica nel diario il peso e il diametro del bilanciere che usi, insieme ai dischi disponibili. Verifica poi quale peso totale puoi caricare realmente.');
@@ -70,7 +70,7 @@ export function conciseExerciseInstruction(exercise) {
         parts.push('Carico da verificare: il peso proposto non si ottiene esattamente con i dischi registrati. Scegli un peso davvero componibile e rispetta le ripetizioni e l’RPE della scheda.');
     else if ((exercise.kgMin === '' || exercise.kgMin == null) &&
         exercise.equipment !== 'bodyweight')
-        parts.push('Carico da scegliere: dopo il riscaldamento prova un peso con cui riesci a fare le ripetizioni previste, mantenendo ancora il margine di sforzo indicato dall’RPE (ad esempio RPE 8 = circa 2 ripetizioni possibili in più). Registra i kg realmente usati, le ripetizioni e l’RPE percepito.');
+        parts.push('Carico da scegliere: dopo il riscaldamento usa un peso con cui completi le ripetizioni previste rispettando l’RPE (8 ≈ 2 ripetizioni ancora possibili). Annota kg, ripetizioni e RPE reali.');
     parts.push(cue(exercise));
     // The legacy 12-column CSV must not gain a pseudo-separator in Note.
     return parts.join(' | ').replace(/;/g, ',');
