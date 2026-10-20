@@ -204,15 +204,14 @@ test('login, authenticated Supabase read, browser persistence, backup and logout
   expect(stillSignedIn).toBe(true);
 
   await page.locator('#app-utility-menu summary').click();
-  const logoutReload = page.waitForEvent('load',{timeout:30000});
   await page.locator('#user-info-bar').click();
-  await logoutReload;
+  // User-visible signed-out state matters, not whether a page load event
+  // happens (a navigation may be replaced or delayed by the auth library).
   await expect(page.locator('#auth-overlay')).toBeVisible({timeout:30000});
-  const signedOut = await page.evaluate(async () => {
+  await expect.poll(async () => page.evaluate(async () => {
     const {supabase} = await import('/js/config.js');
     const {data:{session}} = await supabase.auth.getSession();
     return session === null;
-  });
-  expect(signedOut).toBe(true);
+  }),{timeout:30000}).toBe(true);
   expect(page.blockedCloudWrites()).toBe(0);
 });
