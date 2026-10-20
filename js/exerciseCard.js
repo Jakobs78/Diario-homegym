@@ -51,13 +51,15 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     let cardHtml = `
         <div class="ex-card-header flex-between mb-sm">
             <div class="flex-center gap-md">
+                ${!isExExcluded
+                    ? '<span class="exercise-exclude-hint text-xs text-muted flex-italic">Doppio click o swipe o clicca su W del SET per escludere il riscaldamento</span>'
+                    : ''}
                 <!-- Il numero del blocco rimane nei dati e nei gruppi, non sulla singola card. -->
                 ${isDropsetPlan ? '<span class="badge-dropset">🔥 DROP SET</span>' : ''}
-
             </div>
             ${isExExcluded
                 ? '<span class="badge-danger">RISCALDAMENTO · ESCLUSO DAI MASSIMALI E DAL VOLUME ALLENANTE</span>'
-                : '<span class="exercise-exclude-hint text-xs text-muted flex-italic">Doppio click o swipe o clicca su W del SET per escludere il riscaldamento</span>'}
+                : ''}
         </div>
         
         <!-- Nome Esercizio in primo piano -->
@@ -236,8 +238,12 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                         ${trendHtml}
                     </div>
                 </td>
-                <td class="td-input">
-                    <input type="text" inputmode="numeric" autocomplete="off" class="set-input set-reps ios-no-zoom ${repsClass} ${isUnsavedReps ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayReps)}" placeholder="${escapeHtml(defaultTargetReps)}" ${isDisabled ? 'disabled' : ''}>
+                <td class="td-input td-reps-stepper">
+                    <div class="reps-stepper" role="group" aria-label="Correggi le ripetizioni eseguite nella serie ${setIdx + 1}">
+                        <button type="button" class="reps-step-btn" data-ex="${exIdx}" data-set="${setIdx}" data-direction="-1" aria-label="Diminuisci ripetizioni di 1 nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>−</button>
+                        <input type="text" inputmode="numeric" autocomplete="off" class="set-input set-reps ios-no-zoom ${repsClass} ${isUnsavedReps ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayReps)}" placeholder="${escapeHtml(defaultTargetReps)}" aria-label="Ripetizioni eseguite nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>
+                        <button type="button" class="reps-step-btn" data-ex="${exIdx}" data-set="${setIdx}" data-direction="1" aria-label="Aumenta ripetizioni di 1 nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>+</button>
+                    </div>
                 </td>
                 <td class="td-input td-rpe-stepper">
                     <div class="rpe-stepper" role="group" aria-label="Correggi l'RPE percepito nella serie ${setIdx + 1}">
