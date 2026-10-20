@@ -13,6 +13,7 @@ import { updatePlatesBadgeUI } from './exerciseCard.js';
 import { updateSessionAndCompletionState, updateSessionHeaderUI } from './sessionTimer.js';
 import { validateCompletedSet } from '../mycoatch/liveCoach.js';
 import { stepRpe } from './rpeStepper.js';
+import { stepReps } from './repsStepper.js';
 import { updateLiveCoachPanel, showLiveCoachInputError, showLiveCoachToast } from './liveCoachUI.js';
 
 
@@ -49,6 +50,28 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             if (changed === null) return;
             input.value = changed;
             input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+    });
+
+    // Adjust only the editable repetition result, not the set prescription.
+    // Reuse the same input event as manual edits for validation, coaching
+    // feedback and debounced persistence; never auto-confirm a set.
+    workoutListContainer.querySelectorAll('.reps-step-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            if (isPastMeso || button.disabled) return;
+            const exIdx=Number(button.dataset.ex);
+            const setIdx=Number(button.dataset.set);
+            const ex=currentDay.exercises?.[exIdx];
+            const set=ex?.loggedSets?.[setIdx];
+            if (!set || set.isLocked || set.completed) return;
+            const input=workoutListContainer.querySelector(
+                '.set-reps[data-ex="' + exIdx + '"][data-set="' + setIdx + '"]');
+            if (!input || input.disabled) return;
+            const prescribed=ex?.sets?.[setIdx]?.targetReps ?? ex?.reps ?? ex?.targetReps;
+            const changed=stepReps(input.value,Number(button.dataset.direction),prescribed);
+            if (changed===null) return;
+            input.value=changed;
+            input.dispatchEvent(new Event('input',{bubbles:true}));
         });
     });
 
