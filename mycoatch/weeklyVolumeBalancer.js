@@ -90,7 +90,12 @@ function donorDeficits(days, requestedDays) {
 function proposedAddition(day, source, count, maxAccessorySets) {
     const original = day.exercises.map(cloneExercise);
     const existingIndex = original.findIndex(ex =>
-        ex.pattern === 'isolation' && ex.category === source.category);
+        ex.pattern === 'isolation' && ex.category === source.category &&
+        // Sets intended for a rear-delt movement must never silently inflate
+        // a lateral raise (or vice versa) just because both are "Spalle".
+        // Keep separate exercise identities for distinct anatomical roles.
+        (source.shoulderHeadIsolation == null ||
+            ex.shoulderHeadIsolation === source.shoulderHeadIsolation));
     if (existingIndex >= 0) {
         const current = original[existingIndex];
         if (current.setsCount + count > maxAccessorySets) return null;
