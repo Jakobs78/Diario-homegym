@@ -115,6 +115,7 @@
                     <select id="analytics-meso-select" class="analytics-select" aria-label="Seleziona il mesociclo da analizzare"></select>
                 </div>
 
+                <p class="mycoatch-form-hint">Qui puoi consultare soltanto gli allenamenti registrati. <strong>Panorama del mesociclo</strong> riassume tutte le sedute; <strong>singoli esercizi</strong> mostra carichi e record, mentre <strong>confronta due mesocicli</strong> mette a confronto periodi diversi. Cambiare scheda o filtro non modifica i dati salvati.</p>
                 <!-- Sub-Tab di Navigazione -->
                 <div class="sub-tabs">
                     <button class="sub-tab-btn active" onclick="switchAnalyticsTab('subtab-macro')">📊 Panorama del mesociclo: volumi e progressi</button>
@@ -124,6 +125,7 @@
 
                 <!-- SUB-TAB 1: MACRO MESOCICLO -->
                 <div id="subtab-macro" class="sub-tab-content active">
+                    <p class="mycoatch-form-hint"><strong>Come leggere il riepilogo:</strong> le sedute completate sono quelle confermate nel diario; il tonnellaggio è la somma di peso × ripetizioni delle serie valide, non equivale a crescita muscolare. L’RPE medio riassume lo sforzo <em>dichiarato</em> nelle serie in cui lo hai registrato: non è una misurazione medica della fatica.</p>
                     <div class="kpi-grid">
                         <div class="kpi-card">
                             <span class="kpi-title">🎯 Sedute completate</span>
@@ -152,6 +154,7 @@
 
                 <!-- SUB-TAB 2: MICRO ESERCIZIO & PR -->
                 <div id="subtab-micro" class="sub-tab-content">
+                    <p class="mycoatch-form-hint">Scegli un esercizio per vedere i risultati confermati: <strong>carico massimo</strong>, <strong>volume massimo di una serie</strong> (kg × ripetizioni) e <strong>maggior numero di ripetizioni</strong> al peso di riferimento. Il grafico confronta il peso usato con l’RPE che hai registrato: valori mancanti non vengono inventati.</p>
                     <div class="exercise-selector-wrapper mb-md">
                         <label for="analytics-ex-select" class="text-sm font-bold">Seleziona Esercizio:</label>
                         <select id="analytics-ex-select" class="analytics-select w-100 mt-sm"></select>
@@ -191,6 +194,7 @@
 
                 <!-- SUB-TAB 3: CONFRONTO MESOCICLI -->
                 <div id="subtab-compare" class="sub-tab-content">
+                    <p class="mycoatch-form-hint">Seleziona due mesocicli per confrontare serie e sedute realmente registrate. Una differenza di volume può dipendere anche da durata, numero di allenamenti o esercizi diversi: non dimostra da sola un miglioramento fisico.</p>
                     <div class="compare-selectors flex-row">
                         <div class="flex-1">
                             <label class="text-xs">Mesociclo A:</label>
@@ -249,6 +253,7 @@
                     <button class="sheet-item" data-action="export-csv">📄 Esporta lo storico allenamenti dell'anno (CSV)</button>
                     <button class="sheet-item" data-action="import-history">📥 Importa dati di allenamenti passati (CSV)</button>
                     <button class="sheet-item" data-action="backup-json">🛡️ Scarica copia completa di sicurezza del diario (JSON)</button>
+                    <p class="mycoatch-form-hint"><strong>Importante:</strong> scaricare CSV, PDF o backup crea un file e non cambia il diario. Importare una scheda o ripristinare un backup modifica invece i dati locali: leggi la conferma e conserva prima una copia di sicurezza.</p>
                     <details class="equipment-settings">
                         <summary>🏋️ Attrezzatura: bilancieri, dischi e incrementi di peso</summary>
                         <form id="homegym-equipment-form">
@@ -300,7 +305,8 @@
                     </a>
 
                     <hr class="sheet-divider">
-                    <span class="sheet-section-title">Operazioni irreversibili: controlla prima il backup</span>
+                    <span class="sheet-section-title">Operazioni di eliminazione: controlla prima il backup</span>
+                    <p class="mycoatch-form-hint">Queste funzioni possono eliminare dati o account. Non servono per correggere una singola serie: usa invece la scheda e togli la spunta ✓ della serie da modificare. Prima di procedere esporta il backup integrale JSON.</p>
 
                     <button class="sheet-item sheet-item-danger" data-action="reset-meso">🗑️ Elimina il mesociclo selezionato</button>
                     <button class="sheet-item sheet-item-danger-critical" data-action="clear-data">⚠️ Cancella tutto lo storico degli allenamenti</button>
