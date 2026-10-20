@@ -2400,10 +2400,12 @@ test('rimozione account conserva diario, coda e credenziali degli altri utenti',
   const {removeAccountLocalData}=await import('/js/storage.js');
   s.setItem('workoutApp_data_owner','B');s.setItem('workoutApp_data','B diary');
   s.setItem('workoutApp_data_user_A','A diary');s.setItem('workoutApp_data_user_B','B diary');
-  s.setItem('workoutApp_data_sync_queue',JSON.stringify([{id:'a',ownerId:'A'},{id:'b',ownerId:'B'}]));
+  const action=(id,ownerId)=>({id,ownerId,type:'UPDATE_WORKOUT',timestamp:id==='a'?100:200,
+    payload:{athlete:{email:ownerId+'@invalid.example'},history:{years:{}}}});
+  s.setItem('workoutApp_data_sync_queue',JSON.stringify([action('a','A'),action('b','B')]));
   localStorage.setItem('auth-sentinel','keep');await flushJournalStorage();
   await removeAccountLocalData({id:'A'});
-  return {a:s.getItem('workoutApp_data_user_A'),b:s.getItem('workoutApp_data_user_B'),global:s.getItem('workoutApp_data'),queue:JSON.parse(s.getItem('workoutApp_data_sync_queue')),auth:localStorage.getItem('auth-sentinel')};
+  return {a:s.getItem('workoutApp_data_user_A'),b:s.getItem('workoutApp_data_user_B'),global:s.getItem('workoutApp_data'),queue:JSON.parse(s.getItem('workoutApp_data_sync_queue')).map(({id,ownerId})=>({id,ownerId})),auth:localStorage.getItem('auth-sentinel')};
  });
  expect(result).toEqual({a:null,b:'B diary',global:'B diary',queue:[{id:'b',ownerId:'B'}],auth:'keep'});
 });

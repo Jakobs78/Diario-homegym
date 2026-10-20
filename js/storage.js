@@ -8,11 +8,14 @@
 import { CONFIG } from './config.js';
 import { state, resetState } from './state.js';
 import { pushDataToSupabase, deleteCloudData, resolveSyncConflict } from './sync.js';
-import { downloadFullBackup } from './fullBackup.js';
+import { downloadFullBackup, buildFullBackup, readFullBackup } from './fullBackup.js';
 import { journalStorage, initializeJournalStorage, flushJournalStorage, journalStorageFailed, journalStorageReady } from './journalStore.js';
 
 const QUEUE_KEY = `${CONFIG.STORAGE_KEY}_sync_queue`;
 const OWNER_KEY = `${CONFIG.STORAGE_KEY}_owner`;
+// Preserve a diary created before account-scoped storage existed. Never infer
+// its owner from whichever account later signs into this browser.
+const LEGACY_UNOWNED_KEY = `${CONFIG.STORAGE_KEY}_legacy_unowned_recovery`;
 const scopedKey = id => `${CONFIG.STORAGE_KEY}_user_${id}`;
 const accountId=user=>String(user?.id||user?.email||'');
 const revisionKey=user=>`${CONFIG.STORAGE_KEY}_revision_${accountId(user)}`;
@@ -50,9 +53,64 @@ export function getFromLocalStorageForUser(user){
         catch {return structuredClone(DEFAULT_WORKOUT_DATA);}
     }
     const owner=getStoredLocalOwner();
-    // Never show a different signed-in athlete's cached diary.
-    return owner && owner!==id ? structuredClone(DEFAULT_WORKOUT_DATA)
-        : getFromLocalStorage(); // legacy installs without an owner marker
+    // The generic snapshot can be used only when its owner ID is verified.
+    // In particular, owner=null does NOT mean it belongs to this new user.
+    return owner===id ? getFromLocalStorage() : structuredClone(DEFAULT_WORKOUT_DATA);
+}
+
+// Exportable but never automatically attributed to the signed-in user.
+// Keep the original raw bytes even if subsequent cloud hydration replaces
+// the generic snapshot. The old account's diary stays recoverable.
+export function getUnownedLegacySnapshot(){
+    const archived=journalStorage.getItem(LEGACY_UNOWNED_KEY);
+    if(archived!==null)return archived;
+    return getStoredLocalOwner() ? null : journalStorage.getItem(CONFIG.STORAGE_KEY);
+}
+function downloadUnownedLegacySnapshot(){
+    const raw=getUnownedLegacySnapshot();
+    if(raw===null)return;
+    if(!confirm('Questo diario precedente non ha un proprietario verificabile. Scaricalo solo se è tuo; il file contiene dati personali. Nessun dato sarà caricato nel cloud. Continuare?'))return;
+    let parsed,valid=false;
+    try{
+        parsed=JSON.parse(raw);
+        // An invalid nested diary must be exported in its raw form rather
+        // than wrapped in a misleading archive that cannot be restored.
+        readFullBackup(JSON.stringify(buildFullBackup(parsed)));
+        valid=true;
+    }catch{}
+    if(valid){
+        downloadFullBackup(parsed,{suffix:'legacy-non-attribuito'});
+    }else{
+        // A damaged snapshot must remain exportable without silently
+        // reparsing, changing, or discarding any of its content.
+        const url=URL.createObjectURL(new Blob([raw],{type:'application/octet-stream'}));
+        const a=document.createElement('a');
+        a.href=url;a.download='homegym-legacy-non-attribuito-originale.txt';
+        document.body.appendChild(a);a.click();a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),2000);
+    }
+}
+function renderLegacyRecoveryNotice(){
+    const id='legacy-unowned-recovery';
+    const existing=document.getElementById(id);
+    if(!state.currentUser?.id || getUnownedLegacySnapshot()===null){
+        existing?.remove();return;
+    }
+    if(existing)return;
+    const holder=document.getElementById('workout-list-container');
+    if(!holder?.parentElement)return;
+    const panel=document.createElement('section');
+    panel.id=id;
+    panel.setAttribute('role','status');
+    panel.style.cssText='padding:12px;margin:10px 0;border:1px solid currentColor;border-radius:8px;';
+    const description=document.createElement('p');
+    description.textContent='È stata trovata una copia del diario locale precedente, senza un account verificabile. Per sicurezza non è mostrata e non viene sincronizzata. Se è tua, esportala, conservala e ripristinala manualmente tramite Strumenti → Ripristina backup JSON dopo aver verificato l’account corretto.';
+    const button=document.createElement('button');
+    button.type='button';button.className='btn btn-secondary';
+    button.textContent='Scarica copia legacy non attribuita';
+    button.addEventListener('click',downloadUnownedLegacySnapshot);
+    panel.append(description,button);
+    holder.parentElement.insertBefore(panel,holder);
 }
 
 const DEFAULT_WORKOUT_DATA = {
@@ -61,9 +119,13 @@ const DEFAULT_WORKOUT_DATA = {
     updatedAt: null
 };
 
+// Anonymous snapshots created in this document can safely compact one
+// another. Never merge them with anonymous snapshots from earlier sessions.
+const anonymousQueueSession = crypto.randomUUID();
 let syncDebounceTimer = null;
 let isSyncing = false;
 let storageFailure = false;
+let queueUnreadable = false;
 let uploadingActionId=null;
 let deletingAccount=false;
 
@@ -77,8 +139,10 @@ export function pauseSyncForAccountDeletion(){
 export async function removeAccountLocalData(user){
     if(!user?.id)throw Error('Account da eliminare non identificato.');
     const id=String(user.id), owner=getStoredLocalOwner();
-    const queue=getQueue().filter(action=>action.ownerId
-        ? String(action.ownerId)!==id : owner!==id);
+    // An ownerless legacy action must survive deletion of ANY account.
+    // The global marker may have changed since the offline action was made.
+    const queue=getQueue({forWrite:true}).filter(action=>
+        !action.ownerId || String(action.ownerId)!==id);
     journalStorage.removeItem(scopedKey(id));
     journalStorage.removeItem(revisionKey(user));
     journalStorage.removeItem(conflictKey(user));
@@ -97,24 +161,53 @@ export async function removeAccountLocalData(user){
 // ==========================================
 // 2. GESTIONE CODA OFFLINE (SYNC QUEUE)
 // ==========================================
-function getQueue() {
+function getQueue({forWrite=false} = {}) {
     const queue = journalStorage.getItem(QUEUE_KEY);
-    try{return queue ? JSON.parse(queue) : [];}
-    catch(error){
+    try {
+        const parsed=queue ? JSON.parse(queue) : [];
+        if(!Array.isArray(parsed))throw Error('La coda non contiene una lista di operazioni.');
+        // A syntactically valid array can still be corrupted, e.g. [null],
+        // [{}], or entries missing their journal payload. Do not allow an
+        // enqueue/compact operation to throw AFTER changing the diary or to
+        // silently discard entries whose identity cannot be compared.
+        for(const action of parsed){
+            if(!action || typeof action!=='object' || Array.isArray(action) ||
+               !['string','number'].includes(typeof action.id) ||
+               String(action.id).trim()==='' ||
+               !Number.isFinite(action.timestamp) ||
+               !action.payload || typeof action.payload!=='object' ||
+               Array.isArray(action.payload) ||
+               !action.payload.history?.years ||
+               typeof action.payload.history.years!=='object' ||
+               Array.isArray(action.payload.history.years))
+                throw Error('Voce della coda offline non valida: conservata senza modificarla.');
+        }
+        queueUnreadable=false;
+        return parsed;
+    } catch(error) {
+        queueUnreadable=true;
         storageFailure=true;
         console.error('Coda sync illeggibile: dati non cancellati.',error);
+        // A display-only check may show the storage warning, but no mutation
+        // may replace or discard an unreadable queue belonging to any account.
+        if(forWrite)throw Error('Coda sync illeggibile: operazioni precedenti conservate. Esporta un backup e non cambiare dispositivo.');
         return [];
     }
 }
 
 function enqueueAction(action) {
-    const queue = getQueue();
+    const queue = getQueue({forWrite:true});
     // Each queued action is a FULL journal snapshot. Only the latest
     // snapshot for a given account is needed. Never discard other accounts'
     // records, or the snapshot currently being uploaded on the network.
     const owner=String(action.ownerId??'');
-    const compact=queue.filter(item=>String(item.ownerId??'')!==owner ||
-        (isSyncing && item.id===uploadingActionId));
+    const compact=queue.filter(item=>{
+        if(isSyncing && item.id===uploadingActionId)return true;
+        if(owner)return String(item.ownerId??'')!==owner;
+        // Preserve all legacy ownerless entries without a matching verified
+        // session tag; they may belong to a different athlete.
+        return item.anonymousSession!==anonymousQueueSession;
+    });
     compact.push(action);
     journalStorage.setItem(QUEUE_KEY,JSON.stringify(compact));
 }
@@ -125,11 +218,14 @@ function clearQueue() {
 
 export function hasPendingSync() {
     const currentId=state.currentUser?.id ? String(state.currentUser.id) : null;
-    const owner=getStoredLocalOwner();
-    return getQueue().some(action=>
-        !currentId || (action.ownerId
-            ? String(action.ownerId)===currentId
-            : !owner || owner===currentId));
+    const queue=getQueue();
+    // A corrupt queue or a legacy entry without an authenticated owner must
+    // NEVER make cloud hydration decide that local changes are safely synced.
+    // It remains pending until explicitly recovered, even if the current user
+    // is different from the unowned diary's eventual rightful owner.
+    if(queueUnreadable)return true;
+    return queue.some(action=>
+        !action.ownerId || !currentId || String(action.ownerId)===currentId);
 }
 
 // ==========================================
@@ -140,8 +236,22 @@ export function saveToLocalStorage(data, {preserveUpdatedAt = false} = {}) {
         // Cloud hydration MUST NOT change the original modification timestamp.
         if (!preserveUpdatedAt) data.updatedAt = new Date().toISOString();
         const encoded=JSON.stringify(data);
-        journalStorage.setItem(CONFIG.STORAGE_KEY, encoded);
         const id=state.currentUser?.id;
+        if(id && !getStoredLocalOwner()){
+            const previous=journalStorage.getItem(CONFIG.STORAGE_KEY);
+            // The archive and the new snapshot are staged in the same
+            // IndexedDB transaction. On storage failure neither commits.
+            if(previous!==null){
+                const archived=journalStorage.getItem(LEGACY_UNOWNED_KEY);
+                // If two distinct unattributed diaries exist, one backup key
+                // cannot preserve both. Fail closed instead of replacing
+                // somebody's newest unowned journal with cloud hydration.
+                if(archived!==null && archived!==previous)
+                    throw Error('Esistono copie legacy non attribuite diverse: nessuna sovrascrittura consentita. Esporta il backup prima di continuare.');
+                if(archived===null)journalStorage.setItem(LEGACY_UNOWNED_KEY,previous);
+            }
+        }
+        journalStorage.setItem(CONFIG.STORAGE_KEY, encoded);
         if(id){
             journalStorage.setItem(scopedKey(id),encoded);
             journalStorage.setItem(OWNER_KEY,String(id));
@@ -172,8 +282,26 @@ export function getFromLocalStorage() {
 // ==========================================
 export async function saveAndSync(data = state.workoutData, actionType = 'UPDATE_WORKOUT') {
     // Journal and queued JSON are serialized synchronously before yielding.
-    const ownerId=state.currentUser?.id || getStoredLocalOwner() || null;
+    // The generic last-owner marker is not authentication evidence. Never
+    // enqueue unauthenticated edits on behalf of a previous signed-in user.
+    const ownerId=state.currentUser?.isOffline ? null : (state.currentUser?.id || null);
     if(!journalStorageReady()){storageFailure=true;updateSyncStatusUI();return false;}
+    if(!ownerId && getStoredLocalOwner()){
+        storageFailure=true;
+        console.warn('Salvataggio non attribuibile: verifica la sessione dell’account prima di modificare dati locali.');
+        updateSyncStatusUI();
+        return false;
+    }
+    // Fail before updating a persistent snapshot if earlier offline edits
+    // cannot be read. Otherwise a rejected save changes the stored diary
+    // without creating a matching cloud-sync action.
+    try {getQueue({forWrite:true});}
+    catch(error) {
+        storageFailure=true;
+        console.error('Salvataggio sospeso: la coda offline è illeggibile.',error);
+        updateSyncStatusUI();
+        return false;
+    }
     if(!saveToLocalStorage(data)){
         updateSyncStatusUI();
         return false; // Do not pretend a diary is saved when storage is full.
@@ -183,7 +311,8 @@ export async function saveAndSync(data = state.workoutData, actionType = 'UPDATE
         type: actionType,
         payload: data, 
         timestamp: Date.now(),
-        ownerId
+        ownerId,
+        ...(ownerId ? {} : {anonymousSession:anonymousQueueSession})
     });}catch(error){
         storageFailure=true;
         console.error('Impossibile mettere in coda il diario:',error);
@@ -215,7 +344,9 @@ export async function processSyncQueue() {
         return;
     }
 
-    const queue = getQueue();
+    let queue;
+    try {queue=getQueue({forWrite:true});}
+    catch {updateSyncStatusUI();return;}
     if (queue.length === 0) {
         updateSyncStatusUI();
         return;
@@ -231,8 +362,18 @@ export async function processSyncQueue() {
             // A local journal snapshot belongs only to its original account.
             // Leave another account's pending edits in the queue for later.
             const currentId=String(state.currentUser?.id || '');
-            const expectedId=String(action.ownerId || getStoredLocalOwner() || '');
-            if(expectedId && currentId!==expectedId)continue;
+            const expectedId=String(action.ownerId ?? '');
+            // An unowned legacy queue entry could belong to any athlete who
+            // previously used this browser. The global local-owner marker may
+            // have been overwritten since it was enqueued. Never attribute
+            // the snapshot to the currently signed-in account by guessing.
+            if(!expectedId){
+                storageFailure=true;
+                console.warn('Coda offline senza proprietario verificabile: invio bloccato, dati conservati.');
+                updateSyncStatusUI();
+                continue;
+            }
+            if(currentId!==expectedId)continue;
             uploadingActionId=action.id;
             const result = await pushDataToSupabase(state.currentUser, action.payload, action.timestamp);
             if (!result?.ok) {
@@ -244,7 +385,7 @@ export async function processSyncQueue() {
             }
             // Keep edits enqueued during the network request; only delete
             // entries that were actually acknowledged by the cloud.
-            const remaining=getQueue().filter(item=>item.id!==action.id);
+            const remaining=getQueue({forWrite:true}).filter(item=>item.id!==action.id);
             if(remaining.length)journalStorage.setItem(QUEUE_KEY,JSON.stringify(remaining));
             else clearQueue();
         }
@@ -289,6 +430,7 @@ export function updateSyncStatusUI() {
     syncBadge.classList.toggle('is-offline', offline);
     syncBadge.classList.toggle('is-pending', pending || Boolean(conflict) || storageFailure);
     renderSyncConflictControls(conflict);
+    renderLegacyRecoveryNotice();
     syncBadge.style.cursor = pending || conflict || storageFailure ? 'pointer' : 'default';
     syncBadge.style.background = '';
     syncBadge.style.color = '';
@@ -348,7 +490,7 @@ function renderSyncConflictControls(conflict) {
         try{
             const selected=structuredClone(state.workoutData);
             const selectedSnapshot=JSON.stringify(selected);
-            const selectedActions=new Set(getQueue().filter(a=>String(a.ownerId||'')===String(user.id)).map(a=>a.id));
+            const selectedActions=new Set(getQueue({forWrite:true}).filter(a=>String(a.ownerId||'')===String(user.id)).map(a=>a.id));
             const result=await resolveSyncConflict(user,choice,selected);
             if(!result.ok){
                 status.textContent='Il cloud è cambiato: verifica nuovamente il conflitto. I dati locali restano intatti.';
@@ -368,7 +510,7 @@ function renderSyncConflictControls(conflict) {
             }
             // Drop only acknowledged actions: later edits made while the
             // network request ran must remain queued for the next sync.
-            const queue=getQueue().filter(action=>{
+            const queue=getQueue({forWrite:true}).filter(action=>{
                 if(String(action.ownerId||'')!==String(user.id))return true;
                 return !selectedActions.has(action.id);
             });

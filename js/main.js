@@ -49,8 +49,11 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     try {await initializeJournalStorage();}catch(error){console.error(error);return;}
     if (session?.user) {
         const owner=getStoredLocalOwner();
+        const previousId=String(state.currentUser?.id||'');
         state.currentUser = session.user;
-        if(owner && owner!==String(session.user.id)){
+        if(previousId!==String(session.user.id) || owner!==String(session.user.id)){
+            // A generic legacy diary with no owner must not flash on screen
+            // during the asynchronous authentication callback.
             state.workoutData=getFromLocalStorageForUser(session.user);
             renderWorkoutList();
         }
@@ -91,6 +94,9 @@ async function initApp() {
     initDevBanner();
     initBackgroundSync(state);
     
+    // Offline users must be able to reopen their local journal. This state
+    // is not rendered until getUser resolves below; as soon as a signed-in
+    // account is known, it is replaced by its strictly scoped snapshot.
     let localData = getFromLocalStorage();
     state.workoutData = localData;
     updateSyncStatusUI();
