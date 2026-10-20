@@ -117,9 +117,9 @@
 
                 <!-- Sub-Tab di Navigazione -->
                 <div class="sub-tabs">
-                    <button class="sub-tab-btn active" onclick="switchAnalyticsTab('subtab-macro')">📊 Macro Mesociclo</button>
-                    <button class="sub-tab-btn" onclick="switchAnalyticsTab('subtab-micro')">🎯 Micro Esercizio & PR</button>
-                    <button class="sub-tab-btn" onclick="switchAnalyticsTab('subtab-compare')">🔄 Confronto Mesocicli</button>
+                    <button class="sub-tab-btn active" onclick="switchAnalyticsTab('subtab-macro')">📊 Panorama del mesociclo: volumi e progressi</button>
+                    <button class="sub-tab-btn" onclick="switchAnalyticsTab('subtab-micro')">🎯 Singoli esercizi e record personali</button>
+                    <button class="sub-tab-btn" onclick="switchAnalyticsTab('subtab-compare')">🔄 Confronta due mesocicli</button>
                 </div>
 
                 <!-- SUB-TAB 1: MACRO MESOCICLO -->
@@ -227,9 +227,9 @@
                 </div>
                 <div class="bottom-sheet-menu">
                     <button class="sheet-item" data-subtab="workout">🏋️ Scheda Allenamento</button>
-                    <button class="sheet-item" data-subtab="subtab-macro">📊 Macro Mesociclo</button>
-                    <button class="sheet-item" data-subtab="subtab-micro">🎯 Micro Esercizio & PR</button>
-                    <button class="sheet-item" data-subtab="subtab-compare">🔄 Confronto Mesocicli</button>
+                    <button class="sheet-item" data-subtab="subtab-macro">📊 Panorama del mesociclo: volumi e progressi</button>
+                    <button class="sheet-item" data-subtab="subtab-micro">🎯 Singoli esercizi e record personali</button>
+                    <button class="sheet-item" data-subtab="subtab-compare">🔄 Confronta due mesocicli</button>
                 </div>
             </div>
         </div>
@@ -242,15 +242,15 @@
                     <button id="close-tools-btn" class="close-sheet">&times;</button>
                 </div>
                 <div class="bottom-sheet-menu">
-                    <button class="sheet-item" data-action="export-pdf">🖨️ Scarica PDF scheda giornaliera</button>
-                    <button class="sheet-item" data-action="export-meso-pdf">📑 Esporta mesociclo completo (PDF)</button>
-                    <button class="sheet-item mycoatch-btn" data-action="generate-mycoatch-csv">🤖 Scarica Nuovo Mesociclo (.CSV) - MyCoatch</button>
-                    <button class="sheet-item" data-action="import-plan">📥 Importa scheda allenamento</button>
-                    <button class="sheet-item" data-action="export-csv">📄 Storico CSV (anno corrente)</button>
-                    <button class="sheet-item" data-action="import-history">📥 Import storico CSV</button>
-                    <button class="sheet-item" data-action="backup-json">🛡️ Backup integrale diario (JSON)</button>
+                    <button class="sheet-item" data-action="export-pdf">🖨️ Scarica PDF dell'allenamento selezionato</button>
+                    <button class="sheet-item" data-action="export-meso-pdf">📑 Scarica PDF di tutte le settimane del mesociclo</button>
+                    <button class="sheet-item mycoatch-btn" data-action="generate-mycoatch-csv">🤖 MyCoatch: crea una nuova scheda CSV (non la importa)</button>
+                    <button class="sheet-item" data-action="import-plan">📥 Importa una scheda CSV come nuovo mesociclo</button>
+                    <button class="sheet-item" data-action="export-csv">📄 Esporta lo storico allenamenti dell'anno (CSV)</button>
+                    <button class="sheet-item" data-action="import-history">📥 Importa dati di allenamenti passati (CSV)</button>
+                    <button class="sheet-item" data-action="backup-json">🛡️ Scarica copia completa di sicurezza del diario (JSON)</button>
                     <details class="equipment-settings">
-                        <summary>🏋️ Attrezzatura personale · dischi e incrementi</summary>
+                        <summary>🏋️ Attrezzatura: bilancieri, dischi e incrementi di peso</summary>
                         <form id="homegym-equipment-form">
                             <p>Indica il minimo incremento realmente disponibile per il peso totale mostrato nella card. Per i manubri, per singolo manubrio. L'impostazione è inclusa nel diario e sincronizzata.</p>
                             <fieldset class="equipment-owned-bars">
@@ -300,11 +300,11 @@
                     </a>
 
                     <hr class="sheet-divider">
-                    <span class="sheet-section-title">Zona Pericolosa</span>
+                    <span class="sheet-section-title">Operazioni irreversibili: controlla prima il backup</span>
 
-                    <button class="sheet-item sheet-item-danger" data-action="reset-meso">🗑️ Elimina scheda mesociclo</button>
-                    <button class="sheet-item sheet-item-danger-critical" data-action="clear-data">⚠️ Elimina tutto lo storico!</button>
-                    <button class="sheet-item sheet-item-danger" data-action="delete-account">🗑️ Elimina Definitivamente Account</button>
+                    <button class="sheet-item sheet-item-danger" data-action="reset-meso">🗑️ Elimina il mesociclo selezionato</button>
+                    <button class="sheet-item sheet-item-danger-critical" data-action="clear-data">⚠️ Cancella tutto lo storico degli allenamenti</button>
+                    <button class="sheet-item sheet-item-danger" data-action="delete-account">🗑️ Elimina definitivamente il tuo account</button>
                 </div>
             </div>
         </div>
@@ -342,13 +342,13 @@
                         <option value="auto" selected>Upper / Lower (struttura originale)</option>
                         <option value="fullbody">Full Body × 4 (forza + ipertrofia differenziate)</option>
                     </select>
-                    <label for="mycoatch-deload-choice">Gestione settimana di scarico</label>
+                    <label for="mycoatch-deload-choice">Settimana di scarico: allenamento con meno serie e minore fatica</label>
                     <select id="mycoatch-deload-choice" name="deloadChoice">
-                        <option value="auto" selected>Automatica secondo il modello selezionato</option>
+                        <option value="auto" selected>Automatica: MyCoatch decide in base a modello e recupero</option>
                         <option value="last">Prevedi scarico nell'ultima settimana</option>
                         <option value="none">Nessuno scarico a calendario (salvo segnali di fatica)</option>
                     </select>
-                    <p class="mycoatch-form-hint">Nella nuova Full Body lo scarico non è fisso: si valuta sui segnali di recupero. Le modifiche motivate dalla fatica restano prioritarie e ogni nuova scheda richiede approvazione.</p>
+                    <p class="mycoatch-form-hint">Se scegli «Automatica», nel programma Upper/Lower MyCoatch può ridurre serie e RPE nell'ultima settimana quando lo storico non basta per valutare il recupero. «Nessuno scarico a calendario» evita quello programmato, ma segnali di affaticamento ripetuti possono comunque richiedere una proposta più prudente. La scelta non modifica una scheda già importata.</p>
                     <label for="input-age">Età</label>
                     <input id="input-age" type="number" min="18" max="100" step="1" inputmode="numeric" placeholder="Età in anni" required>
                     <label for="select-focus">Obiettivo principale</label>
@@ -368,17 +368,17 @@
                             <option value="intermediate">Intermedio — eseguo e registro serie regolarmente</option>
                             <option value="advanced">Avanzato — gestisco già volume, RPE e progressioni</option>
                         </select>
-                        <label for="mycoatch-calibration">Come iniziare, se manca uno storico attendibile?</label>
+                        <label for="mycoatch-calibration">Se mancano allenamenti recenti confrontabili, come deve iniziare il programma?</label>
                         <select id="mycoatch-calibration">
-                            <option value="guided" selected>Prima settimana guidata di calibrazione (consigliata)</option>
-                            <option value="regular">Programma normale, senza settimana di calibrazione</option>
+                            <option value="guided" selected>Prima settimana prudente: scegli i pesi, registra ripetizioni e RPE</option>
+                            <option value="regular">Programma ordinario: usa riferimenti già affidabili</option>
                         </select>
-                        <label for="mycoatch-priority-muscle">Gruppo muscolare da privilegiare</label>
+                        <label for="mycoatch-priority-muscle">Gruppo muscolare a cui dare priorità (può ricevere più lavoro)</label>
                         <select id="mycoatch-priority-muscle">
                             <option value="" selected>Nessuna specializzazione: sviluppo equilibrato</option>
                             <option value="Petto">Petto</option>
                             <option value="Back_Lats">Dorsali</option>
-                            <option value="Back_Thickness">Spessore schiena</option>
+                            <option value="Back_Thickness">Muscoli della schiena: rematori e tirate orizzontali</option>
                             <option value="Spalle">Spalle</option>
                             <option value="Quadricipiti">Quadricipiti</option>
                             <option value="Femorali">Femorali</option>
@@ -399,7 +399,7 @@
                             <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-avoid-check" value="Stacco Rumeno (RDL)"> Stacco rumeno</label>
                         </details>
                         <details class="mycoatch-profile-details">
-                            <summary>Carichi di riferimento già conosciuti (facoltativi)</summary>
+                            <summary>Ultimi pesi realmente utilizzati nei fondamentali (facoltativo)</summary>
                             <p class="mycoatch-form-hint">Inserisci solo una serie recente realmente eseguita con kg, ripetizioni e RPE percepito (6–10). Nessun massimale richiesto. Un carico non confrontabile NON verrà imposto automaticamente.</p>
                             <div class="mycoatch-reference-grid">
                                 <span class="mycoatch-reference-head">Alzata</span><span class="mycoatch-reference-head">kg</span><span class="mycoatch-reference-head">reps</span><span class="mycoatch-reference-head">RPE</span>
@@ -439,7 +439,7 @@
                         </details>
                     </fieldset>
                     <fieldset class="mycoatch-preferences-group">
-                        <legend>Fondamentali prioritari (varianti facoltative)</legend>
+                        <legend>Esercizi principali di forza: scegli le varianti eseguibili</legend>
                         <p class="mycoatch-form-hint">4 giorni: puoi scegliere Upper/Lower (originale) oppure quattro Full Body. MyCoatch mantiene le alzate cardine e consente varianti compatibili con l'attrezzatura.</p>
                         <label for="mycoatch-lift-bench">Panca (Upper A / Full Body A)</label>
                         <select id="mycoatch-lift-bench" name="bench">
@@ -463,7 +463,7 @@
                             <option value="Military Press con Bilanciere">Military press bilanciere</option>
                             <option value="Spinte con Manubri da Seduto">Spinte manubri da seduto</option>
                         </select>
-                        <label for="mycoatch-lift-hinge">Hip hinge (Lower B / Full Body B)</label>
+                        <label for="mycoatch-lift-hinge">Stacco / piegamento dell'anca (Lower B / Full Body B)</label>
                         <select id="mycoatch-lift-hinge" name="hinge">
                             <option value="auto">Automatica — rumeno (oppure convenzionale per forza)</option>
                             <option value="Stacco Rumeno (RDL)">Stacco rumeno (RDL)</option>
@@ -471,7 +471,7 @@
                         </select>
                     </fieldset>
                     <fieldset class="mycoatch-preferences-group">
-                        <legend>Accessori che possiedi (facoltativi)</legend>
+                        <legend>Attrezzatura disponibile: seleziona solo ciò che possiedi</legend>
                         <p class="mycoatch-form-hint">Indica il tipo di cavo presente nel rack. Un cavo centrale alto/basso consente lat machine, tirate e crunch, ma non le croci a due pulegge. Seleziona solo gli accessori che possiedi.</p>
                         <label for="mycoatch-cable-setup">Configurazione cavi/pulegge</label>
                         <select id="mycoatch-cable-setup" name="cableSetup">
@@ -482,17 +482,17 @@
                             <option value="none">Nessun cavo</option>
                         </select>
                         <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="incline_bench"> Panca inclinabile</label>
-                        <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="pullup_bar"> Sbarra per trazioni</label>
+                        <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="pullup_bar"> Sbarra fissa che regge il peso del corpo per pull-up (NON la barra della lat machine)</label>
                         <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="ankle_strap"> Cavigliera per cavi</label>
                         <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="rope_attachment"> Corda per pushdown</label>
-                        <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="triangle_handle"> Impugnatura triangolare per lat machine</label>
+                        <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="triangle_handle"> Maniglia triangolare per la lat machine (presa stretta)</label>
                         <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="ez_bar"> Bilanciere EZ</label>
                         <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="dip_station"> Parallele per dip</label>
                     </fieldset>
                     <p class="mycoatch-form-hint">MyCoatch usa la durata scelta per progettare la seduta. La stima include 5 minuti di riscaldamento generale, avvicinamento ai fondamentali e lavoro su entrambi i lati negli esercizi unilaterali. Adattala alla tua preparazione reale.</p>
                     <p id="mycoatch-form-feedback" class="mycoatch-form-feedback" role="alert" aria-live="polite"></p>
-                    <button id="mycoatch-preview-btn" type="button" class="btn btn-secondary">👁️ Anteprima visiva e applica nel diario</button>
-                    <button id="mycoatch-submit" type="submit" class="btn btn-primary">Genera e scarica CSV</button>
+                    <button id="mycoatch-preview-btn" type="button" class="btn btn-secondary">👁️ Controlla l'anteprima, poi decidi se importare</button>
+                    <button id="mycoatch-submit" type="submit" class="btn btn-primary">Genera CSV senza modificare il diario</button>
                 </form>
             </div>
         </div>
@@ -507,12 +507,12 @@
             </div>
             <p id="mycoatch-preview-summary"></p>
             <div id="mycoatch-preview-weeks"></div>
-            <details><summary>Motivazioni e analisi dello storico</summary>
+            <details><summary>Perché MyCoatch ha scelto questi esercizi, carichi e volumi?</summary>
               <pre id="mycoatch-preview-explanation" class="mycoatch-preview-explanation"></pre>
             </details>
             <p id="mycoatch-preview-error" role="alert" aria-live="polite"></p>
             <div class="mycoatch-preview-actions">
-              <button id="mycoatch-preview-apply" type="button" class="btn btn-primary">Applica come nuovo mesociclo</button>
+              <button id="mycoatch-preview-apply" type="button" class="btn btn-primary">Importa questa proposta come nuovo mesociclo</button>
               <button id="mycoatch-preview-download" type="button" class="btn btn-secondary">Scarica CSV</button>
               <button id="mycoatch-preview-cancel" type="button" class="btn btn-secondary">Annulla</button>
             </div>
