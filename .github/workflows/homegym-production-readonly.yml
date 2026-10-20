@@ -6,6 +6,12 @@ on:
       - '.github/workflows/homegym-production-readonly.yml'
       - 'tests/live/**'
   workflow_dispatch:
+    inputs:
+      enable_write_roundtrip:
+        description: 'Synthetic cloud write and CAS rollback on test account (external backup required)'
+        type: boolean
+        default: false
+        required: true
 
 permissions:
   contents: read
@@ -27,6 +33,7 @@ jobs:
         run: |
           node --check tests/live/playwright.config.mjs
           node --check tests/live/readonly-production.spec.mjs
+          node --check tests/live/write-roundtrip.spec.mjs
   production-readonly:
     # Secrets never run on a pull request. Launch manually only after review
     # from the protected default branch.
@@ -52,8 +59,9 @@ jobs:
         run: npm install --no-save --no-package-lock --ignore-scripts @playwright/test@1.55.0
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Authenticated read-only smoke test on deployed application
+      - name: Authenticated production tests (writes explicitly opted-in only)
         env:
+          HOMEGYM_E2E_ENABLE_WRITE: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_write_roundtrip && 'YES_RESTORE_OR_ABORT' || '' }}
           HOMEGYM_E2E_EMAIL: ${{ secrets.HOMEGYM_E2E_EMAIL }}
           HOMEGYM_E2E_PASSWORD: ${{ secrets.HOMEGYM_E2E_PASSWORD }}
         run: npx playwright test --config tests/live/playwright.config.mjs
