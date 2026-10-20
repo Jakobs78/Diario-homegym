@@ -184,7 +184,7 @@ export function buildMesocycleCoachPdfReport(mesocycle) {
         'Distretto/i con meno crediti registrati rispetto al piano: ' +
         underserved.map(row => row.title + ' (' + row.execution + '%)').join(', ') +
         '. Verificare sedute incomplete ed esclusioni prima di variare il volume.'));
-    rows.push(text('COME USARE IL REPORT: questi indicatori mostrano cosa hai effettivamente registrato, non ciò che avresti dovuto fare. '
+    rows.push(text('COME USARE IL REPORT: questi indicatori mostrano cosa hai effettivamente registrato, non ciò che avresti dovuto fare. ' +
         'Non misurano ipertrofia, recupero o la causa di eventuali cali. ' +
         'Prima di scegliere i carichi e gli esercizi delle prossime settimane, serve una ' +
         'valutazione del coach, dei sintomi e del recupero non registrati qui.'),
