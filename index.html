@@ -342,6 +342,13 @@
                         <option value="auto" selected>Upper / Lower (struttura originale)</option>
                         <option value="fullbody">Full Body × 4 (forza + ipertrofia differenziate)</option>
                     </select>
+                    <label for="mycoatch-deload-choice">Gestione settimana di scarico</label>
+                    <select id="mycoatch-deload-choice" name="deloadChoice">
+                        <option value="auto" selected>Automatica secondo il modello selezionato</option>
+                        <option value="last">Prevedi scarico nell'ultima settimana</option>
+                        <option value="none">Nessuno scarico a calendario (salvo segnali di fatica)</option>
+                    </select>
+                    <p class="mycoatch-form-hint">Nella nuova Full Body lo scarico non è fisso: si valuta sui segnali di recupero. Le modifiche motivate dalla fatica restano prioritarie e ogni nuova scheda richiede approvazione.</p>
                     <label for="input-age">Età</label>
                     <input id="input-age" type="number" min="18" max="100" step="1" inputmode="numeric" placeholder="Età in anni" required>
                     <label for="select-focus">Obiettivo principale</label>

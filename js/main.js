@@ -284,6 +284,7 @@ function setupEventListeners() {
                 customTime: customTime?.value,
                 daysPerWeek: document.getElementById('select-days')?.value,
                 splitPreference: document.getElementById('mycoatch-split')?.value || 'auto',
+                deloadChoice: document.getElementById('mycoatch-deload-choice')?.value || 'auto',
                 userAge: document.getElementById('input-age')?.value,
                 focus: document.getElementById('select-focus')?.value,
                 preferredLifts: Object.fromEntries(['bench', 'squat', 'military', 'hinge']
