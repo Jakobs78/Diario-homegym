@@ -205,7 +205,7 @@ test('anteprima spiega le 4 alzate, lo split e gli accessori mancanti', () => {
     const review = formatCoachReview(compare,
         { inspectedMesocycles: 0, sessionsAnalyzed: 0 });
     assert.match(review, /Suddivisione delle sedute \(split\): Upper → Lower → Upper → Lower/);
-    assert.match(review, /Movimenti cardine:/);
+    assert.match(review, /Esercizi principali su cui MyCoatch costruisce la progressione:/);
     assert.match(review, /Panca Piana con Bilanciere/);
     assert.match(review, /Military Press con Bilanciere/);
     assert.match(review, /Accessori facoltativi esclusi per attrezzatura/);
