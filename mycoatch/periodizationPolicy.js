@@ -8,9 +8,10 @@ export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}
   const assessment=assessRecoveryScope(history);
   const signals=assessment.recoverySignals;
   const recoveryFirst=assessment.recoveryRequired;
-  // A fourth-week deload is never compulsory. Insufficient history calls for
-  // cautious calibration and explicit recovery review, not an assumed need
-  // for a week of reduced work.
+  // The new Full Body protocol uses recovery evidence rather than an
+  // automatic week-four deload. Preserve the prior conservative template
+  // for legacy Upper/Lower and three-day programmes.
+  const evidenceBasedDeload = config.splitPreference === 'fullbody';
   const measured = Object.values(history?.byExercise || {}).filter(ex =>
     ex?.progressionEvidence?.recentWeeksQualified === true &&
     Number(ex?.progressionEvidence?.distinctWeeks || 0) >= 2 &&
@@ -26,16 +27,20 @@ export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}
     config.deloadWeek !== undefined && config.deloadWeek !== null;
   const deloadRationale = recoveryFirst
     ? 'Recupero globale prioritario: scarico iniziale per segnali ripetuti su più regioni.'
-    : athleteChoice ? 'Settimana di scarico scelta esplicitamente dall’atleta.'
+    : config.deloadWeek === false ? 'Nessuno scarico a calendario su richiesta esplicita; rivaluta recupero e risultati.'
+      : athleteChoice ? 'Settimana di scarico scelta esplicitamente dall’atleta.'
       : enoughEvidence ? 'Nessuno scarico automatico: progressi confrontabili su più regioni; rivaluta il recupero ogni settimana.'
-        : 'Dati di recupero ancora limitati: nessuno scarico a calendario per default. Inizia con carichi prudenti e rivaluta le condizioni settimanalmente.';
+      : evidenceBasedDeload
+        ? 'Full Body: niente scarico automatico senza segnali ripetuti di fatica; dati limitati, serve verifica settimanale.'
+        : 'Scarico prudenziale finale del template originale quando mancano dati di recupero confrontabili.';
   // La preferenza dell'atleta puo' spostare o rimuovere lo scarico
   // soltanto in assenza di fatica ripetuta e attendibile. Se il recupero
   // e' prioritario, nessuna opzione puo' posticiparlo.
   let deloadWeek = recoveryFirst ? 1 :
     config.deloadWeek === false ? null :
     Number.isInteger(config.deloadWeek) ? config.deloadWeek :
-    config.deloadWeek === true ? count : null;
+    config.deloadWeek === true ? count :
+    count >= 4 && !enoughEvidence && !evidenceBasedDeload ? count : null;
   if (deloadWeek !== null && (deloadWeek < 1 || deloadWeek > count))
     throw Error('Settimana di scarico non valida');
   const weeks = Array.from({length: count}, (_, i) => {
