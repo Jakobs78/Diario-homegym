@@ -10,16 +10,19 @@ const original={
 };
 
 async function harness(page){
+  // The same mock must survive reloads; the test never contacts Supabase.
+  await page.addInitScript(()=>{
+    window.supabase={createClient:()=>({
+      auth:{onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})},
+      from(){throw Error('Test isolation violated: no Supabase network permitted');}
+    })};
+  });
   await page.route('**/legacy-account-harness.html',route=>route.fulfill({
     status:200,contentType:'text/html',
     body:'<!doctype html><meta charset="utf-8"><span id="sync-status"></span><main id="workout-list-container"></main>'
   }));
   await page.goto('/legacy-account-harness.html');
   await page.evaluate(async()=>{
-    window.supabase={createClient:()=>({
-      auth:{onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})},
-      from(){throw Error('Test isolation violated: no Supabase network permitted');}
-    })};
     const journal=await import('/js/journalStore.js');
     await journal.initializeJournalStorage();
     await import('/js/state.js');
