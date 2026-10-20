@@ -255,24 +255,24 @@ export function formatCoachReview(comparison, report) {
                 .sort((a, b) => b[1].indirectSetCredits - a[1].indirectSetCredits)
                 .slice(0, 5);
             if (relevant.length) {
-                lines.push('VOLUME MUSCOLARE FRAZIONARIO — settimane proposte (serie dirette + 0,5 per coinvolgimento secondario; stima NON misurazione di crescita):');
+                lines.push('COME SI DISTRIBUISCE IL LAVORO MUSCOLARE — conteggio orientativo della prima settimana: ogni serie diretta vale 1, mentre una serie che coinvolge il muscolo come secondario vale 0,5. Questi numeri aiutano a confrontare la scheda, non misurano quanta massa crescerà:');
                 lines.push(relevant.map(([muscle, v]) => muscle + ': ' +
                     v.directSets + ' dirette + ' +
                     v.indirectSetCredits + ' crediti indiretti = ' +
                     v.fractionalSets).join(' · '));
             }
         }
-        lines.push('Split programmato: ' + coverage.daysOrder.join(' → ') +
+        lines.push('Distribuzione degli allenamenti nella settimana: ' + coverage.daysOrder.join(' → ') +
             ' (giorni numerati, non appuntamenti fissati in calendario).');
-        lines.push('Movimenti cardine: ' + coverage.anchors
+        lines.push('Esercizi principali da mantenere nel programma: ' + coverage.anchors
             .map(x => `G${x.dayNumber} ${x.exercise || x.lift + ' NON PRESENTE'}`).join(' · '));
         if (!coverage.allPriorityLiftsPresent) {
             lines.push('ATTENZIONE: un fondamentale prioritario non è stato conservato.');
         }
         if (coverage.notDirectlyCovered.length) {
-            lines.push('Gruppi senza serie DIRETTE nella prima settimana: ' +
+            lines.push('Gruppi senza esercizi dedicati nella prima settimana: ' +
                 coverage.notDirectlyCovered.join(', ') +
-                '. Un contributo indiretto non viene contato come serie diretta.');
+                '. Potrebbero comunque lavorare durante altri esercizi: assenza di serie dedicate non significa che non vengano allenati.');
         }
         // These metrics were already calculated but never shown in the
         // athlete's approval dialog. Surface meaningful functional gaps
@@ -284,42 +284,42 @@ export function formatCoachReview(comparison, report) {
             item.status==='omitted_after_optimization' ||
             item.status==='reduced_after_optimization');
         if(gaps.length){
-            lines.push('COPERTURA FUNZIONALE — verifica prima di accettare la scheda: ' +
+            lines.push('ESERCIZI MANCANTI O RIDOTTI PER ALCUNI MOVIMENTI — controlla prima di scaricare: ' +
                 gaps.map(item=>item.label + ': ' + item.scheduledSets +
                     ' serie dirette' + (item.plannedSets === null ? '' :
                     ' su ' + item.plannedSets + ' previste') +
-                    ' (' + item.status.replaceAll('_',' ') + ')').join(' · ') +
-                '. Le tirate/spinte possono dare lavoro indiretto; non è una misura di crescita.');
+                    ' (' + ({not_programmed:'non previsto nel programma',omitted_after_optimization:'eliminato per rispettare il tempo',reduced_after_optimization:'serie ridotte per rispettare il tempo'}[item.status] || 'da verificare') + ')').join(' · ') +
+                '. Le spinte e le tirate possono comunque coinvolgere questi muscoli. Il conteggio non misura direttamente la crescita.');
         }
         if(coverage.shoulderHeadCoverage){
             const heads=coverage.shoulderHeadCoverage.directIsolationSets;
-            lines.push('DELTOIDI, isolamento diretto: laterale ' +
-                heads.laterale + ' serie · posteriore ' + heads.posteriore +
-                ' serie; spinte verticali ' +
+            lines.push('SPALLE — serie specifiche per deltoide laterale: ' +
+                heads.laterale + ' serie, per deltoide posteriore: ' + heads.posteriore +
+                ' serie. Esercizi di spinta sopra la testa: ' +
                 coverage.shoulderHeadCoverage.verticalPressSets +
-                ' serie (non equivalgono a isolamento del posteriore).');
+                ' serie. La spinta sopra la testa non sostituisce automaticamente il lavoro specifico per i posteriori.');
         }
     }
     if (comparison.unavailableOptionalSlots.length) {
-        lines.push('Accessori facoltativi esclusi per attrezzatura: ' +
+        lines.push('Esercizi accessori che MyCoatch non ha potuto inserire perché mancano attrezzi compatibili: ' +
             comparison.unavailableOptionalSlots
                 .map(x => `G${x.dayNumber} ${x.muscle} (${x.pattern})`).join(', ') + '.');
     }
-    lines.push('Durate previste (stime): ' + comparison.estimatedMinutesByDay
+    lines.push('Durata stimata di ciascun allenamento (include pause e preparazione, non è una misura reale): ' + comparison.estimatedMinutesByDay
         .map(d => `G${d.day} ${d.minutes} min`).join(' · '));
 
     if (comparison.timeAwareSelections?.length) {
-        lines.push('SCELTA INIZIALE ESERCIZI IN BASE AL TEMPO (stime, prima dell’eventuale recupero settimanale degli accessori):');
+        lines.push('COME MYCOATCH HA RISPETTATO IL TEMPO DISPONIBILE — prima seleziona gli esercizi fondamentali, poi cerca di inserire i complementari. Alcune serie possono essere spostate in altri giorni:');
         for (const plan of comparison.timeAwareSelections) {
             const chosen=plan.selected.slice(0, 4)
                 .map(item=>item.exercise+' ('+item.reason+')').join(' · ');
             const excluded=plan.excluded.slice(0,3).map(item=>item.exercise);
             lines.push('G'+plan.day+': '+plan.protected.length+
-                ' movimenti prioritari protetti; '+
+                ' esercizi principali conservati; '+
                 (chosen || 'nessun accessorio aggiunto oltre i fondamentali')+
                 (excluded.length ? '; non inseriti: '+excluded.join(', ')+
                     (plan.excluded.length>excluded.length ? ' e altri' : '')+
-                    ' (priorità e minuti disponibili)' : '')+'.');
+                    ' (per mantenere la seduta entro i minuti richiesti)' : '')+'.');
         }
     }
     for (const a of comparison.adaptations.slice(0, 5)) {
