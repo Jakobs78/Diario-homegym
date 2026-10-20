@@ -49,8 +49,11 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     try {await initializeJournalStorage();}catch(error){console.error(error);return;}
     if (session?.user) {
         const owner=getStoredLocalOwner();
+        const previousId=String(state.currentUser?.id||'');
         state.currentUser = session.user;
-        if(owner && owner!==String(session.user.id)){
+        if(previousId!==String(session.user.id) || owner!==String(session.user.id)){
+            // A generic legacy diary with no owner must not flash on screen
+            // during the asynchronous authentication callback.
             state.workoutData=getFromLocalStorageForUser(session.user);
             renderWorkoutList();
         }
@@ -91,7 +94,10 @@ async function initApp() {
     initDevBanner();
     initBackgroundSync(state);
     
-    let localData = getFromLocalStorage();
+    // Until the authenticated owner's ID is verified, do not display an
+    // unattributed legacy diary behind a changing authentication overlay.
+    let localData = getStoredLocalOwner() ? getFromLocalStorage()
+        : {athlete:{email:null},history:{years:{}}};
     state.workoutData = localData;
     updateSyncStatusUI();
     
