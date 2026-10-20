@@ -362,14 +362,22 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
 
                 const isFirstCompound = index === 0 && ["squat", "hinge", "horizontal_push", "vertical_push", "vertical_pull"].includes(ex.pattern);
                 
-                if (isFirstCompound && targetKgMin && !usingReference) {
-                    const warmupReferenceKg = Number(targetKgMin);
-                    const warmups=[0.5,0.7,0.85].map(ratio=>resolvedLoad.verified
-                        ? resolvePlannedLoad(ex,warmupReferenceKg*ratio,equipmentSettings).weight
-                        : Math.round(warmupReferenceKg*ratio));
-                    noteFinal = warmups.every(kg=>kg!==null && kg>0)
-                        ? `🔥 [WARM-UP AUTO]: 8x${warmups[0]}kg, 4x${warmups[1]}kg, 2x${warmups[2]}kg. | ` + noteFinal
-                        : '[WARM-UP] Avvicinati gradualmente al carico di lavoro con pesi realmente disponibili, senza affaticarti. | ' + noteFinal;
+                if (isFirstCompound) {
+                    if (targetKgMin && !usingReference) {
+                        const warmupReferenceKg = Number(targetKgMin);
+                        const warmups=[0.5,0.7,0.85].map(ratio=>resolvedLoad.verified
+                            ? resolvePlannedLoad(ex,warmupReferenceKg*ratio,equipmentSettings).weight
+                            : Math.round(warmupReferenceKg*ratio));
+                        noteFinal = warmups.every(kg=>kg!==null && kg>0)
+                            ? `🔥 [WARM-UP AUTO]: 8x${warmups[0]}kg, 4x${warmups[1]}kg, 2x${warmups[2]}kg. | ` + noteFinal
+                            : '[WARM-UP] Avvicinati gradualmente al carico di lavoro con pesi realmente disponibili, senza affaticarti. | ' + noteFinal;
+                    } else {
+                        // When no verified training load is available (or the
+                        // reference is provisional), still prescribe gradual
+                        // warm-up sets without inventing a kilogram target.
+                        // The time estimator already budgets this warm-up.
+                        noteFinal = '[WARM-UP] Esegui serie di avvicinamento progressive con un peso leggero e disponibile, senza affaticarti, prima delle serie di lavoro. | ' + noteFinal;
+                    }
                 }
 
                 // Mai inventare un top set più pesante dei carichi verificati.
