@@ -18,7 +18,7 @@ function cue(exercise) {
     if (name.includes('Alzate Laterali'))
         return 'Solleva i manubri lateralmente fino a un’altezza che controlli, con gomiti lievemente flessi. Evita di dondolare il busto e scendi lentamente.';
     if (name.includes('Alzate')) return 'Solleva senza slanci, poi abbassa il peso lentamente mantenendo il controllo.';
-    if (name.includes('Leg Curl')) return 'Non muovere il bacino: piega il ginocchio avvicinando il tallone al gluteo, poi distendi lentamente senza lasciar cadere il peso.';
+    if (name.includes('Leg Curl')) return 'Bacino stabile, fletti il ginocchio portando il tallone verso il gluteo, poi distendi lentamente senza lasciar cadere il peso.';
     if (name.includes('Curl')) return 'Tieni i gomiti vicini al busto e piega le braccia senza dondolare con la schiena. Scendi in modo controllato.';
     if (name.includes('Pushdown')) return 'Mantieni i gomiti vicini ai fianchi: distendi le braccia verso il basso senza muovere le spalle, poi ritorna lentamente.';
     if (name.includes('Crunch')) return 'Avvicina il torace al bacino flettendo l’addome, senza tirare il collo con le mani. Torna lentamente alla partenza.';
@@ -46,8 +46,8 @@ export function conciseExerciseInstruction(exercise) {
     const parts = [];
     const split = /^\[SPLIT MYCOATCH\]\s*(Upper [AB]|Lower [AB]|Full Body [ABCD])/i.exec(verbose);
     if (split) parts.push('[SPLIT MYCOATCH] ' + split[1]);
-    if (verbose.includes('[SUPERSERIE]')) parts.push('[SUPERSERIE] Esegui questo esercizio e quello successivo uno dopo l’altro; riposa dopo averli completati entrambi.');
-    if (verbose.includes('[TRISET]')) parts.push('[TRISET] Esegui tre esercizi consecutivi; fai la pausa prevista solo dopo il terzo.');
+    if (verbose.includes('[SUPERSERIE]')) parts.push('[SUPERSERIE] superset: esegui anche il prossimo esercizio, poi recupera.');
+    if (verbose.includes('[TRISET]')) parts.push('[TRISET] triset: esegui tre esercizi consecutivi, poi recupera.');
     if (verbose.includes('[WARM-UP AUTO]')) {
         const warmup = /\[WARM-UP AUTO\]:?\s*([^|.]+)/.exec(verbose);
         parts.push('[WARM-UP AUTO] ' + (warmup?.[1]?.trim() || 'Esegui serie preparatorie leggere prima delle serie allenanti, aumentando gradualmente il peso senza arrivare a fatica.'));
@@ -73,7 +73,13 @@ export function conciseExerciseInstruction(exercise) {
     else if ((exercise.kgMin === '' || exercise.kgMin == null) &&
         exercise.equipment !== 'bodyweight')
         parts.push('Peso da definire: inizia con serie leggere di prova, poi scegli un carico che permetta le ripetizioni richieste all’RPE previsto e registralo nel diario.');
-    parts.push(cue(exercise));
+    // More structural markers require a shorter instruction to keep the
+    // legacy twelve-column CSV concise and readable on phone screens.
+    const fullCue=cue(exercise);
+    const briefCue=String(exercise?.name||'').includes('Panca')
+        ? 'Piedi stabili e scapole ferme, abbassa e spingi in controllo.'
+        : fullCue.split(/[.!?] /)[0].slice(0,105)+'.';
+    parts.push(parts.join(' | ').length+fullCue.length+3<275 ? fullCue : briefCue);
     // The legacy 12-column CSV must not gain a pseudo-separator in Note.
     return parts.join(' | ').replace(/;/g, ',');
 }
