@@ -119,6 +119,9 @@ const DEFAULT_WORKOUT_DATA = {
     updatedAt: null
 };
 
+// Anonymous snapshots created in this document can safely compact one
+// another. Never merge them with anonymous snapshots from earlier sessions.
+const anonymousQueueSession = crypto.randomUUID();
 let syncDebounceTimer = null;
 let isSyncing = false;
 let storageFailure = false;
@@ -198,8 +201,13 @@ function enqueueAction(action) {
     // snapshot for a given account is needed. Never discard other accounts'
     // records, or the snapshot currently being uploaded on the network.
     const owner=String(action.ownerId??'');
-    const compact=queue.filter(item=>String(item.ownerId??'')!==owner ||
-        (isSyncing && item.id===uploadingActionId));
+    const compact=queue.filter(item=>{
+        if(isSyncing && item.id===uploadingActionId)return true;
+        if(owner)return String(item.ownerId??'')!==owner;
+        // Preserve all legacy ownerless entries without a matching verified
+        // session tag; they may belong to a different athlete.
+        return item.anonymousSession!==anonymousQueueSession;
+    });
     compact.push(action);
     journalStorage.setItem(QUEUE_KEY,JSON.stringify(compact));
 }
@@ -278,16 +286,16 @@ export async function saveAndSync(data = state.workoutData, actionType = 'UPDATE
     // enqueue unauthenticated edits on behalf of a previous signed-in user.
     const ownerId=state.currentUser?.isOffline ? null : (state.currentUser?.id || null);
     if(!journalStorageReady()){storageFailure=true;updateSyncStatusUI();return false;}
+    if(!ownerId && getStoredLocalOwner()){
+        storageFailure=true;
+        console.warn('Salvataggio non attribuibile: verifica la sessione dell’account prima di modificare dati locali.');
+        updateSyncStatusUI();
+        return false;
+    }
     // Fail before updating a persistent snapshot if earlier offline edits
     // cannot be read. Otherwise a rejected save changes the stored diary
     // without creating a matching cloud-sync action.
-    try {
-        const previousQueue=getQueue({forWrite:true});
-        // Do not compact a previous anonymous athlete's pending diary.
-        // Without a verified owner, it must be recovered explicitly.
-        if(!ownerId && previousQueue.some(action=>!action.ownerId))
-            throw Error('Coda locale senza proprietario verificabile: salva un backup prima di proseguire.');
-    }
+    try {getQueue({forWrite:true});}
     catch(error) {
         storageFailure=true;
         console.error('Salvataggio sospeso: la coda offline è illeggibile.',error);
@@ -303,7 +311,8 @@ export async function saveAndSync(data = state.workoutData, actionType = 'UPDATE
         type: actionType,
         payload: data, 
         timestamp: Date.now(),
-        ownerId
+        ownerId,
+        ...(ownerId ? {} : {anonymousSession:anonymousQueueSession})
     });}catch(error){
         storageFailure=true;
         console.error('Impossibile mettere in coda il diario:',error);
