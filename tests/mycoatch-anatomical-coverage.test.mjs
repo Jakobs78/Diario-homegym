@@ -4,6 +4,7 @@ import { EXERCISE_DATABASE } from '../mycoatch/exercisesDB.js';
 import { selectExerciseForSlot, normalizeSelectionPreferences, isExerciseAvailable } from '../mycoatch/exerciseSelection.js';
 import { generateSmartMesocycle, getTemplateForDays } from '../mycoatch/engine.js';
 import { auditWeeklyCoverage } from '../mycoatch/weeklyCoverage.js';
+import { MyCoatch } from '../mycoatch/index.js';
 import { compareMesocyclePlans, formatCoachReview } from '../mycoatch/mesocycleComparison.js';
 import { rebalanceWeeklyAccessories } from '../mycoatch/weeklyVolumeBalancer.js';
 
@@ -216,4 +217,25 @@ test('approval preview explicitly discloses missing posterior work and current h
   assert.match(text,/DELTOIDI, isolamento diretto:/);
   assert.match(text,/posteriore 0 serie/);
   assert.match(text,/lavoro indiretto/i);
+});
+
+test('real MyCoatch CSV generation for 4x60 powerbuilding includes posterior isolation in each week',()=>{
+  const plan=MyCoatch.generateNextFromHistory({history:{years:{}}},{
+    daysPerWeek:4,durationWeeks:4,maxSessionMinutes:60,
+    userAge:36,focus:'hybrid',splitPreference:'upperlower',
+    deloadWeek:false
+  });
+  const lines=MyCoatch.exportAsCSV().trim().split('\n');
+  assert.equal(lines[0].split(';').length,12);
+  assert.equal(plan.weeks.length,4);
+  assert.ok(lines.every((row,index)=>index===0||row.split(';').length===12));
+  for(const week of [1,2,3,4]){
+    const weekRows=lines.slice(1).filter(row=>row.startsWith(week+';'));
+    assert.ok(weekRows.some(row=>/Alzate Posteriori|Face Pull|Reverse Fly/i.test(row)),
+      'powerbuilding 60 minutes must cover rear shoulder in week '+week);
+    assert.ok(weekRows.some(row=>/Alzate Laterali/i.test(row)),
+      'powerbuilding 60 minutes must also cover lateral shoulder in week '+week);
+    const planWeek=plan.weeks[week-1];
+    assert.ok(planWeek.days.every(day=>day.estimatedMinutes<=60));
+  }
 });
