@@ -32,7 +32,7 @@ test('Italian coach notes explain executable steps without breaking importer tag
   const note=conciseExerciseInstruction(base);
   assert.match(note,/^\[SPLIT MYCOATCH\] Upper B/);
   assert.match(note,/\[SUPERSERIE\]/);
-  assert.match(note,/senza pausa tra i due/i);
+  assert.match(note,/senza pausa\. Recupera dopo i due esercizi/i);
   assert.match(note,/\[WARM-UP\]/);
   assert.match(note,/senza arrivare alla fatica/i);
   assert.match(note,/busto/i);
