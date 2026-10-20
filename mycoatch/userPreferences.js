@@ -23,6 +23,7 @@ export function parseCoachPreferences(fields = {}) {
     const daysPerWeek = Number(fields.daysPerWeek);
     const focus = String(fields.focus || '');
     const splitPreference = String(fields.splitPreference || 'auto');
+    const deloadChoice = String(fields.deloadChoice || 'auto');
 
     if (maxSessionMinutes === null) {
         throw new Error('Indica quanti minuti hai a disposizione (da 25 a 180).');
@@ -39,6 +40,9 @@ export function parseCoachPreferences(fields = {}) {
 
     if (!['auto', 'upperlower', 'fullbody'].includes(splitPreference)) {
         throw new Error('Scegli una struttura settimanale valida.');
+    }
+    if (!['auto', 'last', 'none'].includes(deloadChoice)) {
+        throw new Error('Scegli una gestione dello scarico valida.');
     }
 
     const athleteProfile = normalizeAthleteProfile(fields.athleteProfile);
@@ -69,6 +73,8 @@ export function parseCoachPreferences(fields = {}) {
         daysPerWeek,
         focus,
         ...(splitPreference !== 'auto' ? { splitPreference } : {}),
+        ...(deloadChoice === 'last' ? {deloadWeek:true} :
+            deloadChoice === 'none' ? {deloadWeek:false} : {}),
         ...selection,
         ...(athleteProfile ? { athleteProfile } : {}),
         primaryGoal: focus === 'strength' ? 'powerlifting' :
