@@ -204,13 +204,13 @@ test('anteprima spiega le 4 alzate, lo split e gli accessori mancanti', () => {
     const compare = compareMesocyclePlans(null, meso, {});
     const review = formatCoachReview(compare,
         { inspectedMesocycles: 0, sessionsAnalyzed: 0 });
-    assert.match(review, /Split programmato: Upper → Lower → Upper → Lower/);
+    assert.match(review, /Suddivisione delle sedute \(split\): Upper → Lower → Upper → Lower/);
     assert.match(review, /Movimenti cardine:/);
     assert.match(review, /Panca Piana con Bilanciere/);
     assert.match(review, /Military Press con Bilanciere/);
     assert.match(review, /Accessori facoltativi esclusi per attrezzatura/);
     assert.match(review, /G2 Femorali/);
-    assert.match(review, /Confermi la proposta/);
+    assert.match(review, /Vuoi scaricare soltanto il file CSV/);
 });
 
 test('un fondamentale o una regola di frequenza resta protetta anche dopo il tempo', () => {
