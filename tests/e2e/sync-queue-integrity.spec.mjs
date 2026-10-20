@@ -141,11 +141,11 @@ test('legacy queue with missing owner never writes into a different signed-in ac
     const journal=await import('/js/journalStore.js');
     await journal.initializeJournalStorage();
     const {state}=await import('/js/state.js');
-    const {processSyncQueue}=await import('/js/storage.js');
+    const {processSyncQueue,hasPendingSync}=await import('/js/storage.js');
     state.currentUser={id:'account-B',email:'b@invalid.example'};
     // A global owner marker can reflect the CURRENT user, even though the
     // old queue entry was created before account scoping existed.
-    journal.journalStorage.setItem('workoutApp_data_owner','account-B');
+    journal.journalStorage.setItem('workoutApp_data_owner','account-A');
     const orphan={id:'legacy-orphan',timestamp:1000,type:'UPDATE_WORKOUT',
       payload:{athlete:{name:'PRIVATE_LEGACY_OWNER_UNKNOWN'},history:{years:{}}}};
     const foreign={id:'account-A-entry',ownerId:'account-A',timestamp:2000,type:'UPDATE_WORKOUT',
@@ -153,13 +153,52 @@ test('legacy queue with missing owner never writes into a different signed-in ac
     const original=JSON.stringify([orphan,foreign]);
     journal.journalStorage.setItem('workoutApp_data_sync_queue',original);
     await journal.flushJournalStorage();
+    const blocksHydration=hasPendingSync();
     await processSyncQueue();
     await journal.flushJournalStorage();
     return {
-      cloudCalls,
+      cloudCalls,blocksHydration,
       queueUntouched:journal.journalStorage.getItem('workoutApp_data_sync_queue')===original,
       visibleWarning:document.getElementById('sync-status')?.textContent?.includes('Salvataggio')
     };
   });
-  expect(result).toEqual({cloudCalls:0,queueUntouched:true,visibleWarning:true});
+  expect(result).toEqual({cloudCalls:0,blocksHydration:true,queueUntouched:true,visibleWarning:true});
+});
+
+
+test('a corrupted offline queue cannot be mistaken for fully synced local data',async({page})=>{
+  await page.route('**/sync-queue-harness.html',route=>route.fulfill({
+    status:200,contentType:'text/html',
+    body:'<!doctype html><meta charset="utf-8"><span id="sync-status"></span>'
+  }));
+  await page.goto('/sync-queue-harness.html');
+  const result=await page.evaluate(async()=>{
+    window.supabase={createClient:()=>({
+      auth:{onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})},
+      from(){throw Error('No cloud request needed for corruption test');}
+    })};
+    const journal=await import('/js/journalStore.js');
+    await journal.initializeJournalStorage();
+    const {state}=await import('/js/state.js');
+    const {hasPendingSync,saveAndSync}=await import('/js/storage.js');
+    state.currentUser={id:'account-A',email:'a@invalid.example'};
+    const original={athlete:{name:'IMPORTANT_UNSYNCED_LOCAL_DATA'},history:{years:{}}};
+    journal.journalStorage.setItem('workoutApp_data',JSON.stringify(original));
+    journal.journalStorage.setItem('workoutApp_data_sync_queue','{invalid-json');
+    await journal.flushJournalStorage();
+    const pending=hasPendingSync();
+    const save=await saveAndSync({athlete:{name:'OTHER'},history:{years:{}}});
+    await journal.flushJournalStorage();
+    return {
+      pending,
+      rejected:save===false,
+      unchanged:JSON.parse(journal.journalStorage.getItem('workoutApp_data')).athlete.name
+        ==='IMPORTANT_UNSYNCED_LOCAL_DATA',
+      damagedQueueUntouched:journal.journalStorage.getItem('workoutApp_data_sync_queue')==='{invalid-json',
+      badgeWarning:document.getElementById('sync-status')?.textContent?.includes('Salvataggio')
+    };
+  });
+  expect(result).toEqual({
+    pending:true,rejected:true,unchanged:true,damagedQueueUntouched:true,badgeWarning:true
+  });
 });
