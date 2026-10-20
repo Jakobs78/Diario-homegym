@@ -89,13 +89,45 @@ export function latestSavedProfile(data) {
     return entry?.profile ? clone(entry.profile) : null;
 }
 
-/** Immutable value snapshot; no live reference to a mutable athlete profile. */
-export function profileSnapshot(staged,{splitPreference='auto',daysPerWeek=null,
-    maxSessionMinutes=null,focus=null}={}) {
-    if(!staged?.profile||!Number.isInteger(staged.version))throw Error('Profilo non disponibile.');
+/**
+ * Only load-building fields belong to a mesocycle equipment snapshot.
+ * Keep free-text athlete fields, account identity and the profile journal out.
+ * Captures the configuration used for the proposal, not a live reference.
+ */
+export function snapshotEquipmentState(athlete = {}) {
+    const source=athlete && typeof athlete==='object' && !Array.isArray(athlete)
+        ? athlete : {};
+    const allowed=['barbellWeight','ownedBarbells','defaultBarbell',
+        'loadingSteps','plateInventories','platePairs','barbellAssignments'];
+    return Object.fromEntries(allowed.filter(key=>source[key]!==undefined)
+        .map(key=>[key,clone(source[key])]));
+}
+
+/**
+ * Snapshot v2: athlete profile plus the DECISION-RELEVANT generation settings
+ * and owned loading equipment as resolved when the preview was generated.
+ * v1 snapshots remain readable; no automatic migration or historical write.
+ */
+export function profileSnapshot(staged,{
+    splitPreference='auto',daysPerWeek=null,maxSessionMinutes=null,focus=null,
+    userAge=null,preferredLifts={},availableEquipment=[],
+    availableAccessories=[],cableSetup=null
+}={},equipmentAtGeneration={}) {
+    if(!staged?.profile||!Number.isInteger(staged.version))
+        throw Error('Profilo non disponibile.');
+    const settings={
+        splitPreference,daysPerWeek,maxSessionMinutes,focus,
+        userAge:Number.isInteger(Number(userAge)) && userAge !== null
+            ? Number(userAge) : null,
+        preferredLifts:preferredLifts || {},
+        availableEquipment:Array.isArray(availableEquipment) ? availableEquipment : [],
+        availableAccessories:Array.isArray(availableAccessories) ? availableAccessories : [],
+        cableSetup
+    };
     return {
-        schemaVersion:1,profileVersion:staged.version,
+        schemaVersion:2,profileVersion:staged.version,
         profile:clone(staged.profile),
-        settings:clone({splitPreference,daysPerWeek,maxSessionMinutes,focus})
+        settings:clone(settings),
+        equipment:snapshotEquipmentState(equipmentAtGeneration)
     };
 }
