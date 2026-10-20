@@ -37,7 +37,7 @@ test('Italian coach notes explain executable steps without breaking importer tag
   assert.match(note,/senza arrivare alla fatica/i);
   assert.match(note,/busto/i);
   assert.match(note,/Carico da scegliere:/);
-  assert.match(note,/RPE 8/);
+  assert.match(note,/RPE \(8 ≈ 2/);
   assert.ok(!note.includes(';'),'CSV notes cannot contain pseudo-separators');
   const tri=conciseExerciseInstruction({...base,notes:'[TRISET]'});
   assert.match(tri,/\[TRISET\]/);
