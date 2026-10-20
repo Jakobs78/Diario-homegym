@@ -101,18 +101,44 @@ test('login, authenticated Supabase read, browser persistence, backup and logout
   }
 
   // This is a real authenticated Supabase SELECT (not a mocked frontend read).
-  const cloud = await page.evaluate(async () => {
-    const {supabase} = await import('/js/config.js');
-    const {data:{user},error:authError} = await supabase.auth.getUser();
-    if (authError || !user) return {authenticated:false,readOk:false,hasRow:false};
-    const {data,error} = await supabase.from('workouts')
-      .select('payload,updated_at').eq('email',user.email).maybeSingle();
-    return {authenticated:true,readOk:!error,
-      hasRow:!!data,validPayload:!data || (!!data.payload && typeof data.payload==='object')};
-  });
-  expect(cloud.authenticated).toBe(true);
-  expect(cloud.readOk).toBe(true);
-  expect(cloud.validPayload).toBe(true);
+  let cloud;
+  const cloudAttempts = [];
+  try {
+    await expect.poll(async () => {
+      cloud = await page.evaluate(async () => {
+        const {supabase} = await import('/js/config.js');
+        const {data:{session},error:sessionError} = await supabase.auth.getSession();
+        const {data:{user},error:authError} = await supabase.auth.getUser();
+        if (authError || !user) return {
+          authenticated:false,readOk:false,hasRow:false,
+          sessionPresent:!!session,
+          sessionErrorStatus:sessionError?.status ?? null,
+          authErrorStatus:authError?.status ?? null,
+          authErrorCode:authError?.code ?? null
+        };
+        const {data,error} = await supabase.from('workouts')
+          .select('payload,updated_at').eq('email',user.email).maybeSingle();
+        return {authenticated:true,readOk:!error,hasRow:!!data,
+          validPayload:!data || (!!data.payload && typeof data.payload==='object'),
+          sessionPresent:!!session,
+          selectErrorStatus:error?.status ?? null,
+          selectErrorCode:error?.code ?? null};
+      });
+      cloudAttempts.push({authenticated:cloud.authenticated,readOk:cloud.readOk,
+        sessionPresent:cloud.sessionPresent,authErrorCode:cloud.authErrorCode ?? null,
+        authErrorStatus:cloud.authErrorStatus ?? null,
+        selectErrorCode:cloud.selectErrorCode ?? null});
+      return cloud.authenticated && cloud.readOk && cloud.validPayload;
+    },{timeout:20000,intervals:[750,1500,2500]}).toBe(true);
+  } catch(error) {
+    console.log('CLOUD_READ_DIAGNOSTICS',JSON.stringify({
+      attempts:cloudAttempts,authResponses,blockedCloudWrites:page.blockedCloudWrites()
+    }));
+    throw error;
+  }
+  if (cloudAttempts.length>1) {
+    console.log('CLOUD_READ_RETRIES',cloudAttempts.length);
+  }
   expect(responses.some(r=>r.method==='GET' && r.status>=200 && r.status<300)).toBe(true);
 
   // Distinguish remote-data hydration from simply showing a signed-in shell.
