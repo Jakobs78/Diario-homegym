@@ -5,6 +5,8 @@
 import { summarizeMesocycleClosure, formatMesocycleClosureForChat } from './mesocycleClosure.js';
 import { concludeCurrentMesocycle } from './mesocycle.js';
 import { startCoachChatAndGenerate } from '../mycoatch/mycoatch-adapter.js';
+import { buildMesocycleReviewDossier, formatMesocycleReviewDossierMarkdown,
+    serializeMesocycleReviewDossierJson } from '../mycoatch/reviewDossier.js';
 
 function node(tag, label, cls) {
     const el = document.createElement(tag);
@@ -24,6 +26,19 @@ function downloadText(text, name) {
     anchor.click();
     anchor.remove();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function downloadReviewDossier(content,name,extension,mime) {
+    const safe=String(name || 'mesociclo').replace(/[^a-z0-9_-]/gi,'_').slice(0,80);
+    const blob=new Blob([content],{type:mime+';charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement('a');
+    link.href=url;
+    link.download=(safe || 'mesociclo')+'_dossier_mycoatch.'+extension;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 
 export function createMesocycleClosurePanel(mesocycle) {
@@ -84,6 +99,23 @@ export function createMesocycleClosurePanel(mesocycle) {
     exportBtn.addEventListener('click', () =>
         downloadText(formatMesocycleClosureForChat(review), review.name));
     actions.append(exportBtn);
+    // Two explicit downloads: browsers may block simultaneous file downloads.
+    // Never contact an AI service or write to the journal to build the dossier.
+    const markdownBtn=node('button','Dossier MyCoatch (.md)','btn btn-secondary btn-sm');
+    markdownBtn.type='button';
+    markdownBtn.addEventListener('click',()=>{
+        const data=buildMesocycleReviewDossier(mesocycle);
+        downloadReviewDossier(formatMesocycleReviewDossierMarkdown(data),
+            data.mesocycle.name,'md','text/markdown');
+    });
+    const jsonBtn=node('button','Dati dossier (.json)','btn btn-secondary btn-sm');
+    jsonBtn.type='button';
+    jsonBtn.addEventListener('click',()=>{
+        const data=buildMesocycleReviewDossier(mesocycle);
+        downloadReviewDossier(serializeMesocycleReviewDossierJson(data),
+            data.mesocycle.name,'json','application/json');
+    });
+    actions.append(markdownBtn,jsonBtn);
 
     if (!closed) {
         if (!review.plannedSessions) {
