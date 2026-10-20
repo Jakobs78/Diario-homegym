@@ -69,14 +69,21 @@ test('60-minute Upper/Lower keeps rear/lateral functional coverage at multiple f
     },emptyHistory);
     for(const week of meso.weeks){
       assert.ok(week.days.every(day=>day.estimatedMinutes<=60));
-      const a=week.days[0].exercises.filter(ex=>ex.shoulderHeadIsolation);
-      const b=week.days[2].exercises.filter(ex=>ex.shoulderHeadIsolation);
-      assert.ok(a.every(ex=>ex.shoulderHeadIsolation==='laterale'),focus);
-      assert.ok(b.every(ex=>ex.shoulderHeadIsolation==='posteriore'),focus);
-      const rearCount=week.days.flatMap(d=>d.exercises).filter(ex=>
+      // The weekly balancer can legitimately move a posterior accessory
+      // into Upper A when Upper B is full. Audit the actual anatomy across
+      // the WEEK rather than imposing a day-level location after transfer.
+      const actual=week.days.flatMap(d=>d.exercises);
+      const rearCount=actual.filter(ex=>
         metaFor(ex.name)?.shoulderHeadIsolation==='posteriore'
       ).reduce((sum,ex)=>sum+ex.setsCount,0);
+      const lateralCount=actual.filter(ex=>
+        metaFor(ex.name)?.shoulderHeadIsolation==='laterale'
+      ).reduce((sum,ex)=>sum+ex.setsCount,0);
       assert.equal(week.weeklyCoverage.functionalCoverage.rearDeltoids.scheduledSets,rearCount);
+      assert.equal(week.weeklyCoverage.shoulderHeadCoverage.directIsolationSets.posteriore,rearCount);
+      assert.equal(week.weeklyCoverage.shoulderHeadCoverage.directIsolationSets.laterale,lateralCount);
+      assert.ok(actual.every(ex=>ex.shoulderHeadIsolation ===
+        (metaFor(ex.name)?.shoulderHeadIsolation || null)),focus);
       // A time cut may eliminate an accessory; the audit cannot claim it
       // present if it was dropped to protect the compound lifts.
       if(!rearCount)assert.notEqual(
@@ -154,4 +161,33 @@ test('transferred posterior sets remain posterior and do not inflate lateral rai
   const coverage=auditWeeklyCoverage(result.days);
   assert.equal(coverage.shoulderHeadCoverage.directIsolationSets.laterale,2);
   assert.equal(coverage.shoulderHeadCoverage.directIsolationSets.posteriore,2);
+});
+
+test('the direct API and the athlete profile both respect exercise exclusions',()=>{
+  const avoided=['Alzate Posteriori con Manubri','Face Pull ai Cavi','Reverse Fly ai Cavi'];
+  const base={
+    daysPerWeek:4,durationWeeks:4,maxSessionMinutes:60,
+    userAge:35,focus:'hybrid',splitPreference:'upperlower'
+  };
+  for(const config of [
+    {...base,excludedExercises:avoided},
+    {...base,athleteProfile:{
+      experience:'intermediate',calibration:'guided',
+      priorityMuscle:null,excludedExercises:avoided,referenceLoads:{}
+    }},
+    {...base,excludedExercises:[avoided[0]],athleteProfile:{
+      experience:'intermediate',calibration:'guided',
+      priorityMuscle:null,excludedExercises:avoided.slice(1),referenceLoads:{}
+    }}
+  ]){
+    const plan=generateSmartMesocycle(config,emptyHistory);
+    for(const week of plan.weeks){
+      const present=week.days.flatMap(day=>day.exercises.map(ex=>ex.name));
+      for(const name of avoided)assert.ok(!present.includes(name),name);
+      assert.equal(week.weeklyCoverage.functionalCoverage.rearDeltoids.scheduledSets,0);
+      assert.equal(week.weeklyCoverage.functionalCoverage.rearDeltoids.status,'not_programmed');
+    }
+  }
+  assert.throws(()=>generateSmartMesocycle({...base,excludedExercises:'wrong'},emptyHistory),
+    /Lista di esercizi da evitare non valida/);
 });
