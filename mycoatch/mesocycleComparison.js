@@ -315,7 +315,7 @@ export function formatCoachReview(comparison, report) {
                 .map(item=>item.exercise+' ('+item.reason+')').join(' · ');
             const excluded=plan.excluded.slice(0,3).map(item=>item.exercise);
             lines.push('G'+plan.day+': '+plan.protected.length+
-                ' esercizi principali conservati; '+
+                'movimenti prioritari protetti (esercizi principali mantenuti); '+
                 (chosen || 'nessun accessorio aggiunto oltre i fondamentali')+
                 (excluded.length ? '; non inseriti: '+excluded.join(', ')+
                     (plan.excluded.length>excluded.length ? ' e altri' : '')+
