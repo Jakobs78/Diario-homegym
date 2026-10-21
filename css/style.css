@@ -3286,7 +3286,7 @@ body.dark-mode .group-title-badge {
 .ex-card .rpe-step-btn { width:22px; min-width:22px; height:36px; min-height:36px; flex:0 0 22px; padding:0; margin:0; border:1px solid var(--border-color); border-radius:6px; background:var(--block-bg); color:var(--text-color); font-size:18px; font-weight:800; touch-action:manipulation; cursor:pointer; }
 .ex-card .rpe-step-btn:focus-visible { outline:2px solid var(--accent-color); outline-offset:1px; }
 .ex-card .rpe-step-btn:disabled { opacity:.4; cursor:not-allowed; }
-.ex-card .rpe-target-label { display:block; color:var(--text-muted); font-size:.66rem; font-weight:650; line-height:1.15; margin:2px 0; }
+.ex-card .reps-target-label, .ex-card .rpe-target-label { display:block; color:var(--text-muted); font-size:.66rem; font-weight:650; line-height:1.15; margin:2px 0; overflow-wrap:anywhere; }
 @media(max-width:390px) { .ex-card .rpe-step-btn { width:20px; min-width:20px; flex-basis:20px; } }
 
 .mycoatch-next-rep-hint {font-size:.8rem;line-height:1.45;margin:4px 0 9px;padding:8px 10px;border-left:3px solid var(--accent-color);background:var(--block-bg);border-radius:6px;}

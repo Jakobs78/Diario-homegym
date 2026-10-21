@@ -14,7 +14,7 @@ import { enableCardSwipeGesture } from './gestures.js';
 import { isWarmupExercise } from './workoutSemantics.js';
 import { saveAndSync } from './storage.js';
 import { renderWorkoutList } from './ui.js';
-import { getSetPrefill } from './setPrefill.js';
+import { getSetPrefill, getSetRepsTarget } from './setPrefill.js';
 import { recommendNextSessionReps } from '../mycoatch/nextSessionReps.js';
 import { recommendCrossExposureLoad } from '../mycoatch/crossExposureLoad.js';
 import { compareConfirmedSetVolume } from './setVolumeComparison.js';
@@ -173,7 +173,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         // Precompila come kg/reps. Il valore diventa prestazione SOLO con il check ✓.
         const displayRpe = isLocked ? (setObj.rpe ?? '') : suggested.rpe;
         const targetWeightDefault = ex.kgMin || ex.kgMax || 'Kg';
-        const defaultTargetReps = ex.reps || ex.targetReps || 'reps';
+        const defaultTargetReps = getSetRepsTarget(ex, setIdx);
 
         let currentKgMin = ex.kgMin;
         let currentKgMax = ex.kgMax;
@@ -241,9 +241,10 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                 <td class="td-input td-reps-stepper">
                     <div class="reps-stepper" role="group" aria-label="Correggi le ripetizioni eseguite nella serie ${setIdx + 1}">
                         <button type="button" class="reps-step-btn" data-ex="${exIdx}" data-set="${setIdx}" data-direction="-1" aria-label="Diminuisci ripetizioni di 1 nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>−</button>
-                        <input type="text" inputmode="numeric" autocomplete="off" class="set-input set-reps ios-no-zoom ${repsClass} ${isUnsavedReps ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayReps)}" placeholder="${escapeHtml(defaultTargetReps)}" aria-label="Ripetizioni eseguite nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>
+                        <input type="text" inputmode="numeric" autocomplete="off" class="set-input set-reps ios-no-zoom ${repsClass} ${isUnsavedReps ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayReps)}" placeholder="${escapeHtml(defaultTargetReps || 'reps')}" aria-label="Ripetizioni eseguite nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>
                         <button type="button" class="reps-step-btn" data-ex="${exIdx}" data-set="${setIdx}" data-direction="1" aria-label="Aumenta ripetizioni di 1 nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>+</button>
                     </div>
+                    <small class="reps-target-label" title="Ripetizioni previste dalla scheda per questa serie, non quelle effettivamente eseguite">Ob. ${escapeHtml(defaultTargetReps || '—')}</small>
                 </td>
                 <td class="td-input td-rpe-stepper">
                     <div class="rpe-stepper" role="group" aria-label="Correggi l'RPE percepito nella serie ${setIdx + 1}">

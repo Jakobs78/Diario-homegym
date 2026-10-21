@@ -64,6 +64,36 @@ function plannedFor(exercise, index) {
     };
 }
 
+
+/**
+ * Prescription shown under the editable REPS value (never a performance).
+ * Keep exact ranges from the original plan; loggedSets and suggested reps
+ * must never replace the prescribed target.
+ */
+export function getSetRepsTarget(exercise, index) {
+    const shown = value => {
+        if (value === null || value === undefined || typeof value === 'object') return '';
+        const s = String(value).trim();
+        return s && s !== '-' && s !== '0' ? s : '';
+    };
+    const bounds = entry => {
+        const min = shown(entry?.minReps), max = shown(entry?.maxReps);
+        return min && max ? (min === max ? min : min + '–' + max) : (min || max);
+    };
+    const plan = exercise?.sets?.[index] || {};
+    const general = shown(exercise?.reps) || shown(exercise?.targetReps) || bounds(exercise);
+    const specific = shown(plan.targetReps) || bounds(plan);
+
+    // Older 12-column CSVs store an explicit first top set in the Topset
+    // column, not in sets[].targetReps. Its reps override only an inherited
+    // general-range target, never a distinct per-series prescription.
+    const top = index === 0
+        ? String(exercise?.topset ?? '').match(/\b1\s*[x×]\s*(\d{1,2}(?:\s*[-–]\s*\d{1,2})?)\s*@/i)?.[1]?.trim() || ''
+        : '';
+    if (specific && specific !== general) return specific;
+    return top || specific || general || '';
+}
+
 function repsCompatible(reps, exercise) {
     const value = String(reps);
     // Tecniche speciali non vanno trasferite ad un esercizio ordinario.

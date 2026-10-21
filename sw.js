@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v66-italian-clarity-20261020';
+const CACHE_NAME = 'workout-app-v67-reps-target-20261021';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [

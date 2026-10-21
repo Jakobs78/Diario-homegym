@@ -398,3 +398,42 @@ test('mobile reps controls fit and every gesture instruction begins at left edge
    expect(layout.noPageOverflow).toBe(true);
  }
 });
+
+
+test('REPS shows unchanged prescribed targets for equal and different series, on mobile and after confirmation',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await setupPlan(page,'drop');
+  const card=page.locator('.ex-card[data-ex="1"]');
+  await expect(card.locator('.reps-target-label')).toHaveText(['Ob. 10-12','Ob. 10-12','Ob. 10-12']);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    const ex=Object.values(state.workoutData.history.years)[0].mesocycles[0].weeks[0].days[0].exercises[1];
+    ex.sets[0].targetReps='5-6';
+    ex.sets[1].targetReps='8-10';
+    ex.sets[2].targetReps='10-12';
+    renderWorkoutList();
+  });
+  const updated=page.locator('.ex-card[data-ex="1"]');
+  await expect(updated.locator('.reps-target-label')).toHaveText(['Ob. 5-6','Ob. 8-10','Ob. 10-12']);
+  await updated.locator('.set-reps[data-set="0"]').fill('6');
+  await updated.locator('.set-kg[data-set="0"]').fill('10');
+  await updated.locator('.set-rpe[data-set="0"]').fill('8');
+  await updated.locator('.set-lock-check[data-set="0"]').check();
+  await expect(updated.locator('.reps-target-label')).toHaveText(['Ob. 5-6','Ob. 8-10','Ob. 10-12']);
+  await expect(updated.locator('.set-reps[data-set="0"]')).toHaveValue('6');
+  await expect(updated.locator('.reps-step-btn[data-set="0"][data-direction="1"]')).toBeDisabled();
+  for(const width of [320,390]){
+    await page.setViewportSize({width,height:844});
+    const layout=await updated.evaluate(card=>({
+      labels:[...card.querySelectorAll('.reps-target-label')].every(l=>l.getBoundingClientRect().width>0 && l.getBoundingClientRect().height>0),
+      noOverflow:document.documentElement.scrollWidth<=innerWidth+1,
+      repsInside:[...card.querySelectorAll('.td-reps-stepper')].every(cell=>{
+        const label=cell.querySelector('.reps-target-label');
+        const c=cell.getBoundingClientRect(),r=label.getBoundingClientRect();
+        return r.left>=c.left-1 && r.right<=c.right+1;
+      })
+    }));
+    expect(layout).toEqual({labels:true,noOverflow:true,repsInside:true});
+  }
+});
