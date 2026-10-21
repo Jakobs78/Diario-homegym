@@ -89,6 +89,10 @@ function inspectExercise(exercise, context) {
         plannedSets,
         avgRpe,
         e1rm: e1rms.length ? Math.max(...e1rms) : null,
+        loadReferenceE1rm: e1rms.length===valid.length && valid.length>=2 &&
+            valid.every(set=>set.kg===valid[0].kg) &&
+            valid.every(set=>!set.special && set.rpe>=6 && set.rpe<=9.5 && set.reps<=12)
+            ? Math.min(...e1rms) : null,
         topKg: Math.max(...valid.map(set => set.kg)),
         // The top set is NOT a safe default for all back-off sets.
         workingKg: Math.min(...valid.map(set => set.kg)),

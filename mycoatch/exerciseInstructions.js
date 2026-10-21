@@ -18,6 +18,7 @@ function cue(exercise) {
     if (name.includes('Alzate')) return 'Muovi le braccia con controllo, senza slanci e senza compensare con il tronco.';
     if (name.includes('Leg Curl')) return 'Bacino stabile, fletti il ginocchio portando il tallone verso il gluteo. Torna lentamente senza spingere con il tronco.';
     if (name.includes('Curl')) return 'Piega i gomiti tenendoli il più possibile fermi vicino al corpo. Evita di spingere con la schiena e abbassa lentamente il peso.';
+    if (name.includes('Estensioni Tricipiti')) return 'Tieni i gomiti stabili vicino alla testa, piega e distendi gli avambracci senza inarcare la schiena. Usa un carico che riesci a controllare.';
     if (name.includes('Pushdown')) return 'Tieni i gomiti vicini ai fianchi, distendi gli avambracci spingendo l’impugnatura in basso e risali lentamente senza muovere le spalle.';
     if (name.includes('Crunch')) return 'Avvicina lo sterno al bacino contraendo l’addome, senza tirare il collo o aiutarti con le braccia. Torna lentamente alla posizione iniziale.';
     if (name.includes('Squat') || name.includes('Affondi') || name.includes('Leg Press'))
@@ -71,7 +72,11 @@ export function conciseExerciseInstruction(exercise) {
     else if ((exercise.kgMin === '' || exercise.kgMin == null) &&
         exercise.equipment !== 'bodyweight')
         parts.push('Carico da scegliere: dopo il riscaldamento usa un peso con cui completi le ripetizioni previste rispettando l’RPE (8 ≈ 2 ripetizioni ancora possibili). Annota kg, ripetizioni e RPE reali.');
+    const estimate=/\[CARICO STIMATO\][^|]*/.exec(verbose);
+    if(estimate)parts.push(estimate[0].trim());
     parts.push(cue(exercise));
     // The legacy 12-column CSV must not gain a pseudo-separator in Note.
-    return note;
+    const duration = /\[DURATA STIMATA\]\s*\d+\s*minuti\s+su\s+\d+\s+disponibili/.exec(verbose);
+    if (duration) parts.push(duration[0].trim());
+    return parts.join(' | ').replace(/;/g, ',');
 }

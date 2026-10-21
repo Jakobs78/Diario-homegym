@@ -11,6 +11,7 @@ import { stageProfileRevision, commitProfileRevision, profileSnapshot } from '..
 import { saveAndSync } from './storage.js';
 import { applyTrisetDropsetGrouping, normalizeExerciseName } from './helpers.js';
 import { isMesocycleCompleted } from './historySafety.js';
+import { restoreProposalMetadata } from '../mycoatch/planMetadata.js';
 
 // ==========================================
 // 2. UTILITY DI PARSING E RICONOSCIMENTO COLONNE
@@ -120,7 +121,7 @@ export function importWorkoutPlan(csvText, coachOptions = null) {
         }
         const nextMesoNumber = currentMesos.length + 1;
 
-        const newMesocycle = {
+        let newMesocycle = {
             id: `meso_${nextMesoNumber}`,
             name: `Mesociclo ${nextMesoNumber}`,
             importedAt: new Date().toISOString(),
@@ -222,6 +223,9 @@ export function importWorkoutPlan(csvText, coachOptions = null) {
             });
         });
 
+        if(coachOptions?.generatedPlan)
+            newMesocycle=restoreProposalMetadata(newMesocycle,coachOptions.generatedPlan);
+
         // Anche l'avviso viene mostrato solo DOPO un parsing completo.
         // Inserire una nuova scheda mantiene il mesociclo originale intatto.
         if (activeMeso && !isMesocycleCompleted(activeMeso)) {
@@ -244,7 +248,7 @@ export function importWorkoutPlan(csvText, coachOptions = null) {
         // The profile snapshot belongs to this imported plan, not to a later
         // mutable form state. Manual CSV imports keep their original behavior.
         if(coachOptions?.athleteProfile) {
-            const staged=stageProfileRevision(state.workoutData,coachOptions.athleteProfile);
+            const staged=stageProfileRevision(state.workoutData,coachOptions.athleteProfile,new Date(),coachOptions);
             newMesocycle.coachProfileSnapshot=profileSnapshot(staged,coachOptions);
             commitProfileRevision(state.workoutData,staged);
         }

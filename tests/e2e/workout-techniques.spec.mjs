@@ -251,7 +251,7 @@ for(const [device,width,height] of [['telefono',390,844],['tablet',768,1024],['p
  await page.locator('#btn-user-manual').click();
  const manual=page.locator('#manual-content');
  await expect(manual).toBeVisible();
- await expect(manual.locator('.manual-section')).toHaveCount(17);
+ await expect(manual.locator('.manual-section')).toHaveCount(19);
  for(const link of await manual.locator('[data-manual-target]').all()){
   const id=await link.getAttribute('data-manual-target');
   await link.click();await expect(page.locator('#'+id)).toHaveAttribute('open','');
@@ -318,12 +318,12 @@ test('RPE +/-0,5 mobile: la spunta salva solo il valore percepito, non cambia il
  const card=page.locator('.ex-card[data-ex="1"]');
  const field=card.locator('.set-rpe[data-set="0"]');
  await expect(field).toHaveValue('8');
- await expect(card.locator('.rpe-target-label').first()).toHaveText('Ob. 8');
+ await expect(card.locator('.rpe-target-label').first()).toHaveText('Target 8');
  await card.locator('.rpe-step-btn[data-set="0"][data-direction="1"]').click();
  await expect(field).toHaveValue('8.5');
  await card.locator('.rpe-step-btn[data-set="0"][data-direction="1"]').click();
  await expect(field).toHaveValue('9');
- await expect(card.locator('.rpe-target-label').first()).toHaveText('Ob. 8');
+ await expect(card.locator('.rpe-target-label').first()).toHaveText('Target 8');
  await card.locator('.set-kg[data-set="0"]').fill('10');
  await card.locator('.set-reps[data-set="0"]').fill('12');
  await card.locator('.set-lock-check[data-set="0"]').check();

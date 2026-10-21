@@ -74,6 +74,11 @@ export function initCoachPreview(readCoachOptions,configModal) {
                     }
                     panel.append(ul);container.append(panel);
                 }
+                for(const change of week.volumeBalance?.coverageRepairs || []){
+                    container.append(create('p','Copertura settimanale: '+change.added+
+                        (change.replaced?' al posto di '+change.replaced:' aggiunto')+
+                        '. '+change.reason));
+                }
                 const volumes=week.weeklyCoverage?.fractionalVolumeByMuscle;
                 if(volumes && Object.keys(volumes).length){
                     const breakdown=create('details',undefined,'mycoatch-preview-day');
@@ -129,7 +134,7 @@ export function initCoachPreview(readCoachOptions,configModal) {
             return;
         }
         // The same validated CSV parser already tested by existing app E2E.
-        const result=importWorkoutPlan(proposal.csv,acceptedOptions);
+        const result=importWorkoutPlan(proposal.csv,{...acceptedOptions,generatedPlan:proposal.proposal});
         if(!result.success){
             feedback.textContent=result.error||'Non è stato possibile applicare la proposta.';
             return;

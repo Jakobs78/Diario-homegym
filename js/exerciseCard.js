@@ -1,4 +1,3 @@
-import {barbellForExercise} from '../mycoatch/barbellInventory.js';
 import {canonicalExerciseKey} from '../mycoatch/exerciseIdentity.js';
 import {hasDropPrescription} from './trainingTechniques.js';
 import {dropFields,dropScopeControl} from './dropSetUI.js';
@@ -8,7 +7,7 @@ import {equipmentKind,automaticallyShowPlates,selectableBarbells,suggestedBarbel
  * Summary: Genera dinamicamente le card per ogni esercizio gestendo lo stato di esclusione dai massimali, i selettori del bilanciere, il calcolo dei dischi per lato e l'evidenziatura automatica fuori target per KG (inclusi Topset), REPS ed RPE (con supporto al feedback verde di miglioramento).
  */
 
-import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, findPriorExerciseExposures, isValueOutOfRange, calculateSetVolumeTrend, isValueExceedingTarget, parseRPE, escapeHtml } from './helpers.js';
+import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, findPriorExerciseExposures, isValueOutOfRange, isValueExceedingTarget, parseRPE, escapeHtml } from './helpers.js';
 import { state } from './state.js';
 import { enableCardSwipeGesture } from './gestures.js';
 import { isWarmupExercise } from './workoutSemantics.js';
@@ -273,8 +272,9 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             <div class="bar-controls-row">
                 <span class="bar-select-label">🏋️ SERIE <span class="plates-active-set">${selected+1}</span></span>
                 <select class="bar-select" aria-label="Bilanciere: peso e diametro" ${isPastMeso ? 'disabled' : ''}>
+                    <option value="">Scegli bilanciere…</option>
                     ${barOptions.length ? barOptions.map(bar=>`<option value="${barbellOptionValue(bar)}">Bil ${bar.weight} kg · Ø${bar.diameter} mm</option>`).join('')
-                        : '<option value="">Configura bilanciere…</option>'}
+                        : ''}
                 </select>
             </div>
             <div class="plates-badge" data-ex="${exIdx}">Configura i tuoi bilancieri in Strumenti → Attrezzatura personale.</div>

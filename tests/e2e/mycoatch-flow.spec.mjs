@@ -152,10 +152,10 @@ test('percorso reale: tempo scelto, storico multianno, anteprima, download, impo
   assert.ok(rows.length > 25);
   for (const row of rows.slice(1)) assert.equal(row.split(';').length, 12, row);
   assert.ok(rows.some(row => row.includes('[SPLIT MYCOATCH]')));
-  assert.ok(rows.every(row => !row.includes('[DURATA STIMATA]')));
+  assert.ok(rows.some(row => row.includes('[DURATA STIMATA]')));
   assert.ok(rows.some(row => row.includes('[SUPERSERIE]')));
   assert.ok(dialogues.some(d => d.type === 'confirm' &&
-    d.text.includes('2 mesocicli') && d.text.includes('Confermi la proposta')));
+    d.text.includes('2 mesocicli') && d.text.includes('Vuoi scaricare soltanto il file CSV?')));
   assert.ok(dialogues.some(d => d.type === 'alert' && d.text.includes('successo')));
 
   const storedAfter = await page.evaluate(() => JSON.parse(window.testJournal.getItem('workoutApp_data')));
@@ -280,14 +280,14 @@ test('40 minuti: riequilibrio reale visibile e importabile senza assumere sposta
   assert.equal(expected.recovered,
     expected.moves.reduce((sum, move) => sum + move.sets, 0));
 
-  const confirmation = preview.find(message => message.includes('Bilancio volume prima settimana'));
+  const confirmation = preview.find(message => message.includes('Controllo delle serie nella prima settimana'));
   assert.ok(confirmation, 'La proposta deve mostrare il bilancio settimanale');
-  assert.ok(confirmation.includes(`${expected.recovered} recuperate su altri giorni`));
+  assert.ok(confirmation.includes(`${expected.recovered} spostate o recuperate su altre sedute`));
   if (expected.shortfall > 0) {
-    assert.ok(confirmation.includes(`restano ${expected.shortfall} serie sotto il template`));
+    assert.ok(confirmation.includes(`sono state eliminate ${expected.shortfall} serie`));
   }
-  assert.match(confirmation, /Split programmato: Upper → Lower → Upper → Lower/);
-  assert.match(confirmation, /Movimenti cardine:/);
+  assert.match(confirmation, /Suddivisione delle sedute \(split\): Upper → Lower → Upper → Lower/);
+  assert.match(confirmation, /Esercizi principali su cui MyCoatch costruisce la progressione:/);
   for (const move of expected.moves) {
     assert.ok(confirmation.includes(`G${move.fromDay} → G${move.toDay}: ${move.sets} serie ${move.muscle}`));
   }
@@ -374,7 +374,7 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 1/3');
   await expect(page.locator('#mycoatch-live-guidance')).toContainText('RPE molto alto');
   await expect(page.locator('#mycoatch-live-guidance')).toContainText('Ultima prestazione comparabile');
-  await expect(page.locator('#mycoatch-live-guidance')).toContainText('Differenza e1RM');
+  await expect(page.locator('#mycoatch-live-guidance')).toContainText('Variazione della forza stimata');
   await expect(page.locator('#mycoatch-live-toast')).toContainText('RPE molto alto');
   await expect(page.locator('.mycoatch-live-toast .mycoatch-live-apply')).toBeVisible();
   await expect(page.locator('.mycoatch-live-advice-history')).not.toHaveAttribute('open', '');
@@ -552,14 +552,14 @@ test('MyCoatch suggerisce la revisione della settimana seguente e applica solo d
   await prepareWeeklyReviewFixture(page);
   const panel=page.locator('#mycoatch-weekly-review');
   await expect(panel).toBeVisible();
-  await expect(panel).toContainText('Revisione settimana 2 da valutare');
+  await expect(panel).toContainText('Possibile riduzione dello sforzo nella settimana 2');
   await panel.locator('summary').click();
   await expect(panel).toContainText('2/2 giornate');
   await expect(panel).toContainText('RPE @8 → @7.5');
   await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('82.5');
   await expect(page.locator('.set-lock-check[data-set="0"]')).not.toBeChecked();
   await panel.locator('.mycoatch-weekly-apply').click();
-  await expect(page.locator('#mycoatch-weekly-review')).toContainText('Settimana 2 rivista');
+  await expect(page.locator('#mycoatch-weekly-review')).toContainText('Obiettivi RPE della settimana 2 aggiornati');
   await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('');
   await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('7.5');
   let saved=await page.evaluate(async()=>{
@@ -576,7 +576,7 @@ test('MyCoatch suggerisce la revisione della settimana seguente e applica solo d
   assert.equal(saved.next.loggedSets[0].completed,false);
   assert.equal(saved.persistedReview,true);
   await page.locator('.mycoatch-weekly-undo').click();
-  await expect(page.locator('#mycoatch-weekly-review')).toContainText('Revisione settimana 2 da valutare');
+  await expect(page.locator('#mycoatch-weekly-review')).toContainText('Possibile riduzione dello sforzo nella settimana 2');
   await expect(page.locator('.set-kg[data-set="0"]')).toHaveValue('82.5');
   await expect(page.locator('.set-rpe[data-set="0"]')).toHaveValue('8');
   assert.deepEqual(monitoring.remoteRequests,[]);
@@ -606,7 +606,7 @@ test('MyCoatch LIVE con RPE mancante non inventa massimale o suggerimenti', asyn
   await page.locator('.set-rpe[data-set="0"]').fill('');
   await page.locator('.set-lock-check[data-set="0"]').check();
   await expect(page.locator('#mycoatch-live-guidance')).toContainText('senza RPE');
-  await expect(page.locator('#mycoatch-live-panel')).toContainText('RPE misurato: 0/1');
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Sforzo percepito (RPE) registrato: 0/1');
   await expect(page.locator('.mycoatch-live-apply')).toHaveCount(0);
   await expect(page.locator('#mycoatch-live-guidance')).not.toContainText('e1RM stimato');
   assert.deepEqual(monitoring.remoteRequests, []);
@@ -722,7 +722,7 @@ test('scelta atleta: fondamentali alternativi, controllo attrezzi, CSV e antepri
     3: 'Spinte con Manubri da Seduto',
     4: 'Stacco da Terra Convenzionale'
   });
-  assert.ok(previews.some(p => p.includes('Movimenti cardine:') &&
+  assert.ok(previews.some(p => p.includes('Esercizi principali su cui MyCoatch costruisce la progressione:') &&
     p.includes('Panca Inclinata con Manubri') &&
     p.includes('Stacco da Terra Convenzionale')));
   assert.doesNotMatch(csv, /\[SCELTA MYCOATCH\]/);
@@ -793,6 +793,9 @@ test('prima scheda intermedio senza storico: rispetta esclusioni e convalida car
   await page.locator('#mycoatch-submit').click();
   await expect(page.locator('#mycoatch-form-feedback'))
     .toContainText('kg e ripetizioni reali');
+  await page.locator('#mycoatch-load-bench-reps').fill('8');
+  await page.locator('#mycoatch-load-bench-rpe').fill('7');
+  await page.locator('#mycoatch-load-bench-kg').fill('80');
   await page.locator('#mycoatch-load-bench-reps').fill('8');
   await page.locator('#mycoatch-load-bench-rpe').fill('7');
   await page.locator('#mycoatch-load-bench-date').fill(new Date().toISOString().slice(0, 10));
@@ -969,6 +972,9 @@ test('data dei carichi autodichiarati: senza data non prescrive kg, con data rec
   if (await references.evaluate(node => !node.open)) {
     await references.locator('summary').click();
   }
+  await page.locator('#mycoatch-load-bench-kg').fill('80');
+  await page.locator('#mycoatch-load-bench-reps').fill('8');
+  await page.locator('#mycoatch-load-bench-rpe').fill('7');
   await page.locator('#mycoatch-load-bench-date').fill(new Date().toISOString().slice(0, 10));
   const second = page.waitForEvent('download', { timeout: 20000 });
   await page.locator('#mycoatch-submit').click();
@@ -1481,7 +1487,7 @@ test('MyCoatch visual preview: all weeks shown and diary changes only after expl
   await page.locator('#mycoatch-preview-btn').click();
   await expect(page.locator('#mycoatch-preview-overlay')).not.toHaveClass(/hidden/);
   await expect(page.locator('.mycoatch-preview-week')).toHaveCount(4);
-  await expect(page.locator('#mycoatch-preview-summary')).toContainText('scheda esistente rimane intatta');
+  await expect(page.locator('#mycoatch-preview-summary')).toContainText('senza cancellare i precedenti');
   const before=await page.evaluate(()=>JSON.parse(window.testJournal.getItem('workoutApp_data')));
   assert.deepEqual(before,fixture);
   await page.locator('#mycoatch-preview-apply').click();
@@ -1670,7 +1676,7 @@ test('mobile 320px: meso lock always visible, no nav, exclusion by double-click 
   await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Blocca mesociclo');
   const card=page.locator('.ex-card[data-ex="0"]');
   await expect(card.locator('.exercise-exclude-hint')).toHaveText(
-    'Doppio click o swipe o clicca su W del SET per escludere il riscaldamento');
+    'Doppio clic sulla card (PC) o swipe a sinistra (telefono) per segnare tutto l’esercizio come riscaldamento. W modifica solo una serie.');
   await expect(card.locator('.exercise-exclude-btn')).toHaveCount(0);
   await card.locator('.ex-name').dblclick();
   await expect(page.locator('.ex-card[data-ex="0"]')).toHaveClass(/is-excluded/);
@@ -2015,7 +2021,7 @@ test('all confirmed sets at upper rep range and low RPE can propose a small load
     await page.locator('.set-rpe[data-set="'+i+'"]').fill('6');
     await page.locator('.set-lock-check[data-set="'+i+'"]').check();
   }
-  await expect(page.locator('#mycoatch-live-panel')).toContainText('Prossima seduta');
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Possibili carichi per la prossima seduta');
   await expect(page.locator('#mycoatch-live-panel')).toContainText('80 → 82.5 kg');
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Riepilogo fine seduta');
   await expect(page.locator('#mycoatch-live-panel')).toContainText('RPE 6 percepito / 8 previsto');
@@ -2362,7 +2368,7 @@ test('MyCoatch previews, approves and undoes load increases only for untouched f
   });
   assert.deepEqual(before.future,['80','80']);
   await review.locator('.mycoatch-future-load-apply').click();
-  await expect(review).toContainText('Aggiorna solo le prossime sedute');
+  await expect(review).toContainText('Revisione applicata su tua conferma.');
   const after=await page.evaluate(async()=>{
     const {state}=await import('/js/state.js');
     const m=state.workoutData.history.years['2026'].mesocycles[0];
@@ -2480,7 +2486,7 @@ test('refinement: smartphone confirms a bodyweight set with explicit zero and sh
   return {manual:document.querySelector('#manual-content').textContent,
    columns:parseCSV(MyCoatch.exportAsCSV()).map(row=>row.length)};
  });
- assert.match(result.manual,/versione 47/);
+ assert.match(result.manual,/Guida pratica a HomeGym Diary e MyCoatch/);
  assert.match(result.manual,/cinque minuti/);
  assert.ok(result.columns.every(count=>count===12));
  assert.deepEqual(monitoring.pageErrors,[]);
@@ -2540,10 +2546,10 @@ test('chiusura guidata integrata: blocca il ciclo, conserva i dati, esporta repo
   expect(closed.closure.status).toBe('closed');
   expect(closed.storedClosure.status).toBe('closed');
   const d=page.waitForEvent('download');
-  await page.getByRole('button',{name:/Esporta report per ChatGPT/}).click();
+  await page.getByRole('button',{name:/Scarica dossier dettagliato/}).click();
   const file=await d;const text=await readFile(await file.path(),'utf8');
-  expect(file.suggestedFilename()).toMatch(/report_mycoatch\.txt$/);
-  expect(text).toMatch(/Sedute completate: 3\/3/);
+  expect(file.suggestedFilename()).toMatch(/dossier_mycoatch\.md$/);
+  expect(text).toMatch(/Sedute complete: 3\/3/);
   expect(text).not.toContain('test-e2e@invalid.example');
   expect(text).not.toContain('private-athlete-id');
   await page.getByRole('button',{name:/Prepara il prossimo mesociclo/}).click();
@@ -2895,8 +2901,8 @@ test('PDF mesociclo: esportazione completa con pagine, note, risultati, archivio
   expect(report.result.pages.length).toBeGreaterThan(1);
   const lines=report.result.pages.flat().map(x=>x.line).join(' ');
   for(const text of ['MYCOATCH','BILANCIO DI FINE MESOCICLO',
-     'VOLUME ATTRIBUITO AI MUSCOLI','QUOTA','ESEG./PIANO',
-     'SERIE ALLENANTI','RPE osservati','archiviate',
+     'LAVORO ATTRIBUITO AI GRUPPI MUSCOLARI (STIMA)','QUOTA','ESEG./PIANO',
+     'SERIE ALLENANTI','RPE (sforzo percepito) registrati','Sedute ripetute conservate nello storico',
      'EVIDENZE PER PROGRAMMARE IL PROSSIMO MESOCICLO',
      'Settimana 1','Giorno 1','Squat archivio','Coach ripetizione',
      'Nota ripetizione','Squat','TARGET:','NOTE ALLENATORE','NOTE PERSONALI',
@@ -3000,4 +3006,42 @@ test('iPhone: same bench twice weekly with different RPE/reps uses loadable esti
   });
   assert.deepEqual(saved,[{weight:'',locked:false},{weight:'',locked:false}],
     'suggested kg must never become an actual checked performance');
+});
+
+
+test('saved generation settings return editable; cancelled draft and new plan preserve history',async({page})=>{
+  const monitor=await openIsolatedApp(page);
+  page.on('dialog',dialog=>dialog.accept());
+  await startCoach(page,'custom');
+  await page.locator('#mycoatch-custom-time').fill('55');
+  await page.locator('#mycoatch-split').selectOption('fullbody');
+  await page.locator('#mycoatch-deload-choice').selectOption('none');
+  await page.locator('#mycoatch-save-profile').click();
+  await expect(page.locator('#mycoatch-form-feedback')).toContainText('salvato nel diario');
+  await page.locator('#mycoatch-custom-time').fill('45');
+  await page.evaluate(async()=>{
+    const {startCoachChatAndGenerate}=await import('/mycoatch/mycoatch-adapter.js');
+    startCoachChatAndGenerate();
+  });
+  await expect(page.locator('#select-time')).toHaveValue('custom');
+  await expect(page.locator('#mycoatch-custom-time')).toHaveValue('55');
+  await expect(page.locator('#mycoatch-split')).toHaveValue('fullbody');
+  await page.locator('#mycoatch-split').selectOption('auto');
+  await page.locator('#mycoatch-preview-btn').click();
+  await expect(page.locator('#mycoatch-preview-overlay')).not.toHaveClass(/hidden/);
+  await page.locator('#mycoatch-preview-apply').click();
+  await expect(page.locator('#mycoatch-preview-overlay')).toHaveClass(/hidden/);
+  const saved=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const meso=state.workoutData.history.years[new Date().getFullYear()].mesocycles.at(-1);
+    return {settings:meso.coachProfileSnapshot.settings,day:meso.weeks[0].days[0],
+      journal:state.workoutData.athlete.mycoatchProfileJournal};
+  });
+  expect(saved.settings.maxSessionMinutes).toBe(55);
+  expect(saved.settings.splitPreference).toBe('auto');
+  expect(saved.day.timeBudgetMinutes).toBe(55);
+  expect(saved.day.exercises[0].pattern).toBe('horizontal_push');
+  expect(saved.day.exercises[0].loggedSets.every(set=>!set.isLocked)).toBe(true);
+  expect(saved.journal.versions[0].settings.splitPreference).toBe('fullbody');
+  expect(monitor.pageErrors).toEqual([]);
 });

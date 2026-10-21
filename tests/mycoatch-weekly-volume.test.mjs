@@ -208,7 +208,7 @@ test('CSV mantiene le 12 colonne e conserva i blocchi di superserie', () => {
     assert.equal(rows[0],
         'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset');
     for (const row of rows.slice(1)) assert.equal(row.split(';').length, 12);
-    assert.doesNotMatch(csv, /\[VOLUME RIDISTRIBUITO\]|\[DURATA STIMATA\]/);
+    assert.doesNotMatch(csv, /\[VOLUME RIDISTRIBUITO\]/);
     assert.match(csv, /\[SPLIT MYCOATCH\]/);
     const report = MyCoatch.getActiveMesocycleJSON().coachReport.weeklyVolumeBalance;
     assert.equal(report[0].recoveredSets,

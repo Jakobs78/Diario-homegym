@@ -1,4 +1,4 @@
-import {compatiblePlates} from './barbellInventory.js';
+import {compatiblePlates,PLATE_SIZES} from './barbellInventory.js';
 /**
  * Pure, non-writing suggestion for the NEXT workout, not an automatic
  * modification of the current workout. Every working set must be checked.
@@ -7,6 +7,7 @@ import {compatiblePlates} from './barbellInventory.js';
  */
 import { getPlateBreakdown } from '../js/helpers.js';
 import { plannedWorkSetCount } from '../js/workoutSemantics.js';
+import {estimateE1rm} from './historyAnalysis.js';
 const number=value=>{
     if(value===undefined||value===null||value==='')return null;
     const n=Number(String(value).replace('@','').replace(',','.'));
@@ -34,6 +35,7 @@ export function equipmentCategory(ex={}) {
     return 'barbell';
 }
 export function getAvailableLoadStep(ex, settings={},weight=null) {
+    settings={...settings,...(settings.loadingSteps || {})};
     const type=equipmentCategory(ex);
     const custom=number(settings?.[type]);
     const standard=type==='dumbbell'&&weight!==null&&weight<12.5?0.5:
@@ -46,6 +48,34 @@ export function getAvailableLoadStep(ex, settings={},weight=null) {
     };
 }
 const roundLoad=value=>Math.round(value*100)/100;
+
+/** Finite, exact inventory search. A step alone never proves ownership. */
+export function resolveNearbyLoad(ex, requested, settings={}, {min=0.01,max=700,origin=0}={}) {
+    const raw=number(requested);
+    if(raw===null || raw<=0 || raw>700)return {weight:null,verified:false,reason:'invalid_load'};
+    const {type,step,configured}=getAvailableLoadStep(ex,settings,raw);
+    if(type==='barbell' && (settings.plateInventories || settings.platePairs)){
+        const binding=compatiblePlates(ex,settings);
+        if(!binding)return {weight:null,verified:true,reason:'missing_assignment'};
+        let totals=new Set([0]);
+        for(const plate of PLATE_SIZES){
+            const count=Math.max(0,Math.min(24,Math.trunc(Number(binding.inventory[String(plate)])||0)));
+            const next=new Set(totals);
+            for(const total of totals)for(let n=1;n<=count;n++){
+                const sum=total+Math.round(plate*8)*n;
+                if(sum<=2800)next.add(sum);
+            }
+            totals=next;
+        }
+        const candidates=[...totals].map(x=>roundLoad(binding.weight+x/4)).filter(x=>x>=min-1e-8&&x<=max+1e-8)
+            .sort((a,b)=>Math.abs(a-raw)-Math.abs(b-raw)||a-b);
+        return {weight:candidates[0]??null,verified:true,reason:candidates.length?'inventory':'unavailable_load'};
+    }
+    const candidates=[origin+Math.floor((raw-origin)/step)*step,origin+Math.ceil((raw-origin)/step)*step]
+        .map(roundLoad).filter(x=>x>=min-1e-8&&x<=max+1e-8&&x>0)
+        .sort((a,b)=>Math.abs(a-raw)-Math.abs(b-raw)||a-b);
+    return {weight:candidates[0]??null,verified:false,reason:configured?'configured_step':'indicative_step'};
+}
 
 /**
  * Recommendations require every work set to be valid, checked, homogeneous,
@@ -74,33 +104,46 @@ export function recommendNextSessionLoad(ex,{
     const kg=values[0].kg;
     // Mixed loads can reflect top sets/backoffs: never use one suggestion
     // for a different prescribed intensity.
-    if(!values.every(v=>v.kg===kg&&v.reps>=range.min))return null;
+    if(!values.every(v=>v.kg===kg&&v.reps>=range.min&&v.rpe<=target))return null;
     const extraReps=values.every(v=>v.reps>=range.max&&v.reps<=range.max+2&&v.rpe<=target);
     // First build repetitions. Even easy working sets below the top of the
     // range never authorize a load increase from one training session.
-    if(!extraReps)return null;
+    if(!extraReps){
+        if(!values.every(v=>v.reps<=range.max&&v.rpe<=target))return null;
+        const nextReps=values.map(v=>v.reps);
+        const index=nextReps.findIndex(reps=>reps<range.max);
+        if(index<0)return null;
+        nextReps[index]++;
+        return {eligible:true,suggestedWeight:null,previousWeight:kg,nextReps,
+            reason:'Mantieni '+kg+' kg: prova +1 ripetizione in una sola serie ('+nextReps.join('/')+'), entro il range e l’RPE previsti.',
+            evidence:'build_reps',configured:false,type:equipmentCategory(ex)};
+    }
     const {step,type,configured}=getAvailableLoadStep(ex,equipmentSettings||{},kg);
     const cap=type==='dumbbell'?0.1:0.05;
-    if(step/kg>cap+1e-9)return {
-        eligible:true,suggestedWeight:null,previousWeight:kg,step,
-        reason:'Prestazione superiore al target, ma il più piccolo incremento indicato è troppo grande rispetto al carico. Servono microcarichi o un’altra seduta di conferma.',
-        evidence:'top_reps',configured,type
-    };
-    const proposed=roundLoad(kg+step);
-    if(type==='barbell' && (equipmentSettings?.plateInventories || equipmentSettings?.platePairs)){
-        const compatible=compatiblePlates(ex,equipmentSettings);
-        const plates=compatible && getPlateBreakdown(proposed,compatible.weight,compatible.inventory);
-        if(!plates?.exact)return {
-            eligible:true,suggestedWeight:null,previousWeight:kg,step,
-            reason:'Verifica il bilanciere, il diametro e i dischi compatibili: il nuovo carico non è confermato componibile. Mantieni il peso o completa l’attrezzatura.',
-            evidence:'top_reps',configured,type
-        };
+    let resolved=resolveNearbyLoad(ex,kg+step,equipmentSettings || {},{min:kg+.01,max:kg*(1+cap),origin:kg});
+    let repGoal=null;
+    if(resolved.weight===null && range.min<range.max && range.max<=12 && target<=9.5){
+        const estimates=values.map(v=>estimateE1rm(v.kg,v.reps,v.rpe));
+        if(estimates.every(value=>value!==null)){
+            const raw=Math.min(...estimates)/(1+(range.min+10-target)/30);
+            resolved=resolveNearbyLoad(ex,raw,equipmentSettings || {},{
+                min:kg+.01,max:Math.min(kg*1.10,raw),origin:kg
+            });
+            if(resolved.weight!==null)repGoal=range.min;
+        }
     }
+    if(resolved.weight===null)return {eligible:true,suggestedWeight:null,previousWeight:kg,step,
+        reason:'Nessun incremento compatibile confermato. Mantieni i kg e le ripetizioni consolidate; verifica bilanciere, dischi o microcarichi. Un ampliamento del range richiede una revisione esplicita.',
+        evidence:'equipment_hold',configured,type};
+    const proposed=resolved.weight;
     return {
         eligible:true,suggestedWeight:proposed,previousWeight:kg,step,
         evidence:'top_reps',
-        reason:'Tutte le serie confermate hanno raggiunto il limite alto delle ripetizioni con RPE entro target.',
+        repGoal,
+        reason:'Tutte le serie confermate hanno raggiunto il limite alto con RPE entro target.'+
+            (repGoal?' Con il nuovo peso riparti da '+repGoal+' ripetizioni, senza superare l’RPE previsto.':''),
         configured,type,
+        verified:resolved.verified,
         confidence:'single_session_provisional',
         advisory:'Proposta per la prossima seduta, non modifica automatica della scheda. Rivaluta tecnica, recupero e disponibilità reale dei pesi.'
     };

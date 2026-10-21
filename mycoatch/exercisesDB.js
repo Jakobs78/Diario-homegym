@@ -30,6 +30,7 @@ const RAW_EXERCISES = [
     { name: "Alzate Laterali ai Cavi", category: "Spalle", pattern: "isolation", equipment: "cable", cnsCost: 3, profile: "Curva di resistenza uniforme sul deltoide laterale", defaultReps: "12-15", defaultKg: "" },
 
     // --- BRACCIA ---
+    { name: "Estensioni Tricipiti con Manubrio", category: "Tricipiti", pattern: "isolation", equipment: "dumbbell", cnsCost: 3, defaultReps: "10-15", defaultKg: "" },
     { name: "Curl con Bilanciere EZ", category: "Bicipiti", pattern: "isolation", equipment: "barbell", cnsCost: 4, profile: "Flessione gomito - Minimo stress polsi", defaultReps: "8-10", defaultKg: "" },
     { name: "Curl Manubri su Panca Inclinata", category: "Bicipiti", pattern: "isolation", equipment: "dumbbell", cnsCost: 3, profile: "Enfasi capo lungo in massimo allungamento", defaultReps: "10-12", defaultKg: "" },
     { name: "French Press con Bilanciere EZ", category: "Tricipiti", pattern: "isolation", equipment: "barbell", cnsCost: 4, profile: "Capo mediale e laterale - Allungamento gomito", defaultReps: "8-10", defaultKg: "" },
@@ -72,6 +73,7 @@ const RAW_EXERCISES = [
  * Le `secondaryMuscles` indicano coinvolgimento, NON serie effettive misurate.
  */
 const STABLE_IDS = new Map([
+    ["Estensioni Tricipiti con Manubrio", "estensioni_tricipiti_con_manubrio"],
     ["Hamstring Walkout a Corpo Libero", "hamstring_walkout_corpo_libero"],
     ["Panca Piana con Bilanciere", "panca_piana_con_bilanciere"],
     ["Panca Inclinata con Manubri", "panca_inclinata_con_manubri"],

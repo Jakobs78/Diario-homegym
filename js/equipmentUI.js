@@ -57,6 +57,7 @@ export function suggestedBarbell(exercise, athlete = {}) {
     if (assignment && options.some(bar => barbellOptionValue(bar) === barbellOptionValue(assignment))) {
         return assignment;
     }
+    if(assignment)return null; // Removed binding: request a deliberate new choice.
     const preferred = normalizeOwnedBarbells([athlete.defaultBarbell])[0];
     if (preferred && options.some(bar => barbellOptionValue(bar) === barbellOptionValue(preferred))) {
         return preferred;

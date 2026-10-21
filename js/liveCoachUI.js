@@ -45,10 +45,13 @@ function createAdviceApplyButton(advice, day = null) {
     button.dataset.set = String(advice.nextSetIndex);
     button.addEventListener('click', () => {
         // Un check-in aggiornato deve impedire anche l'uso di un popup vecchio.
-        const latest = day && buildLiveSessionSnapshot(day).readiness;
+        const snapshot = day && buildLiveSessionSnapshot(day,{history:state.workoutData});
+        const latest = snapshot?.readiness;
         if (latest?.level === 'stop' ||
             (latest?.allowIncrease === false &&
                 advice.suggestedWeight > advice.weight)) return;
+        if(snapshot && (snapshot.lastAdvice?.suggestedWeight!==advice.suggestedWeight ||
+            snapshot.lastAdvice?.nextSetIndex!==advice.nextSetIndex))return;
         const currentInput = document.querySelector(selector);
         if (!currentInput || currentInput.disabled) return;
         currentInput.value = String(advice.suggestedWeight);
@@ -301,9 +304,12 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
             const item=element('p','mycoatch-next-load');
             const stepText=proposal.suggestedWeight!==null
                 ? proposal.previousWeight+' → '+proposal.suggestedWeight+' kg'
-                : 'Carico da mantenere · servono microcarichi';
+                : proposal.nextReps ? 'Stessi kg · prossime ripetizioni '+proposal.nextReps.join('/')
+                    : 'Carico da mantenere · verifica le alternative';
             item.append(element('strong','',ex.name+' · '+stepText));
-            item.append(element('small','',proposal.reason+' '+(proposal.configured
+            item.append(element('small','',proposal.reason+' '+(proposal.verified
+                ? 'Carico componibile con il bilanciere e i dischi registrati.'
+                : proposal.configured
                 ? 'Incremento conforme alle impostazioni dell’attrezzatura.'
                 : 'Incremento indicativo: controlla i pesi realmente disponibili.')));
             section.append(item);

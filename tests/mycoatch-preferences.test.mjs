@@ -28,7 +28,7 @@ test('trasmette esattamente la durata scelta a MyCoatch', () => {
         availableEquipment: [...DEFAULT_HOME_GYM_EQUIPMENT],
         availableAccessories: [...DEFAULT_HOME_GYM_ACCESSORIES],
         cableSetup: 'single_high_low',
-        preferredLifts: {}
+        preferredLifts: {}, splitPreference: 'auto', deloadWeek: null
     });
 });
 
@@ -68,7 +68,7 @@ test('scarico: scelta esplicita validata, automatico legacy invariato',()=>{
         splitPreference:'fullbody'};
     const automatic=parseCoachPreferences({...fields,deloadChoice:'auto'});
     assert.equal(automatic.splitPreference,'fullbody');
-    assert.equal(Object.hasOwn(automatic,'deloadWeek'),false);
+    assert.equal(automatic.deloadWeek,null);
     assert.equal(parseCoachPreferences({...fields,deloadChoice:'last'}).deloadWeek,true);
     assert.equal(parseCoachPreferences({...fields,deloadChoice:'none'}).deloadWeek,false);
     assert.throws(()=>parseCoachPreferences({...fields,deloadChoice:'week2'}),/scarico/);

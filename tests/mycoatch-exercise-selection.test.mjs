@@ -16,10 +16,10 @@ const noHistory = { byExercise: {}, stalledExercises: [], exerciseNotes: {} };
 const plan = (config = {}, previous = null) =>
     generateSmartMesocycle({ ...base, ...config }, noHistory, previous);
 
-test('catalogo di 52 esercizi con ID stabili, categorie e dotazioni esplicite', () => {
-    assert.equal(EXERCISE_DATABASE.length, 52);
-    assert.equal(new Set(EXERCISE_DATABASE.map(e => e.id)).size, 52);
-    assert.equal(new Set(EXERCISE_DATABASE.map(e => e.name)).size, 52);
+test('catalogo di 53 esercizi con ID stabili, categorie e dotazioni esplicite', () => {
+    assert.equal(EXERCISE_DATABASE.length, 53);
+    assert.equal(new Set(EXERCISE_DATABASE.map(e => e.id)).size, 53);
+    assert.equal(new Set(EXERCISE_DATABASE.map(e => e.name)).size, 53);
     assert.ok(EXERCISE_DATABASE.every(ex =>
         /^[a-z0-9_]+$/.test(ex.id) &&
         ex.primaryMuscle === ex.category &&

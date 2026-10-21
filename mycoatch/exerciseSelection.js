@@ -165,7 +165,7 @@ const SLOT_PREFERENCES = {
     ],
     'Tricipiti:isolation': [
         'Pushdown ai Cavi con Corda', 'Estensioni Tricipiti Sopra la Testa ai Cavi',
-        'Pushdown ai Cavi', 'French Press con Bilanciere EZ'
+        'Pushdown ai Cavi', 'French Press con Bilanciere EZ', 'Estensioni Tricipiti con Manubrio'
     ],
     'Polpacci:isolation': ['Calf Raise in Piedi con Manubri', 'Calf Raise Monopodalico'],
     'Core:isolation': ['Crunch ai Cavi', 'Pallof Press ai Cavi', 'Reverse Crunch su Panca']
@@ -194,7 +194,7 @@ function scoreCandidate(exercise, slot, options) {
 export function selectExerciseForSlot(slot, options = {}) {
     const preferences = options.preferences || normalizeSelectionPreferences();
     const usedNames = new Set((options.selectedToday || []).map(canonicalExerciseKey));
-    const candidates = EXERCISE_DATABASE.filter(ex =>
+    let candidates = EXERCISE_DATABASE.filter(ex =>
         ex.category === slot.muscle && ex.pattern === slot.pattern &&
         // The user's previous lateral raise is NOT an equivalent substitute
         // for a slot specifically reserved for posterior deltoid isolation.
@@ -205,6 +205,9 @@ export function selectExerciseForSlot(slot, options = {}) {
         !usedNames.has(canonicalExerciseKey(ex.name)) &&
         isExerciseAvailable(ex, preferences)
     );
+    const alternatives=candidates.filter(ex=>canonicalExerciseKey(ex.name)!==canonicalExerciseKey(options.previousName));
+    if(options.allowVariation && alternatives.length && !preferences.preferredLifts[slot.anchor])
+        candidates=alternatives;
 
     if (slot.anchor) {
         const desired = preferences.preferredLifts[slot.anchor] ||
@@ -251,7 +254,9 @@ export function selectExerciseForSlot(slot, options = {}) {
     )[0];
     return {
         exercise: chosen,
-        reason: options.previousName && canonicalExerciseKey(chosen.name) ===
+        reason: options.allowVariation && canonicalExerciseKey(chosen.name)!==canonicalExerciseKey(options.previousName)
+            ? 'Variante proposta dopo uno stallo persistente su blocchi confrontabili. Calibra il nuovo carico; verifica la risposta nelle prossime sedute.'
+            : options.previousName && canonicalExerciseKey(chosen.name) ===
             canonicalExerciseKey(options.previousName)
             ? 'Variante mantenuta dal mesociclo precedente.'
             : 'Selezionato per schema motorio, attrezzatura, ruolo e distribuzione settimanale.'

@@ -3371,3 +3371,11 @@ body.dark-mode .group-title-badge {
     line-height:1.3;
     white-space:normal;
 }
+
+/* Longer coaching explanations must remain usable on narrow phones. */
+.mycoatch-meso-closure-content,
+.mycoatch-meso-closure-actions,
+.mycoatch-meso-closure-check > span { min-width: 0; }
+.mycoatch-meso-closure-actions > button {
+  min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere;
+}

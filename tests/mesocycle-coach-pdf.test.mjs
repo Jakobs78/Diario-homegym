@@ -52,7 +52,7 @@ test('coach PDF combines closure review, weekly metrics and muscle percent share
     assert.ok(report.rows.some(x=>x.kind==='coach-section'&&x.title.includes('MUSCOLARI')));
     assert.ok(report.rows.some(x=>x.kind==='coach-text'&&x.text.includes('RPE mancanti')));
     assert.ok(report.rows.some(x=>x.kind==='coach-text'&&x.text.includes('Esercizio Sconosciuto ABC')));
-    assert.ok(report.rows.some(x=>x.kind==='coach-text'&&x.text.includes('archivio')));
+    assert.ok(report.rows.some(x=>x.kind==='coach-text'&&x.text.includes('non sommate alle sedute')));
     const reportText=JSON.stringify(report.rows);
     for(const secret of ['private@example.org','sensitive','COACH PRIVATE','PRIVATE NOTES','500'])
         assert.doesNotMatch(reportText,new RegExp(secret),'MyCoatch overview should not expose raw notes, identifiers or archives');

@@ -19,7 +19,7 @@ export function createWeeklyReviewPanel(mesocycle, weekNumber, {
     readOnly=false, wasOpen=false, render=null
 }={}) {
     const proposal=reviewUpcomingWeek(mesocycle,weekNumber);
-    if(!['ready','pain','applied'].includes(proposal.status))return null;
+    if(proposal.status==='none')return null;
 
     const details=node('details','mycoatch-weekly-review');
     details.id='mycoatch-weekly-review';
@@ -28,7 +28,8 @@ export function createWeeklyReviewPanel(mesocycle, weekNumber, {
         ? '🤖 MyCoatch · Possibile riduzione dello sforzo nella settimana '+weekNumber
         : proposal.status==='pain'
             ? '⚠️ MyCoatch · Dolore segnalato nella settimana precedente'
-            : '✓ MyCoatch · Obiettivi RPE della settimana '+weekNumber+' aggiornati';
+            : proposal.status==='applied' ? '✓ MyCoatch · Obiettivi RPE della settimana '+weekNumber+' aggiornati'
+                : '🤖 MyCoatch · Stato della revisione settimanale';
     details.append(node('summary','mycoatch-weekly-review-summary',summary));
     const body=node('div','mycoatch-weekly-review-content');
     body.append(node('p','',proposal.message));

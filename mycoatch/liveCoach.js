@@ -4,6 +4,8 @@ import { estimateE1rm } from './historyAnalysis.js';
 import { previousExercisePerformance, historicalSessionPace } from './liveHistory.js';
 import { isWarmupExercise } from '../js/workoutSemantics.js';
 import { assessSessionReadiness } from './sessionReadiness.js';
+import { repetitionSeconds } from './timeEstimator.js';
+import {getAvailableLoadStep,resolveNearbyLoad} from './loadProposal.js';
 
 function decimal(value) {
     if (value === null || value === undefined || value === '') return null;
@@ -78,14 +80,6 @@ function roundToIncrement(weight, increment) {
     return Math.max(increment, Math.round(weight / increment) * increment);
 }
 
-function loadingIncrement(weight, exercise) {
-    // Suggerimenti, non prescrizioni obbligatorie: sono disponibili solo
-    // step ragionevoli e l'utente deve confermare la disponibilita' dei dischi.
-    if (weight < 12.5) return 0.5;
-    if (exercise?.pattern === 'isolation' || weight < 25) return 1;
-    return 2.5;
-}
-
 function isAccessory(exercise) {
     return exercise?.pattern === 'isolation';
 }
@@ -121,8 +115,7 @@ export function validateCompletedSet(values, exercise = {}, set = {}) {
     const rpe = rawRpe === '' ? null : validRpe(rawRpe);
     // An RPE of 5 or 5.5 is permitted only for a light prescribed session.
     // These real recordings are NOT used for e1RM (which requires >=6).
-    const prescription = plannedRpe(exercise);
-    const minimumRpe = prescription !== null && prescription < 6 ? 5 : 6;
+    const minimumRpe = 5;
     if (rawRpe !== '' && (rpe === null || rpe < minimumRpe)) {
         return { ok: false, message: 'RPE non valido: usa un numero da ' +
             minimumRpe + ' a 10 oppure lascia vuoto.' };
@@ -165,7 +158,7 @@ function lastCompletedIndex(exercise) {
  * Unica fonte per il coaching della singola serie, usata sia dalla card
  * che dalla panoramica della seduta. Legge ESCLUSIVAMENTE serie confermate.
  */
-export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = null } = {}) {
+export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = null,equipmentSettings={} } = {}) {
     if(isWarmupExercise(exercise))return null;
     const sets = Array.isArray(exercise?.loggedSets) ? exercise.loggedSets : [];
     const lastIndex = lastCompletedIndex(exercise);
@@ -235,7 +228,7 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
         const multipleHard = paired.slice(-2).filter(set =>
             set.rpe >= 9 || (range && set.reps < range.min)).length >= 2;
         if (result.rpe >= 9.5 || multipleHard) {
-            const step = loadingIncrement(result.weight, exercise);
+            const step = getAvailableLoadStep(exercise,equipmentSettings,result.weight).step;
             const lower = roundToIncrement(result.weight * 0.95, step);
             if (lower < result.weight) {
                 suggestedWeight = lower;
@@ -249,11 +242,28 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
     if (result.weight > 0 && remainingIndex >= 0 && code === 'strong_set' && paired.length >= 2 &&
         paired.slice(-2).every(set =>
             range && set.reps >= range.max && set.rpe <= targetRpe - 1)) {
-        const step = loadingIncrement(result.weight, exercise);
+        const step = getAvailableLoadStep(exercise,equipmentSettings,result.weight).step;
         if (!isAccessory(exercise) || step <= 1.25) {
-            suggestedWeight = roundToIncrement(result.weight + step, step);
+            suggestedWeight = result.weight + step;
             message = `Due serie al limite alto con RPE sotto target: se hai margine reale, valuta ${suggestedWeight} kg nel set successivo; altrimenti mantieni ${result.weight} kg.`;
             code = 'optional_increment';
+        }
+    }
+
+    if(suggestedWeight!==null){
+        const provisional=suggestedWeight;
+        const increasing=provisional>result.weight;
+        const resolved=resolveNearbyLoad(exercise,provisional,equipmentSettings,{
+            min:increasing?result.weight+.01:result.weight*.8,
+            max:increasing?result.weight*1.10:result.weight-.01,origin:result.weight
+        });
+        suggestedWeight=resolved.weight;
+        if(suggestedWeight===null){
+            code='equipment_hold';
+            message='Il carico proposto non è verificabile con l’attrezzatura configurata. Mantieni un peso gestibile; verifica bilanciere e dischi prima di cambiare i kg.';
+        }else{
+            message=message.replace(provisional+' kg',suggestedWeight+' kg');
+            if(!resolved.verified)message+=' Disponibilità del peso da verificare: inventario non confermato.';
         }
     }
 
@@ -353,6 +363,8 @@ function elapsedSeconds(day, now) {
 }
 
 function plannedTimeMinutes(day) {
+    if(Number.isFinite(day?.estimatedMinutes) && Number.isFinite(day?.timeBudgetMinutes))
+        return {planned:day.estimatedMinutes,budget:day.timeBudgetMinutes};
     for (const ex of day?.exercises || []) {
         const text = String(ex?.notes || '');
         const found = text.match(/\[DURATA STIMATA\]\s*(\d+)\s*minuti\s+su\s+(\d+)\s+disponibili/i);
@@ -374,7 +386,7 @@ function timeRemainingSeconds(day) {
         const sets = (ex.loggedSets || []).filter(set => !isWarmup(set));
         const remaining = sets.filter(set => !isConfirmed(set)).length;
         if (!remaining) continue;
-        result += remaining * (ex.pattern === 'isolation' ? 50 : 55);
+        result += remaining * repetitionSeconds(ex);
         const allDone = sets.length - remaining;
         if (allDone === 0) unstarted++;
         // Non contare pause all'interno di superset/triset.
@@ -417,7 +429,9 @@ export function buildLiveSessionSnapshot(day, { now = Date.now(), history = null
             if (!result.technique) tonnage += result.weight * result.reps;
             if (result.rpe !== null) rpeCount++;
         });
-        const advice = assessExerciseLive(exercise, exerciseIndex, { readiness });
+        const advice = assessExerciseLive(exercise, exerciseIndex, {
+            readiness,equipmentSettings:history?.athlete || {}
+        });
         if (advice) {
             const timestamp = Date.parse(exercise.loggedSets[advice.setIndex]?.completedAt ?? '') || 0;
             // Usa il timestamp disponibile; nei dati legacy preferisce l'ordine

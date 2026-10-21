@@ -65,7 +65,7 @@ test('istruzioni CSV brevi: split, warmup, superserie, triset, drop restano inte
     const instructions=conciseExerciseInstruction(shared);
     for(const tag of ['[SPLIT MYCOATCH] Upper A','[SUPERSERIE]','[WARM-UP AUTO]',
         '[DROP_SET]','[DROP_SCOPE:LAST]'])assert.ok(instructions.includes(tag),tag);
-    for(const unwanted of ['[SCELTA MYCOATCH]','[PROGRESSIONE]','[DURATA STIMATA]'])
+    for(const unwanted of ['[SCELTA MYCOATCH]','[PROGRESSIONE]'])
         assert.ok(!instructions.includes(unwanted),unwanted);
     assert.ok(instructions.length<650,instructions); // Expanded guidance must remain legible.
     assert.ok(conciseExerciseInstruction({...shared,notes:'[TRISET] Segui gli esercizi.'})

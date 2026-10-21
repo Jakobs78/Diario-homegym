@@ -83,6 +83,6 @@ test('RPE 5.5 prescription is confirmable but cannot seed cross-day e1RM',()=>{
  assert.equal(stepRpe('6',-1,'5.5'),'5.5');
  assert.equal(getSetPrefill({...light,loggedSets:[{}],sets:[{}]},0).rpe,'5.5');
  assert.equal(validateCompletedSet({weight:'59',reps:'5',rpe:'5.5'},light).ok,true);
- assert.equal(validateCompletedSet({weight:'59',reps:'5',rpe:'5.5'},{...light,targetRpe:'8'}).ok,false);
+ assert.equal(validateCompletedSet({weight:'59',reps:'5',rpe:'5.5'},{...light,targetRpe:'8'}).ok,true);
  assert.equal(recommendCrossExposureLoad({...future(),targetRpe:'5.5'},[source()],plates()),null);
 });

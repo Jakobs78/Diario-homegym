@@ -2,7 +2,7 @@
 import { MyCoatch, downloadMesocycleCSV } from './index.js';
 import { getFromLocalStorageForUser } from '../js/storage.js';
 import { state } from '../js/state.js';
-import { latestSavedProfile, snapshotEquipmentState } from './profileJournal.js';
+import { latestSavedProfile, latestSavedSettings, snapshotEquipmentState } from './profileJournal.js';
 import { pullDataFromSupabase } from '../js/sync.js';
 import { formatCoachReview } from './mesocycleComparison.js';
 import { locateClosedMesocycle } from './closureHandoff.js';
@@ -130,7 +130,8 @@ export function startCoachChatAndGenerate(mesocycleOrEvent = null) {
         return;
     }
 
-    // Non riutilizzare automaticamente una durata precedente.
+    // A cancelled preview must not supply the defaults for the next request.
+    document.getElementById('mycoatch-config-form')?.reset();
     const time = document.getElementById('select-time');
     if (time) time.value = '';
     const custom = document.getElementById('mycoatch-custom-time');
@@ -144,8 +145,27 @@ export function startCoachChatAndGenerate(mesocycleOrEvent = null) {
     if (feedback) feedback.textContent = '';
 
     const saved=latestSavedProfile(state.workoutData);
+    const settings=latestSavedSettings(state.workoutData);
+    const set=(id,value)=>{const node=document.getElementById(id);if(node)node.value=value??'';};
+    if(settings){
+        for(const [key,id] of Object.entries({userAge:'input-age',daysPerWeek:'select-days',
+            focus:'select-focus',splitPreference:'mycoatch-split',cableSetup:'mycoatch-cable-setup'}))
+            if(settings[key]!==undefined)set(id,settings[key]);
+        set('mycoatch-deload-choice',settings.deloadWeek===true?'last':settings.deloadWeek===false?'none':'auto');
+        const minutes=Number(settings.maxSessionMinutes);
+        if(time && Number.isInteger(minutes)){
+            const standard=[...time.options].some(option=>option.value===String(minutes));
+            time.value=standard?String(minutes):'custom';
+            time.dispatchEvent(new Event('change'));
+            if(!standard && custom)custom.value=String(minutes);
+        }
+        document.querySelectorAll('.mycoatch-accessory-check').forEach(node=>{
+            node.checked=settings.availableAccessories?.includes(node.value)===true;
+        });
+        for(const lift of ['bench','squat','military','hinge'])
+            set('mycoatch-lift-'+lift,settings.preferredLifts?.[lift] || 'auto');
+    }
     if(saved){
-        const set=(id,value)=>{const node=document.getElementById(id);if(node)node.value=value??'';};
         set('mycoatch-experience',saved.experience);
         set('mycoatch-calibration',saved.calibration);
         set('mycoatch-priority-muscle',saved.priorityMuscle);

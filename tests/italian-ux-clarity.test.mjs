@@ -27,7 +27,7 @@ test('coach notes are practical Italian explanations while preserving CSV contro
   const rear=conciseExerciseInstruction({name:'Alzate Posteriori con Manubri'});
   const lateral=conciseExerciseInstruction({name:'Alzate Laterali con Manubri'});
   assert.match(rear,/Inclina il busto/);
-  assert.match(lateral,/lateralmente/);
+  assert.match(lateral,/ai lati/);
   assert.notEqual(rear,lateral);
 });
 
@@ -49,11 +49,11 @@ test('safety: training prescription and imported data remain unchanged by copy e
 
 test('menu labels explain export, import, automatic deload and pulley attachment',async()=>{
   const html=await file('index.html');
-  assert.match(html,/Genera CSV senza modificare il diario/);
-  assert.match(html,/Automatica: MyCoatch decide/);
-  assert.match(html,/NON la barra della lat machine/);
-  assert.match(html,/Importa una scheda CSV come nuovo mesociclo/);
-  assert.match(html,/Cancella tutto lo storico degli allenamenti/);
+  assert.match(html,/Genera e scarica CSV \(senza importare\)/);
+  assert.match(html,/Automatica — può inserire/);
+  assert.match(html,/non l’impugnatura della lat machine/);
+  assert.match(html,/Importa una scheda nel diario/);
+  assert.match(html,/Elimina tutto lo storico/);
   assert.match(html,/Confronta due mesocicli/);
   const manual=await file('js/manual.js');
   assert.match(manual,/barra lunga da agganciare alla puleggia alta/);

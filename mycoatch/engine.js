@@ -1,10 +1,12 @@
 // mycoatch/engine.js
 import { EXERCISE_DATABASE } from './exercisesDB.js';
-import { resolvePlannedLoad } from './loadProposal.js';
+import { resolvePlannedLoad,resolveNearbyLoad } from './loadProposal.js';
+import {estimatePrescribedLoad} from './prescribedLoad.js';
 import { isWarmupExercise } from '../js/workoutSemantics.js';
 import { analyzeCompletedMesocycle } from './historyAnalysis.js';
 import { canonicalExerciseKey } from './exerciseIdentity.js';
-import { rebalanceWeeklyAccessories } from './weeklyVolumeBalancer.js';
+import { rebalanceWeeklyAccessories,weeklyTotals } from './weeklyVolumeBalancer.js';
+import {repairEssentialCoverage} from './essentialCoverage.js';
 import { normalizeSelectionPreferences, selectExerciseForSlot, defaultFundamentalName } from './exerciseSelection.js';
 import { auditWeeklyCoverage } from './weeklyCoverage.js';
 import { normalizeAthleteProfile, onboardingPlan, eligibleReferenceLoad, profileSummary } from './athleteProfile.js';
@@ -74,10 +76,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
         daysPerWeek = 3, 
         focus = "hybrid", 
         focusMuscleGroup = null, 
-        stepKg = 2.5, 
-        maxSessionMinutes = 60,
-        userAge = 30,
-        trainingYears = 3
+        maxSessionMinutes = 60
     } = config;
 
     // 1. Parametri di recupero biologico
@@ -175,6 +174,12 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     preferences: selectionPreferences,
                     focus,
                     previousName,
+                    allowVariation:Boolean(previousName &&
+                        analysis.byExercise?.[canonicalExerciseKey(previousName)]?.status==='possible_stall' &&
+                        analysis.byExercise?.[canonicalExerciseKey(previousName)]?.blockResponse?.status==='stable' &&
+                        !analysis.byExercise?.[canonicalExerciseKey(previousName)]?.fatigueConcern &&
+                        !analysis.byExercise?.[canonicalExerciseKey(previousName)]?.readyForLoad &&
+                        !analysis.byExercise?.[canonicalExerciseKey(previousName)]?.readyForReps),
                     selectedToday: exercisesSelectedToday,
                     weeklyCounts: daySelectionCounts
                 });
@@ -249,6 +254,13 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     calibrationWeek: onboarding.calibrationWeek && w === 1,
                     fatigueConcern: prior?.fatigueConcern === true || fatiguedRegion || guardrails.recoveryRequired
                 }).toFixed(1);
+                const historicalEstimate=!isDeloadWeek && !onboarding.calibrationWeek
+                    ? estimatePrescribedLoad(prior,reps,exerciseRpeString) : null;
+                if(historicalEstimate){
+                    baseKg=historicalEstimate.raw;
+                    if(loadDecision?.action==='reduce_load' && Number.isFinite(loadDecision.plannedKg))
+                        baseKg=Math.min(baseKg,loadDecision.plannedKg);
+                }
                 if (HIGH_REP_EXERCISES[ex.name]) {
                     // Le note di forza del vecchio range non descrivono la nuova prescrizione.
                     ex.noteOverride = null;
@@ -286,7 +298,12 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 // Real load steps are set by the athlete and synced in their
                 // equipment profile. Defaults are illustrative.
                 const equipmentSettings=config.equipmentSettings || config.loadingSteps || {};
-                const resolvedLoad=resolvePlannedLoad(ex,plannedKg,equipmentSettings);
+                const resolvedLoad=historicalEstimate
+                    ? resolveNearbyLoad(ex,plannedKg,equipmentSettings,{min:plannedKg*.9,max:plannedKg*1.03})
+                    : resolvePlannedLoad(ex,plannedKg,equipmentSettings);
+                if(historicalEstimate)autoNote+='[CARICO STIMATO] Da '+historicalEstimate.samples+
+                    ' esposizioni recenti dello stesso esercizio, e1RM prudente '+
+                    historicalEstimate.reference.toFixed(1)+' kg. Verifica il carico con l’RPE reale. | ';
                 const targetKgMin=resolvedLoad.weight===null?'':String(resolvedLoad.weight);
                 const targetKgMax=targetKgMin;
 
@@ -331,7 +348,10 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
 
                 let topsetStr = "";
                 if (loadDecision && loadDecision.action !== 'maintain' && !requiresHighRepRecalibration) {
-                    autoNote += `[PROGRESSIONE MYCOATCH] ${loadDecision.reason} | `;
+                    autoNote += `[PROGRESSIONE MYCOATCH] ${historicalEstimate ? 'Valutazione sulle sedute precedenti: ' : ''}${loadDecision.reason} | `;
+                    if(historicalEstimate)autoNote+='[NUOVA PRESCRIZIONE] Il peso è ricalcolato per '+reps+
+                        ' ripetizioni a RPE '+exerciseRpeString+': '+(targetKgMin ? targetKgMin+' kg iniziali' : 'carico da calibrare')+
+                        ', non copiato dalle condizioni precedenti. | ';
                 }
                 if (loadDecision?.stallStrategy) {
                     autoNote += '[STRATEGIA STALLO] ' + loadDecision.stallStrategy.recommendation + ' | ';
@@ -497,6 +517,20 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 maxAccessorySets: onboarding.volumeCap ?? 4
             }
         );
+        if(!isDeloadWeek && !guardrails.recoveryRequired){
+            const repair=repairEssentialCoverage(balanced.days,intendedDays,maxSessionMinutes,{
+                allowGrouping:true,paceFactor:config.durationCalibration?.factor ?? 1,
+                excludedGroupingMuscles
+            });
+            if(repair.changes.length){
+                balanced.days=repair.days;
+                const retainedMoves=balanced.report.moves.filter(move=>
+                    repair.days.find(day=>day.dayNumber===move.toDay)?.exercises.some(ex=>
+                        canonicalExerciseKey(ex.name)===canonicalExerciseKey(move.targetExercise)));
+                balanced.report=weeklyTotals(repair.days,intendedDays,retainedMoves,false);
+                balanced.report.coverageRepairs=repair.changes;
+            }
+        }
         for (const day of balanced.days) {
             // Un solo dropset facoltativo nella seconda settimana, soltanto
             // su isolamenti con due settimane di RPE misurato e recupero
@@ -575,7 +609,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
 /**
  * Calcola il numero di serie target rispettando le soglie ipertrofiche (MEV/MAV/MRV)
  */
-function calculateTargetSets({ category = "", focusMuscleGroup, isDeloadWeek, weekNumber, isMaster, frequency = 2 }) {
+function calculateTargetSets({ category = "", focusMuscleGroup, isDeloadWeek, frequency = 2 }) {
     if (isDeloadWeek) return 2;
 
     const mainMuscle = Object.keys(MUSCLE_VOLUME_LANDMARKS).find(m => m.toLowerCase() === category.toLowerCase()) || "Gambe";
