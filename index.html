@@ -111,15 +111,15 @@
                 </div>
 
                 <div class="analytics-meso-picker">
-                    <label for="analytics-meso-select">Mesociclo per le analisi Macro e Micro</label>
+                    <label for="analytics-meso-select">Mesociclo da analizzare (riepilogo ed esercizi)</label>
                     <select id="analytics-meso-select" class="analytics-select" aria-label="Seleziona il mesociclo da analizzare"></select>
                 </div>
 
                 <p class="mycoatch-form-hint">Qui puoi consultare soltanto gli allenamenti registrati. <strong>Panorama del mesociclo</strong> riassume tutte le sedute; <strong>singoli esercizi</strong> mostra carichi e record, mentre <strong>confronta due mesocicli</strong> mette a confronto periodi diversi. Cambiare scheda o filtro non modifica i dati salvati.</p>
                 <!-- Sub-Tab di Navigazione -->
                 <div class="sub-tabs">
-                    <button class="sub-tab-btn active" onclick="switchAnalyticsTab('subtab-macro')">📊 Panorama del mesociclo: volumi e progressi</button>
-                    <button class="sub-tab-btn" onclick="switchAnalyticsTab('subtab-micro')">🎯 Singoli esercizi e record personali</button>
+                    <button class="sub-tab-btn active" onclick="switchAnalyticsTab('subtab-macro')">📊 Andamento del mesociclo</button>
+                    <button class="sub-tab-btn" onclick="switchAnalyticsTab('subtab-micro')">🎯 Progressi per esercizio e record</button>
                     <button class="sub-tab-btn" onclick="switchAnalyticsTab('subtab-compare')">🔄 Confronta due mesocicli</button>
                 </div>
 
@@ -187,7 +187,7 @@
 
                     <!-- Grafico Doppio Asse Carico vs RPE -->
                     <div class="chart-card">
-                        <h4>Qualità Esecuzione: Trend Carico (Kg) vs Sforzo Percepito (RPE)</h4>
+                        <h4>Come cambiano carichi e fatica percepita (kg e RPE)</h4>
                         <canvas id="chart-load-rpe"></canvas>
                     </div>
                 </div>
@@ -230,10 +230,10 @@
                     <button id="close-analytics-btn" class="close-sheet">&times;</button>
                 </div>
                 <div class="bottom-sheet-menu">
-                    <button class="sheet-item" data-subtab="workout">🏋️ Scheda Allenamento</button>
-                    <button class="sheet-item" data-subtab="subtab-macro">📊 Panorama del mesociclo: volumi e progressi</button>
-                    <button class="sheet-item" data-subtab="subtab-micro">🎯 Singoli esercizi e record personali</button>
-                    <button class="sheet-item" data-subtab="subtab-compare">🔄 Confronta due mesocicli</button>
+                    <button class="sheet-item" data-subtab="workout">🏋️ Torna alla scheda<small class="sheet-item-help">Chiude i grafici e riapre la seduta.</small></button>
+                    <button class="sheet-item" data-subtab="subtab-macro">📊 Andamento del mesociclo<small class="sheet-item-help">Sedute, volume registrato e RPE nel periodo.</small></button>
+                    <button class="sheet-item" data-subtab="subtab-micro">🎯 Progressi per esercizio e record<small class="sheet-item-help">Carichi, ripetizioni e risultati confermati di un esercizio.</small></button>
+                    <button class="sheet-item" data-subtab="subtab-compare">🔄 Confronta due mesocicli<small class="sheet-item-help">Affianca due programmi e confronta i risultati.</small></button>
                 </div>
             </div>
         </div>
@@ -246,14 +246,13 @@
                     <button id="close-tools-btn" class="close-sheet">&times;</button>
                 </div>
                 <div class="bottom-sheet-menu">
-                    <button class="sheet-item" data-action="export-pdf">🖨️ Scarica PDF dell'allenamento selezionato</button>
-                    <button class="sheet-item" data-action="export-meso-pdf">📑 Scarica PDF di tutte le settimane del mesociclo</button>
-                    <button class="sheet-item mycoatch-btn" data-action="generate-mycoatch-csv">🤖 MyCoatch: crea una nuova scheda CSV (non la importa)</button>
-                    <button class="sheet-item" data-action="import-plan">📥 Importa una scheda CSV come nuovo mesociclo</button>
-                    <button class="sheet-item" data-action="export-csv">📄 Esporta lo storico allenamenti dell'anno (CSV)</button>
-                    <button class="sheet-item" data-action="import-history">📥 Importa dati di allenamenti passati (CSV)</button>
-                    <button class="sheet-item" data-action="backup-json">🛡️ Scarica copia completa di sicurezza del diario (JSON)</button>
-                    <p class="mycoatch-form-hint"><strong>Importante:</strong> scaricare CSV, PDF o backup crea un file e non cambia il diario. Importare una scheda o ripristinare un backup modifica invece i dati locali: leggi la conferma e conserva prima una copia di sicurezza.</p>
+                    <button class="sheet-item" data-action="export-pdf">🖨️ Scarica la scheda del giorno (PDF)<small class="sheet-item-help">Documento da consultare o stampare. Non cambia i risultati.</small></button>
+                    <button class="sheet-item" data-action="export-meso-pdf">📑 Scarica programma e report completi (PDF)<small class="sheet-item-help">Tutte le settimane, le note e i risultati. Non è un backup ripristinabile.</small></button>
+                    <button class="sheet-item mycoatch-btn" data-action="generate-mycoatch-csv">🤖 Progetta una nuova scheda con MyCoatch<small class="sheet-item-help">Imposta obiettivo, giorni, tempo e attrezzatura. Puoi scaricare il CSV senza importarlo.</small></button>
+                    <button class="sheet-item" data-action="import-plan">📥 Importa una scheda nel diario<small class="sheet-item-help">Carica CSV, Excel o PDF come nuovo programma. Verifica le conferme.</small></button>
+                    <button class="sheet-item" data-action="export-csv">📄 Scarica lo storico dell’anno (CSV)<small class="sheet-item-help">Esporta risultati già registrati, non una nuova scheda da importare.</small></button>
+                    <button class="sheet-item" data-action="import-history">📥 Importa risultati precedenti (CSV)<small class="sheet-item-help">Carica risultati storici nel formato previsto e verifica anno e contenuto.</small></button>
+                    <button class="sheet-item" data-action="backup-json">🛡️ Salva una copia completa del diario (JSON)<small class="sheet-item-help">Contiene anni, programmi, risultati e impostazioni. Conservala fuori dal browser.</small></button>
                     <details class="equipment-settings">
                         <summary>🏋️ Attrezzatura: bilancieri, dischi e incrementi di peso</summary>
                         <form id="homegym-equipment-form">
@@ -298,7 +297,7 @@
                             <p id="homegym-equipment-status" role="status" aria-live="polite"></p>
                         </form>
                     </details>
-                    <button class="sheet-item" data-action="restore-json">♻️ Ripristina diario dal backup JSON</button>
+                    <button class="sheet-item" data-action="restore-json">♻️ Ripristina il diario da un backup JSON<small class="sheet-item-help">Sostituisce i dati attuali, non unisce due diari. Prima salva una copia.</small></button>
                     
                     <a href="mailto:tetrix@outlook.it?subject=Segnalazione%20Bug%20/%20Supporto%20Webapp&body=Ciao,%20ti%20scrivo%20perchè..." class="btn btn-secondary support-btn">
                         ✉️ Hai bisogno d'aiuto?
@@ -308,9 +307,9 @@
                     <span class="sheet-section-title">Operazioni di eliminazione: controlla prima il backup</span>
                     <p class="mycoatch-form-hint">Queste funzioni possono eliminare dati o account. Non servono per correggere una singola serie: usa invece la scheda e togli la spunta ✓ della serie da modificare. Prima di procedere esporta il backup integrale JSON.</p>
 
-                    <button class="sheet-item sheet-item-danger" data-action="reset-meso">🗑️ Elimina il mesociclo selezionato</button>
-                    <button class="sheet-item sheet-item-danger-critical" data-action="clear-data">⚠️ Cancella tutto lo storico degli allenamenti</button>
-                    <button class="sheet-item sheet-item-danger" data-action="delete-account">🗑️ Elimina definitivamente il tuo account</button>
+                    <button class="sheet-item sheet-item-danger" data-action="reset-meso">🗑️ Elimina il mesociclo selezionato<small class="sheet-item-help">Controlla quale programma hai aperto prima di procedere.</small></button>
+                    <button class="sheet-item sheet-item-danger-critical" data-action="clear-data">⚠️ Elimina tutto lo storico<small class="sheet-item-help">Operazione distruttiva: scarica prima un backup completo.</small></button>
+                    <button class="sheet-item sheet-item-danger" data-action="delete-account">🗑️ Elimina definitivamente l’account<small class="sheet-item-help">Rimuove l’account e i dati associati, non solo una scheda.</small></button>
                 </div>
             </div>
         </div>
@@ -345,16 +344,16 @@
                     </select>
                     <label for="mycoatch-split">Struttura settimanale (4 giorni)</label>
                     <select id="mycoatch-split" name="splitPreference">
-                        <option value="auto" selected>Upper / Lower (struttura originale)</option>
-                        <option value="fullbody">Full Body × 4 (forza + ipertrofia differenziate)</option>
+                        <option value="auto" selected>Upper/Lower — 2 sedute sopra + 2 sotto</option>
+                        <option value="fullbody">Full Body — tutto il corpo in ogni seduta</option>
                     </select>
                     <label for="mycoatch-deload-choice">Settimana di scarico: allenamento con meno serie e minore fatica</label>
                     <select id="mycoatch-deload-choice" name="deloadChoice">
-                        <option value="auto" selected>Automatica: MyCoatch decide in base a modello e recupero</option>
+                        <option value="auto" selected>Automatica — può inserire una settimana leggera</option>
                         <option value="last">Prevedi scarico nell'ultima settimana</option>
                         <option value="none">Nessuno scarico a calendario (salvo segnali di fatica)</option>
                     </select>
-                    <p class="mycoatch-form-hint">Se scegli «Automatica», nel programma Upper/Lower MyCoatch può ridurre serie e RPE nell'ultima settimana quando lo storico non basta per valutare il recupero. «Nessuno scarico a calendario» evita quello programmato, ma segnali di affaticamento ripetuti possono comunque richiedere una proposta più prudente. La scelta non modifica una scheda già importata.</p>
+                    <p class="mycoatch-form-hint">Lo <strong>scarico</strong> è una settimana con meno serie e sforzo più basso. Con <strong>Automatica</strong>, Upper/Lower può prevederlo alla quarta settimana se non ci sono abbastanza dati affidabili; Full Body valuta i segnali di recupero senza una settimana leggera fissa. <strong>Nessuno scarico</strong> evita quello programmato, salvo segnali ripetuti e attendibili di fatica globale. Controlla la settimana 4 nell’anteprima.</p>
                     <label for="input-age">Età</label>
                     <input id="input-age" type="number" min="18" max="100" step="1" inputmode="numeric" placeholder="Età in anni" required>
                     <label for="select-focus">Obiettivo principale</label>
@@ -469,7 +468,7 @@
                             <option value="Military Press con Bilanciere">Military press bilanciere</option>
                             <option value="Spinte con Manubri da Seduto">Spinte manubri da seduto</option>
                         </select>
-                        <label for="mycoatch-lift-hinge">Stacco / piegamento dell'anca (Lower B / Full Body B)</label>
+                        <label for="mycoatch-lift-hinge">Stacco e movimenti d’anca (Lower B / Full Body B)</label>
                         <select id="mycoatch-lift-hinge" name="hinge">
                             <option value="auto">Automatica — rumeno (oppure convenzionale per forza)</option>
                             <option value="Stacco Rumeno (RDL)">Stacco rumeno (RDL)</option>
@@ -477,8 +476,8 @@
                         </select>
                     </fieldset>
                     <fieldset class="mycoatch-preferences-group">
-                        <legend>Attrezzatura disponibile: seleziona solo ciò che possiedi</legend>
-                        <p class="mycoatch-form-hint">Indica il tipo di cavo presente nel rack. Un cavo centrale alto/basso consente lat machine, tirate e crunch, ma non le croci a due pulegge. Seleziona solo gli accessori che possiedi.</p>
+                        <legend>Accessori che possiedi (facoltativi)</legend>
+                        <p class="mycoatch-form-hint">Scegli la configurazione reale dei cavi. Una puleggia centrale alta/bassa consente lat machine, tirate e crunch, ma non le croci che richiedono due cavi indipendenti. La barra lunga collegata alla lat machine <strong>non</strong> è la sbarra fissa per trazioni e non equivale all’impugnatura triangolare. Indica solo gli accessori che possiedi.</p>
                         <label for="mycoatch-cable-setup">Configurazione cavi/pulegge</label>
                         <select id="mycoatch-cable-setup" name="cableSetup">
                             <option value="single_high_low" selected>Cavo centrale: puleggia alta e bassa (non doppio cavo)</option>
@@ -488,17 +487,17 @@
                             <option value="none">Nessun cavo</option>
                         </select>
                         <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="incline_bench"> Panca inclinabile</label>
-                        <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="pullup_bar"> Sbarra fissa che regge il peso del corpo per pull-up (NON la barra della lat machine)</label>
+                        <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="pullup_bar"> Sbarra fissa per trazioni a corpo libero (non l’impugnatura della lat machine)</label>
                         <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="ankle_strap"> Cavigliera per cavi</label>
                         <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="rope_attachment"> Corda per pushdown</label>
-                        <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="triangle_handle"> Maniglia triangolare per la lat machine (presa stretta)</label>
+                        <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="triangle_handle"> Impugnatura triangolare a V per lat machine (non la barra lunga)</label>
                         <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="ez_bar"> Bilanciere EZ</label>
                         <label class="mycoatch-accessory-option"><input type="checkbox" class="mycoatch-accessory-check" value="dip_station"> Parallele per dip</label>
                     </fieldset>
                     <p class="mycoatch-form-hint">MyCoatch usa la durata scelta per progettare la seduta. La stima include 5 minuti di riscaldamento generale, avvicinamento ai fondamentali e lavoro su entrambi i lati negli esercizi unilaterali. Adattala alla tua preparazione reale.</p>
                     <p id="mycoatch-form-feedback" class="mycoatch-form-feedback" role="alert" aria-live="polite"></p>
-                    <button id="mycoatch-preview-btn" type="button" class="btn btn-secondary">👁️ Controlla l'anteprima, poi decidi se importare</button>
-                    <button id="mycoatch-submit" type="submit" class="btn btn-primary">Genera CSV senza modificare il diario</button>
+                    <button id="mycoatch-preview-btn" type="button" class="btn btn-secondary">👁️ Controlla la scheda prima di decidere</button>
+                    <button id="mycoatch-submit" type="submit" class="btn btn-primary">Genera e scarica CSV (senza importare)</button>
                 </form>
             </div>
         </div>
@@ -513,13 +512,13 @@
             </div>
             <p id="mycoatch-preview-summary"></p>
             <div id="mycoatch-preview-weeks"></div>
-            <details><summary>Perché MyCoatch ha scelto questi esercizi, carichi e volumi?</summary>
+            <details><summary>Perché MyCoatch ha scelto questa scheda? Apri il report</summary>
               <pre id="mycoatch-preview-explanation" class="mycoatch-preview-explanation"></pre>
             </details>
             <p id="mycoatch-preview-error" role="alert" aria-live="polite"></p>
             <div class="mycoatch-preview-actions">
-              <button id="mycoatch-preview-apply" type="button" class="btn btn-primary">Importa questa proposta come nuovo mesociclo</button>
-              <button id="mycoatch-preview-download" type="button" class="btn btn-secondary">Scarica CSV</button>
+              <button id="mycoatch-preview-apply" type="button" class="btn btn-primary">Importa la proposta nel diario</button>
+              <button id="mycoatch-preview-download" type="button" class="btn btn-secondary">Scarica solo CSV (non importa)</button>
               <button id="mycoatch-preview-cancel" type="button" class="btn btn-secondary">Annulla</button>
             </div>
           </div>
@@ -534,14 +533,14 @@
                 </div>
 
                 <div class="import-box">
-                    <p class="import-box-title">📄 Metodo 1: Carica il PDF del Coach</p>
-                    <p class="import-box-desc">La webapp leggerà il PDF interpretando in autonomia la struttura del tuo preparatore, anche con layout differenti. Controlla comunque se ha riportato tutto correttamente.</p>
+                    <p class="import-box-title">📄 Carica una scheda PDF, Excel o CSV</p>
+                    <p class="import-box-desc">L’app prova a riconoscere esercizi, serie e recuperi. I PDF complessi potrebbero essere interpretati in modo incompleto: confronta sempre la scheda risultante con il documento originale.</p>
                     <input type="file" id="import-file-input" accept=".pdf, .xlsx, .xls, .csv" class="import-file-input">
                 </div>
 
                 <div class="import-box mb-lg">
-                    <p class="import-box-title">📊 Metodo 2: File Tabellare (Excel / CSV)</p>
-                    <p class="import-box-desc">Se preferisci i fogli di calcolo, puoi caricare un file Excel ma <strong>devi seguire rigorosamente lo schema ufficiale</strong> per evitare errori di lettura.</p>
+                    <p class="import-box-title">📊 Modello per creare un file Excel o CSV</p>
+                    <p class="import-box-desc">Se crei il file con un foglio di calcolo, usa intestazioni e colonne del modello. Il CSV dello storico non equivale al CSV di una nuova scheda.</p>
                     <a href="#" id="btn-download-template" class="import-template-link">⬇️ Scarica il modello Excel di riferimento</a>            
                 </div>
 

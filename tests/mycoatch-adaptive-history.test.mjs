@@ -186,8 +186,8 @@ test('prima settimana: confronto strutturato tra il mesociclo precedente e la pr
         inspectedMesocycles: report.inspectedMesocycles,
         sessionsAnalyzed: report.sessionsAnalyzed
     });
-    assert.match(review, /ANTEPRIMA DELLA PROPOSTA/);
-    assert.match(review, /Confermi la proposta/);
+    assert.match(review, /PERCHÉ È STATA PROPOSTA QUESTA SCHEDA/);
+    assert.match(review, /Vuoi scaricare soltanto il file CSV/);
 });
 
 test('CSV rimane importabile a 12 colonne, senza dati di regressione extra', () => {
@@ -277,7 +277,7 @@ test('anteprima riporta carichi, ripetizioni e durata prevista', () => {
     const result = MyCoatch.generateNextFromHistory(historyOf(years(2026, old)), baseConfig);
     const text = formatCoachReview(result.coachReport.comparison,
         result.coachReport);
-    assert.match(text, /durate previste/i);
+    assert.match(text, /Tempo indicativo per ogni seduta/i);
     assert.match(text, /×/);
 });
 

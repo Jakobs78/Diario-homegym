@@ -341,7 +341,7 @@ function setupEventListeners() {
         if (coachFeedback) coachFeedback.textContent = '';
         if (coachSubmit) {
             coachSubmit.disabled = true;
-            coachSubmit.textContent = 'Generazione in corso…';
+            coachSubmit.textContent = 'MyCoatch sta preparando la scheda…';
         }
 
         try {
@@ -358,7 +358,7 @@ function setupEventListeners() {
         } finally {
             if (coachSubmit) {
                 coachSubmit.disabled = false;
-                coachSubmit.textContent = 'Genera e scarica CSV';
+                coachSubmit.textContent = 'Genera e scarica CSV (senza importare)';
             }
         }
     });

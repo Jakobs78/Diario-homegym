@@ -228,7 +228,7 @@ test('anteprima esplicita profilo, calibrazione, esclusioni, e carichi dichiarat
     assert.match(review, /PRIMA SETTIMANA DI CALIBRAZIONE/);
     assert.match(review, /Esercizi esclusi dall’atleta/);
     assert.match(review, /Carichi dichiarati, NON verificati/);
-    assert.match(review, /Confermi la proposta/);
+    assert.match(review, /Vuoi scaricare soltanto il file CSV/);
 });
 
 test('3/4 giorni e durata scelta rispettati, CSV compatibile e nessun check fantasma', () => {

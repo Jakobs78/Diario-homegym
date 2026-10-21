@@ -124,8 +124,8 @@ test('preview explains time-first selection and does not add a CSV schema column
   const preview=formatCoachReview(comparison,{
     inspectedMesocycles:0,sessionsAnalyzed:0
   });
-  assert.match(preview,/SCELTA INIZIALE ESERCIZI IN BASE AL TEMPO/);
-  assert.match(preview,/movimenti prioritari protetti/);
-  assert.match(preview,/Durate previste/);
+  assert.match(preview,/COME SONO STATI SCELTI GLI ESERCIZI PER RISPETTARE IL TEMPO/);
+  assert.match(preview,/esercizi principali mantenuti/);
+  assert.match(preview,/Tempo indicativo per ogni seduta/);
 });
 

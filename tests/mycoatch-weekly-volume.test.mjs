@@ -132,8 +132,8 @@ test('30 minuti: non promette falsamente il recupero di volume', () => {
         compareMesocyclePlans(null, mesocycle, {}),
         { inspectedMesocycles: 0, sessionsAnalyzed: 0 }
     );
-    assert.match(review, /restano \d+ serie sotto il template/);
-    assert.match(review, /Confermi la proposta/);
+    assert.match(review, /sono state eliminate \d+ serie rispetto alla proposta iniziale/);
+    assert.match(review, /Vuoi scaricare soltanto il file CSV/);
 });
 
 test('3 giorni da 35 minuti: conserva squat fondamentale e segnala la riduzione delle serie', () => {

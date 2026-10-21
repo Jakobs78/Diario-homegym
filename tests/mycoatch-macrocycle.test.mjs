@@ -146,7 +146,7 @@ test('generation links roadmap to proposed mesocycle and review without modifyin
     assert.equal(proposal.coachReport.macrocycle,proposal.macrocycle);
     assert.equal(proposal.weeks.length,4);
     const review = formatCoachReview(proposal.coachReport.comparison,proposal.coachReport);
-    assert.match(review,/MACROCICLO MYCOATCH/);
+    assert.match(review,/PIANO DI LUNGO PERIODO \(MACROCICLO\)/);
     assert.match(review,/SOLO IPOTESI/);
     assert.deepEqual(input,old);
     const csv = MyCoatch.exportAsCSV();

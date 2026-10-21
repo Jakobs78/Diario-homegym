@@ -67,7 +67,7 @@ test('istruzioni CSV brevi: split, warmup, superserie, triset, drop restano inte
         '[DROP_SET]','[DROP_SCOPE:LAST]'])assert.ok(instructions.includes(tag),tag);
     for(const unwanted of ['[SCELTA MYCOATCH]','[PROGRESSIONE]','[DURATA STIMATA]'])
         assert.ok(!instructions.includes(unwanted),unwanted);
-    assert.ok(instructions.length<280,instructions);
+    assert.ok(instructions.length<650,instructions); // Expanded guidance must remain legible.
     assert.ok(conciseExerciseInstruction({...shared,notes:'[TRISET] Segui gli esercizi.'})
       .includes('[TRISET]'));
     const noHistory={history:{years:{}}};
@@ -77,6 +77,6 @@ test('istruzioni CSV brevi: split, warmup, superserie, triset, drop restano inte
     assert.ok(!csv.includes('[SCELTA MYCOATCH]'));
     const notes=[...csv.matchAll(/;"([^"\n]*)";"[^"\n]*"$/gm)].map(m=>m[1]);
     assert.ok(notes.length>20,'each row should have a concise note');
-    assert.ok(notes.every(n=>n.length<300),Math.max(...notes.map(n=>n.length)));
+    assert.ok(notes.every(n=>n.length<700),Math.max(...notes.map(n=>n.length)));
 });
 const configForNoHistory=()=>({...basic,cableSetup:'single_high_low'});

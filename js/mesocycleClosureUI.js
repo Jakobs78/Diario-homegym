@@ -49,16 +49,16 @@ export function createMesocycleClosurePanel(mesocycle, athleteDiary = null) {
     detail.id = 'mesocycle-closure-panel';
     detail.append(node('summary', closed ?
         '✓ Mesociclo concluso · consulta il report' :
-        '🏁 Chiusura guidata · controlla il riepilogo'));
+        '🏁 Concludi questo mesociclo: verifica prima i risultati'));
     const body = node('div', undefined, 'mycoatch-meso-closure-content');
     const stats = [
         'Sedute complete: ' + review.completedSessions + '/' + review.plannedSessions +
             (review.adherencePercent === null ? '' : ' (' + review.adherencePercent + '%)'),
         'Sedute parziali: ' + review.partialSessions +
             ' · non iniziate: ' + review.skippedSessions,
-        'Serie valide confermate: ' + review.completedSets + '/' + review.plannedSets +
+        'Serie completate con dati validi: ' + review.completedSets + '/' + review.plannedSets +
             ' · RPE misurati: ' + review.measuredRpeSets + '/' + review.completedSets,
-        'RPE medio osservato: ' + (review.averageRpe ?? 'dato insufficiente')
+        'RPE medio percepito nelle serie registrate: ' + (review.averageRpe ?? 'dato insufficiente')
     ];
     for (const line of stats) body.append(node('p', line));
     // Snapshot provenance is informative: never change an active training
@@ -103,20 +103,20 @@ export function createMesocycleClosurePanel(mesocycle, athleteDiary = null) {
                     ' (Δ reps ' + (exercise.deltaReps > 0 ? '+' : '') +
                     exercise.deltaReps + ')')));
         }
-        body.append(node('strong', 'Confronto descrittivo delle prestazioni:'), list);
+        body.append(node('strong', 'Confronto tra le prime e ultime settimane con dati disponibili (non prova da solo crescita muscolare):'), list);
     }
     body.append(node('small',
-        'Solo serie confermate. La progressione non misura direttamente la crescita muscolare. ' +
+        'Questo riepilogo utilizza solo le serie confermate. Un aumento di peso o ripetizioni non misura direttamente la crescita muscolare. ' +
         'La consultazione e lo scaricamento del report non modificano il diario.'));
     const actions = node('div', undefined, 'mycoatch-meso-closure-actions');
-    const exportBtn = node('button', '📄 Esporta report per ChatGPT', 'btn btn-secondary btn-sm');
+    const exportBtn = node('button', '📄 Scarica testo dei risultati da condividere volontariamente', 'btn btn-secondary btn-sm');
     exportBtn.type = 'button';
     exportBtn.addEventListener('click', () =>
         downloadText(formatMesocycleClosureForChat(review), review.name));
     actions.append(exportBtn);
     // Two explicit downloads: browsers may block simultaneous file downloads.
     // Never contact an AI service or write to the journal to build the dossier.
-    const markdownBtn=node('button','Dossier MyCoatch (.md)','btn btn-secondary btn-sm');
+    const markdownBtn=node('button','Scarica dossier dettagliato (.md)','btn btn-secondary btn-sm');
     markdownBtn.type='button';
     markdownBtn.addEventListener('click',()=>{
         const data=buildMesocycleReviewDossier(mesocycle);
