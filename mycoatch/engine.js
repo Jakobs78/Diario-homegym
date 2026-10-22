@@ -223,8 +223,11 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 const fatiguedRegion=isRegionAffected(guardrails,ex.category);
                 
                 const canonicalKey = canonicalExerciseKey(ex.name);
-                const prior = analysis.byExercise?.[canonicalKey];
-                const loadDecision = analysis.decisions?.byExercise?.[canonicalKey];
+                const generalPrior = analysis.byExercise?.[canonicalKey];
+                const generalDecision = analysis.decisions?.byExercise?.[canonicalKey];
+                const matchingRole=Object.keys(generalPrior?.byExposureRole||{}).find(role=>ex.repIntent&&role.startsWith(ex.repIntent+'|'));
+                const prior = matchingRole?generalPrior.byExposureRole[matchingRole]:generalPrior;
+                const loadDecision = matchingRole?generalDecision?.byExposureRole?.[matchingRole]:generalDecision;
                 let baseKg = Number.isFinite(loadDecision?.plannedKg) && loadDecision.plannedKg > 0
                     ? loadDecision.plannedKg : (
                         Number.isFinite(prior?.lastWorkingKg) && prior.lastWorkingKg > 0
@@ -256,7 +259,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 }).toFixed(1);
                 const historicalEstimate=!isDeloadWeek && !onboarding.calibrationWeek
                     ? estimatePrescribedLoad(prior,reps,exerciseRpeString) : null;
-                if(historicalEstimate){
+                const preserveRepDecision=loadDecision?.action==='build_reps' && Number(prior?.lastTargetRpe)===Number(exerciseRpeString) && Number(prior?.lastReps?.min)===Number(reps.split('-')[0]) && Number(prior?.lastReps?.max)===Number(reps.split('-')[1]||reps.split('-')[0]);
+                if(historicalEstimate && !preserveRepDecision){
                     baseKg=historicalEstimate.raw;
                     if(loadDecision?.action==='reduce_load' && Number.isFinite(loadDecision.plannedKg))
                         baseKg=Math.min(baseKg,loadDecision.plannedKg);
@@ -372,6 +376,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 let noteFinal = autoNote + coachingContext +
                     (exItem.selectionReason ? ' | [SCELTA MYCOATCH] ' + exItem.selectionReason : '') +
                     (exItem.noteOverride ? ' | ' + exItem.noteOverride : '');
+                if (!prior && ex.equipment !== 'bodyweight')noteFinal+=' | [MOVIMENTO SENZA STORICO] Calibra questo esercizio separatamente: la presenza di altri esercizi nel diario non verifica questo carico.';
                 if (!targetKgMin && ex.equipment !== 'bodyweight' && plannedKg === null && !requiresHighRepRecalibration) {
                     noteFinal += ' | [CARICO DA CALIBRARE] Nessun carico storico comparabile disponibile: usa le serie di avvicinamento per trovare un peso entro il range e il target RPE, poi registra kg, reps e RPE reali.';
                 }
@@ -441,7 +446,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
 
                     return {
                         setNumber: setIdx + 1,
-                        targetReps: reps,
+                        targetReps: !isDeloadWeek && preserveRepDecision && loadDecision?.plannedReps?.length===setsCount ? String(loadDecision.plannedReps[setIdx]) : reps,
                         targetKg: setKg !== null && setKg > 0 ? setKg.toString() : "",
                         actualReps: "",
                         actualKg: "",
@@ -451,11 +456,17 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     };
                 });
 
+                if(preserveRepDecision&&loadDecision?.plannedReps?.length===setsCount)noteFinal+=' | [OBIETTIVO REPS PER SERIE] '+loadDecision.plannedReps.join('/')+' | Stesso carico, una ripetizione aggiuntiva in una sola serie.';
                 return {
                     name: ex.name,
                     // Priorita' mantenuta fino all'ottimizzatore del tempo: lo
                     // squat puo' essere il terzo esercizio ma resta un anchor.
                     anchorKey: ex.anchorKey || null,
+                    repIntent:ex.repIntent||null,
+                    exposureRole:ex.repIntent||null,
+                    unilateral:ex.unilateral,
+                    coachDecision:{action:historicalEstimate && !preserveRepDecision?'reprogram_new_block':loadDecision?.action||'calibrate',plannedKg:targetKgMin||null,reps,rpe:exerciseRpeString,
+                        reason:historicalEstimate && !preserveRepDecision?'Nuovo blocco: carico ricalibrato dalle prestazioni confermate per il range '+reps+' e RPE '+exerciseRpeString+'. La progressione storica è un riferimento, non una prescrizione identica.':loadDecision?.action==='build_reps'?'Nuovo blocco: mantieni il riferimento di carico; la progressione di una sola serie si applica solo con target confrontabili.':loadDecision?.reason||'Calibra il carico rispettando il target attuale.'},
                     priorityProtected: Boolean(ex.priorityProtected),
                     isOptional: Boolean(ex.isOptional),
                     setsCount: setsCount,
@@ -562,7 +573,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             const dayLabel = String(day.dayName).match(/^(Upper [AB]|Lower [AB]|Full Body [ABCD])\b/)?.[1];
             const splitNote = dayLabel ? `[SPLIT MYCOATCH] ${dayLabel}` : '';
             const calibrated = (config.durationCalibration?.sampleCount ?? 0) >= 3;
-            const durationNote = `[DURATA STIMATA] ${day.estimatedMinutes} minuti su ${maxSessionMinutes} disponibili, inclusi riscaldamento generale, avvicinamento e lavoro su entrambi i lati. ${calibrated ? 'Stima prudente calibrata su ' + config.durationCalibration.sampleCount + ' sedute reali. ' : ''}Il timer del diario parte dopo la prima serie confermata, quindi misura solo parte della seduta. Stima orientativa.`;
+            const durationNote = `[DURATA STIMATA] ${day.estimatedMinutes} minuti su ${maxSessionMinutes} disponibili, inclusi riscaldamento generale, avvicinamento e lavoro su entrambi i lati. ${calibrated ? 'Stima prudente calibrata su ' + config.durationCalibration.sampleCount + ' sedute reali. ' : ''}Usa Inizia seduta per misurare anche la preparazione iniziale; senza avvio esplicito, il timer parte dopo la prima serie confermata. Stima orientativa.`;
             const adjustments = [];
             if (day.reducedPrioritySets) adjustments.push(`${day.reducedPrioritySets} serie dei movimenti prioritari ridotte per rispettare il tempo, valuta più minuti per recuperare il volume`);
             if (day.reducedAccessorySets) adjustments.push(`${day.reducedAccessorySets} serie accessorie ridotte`);

@@ -186,6 +186,8 @@ const SHOULDER_HEAD = Object.freeze({
     'Reverse Fly ai Cavi': 'posteriore'
 });
 
+const UNILATERAL_EXERCISES=new Set(['Rematore con Manubrio a Un Braccio','Bulgarian Split Squat con Manubri','Affondi con Manubri','Step-up con Manubri','Calf Raise Monopodalico','Pallof Press ai Cavi','Leg Curl ai Cavi (cavigliera)']);
+
 export const EXERCISE_DATABASE = Object.freeze(RAW_EXERCISES.map(exercise => {
     const id = STABLE_IDS.get(exercise.name);
     if (!id) throw new Error('Esercizio privo di ID immutabile: ' + exercise.name);
@@ -196,6 +198,7 @@ export const EXERCISE_DATABASE = Object.freeze(RAW_EXERCISES.map(exercise => {
         ...exercise,
         id,
         primaryMuscle: exercise.category,
+        unilateral:UNILATERAL_EXERCISES.has(exercise.name),
         shoulderHeadIsolation: SHOULDER_HEAD[exercise.name] || null,
         secondaryMuscles: Object.freeze([...secondaries]),
         requires: Object.freeze([...(REQUIRES[exercise.name] || [])]),

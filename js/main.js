@@ -1,3 +1,5 @@
+import {EXERCISE_DATABASE,DEFAULT_HOME_GYM_EQUIPMENT} from '../mycoatch/exercisesDB.js';
+import {editJournal} from './journalTransaction.js';
 import { initializeJournalStorage, flushJournalStorage } from './journalStore.js';
 /**
  * Module: main.js
@@ -18,7 +20,7 @@ import { downloadExcelTemplate, handleUniversalImport } from './importer.js';
 import { readCsvFile, importProgressCSV, exportToCSV } from './csvHandler.js';
 import { initTheme, toggleTheme } from './theme.js';
 import { setupAuthListeners, logoutUser } from './auth.js';
-import { deleteCurrentMesocycle, changeMesocycle, exportMesoToPDF, getActiveMesocycleObject } from './mesocycle.js';
+import { deleteCurrentMesocycle, changeMesocycle, exportMesoToPDF, getActiveMesocycleObject, restoreLastArchivedMesocycle } from './mesocycle.js';
 import { renderManualView } from './manual.js';
 import { initAudioUnlock } from './audio.js';
 import { switchAnalyticsTab } from './analytics.js';
@@ -85,6 +87,13 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 // ==========================================
 async function initApp() {
     console.log(`Avvio Advanced Workout Tracker v${CONFIG.APP_VERSION}`);
+    const version=document.createElement('small');version.className='app-version';version.textContent='Versione '+CONFIG.APP_VERSION+' · Excel/PDF possono richiedere rete';
+    document.getElementById('app-container')?.append(version);
+    navigator.serviceWorker?.getRegistration?.().then(registration=>{
+        if(!registration)return;
+        const notify=()=>{if(registration.waiting)version.textContent+=' · Aggiornamento disponibile: salva la seduta e chiudi tutte le finestre dell’app per applicarlo.';};
+        notify();registration.addEventListener('updatefound',()=>registration.installing?.addEventListener('statechange',notify));
+    }).catch(()=>{});
     applyUserToUI(null);
 
     try {await initializeJournalStorage();}
@@ -283,7 +292,20 @@ function setupEventListeners() {
         };
     }
 
+    // Every catalog exercise can be excluded, preserving the saved preferences.
+    const avoidContainer=document.querySelector('.mycoatch-avoid-check')?.closest('fieldset') || document.querySelector('.mycoatch-avoid-check')?.parentElement?.parentElement;
+    if(avoidContainer)for(const ex of EXERCISE_DATABASE){
+        if([...document.querySelectorAll('.mycoatch-avoid-check')].some(input=>input.value===ex.name))continue;
+        const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.className='mycoatch-avoid-check';input.value=ex.name;label.append(input,document.createTextNode(ex.name));avoidContainer.append(label);
+    }
+    const baseEquipment=document.createElement('fieldset');baseEquipment.className='mycoatch-base-equipment';
+    const legend=document.createElement('legend');legend.textContent='Attrezzatura di base effettivamente disponibile';baseEquipment.append(legend);
+    for(const id of DEFAULT_HOME_GYM_EQUIPMENT){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=id;input.checked=true;input.defaultChecked=true;input.className='mycoatch-base-equipment-check';label.append(input,document.createTextNode(({barbell:'Bilancieri',dumbbell:'Manubri',bodyweight:'Corpo libero',lat_machine:'Lat machine',cable:'Cavi'})[id]||id));baseEquipment.append(label);}
+    for(const id of DEFAULT_HOME_GYM_ACCESSORIES){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=id;input.defaultChecked=true;input.checked=true;input.className='mycoatch-accessory-check';label.append(input,document.createTextNode(id==='rack'?'Rack / supporti per bilanciere':'Panca piana'));baseEquipment.append(label);}
+    document.getElementById('mycoatch-config-form')?.append(baseEquipment);
     function readCoachOptions() {
+        const review=document.getElementById('mycoatch-limitations-confirmed');
+        if(review&&!review.checked)throw Error('Rivaluta le limitazioni segnalate e conferma prima di generare il nuovo mesociclo.');
         return parseCoachPreferences({
                 selectedTime: timeSelect?.value,
                 customTime: customTime?.value,
@@ -295,9 +317,8 @@ function setupEventListeners() {
                 preferredLifts: Object.fromEntries(['bench', 'squat', 'military', 'hinge']
                     .map(lift => [lift, document.getElementById('mycoatch-lift-' + lift)?.value || 'auto'])),
                 cableSetup: document.getElementById('mycoatch-cable-setup')?.value || 'single_high_low',
-                availableAccessories: [...DEFAULT_HOME_GYM_ACCESSORIES,
-                    ...Array.from(document.querySelectorAll('.mycoatch-accessory-check:checked'),
-                        input => input.value)],
+                availableAccessories: Array.from(document.querySelectorAll('.mycoatch-accessory-check:checked'),input=>input.value),
+                availableEquipment:Array.from(document.querySelectorAll('.mycoatch-base-equipment-check:checked'),input=>input.value),
                 athleteProfile: readAthleteProfileFields()
             })
     }
@@ -307,9 +328,7 @@ function setupEventListeners() {
             const options=readCoachOptions();
             const staged=stageProfileRevision(state.workoutData,options.athleteProfile,new Date(),options);
             if(staged.changed){
-                commitProfileRevision(state.workoutData,staged);
-                const saved=await saveAndSync(state.workoutData,'SAVE_MYCOATCH_PROFILE');
-                if(saved===false)throw Error('Salvataggio non completato: verifica la sincronizzazione e conserva un backup.');
+                await editJournal(candidate=>commitProfileRevision(candidate,staged),'SAVE_MYCOATCH_PROFILE');
             }
             if(coachFeedback){
                 const active=getActiveMesocycleObject();
@@ -442,6 +461,9 @@ function setupEventListeners() {
                 case 'restore-json':
                     document.getElementById('restore-full-backup-input')?.click();
                     break;
+                case 'restore-archived':
+                    restoreLastArchivedMesocycle().catch(error=>alert(error.message));
+                    break;
                 case 'reset-meso':
                     deleteCurrentMesocycle();
                     break;
@@ -459,6 +481,19 @@ function setupEventListeners() {
     // in normal backup/sync. Never present default inventory as owned stock.
     const equipmentForm=document.getElementById('homegym-equipment-form');
     const barsList=document.getElementById('equipment-barbells-list');
+    if(equipmentForm){
+        const inventory=document.createElement('fieldset');inventory.className='equipment-extra-inventory';
+        const legend=document.createElement('legend');legend.textContent='Pesi realmente disponibili e configurazione';inventory.append(legend);
+        for(const [id,label] of [['dumbbell','Manubri: kg disponibili per singolo manubrio'],['machine','Cavi/macchina: kg selezionabili (scala indicata sulla tua macchina)']]){
+            const row=document.createElement('label');row.textContent=label;
+            const field=document.createElement('input');field.type='text';field.id='equipment-owned-'+id;field.placeholder='Es. 4; 6; 8; 10; 12';row.append(field);inventory.append(row);
+        }
+        const note=document.createElement('p');note.textContent='Separa i pesi con punto e virgola. Lascia vuoto se non conosci l’inventario: gli incrementi restano indicativi. I kg dei cavi sono specifici di quella configurazione, non trasferibili fra macchine.';inventory.append(note);
+        const station=document.createElement('label');station.textContent='Identificativo configurazione cavi/macchina';
+        const field=document.createElement('input');field.id='equipment-station-id';field.placeholder='Es. carrucola centrale 1:1';station.append(field);inventory.append(station);
+        equipmentForm.append(inventory);
+    }
+
     const addBarRow=(bar=null,makeDefault=false)=>{
         if(!barsList)return;
         const row=document.createElement('div');
@@ -507,6 +542,8 @@ function setupEventListeners() {
                 barbell:2.5,dumbbell:1,machine:2.5
             })[name];
         }
+        for(const key of ['dumbbell','machine']){const field=document.getElementById('equipment-owned-'+key);if(field)field.value=(athlete.availableLoads?.[key]||[]).join('; ');}
+        const station=document.getElementById('equipment-station-id');if(station)station.value=athlete.stationConfigurations?.machine||'';
         const legacy=document.getElementById('equipment-legacy-stock');
         if(legacy)legacy.textContent=athlete.platePairs && !athlete.plateInventories
             ? 'Vecchio inventario da suddividere: '+Object.entries(athlete.platePairs).map(([kg,n])=>kg+' kg: '+n+' coppie').join('; ')
@@ -526,7 +563,7 @@ function setupEventListeners() {
     equipmentDetails?.querySelector('summary')?.addEventListener('click',()=>{
         if(!equipmentDetails.open)readEquipment();
     });
-    equipmentForm?.addEventListener('submit',event=>{
+    equipmentForm?.addEventListener('submit',async event=>{
         event.preventDefault();
         if(!equipmentForm.reportValidity())return;
         const status=document.getElementById('homegym-equipment-status');
@@ -570,13 +607,22 @@ function setupEventListeners() {
             weight:Number(defaultRow.querySelector('.equipment-bar-weight').value),
             diameter:defaultRow.querySelector('.equipment-bar-diameter').value
         } : ownedBarbells[0]||null;
-        state.workoutData.athlete.barbellWeight=barWeight;
-        state.workoutData.athlete.ownedBarbells=ownedBarbells;
-        state.workoutData.athlete.defaultBarbell=defaultBarbell;
-        state.workoutData.athlete.loadingSteps=loadingSteps;
-        state.workoutData.athlete.plateInventories=plateInventories;
-        saveAndSync(state.workoutData,'SET_EQUIPMENT');
-        if(status)status.textContent='Attrezzatura salvata nel diario. La sincronizzazione seguirà lo stato Cloud.';
+        try {
+            const availableLoads={};
+            for(const key of ['dumbbell','machine']){
+                const raw=document.getElementById('equipment-owned-'+key)?.value.trim();
+                if(!raw)continue;
+                const values=raw.split(';').map(v=>Number(v.trim().replace(',','.')));
+                if(values.some(v=>!Number.isFinite(v)||v<=0||v>700))throw Error('Pesi disponibili non validi. Usa valori positivi separati da punto e virgola.');
+                availableLoads[key]=[...new Set(values)].sort((a,b)=>a-b);
+            }
+            await editJournal(candidate=>{
+                candidate.athlete ||= {};
+                Object.assign(candidate.athlete,{barbellWeight:barWeight,ownedBarbells,defaultBarbell,loadingSteps,plateInventories,availableLoads,
+                    stationConfigurations:{machine:document.getElementById('equipment-station-id')?.value.trim()||''}});
+            },'SET_EQUIPMENT');
+            if(status)status.textContent='Attrezzatura salvata sul dispositivo. La sincronizzazione segue lo stato Cloud.';
+        }catch(error){if(status)status.textContent=error.message;return;}
         renderWorkoutList();
     });
 
@@ -603,8 +649,8 @@ function setupEventListeners() {
     document.getElementById('import-history-input')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        readCsvFile(file, (text) => {
-            const result = importProgressCSV(text);
+        readCsvFile(file, async (text) => {
+            const result = await importProgressCSV(text);
             alert(result.message || result.error);
         });
         e.target.value = '';

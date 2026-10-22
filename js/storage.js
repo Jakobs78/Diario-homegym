@@ -9,7 +9,7 @@ import { CONFIG } from './config.js';
 import { state, resetState } from './state.js';
 import { pushDataToSupabase, deleteCloudData, resolveSyncConflict } from './sync.js';
 import { downloadFullBackup, buildFullBackup, readFullBackup } from './fullBackup.js';
-import { journalStorage, initializeJournalStorage, flushJournalStorage, journalStorageFailed, journalStorageReady } from './journalStore.js';
+import { journalStorage, initializeJournalStorage, flushJournalStorage, journalStorageFailed, journalStorageReady, stageJournalUpdates } from './journalStore.js';
 
 const QUEUE_KEY = `${CONFIG.STORAGE_KEY}_sync_queue`;
 const OWNER_KEY = `${CONFIG.STORAGE_KEY}_owner`;
@@ -302,27 +302,21 @@ export async function saveAndSync(data = state.workoutData, actionType = 'UPDATE
         updateSyncStatusUI();
         return false;
     }
-    if(!saveToLocalStorage(data)){
-        updateSyncStatusUI();
-        return false; // Do not pretend a diary is saved when storage is full.
-    }
-    try{enqueueAction({
-        id: crypto.randomUUID(),
-        type: actionType,
-        payload: data, 
-        timestamp: Date.now(),
-        ownerId,
-        ...(ownerId ? {} : {anonymousSession:anonymousQueueSession})
+    const before=state.workoutData;
+    try{stageJournalUpdates(()=>{
+        if(!saveToLocalStorage(data))throw Error('Scrittura del diario non completata.');
+        enqueueAction({id:crypto.randomUUID(),type:actionType,payload:data,timestamp:Date.now(),ownerId,
+            ...(ownerId?{}:{anonymousSession:anonymousQueueSession})});
     });}catch(error){
-        storageFailure=true;
-        console.error('Impossibile mettere in coda il diario:',error);
-        updateSyncStatusUI();
-        return false;
+        state.workoutData=before;storageFailure=true;
+        console.error('Salvataggio locale non confermato:',error);updateSyncStatusUI();return false;
     }
+    state.workoutData=before;
 
     try { await flushJournalStorage(); } catch(error) {
         storageFailure=true;updateSyncStatusUI();return false;
     }
+    state.workoutData=data;
     updateSyncStatusUI(); 
 
     if (!state.currentUser || !navigator.onLine) {

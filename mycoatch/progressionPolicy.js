@@ -68,7 +68,7 @@ function qualityGate(week) {
  * Thursday cannot masquerade as two separate weeks of adaptation.
  * If there are multiple sessions in the same week, ALL must pass.
  */
-export function evaluateExerciseProgression(exposures = []) {
+function evaluateStream(exposures = []) {
     const weekly = groupWorkingWeeks(exposures);
     const lastTwo = weekly.slice(-2).map(qualityGate);
     const last = lastTwo.at(-1) || null;
@@ -134,3 +134,14 @@ export function evaluateExerciseProgression(exposures = []) {
     };
 }
 
+
+export function exposureRoleKey(ex){
+    return String(ex?.exposureRole||ex?.repIntent||'')+'|'+String(ex?.repRange?.min??'')+'-'+String(ex?.repRange?.max??'')+'@'+String(ex?.targetRpe??'');
+}
+export function evaluateExerciseProgression(exposures=[]){
+    const streams=new Map();
+    for(const ex of exposures){const key=exposureRoleKey(ex);if(!streams.has(key))streams.set(key,[]);streams.get(key).push(ex);}
+    const byRole=Object.fromEntries([...streams].map(([key,entries])=>[key,evaluateStream(entries)]));
+    const selectedRole=exposureRoleKey(exposures.at(-1));
+    return {...(byRole[selectedRole]||evaluateStream([])),selectedRole,byRole};
+}

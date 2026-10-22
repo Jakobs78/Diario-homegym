@@ -26,7 +26,7 @@ export function restoreProposalMetadata(imported, proposal) {
                     Number(ex.rpe)!==Number(source.rpe) || String(ex.kgMin)!==String(source.kgMin))
                     throw Error('Prescrizione diversa dall’anteprima: nessuna scheda applicata.');
                 copy(ex,source,['anchorKey','priorityProtected','isOptional','pattern','category',
-                    'equipment','shoulderHeadIsolation','setsCount','restTime','groupType','groupBase','isGroupLast']);
+                    'equipment','coachDecision','repIntent','exposureRole','unilateral','shoulderHeadIsolation','setsCount','restTime','groupType','groupBase','isGroupLast']);
                 ex.isDeload=Boolean(original.isDeloadWeek || original.isDeload);
                 for(const [si,set] of ex.sets.entries()){
                     const prescription=source.sets?.[si] || {};

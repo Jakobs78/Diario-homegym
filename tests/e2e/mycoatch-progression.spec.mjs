@@ -105,14 +105,17 @@ test('UI browser reale: propone prima +1 rep, poi +kg, senza dati inventati né 
   assert.equal(check.reps.decision.action, 'build_reps');
   assert.equal(check.reps.decision.plannedKg, 80);
   assert.equal(check.reps.decision.plannedRepGoal, 8);
-  assert.equal(check.reps.first.kgMin, '77.5');
+  assert.equal(check.reps.first.reps,'6-8');
+  assert.equal(check.reps.first.coachDecision.action,'reprogram_new_block');
+  assert.equal(Number(check.reps.first.kgMin),Number(check.reps.first.coachDecision.plannedKg));
+  assert.equal(check.reps.first.rpe,check.reps.first.coachDecision.rpe);
   assert.match(check.reps.first.notes, /prova 8 ripetizioni/);
-  assert.match(check.reps.review, /Due settimane complete con RPE misurato entro il target/);
+  assert.match(check.reps.review, /Nuovo blocco: carico ricalibrato/);
 
   assert.equal(check.loads.decision.action, 'increase_load');
   assert.equal(check.loads.decision.plannedKg, 82.5);
-  assert.equal(check.loads.first.kgMin, '85');
-  assert.match(check.loads.review, /Due settimane diverse, tutte le serie al limite alto/);
+  assert.equal(Number(check.loads.first.kgMin),Number(check.loads.first.coachDecision.plannedKg));
+  assert.match(check.loads.review, /Nuovo blocco: carico ricalibrato/);
   assert.match(check.loads.csv.split('\n')[0],
     /^Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset$/);
   assert.ok(check.loads.csv.trim().split('\n').slice(1)

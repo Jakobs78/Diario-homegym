@@ -97,7 +97,7 @@ function hasUnconfirmed(exercise, afterIndex = -1) {
 export function validateCompletedSet(values, exercise = {}, set = {}) {
     const weight = decimal(values?.weight);
     const bodyweight = EXERCISE_DATABASE.some(ex => ex.equipment === 'bodyweight' &&
-        canonicalExerciseKey(ex.name) === canonicalExerciseKey(exercise.name));
+        canonicalExerciseKey(ex.name) === canonicalExerciseKey(exercise.catalogMapping?.confirmed?exercise.catalogMapping.name:exercise.name));
     if (weight === null || weight < 0 || (weight === 0 && !bodyweight) || weight > 700) {
         return { ok: false, message: 'Inserisci il peso realmente usato in kg, maggiore di zero.' };
     }
@@ -452,7 +452,7 @@ export function buildLiveSessionSnapshot(day, { now = Date.now(), history = null
         ? Math.round((baselineRemaining + (total - checked) * pace.secondsPerSet) / 2)
         : baselineRemaining;
     const previous = history && lastAdvice
-        ? previousExercisePerformance(history, day, exercises[lastAdvice.exerciseIndex]?.name)
+        ? previousExercisePerformance(history, day, exercises[lastAdvice.exerciseIndex])
         : null;
     const e1rmChangePercent = previous?.e1rm !== null && previous?.e1rm > 0 &&
         lastAdvice?.e1rm !== null && lastAdvice?.e1rm !== undefined

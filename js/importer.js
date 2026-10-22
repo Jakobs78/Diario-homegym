@@ -1,9 +1,12 @@
+import {inheritPersonalExerciseMapping} from '../mycoatch/exerciseIdentity.js';
+import {reviewImportedPlan} from './importPreview.js';
+import {commitJournalCandidate} from './journalTransaction.js';
 /* global XLSX */
 // ==========================================
 // MODULI: importer.js - Generazione template Excel di esempio e parsing di file tabellari (.xlsx, .xls, .csv)
 // ==========================================
 import { state } from './state.js';
-import { saveAndSync } from './storage.js';
+
 import { renderWorkoutList } from './ui.js';
 import { parseCoachPDF } from './pdfParser.js';
 import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
@@ -124,38 +127,41 @@ export async function handleUniversalImport(file, statusMsgEl, closeModalCallbac
             if(!preview.length)throw Error('Il PDF non contiene esercizi riconosciuti.');
             const summary='PDF letto: '+mappedData.weeks.length+' settimane, '+
                 preview.length+' esercizi.\n\n'+
-                preview.slice(0,12).map(x=>'S'+x.week+' '+x.day+': '+x.name+
+                preview.map(x=>'S'+x.week+' '+x.day+': '+x.name+
                     ' · '+x.sets+' serie × '+x.reps+' reps').join('\n')+
-                (preview.length>12?'\n… e altri '+(preview.length-12)+' esercizi.':'')+
+
                 '\n\nControlla attentamente la scheda e i recuperi dopo l’importazione. Aggiungere questo mesociclo?';
             if(!window.confirm(summary)){
                 if(statusMsgEl)statusMsgEl.textContent='Importazione annullata: lo storico è invariato.';
                 return;
             }
             
+            const candidate=structuredClone(state.workoutData);
             const currentYear = new Date().getFullYear().toString();
-            if (!state.workoutData.history) state.workoutData.history = {};
-            if (!state.workoutData.history.years) state.workoutData.history.years = {};
-            if (!state.workoutData.history.years[currentYear]) {
-                state.workoutData.history.years[currentYear] = { mesocycles: [] };
+            if (!candidate.history) candidate.history = {};
+            if (!candidate.history.years) candidate.history.years = {};
+            if (!candidate.history.years[currentYear]) {
+                candidate.history.years[currentYear] = { mesocycles: [] };
             }
 
-            const currentMesos = state.workoutData.history.years[currentYear].mesocycles;
-            const extractedMeso = mappedData;
+            const currentMesos = candidate.history.years[currentYear].mesocycles;
+            const extractedMeso = await reviewImportedPlan(mappedData);
+            if(!extractedMeso){if(statusMsgEl)statusMsgEl.textContent='Importazione annullata.';return;}
 
             if (extractedMeso && extractedMeso.weeks && extractedMeso.weeks.length > 0) {
                 const nextMesoNumber = currentMesos.length + 1;
-                extractedMeso.id = `meso_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+                extractedMeso.id = 'meso_'+crypto.randomUUID();
                 extractedMeso.name = `Mesociclo ${nextMesoNumber}`;
                 extractedMeso.importedAt = new Date().toISOString();
                 extractedMeso.locked = false;
 
+                for(const week of extractedMeso.weeks)for(const day of week.days)for(const ex of day.exercises)inheritPersonalExerciseMapping(candidate,ex);
                 currentMesos.push(extractedMeso);
+
+                await commitJournalCandidate(candidate,'IMPORT_PDF');
                 state.activeMesocycleIndex = currentMesos.length - 1;
                 state.activeWeek = 1;
                 state.activeDay = 1;
-
-                saveAndSync(state.workoutData);
                 renderWorkoutList();
 
                 if (statusMsgEl) {
@@ -175,7 +181,7 @@ export async function handleUniversalImport(file, statusMsgEl, closeModalCallbac
             console.error("Errore parsing PDF:", err);
             if (statusMsgEl) {
                 statusMsgEl.style.color = '#dc2626';
-                statusMsgEl.textContent = "❌ Errore nella lettura del PDF. Verifica che la connessione sia attiva e che il file sia valido.";
+                statusMsgEl.textContent = 'Importazione non confermata: '+err.message;
             }
         }
     } else if (['xlsx', 'xls', 'csv'].includes(ext)) {
@@ -184,14 +190,14 @@ export async function handleUniversalImport(file, statusMsgEl, closeModalCallbac
             statusMsgEl.textContent = "⏳ Leggendo il file Tabellare...";
         }
 
-        parseExcelFile(file, (res) => {
+        parseExcelFile(file, async (res) => {
             if (!res.success) {
                 alert(res.error);
                 if (statusMsgEl) statusMsgEl.style.display = 'none';
                 return;
             }
 
-            const result = importWorkoutPlan(res.csvData);
+            const result = await importWorkoutPlan(res.csvData,{review:true});
 
             if (result.success) {
                 if (typeof closeModalCallback === 'function') closeModalCallback();

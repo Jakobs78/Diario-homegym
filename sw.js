@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v68-coherent-coaching-20261021';
+const CACHE_NAME = 'workout-app-v69-coaching-protocol-20261022';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -10,6 +10,11 @@ const ASSETS_TO_CACHE = [
   '/icons/icon-512.png',
   '/css/style.css',
   '/js/main.js',
+  '/js/journalTransaction.js',
+  '/js/activeExercise.js',
+  '/js/importPreview.js',
+  '/mycoatch/nextExposure.js',
+  '/mycoatch/limitationsReview.js',
   '/js/analytics.js',
   '/js/vendor/supabase.js',
   '/js/vendor/chart.js',
@@ -117,7 +122,7 @@ self.addEventListener('install', (event) => {
       return cache.addAll(ASSETS_TO_CACHE);
     })
   );
-  self.skipWaiting();
+  // Wait for existing app sessions to close; never replace code mid-workout.
 });
 
 self.addEventListener('activate', (event) => {

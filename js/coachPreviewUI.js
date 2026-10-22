@@ -3,7 +3,7 @@ import { createVisualCoachProposal, clearVisualCoachProposal,
 import { importWorkoutPlan } from './csvHandler.js';
 import { renderWorkoutList } from './ui.js';
 import { state } from './state.js';
-import { equipmentMatchesSnapshot } from '../mycoatch/profileJournal.js';
+import { equipmentMatchesSnapshot, proposalEvidenceFingerprint } from '../mycoatch/profileJournal.js';
 
 /** Show actual week/day/exercise proposal before any journal modification. */
 export function initCoachPreview(readCoachOptions,configModal) {
@@ -16,6 +16,7 @@ export function initCoachPreview(readCoachOptions,configModal) {
     if(!preview||!launch)return;
     let proposal=null;
     let acceptedOptions=null;
+    let evidenceAtGeneration=null;
     const create=(tag,content,cls)=>{
         const node=document.createElement(tag);
         if(cls)node.className=cls;
@@ -117,6 +118,7 @@ export function initCoachPreview(readCoachOptions,configModal) {
                 deloadReason ? 'Motivo della scelta sullo scarico: '+deloadReason : '',
                 ...warnings.map(w=>'Attenzione alla distribuzione delle serie: '+w)
             ].filter(Boolean).join('\n\n');
+            evidenceAtGeneration=proposalEvidenceFingerprint(state.workoutData);
             feedback.textContent='';
             preview.classList.remove('hidden');
             document.getElementById('mycoatch-preview-apply')?.focus();
@@ -126,15 +128,16 @@ export function initCoachPreview(readCoachOptions,configModal) {
             if(output)output.textContent=err.message;
         }finally{launch.disabled=false;}
     });
-    document.getElementById('mycoatch-preview-apply')?.addEventListener('click',()=>{
+    document.getElementById('mycoatch-preview-apply')?.addEventListener('click',async()=>{
         if(!proposal)return;
+        if(evidenceAtGeneration!==proposalEvidenceFingerprint(state.workoutData)){feedback.textContent='Il diario o il profilo sono cambiati dopo questa anteprima: genera una nuova proposta.';return;}
         if(!equipmentMatchesSnapshot(acceptedOptions?.equipmentAtGeneration,
             state.workoutData?.athlete)){
             feedback.textContent='Hai modificato l’attrezzatura disponibile dopo la creazione dell’anteprima. Genera una nuova proposta, così MyCoatch può escludere esercizi che non puoi eseguire.';
             return;
         }
         // The same validated CSV parser already tested by existing app E2E.
-        const result=importWorkoutPlan(proposal.csv,{...acceptedOptions,generatedPlan:proposal.proposal});
+        const result=await importWorkoutPlan(proposal.csv,{...acceptedOptions,generatedPlan:proposal.proposal});
         if(!result.success){
             feedback.textContent=result.error||'Non è stato possibile applicare la proposta.';
             return;

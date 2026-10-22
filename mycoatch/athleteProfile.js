@@ -13,14 +13,7 @@ export const MUSCLE_PRIORITIES = Object.freeze([
 ]);
 export const LIFT_NAMES = Object.freeze(['bench', 'squat', 'military', 'hinge']);
 export const MAX_REFERENCE_AGE_DAYS = 90;
-export const AVOIDABLE_LIFTS = Object.freeze([
-    'Hamstring Walkout a Corpo Libero',
-    'Panca Piana con Bilanciere',
-    'Squat con Bilanciere',
-    'Military Press con Bilanciere',
-    'Stacco da Terra Convenzionale',
-    'Stacco Rumeno (RDL)'
-]);
+export const AVOIDABLE_LIFTS = Object.freeze(EXERCISE_DATABASE.map(ex=>ex.name));
 
 function finiteNumber(value) {
     if (value === null || value === undefined || String(value).trim() === '') return null;

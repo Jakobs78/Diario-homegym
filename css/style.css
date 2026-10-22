@@ -3379,3 +3379,52 @@ body.dark-mode .group-title-badge {
 .mycoatch-meso-closure-actions > button {
   min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere;
 }
+
+/* Coaching workspace: stable tables, contextual detail, no perpetual animation. */
+.ex-card{scroll-margin-top:80px;transition:border-color .16s ease,box-shadow .16s ease;}
+.ex-card.is-active-exercise{border-color:var(--primary,#0877b9);box-shadow:0 3px 16px #0877b914;}
+.ex-name[role="button"]{cursor:pointer;}
+.ex-name[role="button"]:focus-visible{outline:3px solid var(--primary,#0877b9);outline-offset:4px;}
+.coach-exposure-summary{border-left:3px solid #0877b9;background:var(--bg-secondary,#edf6fb);padding:10px 14px;margin:10px 0;border-radius:8px;}
+.coach-exposure-summary p{margin:6px 0;line-height:1.45;}
+.ex-card:not(.is-active-exercise) .exercise-exclude-hint{display:none;}
+.mycoatch-live-trigger{gap:8px;}
+.session-finished-summary{padding:14px;border:1px solid #15803d;border-radius:10px;}
+.workout-set-row.is-active-set{box-shadow:inset 3px 0 #0877b9;}
+.workout-set-row:has(.set-lock-check:checked){background-color:#15803d0a;}
+.exercise-coach-notes[open]>.exercise-coach-notes-body{animation:coach-reveal .16s ease-out;}
+@keyframes coach-reveal{from{opacity:.5}to{opacity:1}}
+@media(max-width:600px){
+ .ex-card{padding:12px;}.ex-name{font-size:1.12rem;margin-bottom:10px;}
+ .exercise-coach-notes-body{padding:10px;}.target-box{padding:10px;}
+ .session-timer-wrapper{gap:4px;}.coach-exposure-summary{font-size:.88rem;}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;}}
+
+.exercise-catalog-mapping select{width:100%;max-width:100%;min-width:0;font-size:inherit;}
+.exercise-catalog-mapping{margin-top:10px;}
+.app-version{display:block;text-align:center;color:var(--text-muted,#64748b);font-size:.75rem;margin:12px;}
+.mycoatch-base-equipment,.equipment-extra-inventory{display:grid;gap:8px;}
+.mycoatch-base-equipment label,.equipment-extra-inventory label{display:flex;gap:8px;flex-wrap:wrap;}
+
+.import-review-dialog{width:min(960px,95vw);max-height:90vh;overflow:auto;border:1px solid #94a3b8;border-radius:12px;padding:20px;color:var(--text-primary,#0f172a);background:var(--bg-primary,#fff);}
+.import-exercise-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:12px 0;}
+.import-exercise-fields label{display:grid;gap:4px;}.import-exercise-fields input,.import-exercise-fields textarea{max-width:100%;min-width:0;}
+
+@media(max-width:430px){.app-header-container .top-nav-bar{flex-wrap:wrap;}.app-header-container .app-brand{flex:1 0 100%;}.app-header-actions{width:100%;justify-content:flex-end;}.app-brand-name{overflow:visible;text-overflow:clip;}}
+
+[hidden]{display:none!important;}
+@media(max-width:430px){
+ .app-header-container .top-nav-bar{flex-wrap:nowrap;gap:6px;}
+ .app-header-container .app-brand{flex:0 0 auto;}
+ .app-brand-symbol{display:none;}
+ .app-header-actions{width:auto;flex:1;min-width:0;gap:3px;}
+ .app-sync-compact{max-width:90px;}
+ .unified-header-box{padding:7px 8px 5px;}
+ .workout-quick-controls{gap:4px;}
+ .unified-header-box .session-timer-wrapper{min-height:32px;padding:1px 5px;gap:3px;}
+ .unified-header-box .session-timer-wrapper button{min-height:28px;padding:2px 5px;font-size:.7rem;}
+ .mycoatch-meso-closure-content button{max-width:100%;white-space:normal;overflow-wrap:anywhere;}
+}
+
+@media(max-width:430px){.unified-header-box .day-tabs{padding-top:4px;margin-top:4px;}.unified-header-box .day-tabs>button{min-height:32px;padding:3px 9px;}.unified-header-box .meso-compact-control,.unified-header-box .week-selector-container{min-height:34px;padding:1px 5px;}}

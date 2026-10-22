@@ -114,7 +114,7 @@ export function snapshotEquipmentState(athlete = {}) {
     const source=athlete && typeof athlete==='object' && !Array.isArray(athlete)
         ? athlete : {};
     const allowed=['barbellWeight','ownedBarbells','defaultBarbell',
-        'loadingSteps','plateInventories','platePairs','barbellAssignments'];
+        'loadingSteps','plateInventories','platePairs','barbellAssignments','availableLoads','loadLimits','stationConfigurations'];
     return Object.fromEntries(allowed.filter(key=>source[key]!==undefined)
         .map(key=>[key,clone(source[key])]));
 }
@@ -155,4 +155,8 @@ export function profileSnapshot(staged,{
         settings:clone(settings),
         equipment:snapshotEquipmentState(equipmentAtGeneration ?? previewEquipment)
     };
+}
+
+export function proposalEvidenceFingerprint(data){
+    return JSON.stringify({history:data?.history,profile:data?.athlete?.mycoatchProfileJournal,equipment:snapshotEquipmentState(data?.athlete)});
 }

@@ -1,3 +1,4 @@
+import {recentPainReports} from './limitationsReview.js';
 // mycoatch/mycoatch-adapter.js
 import { MyCoatch, downloadMesocycleCSV } from './index.js';
 import { getFromLocalStorageForUser } from '../js/storage.js';
@@ -159,6 +160,7 @@ export function startCoachChatAndGenerate(mesocycleOrEvent = null) {
             time.dispatchEvent(new Event('change'));
             if(!standard && custom)custom.value=String(minutes);
         }
+        document.querySelectorAll('.mycoatch-base-equipment-check').forEach(input=>{input.checked=Array.isArray(settings.availableEquipment)?settings.availableEquipment.includes(input.value):input.defaultChecked;});
         document.querySelectorAll('.mycoatch-accessory-check').forEach(node=>{
             node.checked=settings.availableAccessories?.includes(node.value)===true;
         });
@@ -177,6 +179,16 @@ export function startCoachChatAndGenerate(mesocycleOrEvent = null) {
             for(const part of ['kg','reps','rpe'])set('mycoatch-load-'+lift+'-'+part,ref[part]);
             set('mycoatch-load-'+lift+'-date',ref.performedOn);
         }
+    }
+    document.getElementById('mycoatch-limitations-review')?.remove();
+    const reports=recentPainReports(state.workoutData);
+    if(reports.length){
+        const section=document.createElement('fieldset');section.id='mycoatch-limitations-review';
+        const legend=document.createElement('legend');legend.textContent='Rivaluta le limitazioni prima del nuovo mesociclo';section.append(legend);
+        const description=document.createElement('p');description.textContent=reports.slice(0,5).map(x=>x.checkedAt.slice(0,10)+' · '+(x.movement||x.dayName)+' · '+x.location).join(' | ');section.append(description);
+        const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.id='mycoatch-limitations-confirmed';
+        label.append(check,document.createTextNode(' Ho rivalutato le segnalazioni: ho selezionato gli esercizi da evitare se il problema è ancora presente, oppure il problema è risolto.'));section.append(label);
+        document.getElementById('mycoatch-config-form')?.append(section);
     }
     modal.classList.remove('hidden');
     time?.focus();

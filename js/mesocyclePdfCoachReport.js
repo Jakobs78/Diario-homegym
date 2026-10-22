@@ -54,8 +54,8 @@ function inspectWeek(week, index) {
             // Bodyweight and additional drops are not converted to fictitious kg.
             tonnage += valid.reduce((total, set) =>
                 total + set.weight * set.numericReps, 0);
-            const plannedContribution = contributionsForExercise(exercise.name, expected);
-            const confirmedContribution = contributionsForExercise(exercise.name, valid.length);
+            const plannedContribution = contributionsForExercise(exercise.catalogMapping?.confirmed?exercise.catalogMapping.name:exercise.name, expected);
+            const confirmedContribution = contributionsForExercise(exercise.catalogMapping?.confirmed?exercise.catalogMapping.name:exercise.name, valid.length);
             if (expected && !plannedContribution) unclassified.add(exercise.name || 'Esercizio non specificato');
             if (plannedContribution) {
                 recognizedPlannedSets += expected;
@@ -125,6 +125,7 @@ export function buildMesocycleCoachPdfReport(mesocycle) {
             ' serie completate; media dello sforzo registrato ' + noValue(closure.averageRpe) + '.'),
         text('Sedute ripetute conservate nello storico: ' + closure.archivedRepeats +
             ' (descritte nel diario, non sommate alle sedute del programma).'),
+        text('Copertura anatomica: '+confirmedRecognized+'/'+closure.completedSets+' serie valide classificate; le quote muscolari si riferiscono solo ai contributi riconosciuti.'),
         section('ANDAMENTO PER SETTIMANA'),
     ];
     for (const [index, week] of weeks.entries()) {

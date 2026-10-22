@@ -166,7 +166,7 @@ test('percorso reale: tempo scelto, storico multianno, anteprima, download, impo
     const { importWorkoutPlan } = await import('/js/csvHandler.js');
     const { state } = await import('/js/state.js');
     const { renderWorkoutList } = await import('/js/ui.js');
-    const result = importWorkoutPlan(content);
+    const result = await importWorkoutPlan(content);
     if (!result.success) return { result };
     renderWorkoutList();
     const years = state.workoutData.history.years;
@@ -295,7 +295,7 @@ test('40 minuti: riequilibrio reale visibile e importabile senza assumere sposta
   const imported = await page.evaluate(async csvText => {
     const { importWorkoutPlan } = await import('/js/csvHandler.js');
     const { state } = await import('/js/state.js');
-    const result = importWorkoutPlan(csvText);
+    const result = await importWorkoutPlan(csvText);
     if (!result.success) return { result };
     const week = state.workoutData.history.years[new Date().getFullYear()]
       .mesocycles.at(-1).weeks[0];
@@ -421,7 +421,7 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
       elapsed: day.accumulatedSeconds };
   });
   assert.equal(reopened.completed, false);
-  assert.equal(reopened.stamp, undefined);
+  assert.ok(reopened.stamp,'reopening preserves the historical execution timestamp');
   assert.ok(reopened.elapsed >= 0);
   assert.deepEqual(monitoring.remoteRequests, []);
   assert.deepEqual(monitoring.pageErrors, []);
@@ -874,7 +874,7 @@ test('check-in calibrazione: segue le serie realmente confermate anche passando 
       }
     });
     const csv = MyCoatch.exportAsCSV();
-    const result = importWorkoutPlan(csv);
+    const result = await importWorkoutPlan(csv);
     if (result.success) renderWorkoutList();
     return { success: result.success, error: result.error,
       currentMesoIndex: state.activeMesocycleIndex };
@@ -992,8 +992,8 @@ test('import scheda: CSV corrotto lascia storico e selezione attiva intatti', as
     const { state } = await import('/js/state.js');
     const before = JSON.stringify(state.workoutData);
     const view = [state.activeMesocycleIndex, state.activeWeek, state.activeDay];
-    const missingHeader = importWorkoutPlan('Settimana;Giorno;Esercizio;Reps\n1;1;Panca;8');
-    const invalidLaterRow = importWorkoutPlan(
+    const missingHeader = await importWorkoutPlan('Settimana;Giorno;Esercizio;Reps\n1;1;Panca;8');
+    const invalidLaterRow = await importWorkoutPlan(
       'Settimana;Giorno;Blocco;Esercizio;Set;Reps\n' +
       '1;1;1;Panca Piana con Bilanciere;3;6-8\n' +
       '1;2;1;Squat con Bilanciere;zero;6-8'
@@ -1029,11 +1029,11 @@ test('import storico: record duplicati rifiutati e collisioni di nome salvate se
       csvSafe(name),1,1,'2026-10-10',1,'Panca Piana con Bilanciere',
       n,kg,8,completed,rpe,'180s','Test sintetico'
     ].join(',');
-    const wrong = importProgressCSV(
+    const wrong = await importProgressCSV(
       header + '\n' + record(1,80,'SI') + '\n' + record(1,80,'SI')
     );
     const intactAfterError = JSON.stringify(list) === before;
-    const passed = importProgressCSV(
+    const passed = await importProgressCSV(
       header + '\n' + record(1,80,'NO') + '\n' + record(2,82.5,'SI',8)
     );
     const current = state.workoutData.history.years[year].mesocycles;
@@ -1076,7 +1076,7 @@ test('anteprima successiva: avvisa se prima settimana calibrata solo in parte e 
         priorityMuscle: null, excludedExercises: [], referenceLoads: {}
       }
     });
-    const result = importWorkoutPlan(MyCoatch.exportAsCSV());
+    const result = await importWorkoutPlan(MyCoatch.exportAsCSV());
     if (!result.success) return { success: false, error: result.error };
     const year = state.workoutData.history.years[new Date().getFullYear()];
     const first = year.mesocycles.at(-1).weeks[0].days[0].exercises[0].loggedSets[0];
@@ -1152,7 +1152,7 @@ test('CSV precompila davvero gli input, il check copia alle serie dopo senza inv
   const imported = await page.evaluate(async content => {
     const { importWorkoutPlan } = await import('/js/csvHandler.js');
     const { renderWorkoutList } = await import('/js/ui.js');
-    const result = importWorkoutPlan(content);
+    const result = await importWorkoutPlan(content);
     if (result.success) renderWorkoutList();
     return result;
   }, csv);
@@ -1238,7 +1238,7 @@ test('calibrazione CSV senza kg: il check richiede ancora un carico reale', asyn
   const result = await page.evaluate(async content => {
     const { importWorkoutPlan } = await import('/js/csvHandler.js');
     const { renderWorkoutList } = await import('/js/ui.js');
-    const r=importWorkoutPlan(content);
+    const r=await importWorkoutPlan(content);
     if (r.success) renderWorkoutList();
     return r;
   },csv);
@@ -1263,7 +1263,7 @@ test('settimane successive: riusa soltanto le serie confermate dello stesso meso
   const added = await page.evaluate(async csvContent => {
     const { importWorkoutPlan } = await import('/js/csvHandler.js');
     const { renderWorkoutList } = await import('/js/ui.js');
-    const result = importWorkoutPlan(csvContent);
+    const result = await importWorkoutPlan(csvContent);
     if (result.success) renderWorkoutList();
     return result;
   }, csv);
@@ -1323,7 +1323,7 @@ test('settimane successive: riusa soltanto le serie confermate dello stesso meso
   const next = await page.evaluate(async csvContent => {
     const { importWorkoutPlan } = await import('/js/csvHandler.js');
     const { renderWorkoutList } = await import('/js/ui.js');
-    const result=importWorkoutPlan(csvContent);
+    const result=await importWorkoutPlan(csvContent);
     if(result.success) renderWorkoutList();
     return result;
   },other);
@@ -1631,8 +1631,7 @@ test('scheda mobile: storico uno sotto l’altro, note sopra i set, testo leggib
   });
   const card=page.locator('.ex-card[data-ex="0"]');
   const disclosure=card.locator('details.exercise-history-box');
-  await expect(disclosure).not.toHaveAttribute('open','');
-  await disclosure.locator('summary').click();
+  await expect(disclosure).toHaveAttribute('open','');
   const rows=card.locator('.history-content > div');
   await expect(rows).toHaveCount(2);
   await expect(rows.nth(0)).toContainText('72.5kg');
@@ -1814,7 +1813,7 @@ test('all six exercise cards prefill by current prescription or comparable confi
     renderWorkoutList();
   });
   const expected=[
-    {kg:'72.5',reps:'9',rpe:'8',source:'confirmed_previous_week'},
+    {kg:'72.5',reps:'9',rpe:'8',source:'mycoatch_next_exposure'},
     {kg:'85',reps:'8',rpe:'8',source:'csv_target'},
     {kg:'12.5',reps:'10',rpe:'7',source:'csv_target'},
     {kg:'90',reps:'5',rpe:'9',source:'current_entry'},
@@ -1832,6 +1831,7 @@ test('all six exercise cards prefill by current prescription or comparable confi
     await expect(row.locator('.set-reps')).toHaveValue(expected[i].reps);
     await expect(row.locator('.set-rpe')).toHaveValue(expected[i].rpe);
     await expect(row).toHaveAttribute('data-prefill-source',expected[i].source);
+    await card.locator('.ex-name').click();
     await expect(card.locator('.exercise-coach-notes .note-allenatore-text')).toBeVisible();
     await expect(card.locator('.ex-user-notes')).toBeVisible();
   }
@@ -2115,6 +2115,7 @@ test('personal equipment stock and minimum increments are saved into full workou
   for(const field of await fields.all())await field.fill('0');
   await page.locator('.equipment-plate-pairs[data-diameter="50"][data-plate="5"]').fill('2');
   await page.locator('#homegym-equipment-form button[type="submit"]').click();
+  await expect(page.locator('#homegym-equipment-status')).toContainText('Attrezzatura salvata sul dispositivo');
   const values=await page.evaluate(async()=>{
     const {state}=await import('/js/state.js');
     return {loadingSteps:state.workoutData.athlete.loadingSteps,
@@ -2807,7 +2808,7 @@ test('import next mesocycle leaves closed predecessor locked and new active meso
       'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset',
       '1;1;1;Panca Piana con Bilanciere;2;6-8;60;60;@8;120s;Test;'
     ].join('\n');
-    const result=importWorkoutPlan(csv);
+    const result=await importWorkoutPlan(csv);
     if(result.success)renderWorkoutList();
     const mesos=state.workoutData.history.years['2026'].mesocycles;
     return {result,active:state.activeMesocycleIndex,count:mesos.length,
@@ -2952,10 +2953,13 @@ test('iPhone: no redundant BLOCCO label; notes open only with text and history c
   const second=page.locator('.ex-card[data-ex="1"]');
   await expect(first.locator('.block-title')).toHaveCount(0);
   await expect(second.locator('.block-title')).toHaveCount(0);
+  await first.locator('.ex-name').click();
   await expect(first.locator('.exercise-exclude-hint')).toContainText('swipe');
   await expect(first.locator('details.exercise-coach-notes')).toHaveAttribute('open','');
   await expect(second.locator('details.exercise-coach-notes')).not.toHaveAttribute('open','');
   const prev=first.locator('details.exercise-history-box');
+  await expect(prev).toHaveAttribute('open','');
+  await prev.locator('summary').click();
   await expect(prev).not.toHaveAttribute('open','');
   await prev.locator('summary').click();
   await expect(prev).toHaveAttribute('open','');
@@ -3044,4 +3048,99 @@ test('saved generation settings return editable; cancelled draft and new plan pr
   expect(saved.day.exercises[0].loggedSets.every(set=>!set.isLocked)).toBe(true);
   expect(saved.journal.versions[0].settings.splitPreference).toBe('fullbody');
   expect(monitor.pageErrors).toEqual([]);
+});
+
+test('protocollo: ultima serie apre prossimo esercizio, note persistono fra serie e recupero continua',async({page})=>{
+  const monitor=await openIsolatedApp(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');
+    const ex=name=>({name,setsCount:2,reps:'5-6',kgMin:'70',kgMax:'70',targetRpe:7,rpe:7,recupero:'180s',notes:'Istruzioni da leggere per tutte le serie',sets:[{},{}],loggedSets:[{},{}]});
+    state.workoutData={history:{years:{2026:{mesocycles:[{id:'protocol-active',name:'Protocollo',weeks:[{weekNumber:1,days:[{dayNumber:1,exercises:[ex('Squat con Bilanciere'),ex('Panca Piana con Bilanciere')]}]}]}]}}}};
+    state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=1;renderWorkoutList();
+  });
+  const first=page.locator('.ex-card[data-ex="0"]'),second=page.locator('.ex-card[data-ex="1"]');
+  await expect(first.locator('.exercise-coach-notes')).toHaveAttribute('open','');
+  await expect(second.locator('.exercise-coach-notes')).not.toHaveAttribute('open','');
+  await first.locator('.exercise-coach-notes summary').click();
+  await first.locator('.set-lock-check').nth(0).check();
+  await expect(first.locator('.exercise-coach-notes')).not.toHaveAttribute('open','');
+  await first.locator('.exercise-coach-notes summary').click();
+  await first.locator('.set-lock-check').nth(1).check();
+  await expect(first).not.toHaveClass(/is-active-exercise/);
+  await expect(first.locator('.exercise-coach-notes')).not.toHaveAttribute('open','');
+  await expect(second).toHaveClass(/is-active-exercise/);
+  await expect(second.locator('.exercise-coach-notes')).toHaveAttribute('open','');
+  await expect(page.locator('#timer-display')).toContainText(/\d/);
+  await first.locator('.exercise-coach-notes summary').click();
+  await expect(first.locator('.exercise-coach-notes')).toHaveAttribute('open','');
+  expect(monitor.pageErrors).toEqual([]);
+  expect(monitor.remoteRequests).toEqual([]);
+});
+
+test('protocollo: fallimento import non avanza selezione e retry salva senza duplicati',async({page})=>{
+  page.on('dialog',dialog=>dialog.accept());
+  await openIsolatedApp(page);
+  const result=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');const {importWorkoutPlan}=await import('/js/csvHandler.js');
+    const {journalStorage}=await import('/js/journalStore.js');
+    const before=JSON.stringify(state.workoutData);const selection=state.activeMesocycleIndex;
+    const save=journalStorage.setItem;
+    journalStorage.setItem=function(key,value){if(key.endsWith('_sync_queue'))throw Error('quota di prova');return save.call(this,key,value);};
+    const csv='Settimana;Giorno;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero\n1;1;Squat;3;5-6;70;70;7;180s';
+    const failed=await importWorkoutPlan(csv);
+    const unchanged=JSON.stringify(state.workoutData)===before&&state.activeMesocycleIndex===selection;
+    journalStorage.setItem=save;
+    const retried=await importWorkoutPlan(csv);
+    return {failed,unchanged,retried,count:state.workoutData.history.years[state.currentYear].mesocycles.length};
+  });
+  expect(result.failed.success).toBe(false);expect(result.unchanged).toBe(true);expect(result.retried.success).toBe(true);
+});
+
+test('protocollo: anteprima import modificabile prima del salvataggio',async({page})=>{
+  page.on('dialog',dialog=>dialog.accept());
+  const monitor=await openIsolatedApp(page);
+  await page.evaluate(async()=>{
+    const {importWorkoutPlan}=await import('/js/csvHandler.js');
+    window.protocolImport=importWorkoutPlan('Settimana;Giorno;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero\n1;1;Squat personale;3;5-6;70;70;7;180s',{review:true});
+  });
+  const dialog=page.getByRole('dialog',{name:'Controlla e modifica la scheda prima di importare'});
+  await expect(dialog).toBeVisible();await dialog.getByLabel(/^Esercizio · Squat Personale$/i).fill('Squat variante personale');
+  await dialog.getByRole('button',{name:'Conferma importazione'}).click();
+  const saved=await page.evaluate(async()=>{const result=await window.protocolImport;const {state}=await import('/js/state.js');return {result,name:state.workoutData.history.years[state.currentYear].mesocycles.at(-1).weeks[0].days[0].exercises[0].name};});
+  expect(saved.result.success).toBe(true);expect(saved.name).toBe('Squat variante personale');expect(monitor.pageErrors).toEqual([]);
+});
+
+test('protocollo: squat 70→79 kg fra giorni diversi e warmup escluso dalla proposta',async({page},testInfo)=>{
+  const monitor=await openIsolatedApp(page);await page.setViewportSize({width:390,height:844});
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');
+    const source={name:'Squat con Bilanciere',setsCount:3,reps:'5-6',kgMin:'70',kgMax:'70',targetRpe:7,rpe:7,recupero:'180s',notes:'Tronco stabile, discesa controllata.',sets:[{},{},{}],loggedSets:[6.5,6.5,7].map(rpe=>({weight:79,reps:6,rpe,completed:true,isLocked:true,performedAt:'2026-10-20'}))};
+    const next={...source,recupero:'150s',loggedSets:[{},{},{}]};
+    state.workoutData={athlete:{},history:{years:{2026:{mesocycles:[{id:'photo-case',name:'Verifica squat',weeks:[{weekNumber:1,days:[{dayNumber:1,completed:true,exercises:[source]},{dayNumber:2,exercises:[next]}]}]}]}}}};
+    state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=2;renderWorkoutList();
+  });
+  await expect(page.locator('.set-kg').first()).toHaveValue('79');
+  await expect(page.locator('.coach-exposure-summary')).toContainText('6.5');
+  await expect(page.locator('.coach-exposure-summary')).toContainText('Recuperi diversi');
+  await page.evaluate(async()=>{const {stopTimer}=await import('/js/timer.js');stopTimer();});
+  await page.locator('.ex-name').scrollIntoViewIfNeeded();
+  await page.screenshot({path:testInfo.outputPath('squat-proposta-mobile.png'),fullPage:true});
+  await page.evaluate(async()=>{const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');state.workoutData.history.years[2026].mesocycles[0].weeks[0].days[0].exercises[0].isWarmup=true;renderWorkoutList();});
+  await expect(page.locator('.coach-exposure-summary')).toHaveCount(0);await expect(page.locator('.set-kg').first()).toHaveValue('70');
+  expect(monitor.pageErrors).toEqual([]);
+});
+
+test('protocollo: PDF reale esportato conserva tutti gli esercizi e impagina note lunghe',async({page},testInfo)=>{
+  await openIsolatedApp(page);
+  const pdf=await page.evaluate(async()=>{
+    const {exportMesoToPDF}=await import('/js/mesocycle.js');
+    const Real=window.jspdf.jsPDF;
+    let captured;
+    window.jspdf.jsPDF=function(...args){const doc=new Real(...args);doc.save=()=>{captured={bytes:Array.from(new Uint8Array(doc.output('arraybuffer'))),pages:doc.getNumberOfPages()};};return doc;};
+    const exercises=Array.from({length:12},(_,i)=>({name:'Esercizio personalizzato '+(i+1),setsCount:3,reps:'8-12',rpe:8,notes:'Controlla la tecnica e registra le ripetizioni effettive. '.repeat(i===0?25:2),loggedSets:[1,2,3].map(()=>({weight:30,reps:10,rpe:8,isLocked:true,performedAt:'2026-10-20'}))}));
+    exportMesoToPDF({name:'Verifica report completo',weeks:[{weekNumber:1,days:[{dayNumber:1,date:'2026-10-20',exercises}]}]});
+    window.jspdf.jsPDF=Real;return captured;
+  });
+  expect(pdf.pages).toBeGreaterThan(1);expect(pdf.bytes.length).toBeGreaterThan(10000);
+  const {writeFile}=await import('node:fs/promises');await writeFile(testInfo.outputPath('report-reale.pdf'),Buffer.from(pdf.bytes));
 });

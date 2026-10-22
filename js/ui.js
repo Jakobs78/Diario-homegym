@@ -1,3 +1,4 @@
+import {bindActiveExercisePanels} from './activeExercise.js';
 import {createCircuitCard} from './circuitUI.js';
 import {isCircuit} from './restPolicy.js';
 // ==========================================
@@ -8,15 +9,14 @@ import {isCircuit} from './restPolicy.js';
 // 1. IMPORT & ELEMENTI DOM
 // ==========================================
 import { state } from './state.js';
-import { saveAndSync } from './storage.js';
 import { historyWindow } from './historyWindow.js';
 import { stopTimer, adjustTimer, handleTick, handleComplete } from './timer.js';
 import { testTimerAudio } from './audio.js';
 import { createSingleExerciseCard, updatePlatesBadgeUI } from './exerciseCard.js';
 import { updateSessionHeaderUI } from './sessionTimer.js';
 import { bindWorkoutTableEvents } from './workoutEvents.js';
-import { parseCoachPDF } from './pdfParser.js';
-import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
+
+
 import { createLiveCoachPanel, updateLiveCoachPanel, refreshLiveCoachClock, dismissLiveCoachToast } from './liveCoachUI.js';
 import { toggleCurrentMesocycleLock } from './mesocycle.js';
 import { createMesocycleClosurePanel } from './mesocycleClosureUI.js';
@@ -41,68 +41,6 @@ export function showNotification(message) {
 // ==========================================
 // 2.5 MODULO DI UPLOAD UNIVERSALE (PDF / EXCEL / XML)
 // ==========================================
-export function renderUploadCard(onFileProcessed) {
-    const uploadWrapper = document.createElement('div');
-    uploadWrapper.className = 'upload-wrapper-card text-center mb-md';
-    
-    uploadWrapper.innerHTML = `
-        <input type="file" id="universal-coach-file" accept=".xlsx, .xlsm, .xml, .csv, .pdf" class="d-none" />
-        <label for="universal-coach-file" class="upload-card-label">
-            <span class="upload-icon">📥</span>
-            <span class="upload-title">Seleziona la scheda del coach (PDF, Excel o XML)</span>
-            <span class="upload-desc">Trascina o carica il file per importare automaticamente i dati nella webapp.</span>
-            <span class="upload-warning">⚠️ Nota: Per la lettura dei file PDF è richiesta una connessione a internet attiva.</span>
-        </label>
-    `;
-
-    const fileInput = uploadWrapper.querySelector('#universal-coach-file');
-    fileInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const ext = file.name.split('.').pop().toLowerCase();
-        if (['xlsx', 'xlsm', 'xml', 'csv'].includes(ext)) {
-            console.log("Rilevato file nativo:", file.name);
-            if (typeof onFileProcessed === 'function') onFileProcessed(file, 'native');
-        } else if (ext === 'pdf') {
-            console.log("Rilevato file PDF, avvio parsing...", file.name);
-            
-            const labelSpan = uploadWrapper.querySelector('.upload-title');
-            const originalText = labelSpan.textContent;
-            labelSpan.textContent = "⏳ Analisi e pulizia del PDF in corso...";
-
-            try {
-                const pdfData = await parseCoachPDF(file);
-                
-                const mappedData = mapPdfTextToWorkoutData(pdfData.cleanedText);
-                state.workoutData = mappedData;
-                state.activeMesocycleIndex = 0;
-                state.activeWeek = 1;
-                state.activeDay = 1;
-
-                saveAndSync();
-                renderWorkoutList();
-
-                alert(`Scheda del coach importata con successo! Pagine totali: ${pdfData.pagesCount}.`);
-                
-                if (typeof onFileProcessed === 'function') {
-                    onFileProcessed(pdfData, 'pdf');
-                }
-            } catch (err) {
-                console.error("Errore durante il parsing del PDF:", err);
-                alert("Errore nella lettura del PDF. Assicurati di avere una connessione attiva e che il file sia valido.");
-            } finally {
-                labelSpan.textContent = originalText;
-            }
-
-        } else {
-            alert("Formato non supportato. Per importare una scheda scegli un file PDF, Excel o CSV compatibile con il modello. Se usi un PDF, controlla che contenga testo selezionabile.");
-        }
-    });
-
-    return uploadWrapper;
-}
-
 // ==========================================
 // FUNZIONE DI SUPPORTO: RECUPERO SICURO MESOCICLO ATTIVO
 // ==========================================
@@ -480,6 +418,7 @@ export function renderWorkoutList() {
         }
     }
 
+    bindActiveExercisePanels(DOM.workoutListContainer,currentDay);
     bindWorkoutTableEvents(currentDay, isPastMeso, renderWorkoutList);
     // Ora le input delle schede esistono: eventuali pulsanti di suggerimento
     // possono riferirsi solo a set futuri realmente modificabili.

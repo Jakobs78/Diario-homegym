@@ -1,3 +1,5 @@
+import {advanceExercise} from './activeExercise.js';
+import {canonicalExerciseKey} from '../mycoatch/exerciseIdentity.js';
 import {hasDropPrescription,needsDropScope,validateDropSegments} from './trainingTechniques.js';
 import {bindDropFields} from './dropSetUI.js';
 /**
@@ -76,6 +78,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
     });
 
     workoutListContainer.querySelectorAll('.set-input, .ex-user-notes').forEach(input => {
+        input.addEventListener('input',()=>{if(input.classList.contains('set-rpe'))input.dataset.edited='true';});
         input.addEventListener('focus', (e) => e.target.select());
 
         input.addEventListener('input', (e) => {
@@ -105,7 +108,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                 setObj.weight = raw === '' ? '' : (parseFloat(raw.replace(',', '.')) || 0);
             }
             if (isReps) setObj.reps = val;
-            if (isRpe) setObj.rpe = val;
+            if (isRpe) {setObj.rpe = val;setObj.rpeSource=val.trim()===''?'unknown':'athlete_edited';}
             // Un valore modificato non deve apparire ancora come suggerimento.
             if (isKg || isReps || isRpe) target.classList.remove('text-placeholder-active');
 
@@ -137,8 +140,8 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                     parsedVal = parseRPE(val);
                 }
 
-                const isOut = isValueOutOfRange(parsedVal, minVal, maxVal);
-                const isExceeding = isValueExceedingTarget(parsedVal, minVal, maxVal);
+                const isOut = isRpe ? (parsedVal!==null&&parsedVal!==''&&(Number(parsedVal)<5||Number(parsedVal)>10||(maxVal!==''&&Number(parsedVal)>Number(maxVal)))) : isValueOutOfRange(parsedVal, minVal, maxVal);
+                const isExceeding = !isRpe && isValueExceedingTarget(parsedVal, minVal, maxVal);
 
                 const mesoIndex = state.activeMesocycleIndex || 0;
                 const currentYear = String(state.currentYear || new Date().getFullYear());
@@ -247,13 +250,20 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                 setObj.reps = validation.reps;
                 setObj.rpe = validation.rpe === null ? '' : validation.rpe;
                 // Metadato JSONB nello storico esistente; nessuna migrazione DB.
-                setObj.completedAt = new Date().toISOString();
+                setObj.performedAt ||= setObj.completedAt || currentDay.sessionDate || currentDay.date || new Date().toISOString();
+                setObj.completedAt ||= setObj.performedAt;
+                setObj.recordedAt ||= new Date().toISOString();
+                setObj.updatedAt = new Date().toISOString();
+                setObj.rpeSource = validation.rpe === null ? 'unknown' : (rpeInput?.dataset.edited==='true'||setObj.rpeSource==='athlete_edited') ? 'athlete_edited' : 'athlete_accepted';
+                const selectedBar=rowCard?.querySelector('.bar-select')?.value?.split('|');
+                const recordedBar=selectedBar?.length===2 && Number(selectedBar[0])>0 ? {weight:Number(selectedBar[0]),diameter:selectedBar[1]} : state.workoutData?.athlete?.barbellAssignments?.[canonicalExerciseKey(ex.name)] || ex.barbell || null;
+                setObj.equipmentSnapshot ||= {barbell:structuredClone(recordedBar),station:state.workoutData?.athlete?.stationConfigurations?.machine||null,weightConvention:/manubr/i.test(ex.name)?'single_dumbbell':'total_external_load'};
                 if (kgInput) kgInput.value = String(setObj.weight);
                 if (repsInput) repsInput.value = String(setObj.reps);
                 if (rpeInput) rpeInput.value = String(setObj.rpe);
 
             } else {
-                delete setObj.completedAt;
+                setObj.updatedAt = new Date().toISOString();
             }
 
             setObj.isLocked = isChecked;
@@ -285,9 +295,9 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                     if (isRepsField) isOut = isValueOutOfRange(inp.value, ex.minReps || ex.reps, ex.maxReps || ex.reps);
                     if (isRpeField) {
                         const targetRpeStr = String(ex.targetRpe || ex.rpeTarget || ex.rpe || '').replace('@', '').trim();
-                        const minRpe = ex.minRpe || (targetRpeStr.includes('-') ? targetRpeStr.split('-')[0] : targetRpeStr);
                         const maxRpe = ex.maxRpe || (targetRpeStr.includes('-') ? targetRpeStr.split('-')[1] : targetRpeStr);
-                        isOut = isValueOutOfRange(parseRPE(inp.value), minRpe, maxRpe);
+                        const actual=parseRPE(inp.value);
+                        isOut = actual!=='' && (Number(actual)<5||Number(actual)>10||(maxRpe!==''&&Number(actual)>Number(maxRpe)));
                     }
 
                     const prevSet = prevEx?.loggedSets?.[sIdx];
@@ -338,6 +348,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             updateSessionHeaderUI(currentDay, renderCallback, isPastMeso);
             updateLiveCoachPanel(currentDay, { readOnly: isPastMeso });
             saveAndSync(state.workoutData);
+            if(isChecked)advanceExercise(currentDay,exIdx);
             if (typeof renderCallback === 'function') renderCallback();
             // Il popup nasce DOPO il render e soltanto per un check valido.
             // Input e modifiche bozze NON devono far comparire consigli.

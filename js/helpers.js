@@ -1,3 +1,4 @@
+import {exerciseIdentity} from '../mycoatch/exerciseIdentity.js';
 // ==========================================
 // MODULI: helpers.js - Utility di logica pura, formattazione stringhe, calcolo dischi e ricerca storico
 // ==========================================
@@ -80,14 +81,14 @@ export function formatExerciseSummary(ex) {
     const kgMax = getCell('kgmax', 'maxkg', 'max_kg');
     const topset = getCell('topset', 'topsetweight');
     
-    const sets = getCell('set', 'sets');
+    const sets = getCell('set') || (getCell('setscount') ? getCell('setscount')+' set' : Array.isArray(ex.sets) ? ex.sets.length+' set' : getCell('sets'));
     const reps = getCell('reps', 'rep', 'rip', 'ripetizioni');
-    const rpe = getCell('rpe');
-    const recupero = getCell('recupero', 'rest', 'recovery');
+    const rpe = getCell('rpe','targetrpe','rpetarget');
+    const recupero = getCell('recupero', 'rest', 'resttime', 'recovery');
 
     const isValidVal = (val) => val && String(val).trim() !== '' && String(val).trim() !== '-' && String(val).trim() !== '0' && String(val).trim() !== '0,0' && String(val).trim() !== '0.0';
     
-    const hasKgRange = isValidVal(kgMin) && isValidVal(kgMax);
+    const hasKgRange = isValidVal(kgMin) && isValidVal(kgMax) && kgMin!==kgMax;
     const hasTopset = isValidVal(topset);
 
     const weightParts = [];
@@ -156,7 +157,7 @@ export function isRangeExercise(ex) {
 export function getExerciseSignature(ex) {
     if (!ex) return '';
     const name = typeof ex === 'string' ? ex : (ex.name || ex.nome || '');
-    const slug = slugify(name);
+    const slug = typeof ex==='object'?exerciseIdentity(ex):slugify(name);
     
     if (typeof ex === 'string') return slug;
 
@@ -223,6 +224,13 @@ export function findPreviousExercise(workoutData, currentMesoIdx, currentWeekNum
     // Repeated sessions: use the archived preceding performance of the same
     // day before looking into earlier weeks (do not use live current entries).
     const activeWeek=(current.weeks || []).find(w=>Number(w.weekNumber)===Number(currentWeekNum));
+    const recentWeeks=[...(current.weeks||[])].filter(w=>Number(w.weekNumber)<=Number(currentWeekNum)).sort((a,b)=>Number(b.weekNumber)-Number(a.weekNumber));
+    for(const week of recentWeeks){
+        const earlier=(week.days||[]).map((day,index)=>({day,position:Number(day.dayNumber??index+1)}))
+            .filter(({position})=>Number(week.weekNumber)<Number(currentWeekNum)||position<currentDayIdx+1)
+            .sort((a,b)=>b.position-a.position);
+        for(const {day} of earlier){const found=findInDay(day)||archiveOf(day);if(found)return found;}
+    }
     const archived=archiveOf(dayOf(activeWeek));
     if(archived)return archived;
     const same=scan(current,Number(currentWeekNum)-1);
@@ -514,7 +522,7 @@ export function findPriorExerciseExposures(workoutData,mesoIdx,weekNum,dayNum,ex
     const years=workoutData?.history?.years||{};
     const current=years[String(year||new Date().getFullYear())]?.mesocycles?.[mesoIdx];
     if(!current||!exercise?.name)return [];
-    const expected=slugify(exercise.name);
+    const expected=exerciseIdentity(exercise);
     const result=[];
     const weeks=[...(current.weeks||[])].sort((a,b)=>Number(b.weekNumber)-Number(a.weekNumber));
     for(const week of weeks){
@@ -528,7 +536,7 @@ export function findPriorExerciseExposures(workoutData,mesoIdx,weekNum,dayNum,ex
             // An unfinished workout cannot become evidence for another day.
             if(day.completed!==true)continue;
             for(const prior of day.exercises||[]){
-                if(slugify(prior?.name)===expected && !prior.isWarmup &&
+                if(exerciseIdentity(prior)===expected && !prior.isWarmup &&
                     !prior.isExcluded && !prior.is_excluded)
                     result.push(prior);
             }

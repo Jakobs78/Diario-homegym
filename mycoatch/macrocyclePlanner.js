@@ -1,3 +1,4 @@
+import {validPerformedSet,isWarmupExercise,plannedWorkSetCount} from '../js/workoutSemantics.js';
 /**
  * Pianificazione di un orizzonte di tre mesocicli: una ROADMAP, non tre
  * schede prescrittive create senza dati futuri.
@@ -16,7 +17,7 @@ const repsRecorded = set => {
 const measuredRpe = value => {
     if (value === null || value === undefined || value === '') return false;
     const s = String(value).trim().replace(/^@/, '').replace(',', '.');
-    return /^\d+(?:\.\d+)?$/.test(s) && Number(s) >= 6 && Number(s) <= 10;
+    return /^\d+(?:\.\d+)?$/.test(s) && Number(s) >= 5 && Number(s) <= 10;
 };
 
 function prescribedSets(ex) {
@@ -47,7 +48,8 @@ export function auditLatestBlock(mesocycle) {
             }
             plannedDays++;
             for (const ex of exercises) {
-                const planned = prescribedSets(ex);
+                if(isWarmupExercise(ex))continue;
+                const planned = prescribedSets(ex)===null ? null : plannedWorkSetCount(ex);
                 if (planned === null) {
                     unknownPrescriptions++;
                     completeWeek = false;
@@ -58,7 +60,7 @@ export function auditLatestBlock(mesocycle) {
                 const logged = Array.isArray(ex.loggedSets) ? ex.loggedSets :
                     (Array.isArray(ex.sets) ? ex.sets : []);
                 const real = logged.filter(set =>
-                    isWorking(set) && isConfirmed(set) && repsRecorded(set));
+                    isWorking(set) && isConfirmed(set) && repsRecorded(set) && validPerformedSet(ex,set));
                 const counted = Math.min(planned, real.length);
                 confirmed += counted;
                 withRpe += real.slice(0, counted)

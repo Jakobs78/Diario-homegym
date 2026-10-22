@@ -37,7 +37,7 @@ test('coach PDF combines closure review, weekly metrics and muscle percent share
     assert.equal(report.closure.archivedRepeats,1,'archive appears separately, never in main totals');
     assert.equal(report.closure.measuredRpeSets,3);
     assert.equal(report.tonnage,80*8+30*10+80*9+80*9);
-    assert.deepEqual(report.physicalSets,{plannedRecognized:5,confirmedRecognized:3});
+    assert.deepEqual(report.physicalSets,{plannedRecognized:4,confirmedRecognized:3});
     assert.deepEqual(report.unclassified,['Esercizio Sconosciuto ABC']);
     assert.equal(report.weekly.length,2);
     assert.equal(report.weekly[1].isDeloadWeek,true);
