@@ -118,7 +118,7 @@ export function formatMesocycleReviewDossierMarkdown(dossier) {
         throw Error('Dossier MyCoatch non valido.');
     const s=dossier.summary;
     const lines=[
-        '# MyCoatch — Dossier di revisione del mesociclo',
+        '# MyCoatch — Rapporto dettagliato del mesociclo',
         '',
         '**Origine:** HomeGym Diary, esportazione volontaria in sola lettura.',
         '**Stato:** '+dossier.mesocycle.status+' · **Versione profilo:** '+
@@ -127,7 +127,7 @@ export function formatMesocycleReviewDossierMarkdown(dossier) {
         '',
         '> '+dossier.interpretation,
         '',
-        '## Riepilogo confermato',
+        '## Quanti allenamenti e quante serie hai completato',
         '',
         '- Sedute complete: '+s.completedSessions+'/'+s.plannedSessions+
             '; parziali: '+s.partialSessions+'; non iniziate: '+s.skippedSessions,
@@ -144,14 +144,14 @@ export function formatMesocycleReviewDossierMarkdown(dossier) {
         '- Settimana '+week.weekNumber+': '+week.completedSets+'/'+week.plannedSets+
         ' serie confermate; RPE misurati '+week.rpeMeasured+'/'+week.completedSets+
         '; media '+value(week.averageRpe)+'.');
-    lines.push('','## Volume per distretto (descrittivo)','');
+    lines.push('','## Lavoro registrato per gruppo muscolare (conteggio stimato, non crescita)','');
     for(const row of dossier.muscleVolume.rows) {
         if(!(row.planned||row.credited))continue;
         lines.push('- '+row.muscle+': lavoro diretto '+row.direct+
             ', crediti indiretti '+row.indirect+', totale attribuito '+row.credited+
-            ' (programmato '+row.planned+').');
+            ' (nel programma iniziale: '+row.planned+'). I crediti indiretti non sono serie ulteriori da eseguire.');
     }
-    lines.push('','## Sedute: prescrizione e risultati distinti','');
+    lines.push('','## Per ogni seduta: cosa era previsto e cosa hai realmente registrato','');
     for(const session of dossier.sessions) {
         lines.push('### Settimana '+session.weekNumber+' · '+session.dayName,'');
         for(const ex of session.exercises) {
@@ -172,7 +172,7 @@ export function formatMesocycleReviewDossierMarkdown(dossier) {
             lines.push('');
         }
     }
-    lines.push('## Limiti e riservatezza','',
+    lines.push('## Come interpretare il rapporto e proteggere i dati','',
         '- Il dossier non contiene un giudizio diagnostico o una misura di crescita muscolare.',
         '- Le prestazioni sono soltanto quelle valide e confermate; i target non sono risultati.',
         '- Le sedute ripetute archiviate non sono incluse nei dettagli delle sedute programmate.',

@@ -1,4 +1,3 @@
-import {barbellForExercise} from '../mycoatch/barbellInventory.js';
 import {canonicalExerciseKey} from '../mycoatch/exerciseIdentity.js';
 import {hasDropPrescription} from './trainingTechniques.js';
 import {dropFields,dropScopeControl} from './dropSetUI.js';
@@ -8,13 +7,13 @@ import {equipmentKind,automaticallyShowPlates,selectableBarbells,suggestedBarbel
  * Summary: Genera dinamicamente le card per ogni esercizio gestendo lo stato di esclusione dai massimali, i selettori del bilanciere, il calcolo dei dischi per lato e l'evidenziatura automatica fuori target per KG (inclusi Topset), REPS ed RPE (con supporto al feedback verde di miglioramento).
  */
 
-import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, findPriorExerciseExposures, isValueOutOfRange, calculateSetVolumeTrend, isValueExceedingTarget, parseRPE, escapeHtml } from './helpers.js';
+import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, findPriorExerciseExposures, isValueOutOfRange, isValueExceedingTarget, parseRPE, escapeHtml } from './helpers.js';
 import { state } from './state.js';
 import { enableCardSwipeGesture } from './gestures.js';
 import { isWarmupExercise } from './workoutSemantics.js';
 import { saveAndSync } from './storage.js';
 import { renderWorkoutList } from './ui.js';
-import { getSetPrefill } from './setPrefill.js';
+import { getSetPrefill, getSetRepsTarget } from './setPrefill.js';
 import { recommendNextSessionReps } from '../mycoatch/nextSessionReps.js';
 import { recommendCrossExposureLoad } from '../mycoatch/crossExposureLoad.js';
 import { compareConfirmedSetVolume } from './setVolumeComparison.js';
@@ -52,7 +51,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         <div class="ex-card-header flex-between mb-sm">
             <div class="flex-center gap-md">
                 ${!isExExcluded
-                    ? '<span class="exercise-exclude-hint text-xs text-muted flex-italic">Doppio click o swipe o clicca su W del SET per escludere il riscaldamento</span>'
+                    ? '<span class="exercise-exclude-hint text-xs text-muted flex-italic">Doppio clic sulla card (PC) o swipe a sinistra (telefono) per segnare tutto l’esercizio come riscaldamento. W modifica solo una serie.</span>'
                     : ''}
                 <!-- Il numero del blocco rimane nei dati e nei gruppi, non sulla singola card. -->
                 ${isDropsetPlan ? '<span class="badge-dropset">🔥 DROP SET</span>' : ''}
@@ -104,7 +103,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     const previousSessionMarkup = lastSessionSetsHtml ? `
         <details class="exercise-history-box exercise-notes-box mb-md"
                  aria-label="Ultima sessione precedente">
-            <summary class="history-title">↩ Ultima sessione · Mostra prestazioni</summary>
+            <summary class="history-title">↩ Confronta con l’ultima seduta registrata</summary>
             <div class="history-content">${lastSessionSetsHtml}</div>
         </details>` : '';
 
@@ -126,7 +125,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         ${crossLabel}
         ${previousSessionMarkup}
         <details class="exercise-coach-notes" aria-label="Note del coach e note personali" ${expandNotes ? 'open' : ''}>
-            <summary>📝 Note coach${notesPresent ? ' · presenti' : ''} e personali</summary>
+            <summary>📝 Istruzioni MyCoatch${notesPresent ? ' · presenti' : ''} e note personali</summary>
             <div class="exercise-coach-notes-body">
                 ${notesPresent ? `<div class="note-allenatore-text">${escapeHtml(ex.notes)}</div>` : ''}
                 <label class="workout-notes-label" for="ex-user-notes-${exIdx}">✍️ Note personali</label>
@@ -173,7 +172,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         // Precompila come kg/reps. Il valore diventa prestazione SOLO con il check ✓.
         const displayRpe = isLocked ? (setObj.rpe ?? '') : suggested.rpe;
         const targetWeightDefault = ex.kgMin || ex.kgMax || 'Kg';
-        const defaultTargetReps = ex.reps || ex.targetReps || 'reps';
+        const defaultTargetReps = getSetRepsTarget(ex, setIdx);
 
         let currentKgMin = ex.kgMin;
         let currentKgMax = ex.kgMax;
@@ -241,9 +240,10 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                 <td class="td-input td-reps-stepper">
                     <div class="reps-stepper" role="group" aria-label="Correggi le ripetizioni eseguite nella serie ${setIdx + 1}">
                         <button type="button" class="reps-step-btn" data-ex="${exIdx}" data-set="${setIdx}" data-direction="-1" aria-label="Diminuisci ripetizioni di 1 nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>−</button>
-                        <input type="text" inputmode="numeric" autocomplete="off" class="set-input set-reps ios-no-zoom ${repsClass} ${isUnsavedReps ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayReps)}" placeholder="${escapeHtml(defaultTargetReps)}" aria-label="Ripetizioni eseguite nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>
+                        <input type="text" inputmode="numeric" autocomplete="off" class="set-input set-reps ios-no-zoom ${repsClass} ${isUnsavedReps ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayReps)}" placeholder="${escapeHtml(defaultTargetReps || 'reps')}" aria-label="Ripetizioni eseguite nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>
                         <button type="button" class="reps-step-btn" data-ex="${exIdx}" data-set="${setIdx}" data-direction="1" aria-label="Aumenta ripetizioni di 1 nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>+</button>
                     </div>
+                    <small class="reps-target-label" title="Ripetizioni previste dalla scheda per questa serie, non quelle effettivamente eseguite">Ob. ${escapeHtml(defaultTargetReps || '—')}</small>
                 </td>
                 <td class="td-input td-rpe-stepper">
                     <div class="rpe-stepper" role="group" aria-label="Correggi l'RPE percepito nella serie ${setIdx + 1}">
@@ -251,7 +251,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                         <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-rpe ios-no-zoom ${rpeClass} ${isUnsavedRpe ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayRpe)}" placeholder="RPE" title="RPE percepito: correggi il valore suggerito prima del ✓. Il target rimane invariato." aria-label="RPE percepito nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>
                         <button type="button" class="rpe-step-btn" data-ex="${exIdx}" data-set="${setIdx}" data-direction="1" aria-label="Aumenta RPE di 0,5 nella serie ${setIdx + 1}" ${isDisabled ? 'disabled' : ''}>+</button>
                     </div>
-                    <small class="rpe-target-label" title="Obiettivo RPE di MyCoatch, non prestazione effettuata">Ob. ${escapeHtml(setTargetRpeStr || '—')}</small>
+                    <small class="rpe-target-label" title="Obiettivo RPE di MyCoatch, non prestazione effettuata">Target ${escapeHtml(setTargetRpeStr || '—')}</small>
                 </td>
                 <td class="td-check text-center">
                     <input type="checkbox" class="set-lock-check custom-big-check" aria-label="Conferma o riapri serie ${setIdx+1}" title="${hasDropPrescription(ex,setIdx)?'Conferma base e scarichi insieme':'Conferma serie'}" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''}>
@@ -272,8 +272,9 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             <div class="bar-controls-row">
                 <span class="bar-select-label">🏋️ SERIE <span class="plates-active-set">${selected+1}</span></span>
                 <select class="bar-select" aria-label="Bilanciere: peso e diametro" ${isPastMeso ? 'disabled' : ''}>
+                    <option value="">Scegli bilanciere…</option>
                     ${barOptions.length ? barOptions.map(bar=>`<option value="${barbellOptionValue(bar)}">Bil ${bar.weight} kg · Ø${bar.diameter} mm</option>`).join('')
-                        : '<option value="">Configura bilanciere…</option>'}
+                        : ''}
                 </select>
             </div>
             <div class="plates-badge" data-ex="${exIdx}">Configura i tuoi bilancieri in Strumenti → Attrezzatura personale.</div>

@@ -3286,7 +3286,7 @@ body.dark-mode .group-title-badge {
 .ex-card .rpe-step-btn { width:22px; min-width:22px; height:36px; min-height:36px; flex:0 0 22px; padding:0; margin:0; border:1px solid var(--border-color); border-radius:6px; background:var(--block-bg); color:var(--text-color); font-size:18px; font-weight:800; touch-action:manipulation; cursor:pointer; }
 .ex-card .rpe-step-btn:focus-visible { outline:2px solid var(--accent-color); outline-offset:1px; }
 .ex-card .rpe-step-btn:disabled { opacity:.4; cursor:not-allowed; }
-.ex-card .rpe-target-label { display:block; color:var(--text-muted); font-size:.66rem; font-weight:650; line-height:1.15; margin:2px 0; }
+.ex-card .reps-target-label, .ex-card .rpe-target-label { display:block; color:var(--text-muted); font-size:.66rem; font-weight:650; line-height:1.15; margin:2px 0; overflow-wrap:anywhere; }
 @media(max-width:390px) { .ex-card .rpe-step-btn { width:20px; min-width:20px; flex-basis:20px; } }
 
 .mycoatch-next-rep-hint {font-size:.8rem;line-height:1.45;margin:4px 0 9px;padding:8px 10px;border-left:3px solid var(--accent-color);background:var(--block-bg);border-radius:6px;}
@@ -3353,4 +3353,29 @@ body.dark-mode .group-title-badge {
     .ex-card .exercise-exclude-hint {max-width:210px;font-size:.7rem;line-height:1.3;}
     .ex-card .ex-name {font-size:1.13rem !important;}
     .ex-card .target-box {font-size:.82rem;}
+}
+
+/* Explanations belong to each menu action without enlarging button hit areas.
+   They remain readable with narrow phones and the existing scrollable sheet. */
+.bottom-sheet-menu .sheet-item-help {
+    display:block;
+    margin-top:5px;
+    font-size:.77rem;
+    line-height:1.4;
+    font-weight:450;
+    color:inherit;
+    opacity:.82;
+    overflow-wrap:anywhere;
+}
+.bottom-sheet-menu .sheet-item {
+    line-height:1.3;
+    white-space:normal;
+}
+
+/* Longer coaching explanations must remain usable on narrow phones. */
+.mycoatch-meso-closure-content,
+.mycoatch-meso-closure-actions,
+.mycoatch-meso-closure-check > span { min-width: 0; }
+.mycoatch-meso-closure-actions > button {
+  min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere;
 }

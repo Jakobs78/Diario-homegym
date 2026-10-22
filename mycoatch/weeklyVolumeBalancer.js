@@ -168,7 +168,7 @@ function findReceiver(days, deficit, maxSessionMinutes, crossFocusCount, maxAcce
     return options[0] || null;
 }
 
-function weeklyTotals(days, requestedDays, moves, isDeloadWeek) {
+export function weeklyTotals(days, requestedDays, moves, isDeloadWeek) {
     const wanted = {};
     const scheduled = {};
     for (const day of requestedDays) trackSets(day, wanted);

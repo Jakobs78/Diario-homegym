@@ -157,3 +157,16 @@ test('CSV importato non sovrascrive target espliciti o parziali',()=>{
     second.loggedSets[0].reps='9';
     assert.equal(previewFutureLoadReview(m,1,0,0,settings),null);
 });
+
+
+test('weight-only future review cannot apply a jump that requires new repetition targets',()=>{
+    const m=mesocycle();
+    for(const week of m.weeks){
+        const ex=week.days[0].exercises[0];
+        ex.reps='8-12';ex.kgMin='70';ex.kgMax='70';
+        if(week.weekNumber===1)ex.loggedSets=Array.from({length:3},()=>performed(70,12,7));
+    }
+    const before=structuredClone(m);
+    assert.equal(previewFutureLoadReview(m,1,0,0,{equipmentSettings:{barbell:5}}),null);
+    assert.deepEqual(m,before);
+});

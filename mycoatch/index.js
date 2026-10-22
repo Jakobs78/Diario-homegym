@@ -39,17 +39,15 @@ export const MyCoatch = {
         const decisions = planAdaptiveDecisions(report,{loadingSteps:equipmentSettings});
         const analysis = { ...report, decisions };
 
-        if (Object.keys(coachingGoals).length > 0) {
-            // Ogni nuova proposta riceve un profilo esplicito o null: non
-            // riutilizzare quello di un'altra persona/sessione dalla memoria JS.
-            coachState.updateConfig({
-                ...coachingGoals, loadingSteps,
-                athleteProfile: recency.reentry ? {
-                    ...(coachingGoals.athleteProfile || {experience:'intermediate'}),
-                    calibration:'guided',referenceLoads:{}
-                } : coachingGoals.athleteProfile ?? null
-            });
-        }
+        // Ogni nuova proposta riceve un profilo esplicito o null: non
+        // riutilizzare quello di un'altra persona/sessione dalla memoria JS.
+        coachState.updateConfig({
+            ...coachingGoals, loadingSteps,
+            athleteProfile: recency.reentry ? {
+                ...(coachingGoals.athleteProfile || {experience:'intermediate'}),
+                calibration:'guided',referenceLoads:{}
+            } : coachingGoals.athleteProfile ?? null
+        });
         const config = structuredClone(coachState.getConfig());
         // Non eredita stime di altre persone: dati recenti del diario corrente.
         config.durationCalibration = deriveDurationCalibration(userHistory);

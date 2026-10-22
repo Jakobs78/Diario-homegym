@@ -251,7 +251,7 @@ for(const [device,width,height] of [['telefono',390,844],['tablet',768,1024],['p
  await page.locator('#btn-user-manual').click();
  const manual=page.locator('#manual-content');
  await expect(manual).toBeVisible();
- await expect(manual.locator('.manual-section')).toHaveCount(17);
+ await expect(manual.locator('.manual-section')).toHaveCount(19);
  for(const link of await manual.locator('[data-manual-target]').all()){
   const id=await link.getAttribute('data-manual-target');
   await link.click();await expect(page.locator('#'+id)).toHaveAttribute('open','');
@@ -318,12 +318,12 @@ test('RPE +/-0,5 mobile: la spunta salva solo il valore percepito, non cambia il
  const card=page.locator('.ex-card[data-ex="1"]');
  const field=card.locator('.set-rpe[data-set="0"]');
  await expect(field).toHaveValue('8');
- await expect(card.locator('.rpe-target-label').first()).toHaveText('Ob. 8');
+ await expect(card.locator('.rpe-target-label').first()).toHaveText('Target 8');
  await card.locator('.rpe-step-btn[data-set="0"][data-direction="1"]').click();
  await expect(field).toHaveValue('8.5');
  await card.locator('.rpe-step-btn[data-set="0"][data-direction="1"]').click();
  await expect(field).toHaveValue('9');
- await expect(card.locator('.rpe-target-label').first()).toHaveText('Ob. 8');
+ await expect(card.locator('.rpe-target-label').first()).toHaveText('Target 8');
  await card.locator('.set-kg[data-set="0"]').fill('10');
  await card.locator('.set-reps[data-set="0"]').fill('12');
  await card.locator('.set-lock-check[data-set="0"]').check();
@@ -378,7 +378,7 @@ test('mobile reps controls fit and every gesture instruction begins at left edge
    await setupPlan(page,'drop');
    const card=page.locator('.ex-card[data-ex="0"]');
    const hint=card.locator('.exercise-exclude-hint');
-   await expect(hint).toContainText('Doppio click o swipe');
+   await expect(hint).toContainText('Doppio clic sulla card');
    const layout=await card.evaluate(element=>{
      const hint=element.querySelector('.exercise-exclude-hint');
      const rect=element.getBoundingClientRect();
@@ -397,4 +397,43 @@ test('mobile reps controls fit and every gesture instruction begins at left edge
    expect(layout.controlsWithinCard).toBe(true);
    expect(layout.noPageOverflow).toBe(true);
  }
+});
+
+
+test('REPS shows unchanged prescribed targets for equal and different series, on mobile and after confirmation',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await setupPlan(page,'drop');
+  const card=page.locator('.ex-card[data-ex="1"]');
+  await expect(card.locator('.reps-target-label')).toHaveText(['Ob. 10-12','Ob. 10-12','Ob. 10-12']);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderWorkoutList}=await import('/js/ui.js');
+    const ex=Object.values(state.workoutData.history.years)[0].mesocycles[0].weeks[0].days[0].exercises[1];
+    ex.sets[0].targetReps='5-6';
+    ex.sets[1].targetReps='8-10';
+    ex.sets[2].targetReps='10-12';
+    renderWorkoutList();
+  });
+  const updated=page.locator('.ex-card[data-ex="1"]');
+  await expect(updated.locator('.reps-target-label')).toHaveText(['Ob. 5-6','Ob. 8-10','Ob. 10-12']);
+  await updated.locator('.set-reps[data-set="0"]').fill('6');
+  await updated.locator('.set-kg[data-set="0"]').fill('10');
+  await updated.locator('.set-rpe[data-set="0"]').fill('8');
+  await updated.locator('.set-lock-check[data-set="0"]').check();
+  await expect(updated.locator('.reps-target-label')).toHaveText(['Ob. 5-6','Ob. 8-10','Ob. 10-12']);
+  await expect(updated.locator('.set-reps[data-set="0"]')).toHaveValue('6');
+  await expect(updated.locator('.reps-step-btn[data-set="0"][data-direction="1"]')).toBeDisabled();
+  for(const width of [320,390]){
+    await page.setViewportSize({width,height:844});
+    const layout=await updated.evaluate(card=>({
+      labels:[...card.querySelectorAll('.reps-target-label')].every(l=>l.getBoundingClientRect().width>0 && l.getBoundingClientRect().height>0),
+      noOverflow:document.documentElement.scrollWidth<=innerWidth+1,
+      repsInside:[...card.querySelectorAll('.td-reps-stepper')].every(cell=>{
+        const label=cell.querySelector('.reps-target-label');
+        const c=cell.getBoundingClientRect(),r=label.getBoundingClientRect();
+        return r.left>=c.left-1 && r.right<=c.right+1;
+      })
+    }));
+    expect(layout).toEqual({labels:true,noOverflow:true,repsInside:true});
+  }
 });

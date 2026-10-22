@@ -34,7 +34,7 @@ test('quattro Full Body opt-in: due esposizioni complementari per ogni fondament
 
 test('preferenza Full Body validata senza alterare le opzioni esistenti', () => {
   const fields = { selectedTime:'60', userAge:'49', daysPerWeek:'4', focus:'hybrid' };
-  assert.equal(parseCoachPreferences(fields).splitPreference, undefined);
+  assert.equal(parseCoachPreferences(fields).splitPreference, 'auto');
   assert.equal(parseCoachPreferences({...fields,splitPreference:'fullbody'}).splitPreference, 'fullbody');
   assert.throws(() => parseCoachPreferences({...fields,splitPreference:'unknown'}), /struttura/);
 });

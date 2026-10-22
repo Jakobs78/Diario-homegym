@@ -11,9 +11,8 @@ export function stepRpe(current, direction, prescribed = null) {
     // A blank field remains unknown until the athlete explicitly taps a button.
     const base = numeric(current) ?? numeric(prescribed);
     if (base === null) return null;
-    // Very light prescriptions can target 5.5. Preserve the usual >=6
-    // floor for conventional sessions, without preventing a genuine 5.5.
-    const lower = (numeric(prescribed) ?? 6) < 6 ? 5 : 6;
+    // Record genuinely light efforts too; e1RM eligibility is checked separately.
+    const lower = 5;
     const value = Math.min(10, Math.max(lower, Math.round((base + direction * 0.5) * 2) / 2));
     return String(value);
 }

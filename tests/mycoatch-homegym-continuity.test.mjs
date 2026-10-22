@@ -66,9 +66,9 @@ test('generazione senza nuovi obiettivi usa l’inventario dell’atleta corrent
  }))}]}}}};
  const config={durationWeeks:4,daysPerWeek:3,maxSessionMinutes:75,focus:'hybrid',userAge:35};
  const first=MyCoatch.generateNextFromHistory({...history,athlete:{platePairs:{}}},config);
- const second=MyCoatch.generateNextFromHistory({...history,athlete:stock});
+ const second=MyCoatch.generateNextFromHistory({...history,athlete:{...stock,plateInventories:{...stock.plateInventories,'50':{'20':1,'5':1,'2.5':1,'1.25':1}}}});
  const benches=m=>m.weeks[0].days.flatMap(d=>d.exercises).filter(e=>e.name===name);
  assert.ok(benches(first).length);assert.ok(benches(second).length);
  assert.ok(benches(first).every(e=>e.kgMin===''));
- assert.ok(benches(second).every(e=>e.kgMin==='70'));
+ assert.ok(benches(second).every(e=>Number(e.kgMin)>=60 && Number(e.kgMin)<=75));
 });

@@ -30,7 +30,7 @@ test('non completa set con placeholder range, peso vuoto o RPE inventato', () =>
     assert.match(validateCompletedSet({ weight: '80', reps: '6-8', rpe: '8' }).message, /ripetizioni realmente/i);
     assert.equal(validateCompletedSet({ weight: '', reps: '8', rpe: '8' }).ok, false);
     assert.equal(validateCompletedSet({ weight: 80, reps: 8, rpe: '11' }).ok, false);
-    assert.equal(validateCompletedSet({ weight: 80, reps: 8, rpe: '5' }).ok, false);
+    assert.equal(validateCompletedSet({ weight: 80, reps: 8, rpe: '5' }).ok, true);
     assert.equal(validateCompletedSet({ weight: '0', reps: 8, rpe: '8' }).ok, false);
     assert.equal(validateCompletedSet({ weight: '80.5', reps: '8', rpe: '@8' }).ok, true);
     const withoutRpe = validateCompletedSet({ weight: '80,5', reps: '8', rpe: '' });

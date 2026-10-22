@@ -19,7 +19,8 @@ test('easy sets below top reps do not yet qualify for a load step',()=>{
     const lift=ex();
     const saved=JSON.stringify(lift);
     const answer=recommendNextSessionLoad(lift,{equipmentSettings:{barbell:2.5}});
-    assert.equal(answer,null,'build repetitions before adding weight');
+    assert.equal(answer.suggestedWeight,null);
+    assert.deepEqual(answer.nextReps,[9,8,8]);
     assert.equal(JSON.stringify(lift),saved,'No workout mutation before or after ✓');
 });
 
@@ -34,7 +35,7 @@ test('unfinished, absent RPE, harder RPE or mixed-load sets never authorize weig
     const unfinished=ex([set(8,6),{...set(8,6),isLocked:false,completed:false}]);
     assert.equal(recommendNextSessionLoad(unfinished),null);
     assert.equal(recommendNextSessionLoad(ex([set(8,''),set(8,6)])),null);
-    assert.equal(recommendNextSessionLoad(ex([set(8,6),set(8,7)])),null);
+    assert.equal(recommendNextSessionLoad(ex([set(8,6),set(8,7)])).suggestedWeight,null);
     assert.equal(recommendNextSessionLoad(ex([set(8,6,70),set(8,6,67.5)])),null);
     assert.equal(recommendNextSessionLoad(ex([set(8,6),set(8,6)],{isDropset:true})),null);
     assert.equal(recommendNextSessionLoad(ex([set(8,6),set(8,6)],{isWarmup:true})),null);
@@ -52,7 +53,8 @@ test('real equipment increments are honored; a large smallest step is withheld',
     assert.equal(recommendNextSessionLoad(ex([set(12,7),set(12,7)]),{equipmentSettings:{barbell:1.25}})?.suggestedWeight,71.25);
     const impossible=recommendNextSessionLoad(ex([set(12,7),set(12,7)]),{equipmentSettings:{barbell:5}});
     assert.equal(impossible.eligible,true);
-    assert.equal(impossible.suggestedWeight,null);
+    assert.equal(impossible.suggestedWeight,75);
+    assert.equal(impossible.repGoal,8);
     const db=ex([set(12,7,12.5),set(12,7,12.5)],{
         name:'Curl manubri',equipment:'dumbbell',reps:'10-12'
     });

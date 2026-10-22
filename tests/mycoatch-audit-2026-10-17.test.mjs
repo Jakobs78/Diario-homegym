@@ -34,7 +34,8 @@ test('next-session load cannot increase when prescribed rows are missing', () =>
   for (const prescribed of [{set:'4 set'}, {setsCount:4}, {sets:[{},{},{},{}]}]) {
     assert.equal(recommendNextSessionLoad(exercise(prescribed)),null);
   }
-  assert.equal(recommendNextSessionLoad(exercise()),null,'first complete the repetition range');
+  assert.equal(recommendNextSessionLoad(exercise()).suggestedWeight,null);
+  assert.deepEqual(recommendNextSessionLoad(exercise()).nextReps,[9,8,8]);
   assert.equal(recommendNextSessionLoad(exercise({loggedSets:[set(),set(),set()].map(s=>({...s,reps:'12'}))}))?.suggestedWeight,72.5);
 });
 

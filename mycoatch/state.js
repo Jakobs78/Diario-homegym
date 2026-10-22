@@ -2,7 +2,7 @@
 
 class MyCoatchState {
     constructor() {
-        this.config = {
+        this.defaults = {
             name: "Mesociclo Adattivo MyCoach",
             durationWeeks: 4,
             daysPerWeek: 3,
@@ -13,11 +13,12 @@ class MyCoatchState {
             userAge: 30,
             trainingYears: 3
         };
+        this.config = { ...this.defaults };
         this.activeMesocycle = null;
     }
 
     updateConfig(newConfig) {
-        this.config = { ...this.config, ...newConfig };
+        this.config = { ...this.defaults, ...newConfig };
     }
 
     getConfig() {

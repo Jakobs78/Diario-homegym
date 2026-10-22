@@ -96,7 +96,7 @@ export function renderUploadCard(onFileProcessed) {
             }
 
         } else {
-            alert("Formato non supportato, bro! Usa Excel, XML o PDF.");
+            alert("Formato non supportato. Per importare una scheda scegli un file PDF, Excel o CSV compatibile con il modello. Se usi un PDF, controlla che contenga testo selezionabile.");
         }
     });
 
@@ -426,7 +426,7 @@ export function renderWorkoutList() {
     if ((currentDay.exercises || []).length) {
         const info = document.createElement('p');
         info.className = 'workout-confirmation-help';
-        info.textContent = 'Verifica kg, ripetizioni e RPE proposti: ✓ conferma i valori della serie. Le serie senza spunta non vengono usate da MyCoatch.';
+        info.textContent = 'I valori visibili di kg, ripetizioni e RPE sono proposte, non risultati già eseguiti. Correggili dopo la serie e premi ✓ solo se corrispondono a ciò che hai fatto: MyCoatch usa per i confronti soltanto le serie confermate.';
         DOM.workoutListContainer.appendChild(info);
     }
 

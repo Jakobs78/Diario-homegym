@@ -26,8 +26,7 @@ import { setupBottomSheet } from './bottomSheet.js';
 import { initDevBanner } from './bannerSviluppo.js';
 import { applyUserToUI, checkSubscriptionStatus, deleteUserAccount } from './accountManager.js';
 // Corretto il percorso dell'import relativo
-import { startCoachChatAndGenerate, generateAndDownloadMesocycleCSV,
-    createVisualCoachProposal, clearVisualCoachProposal, downloadVisualCoachProposal
+import { startCoachChatAndGenerate, generateAndDownloadMesocycleCSV
 } from '../mycoatch/mycoatch-adapter.js';
 import { initCoachPreview } from './coachPreviewUI.js';
 import { parseCoachPreferences } from '../mycoatch/userPreferences.js';
@@ -305,7 +304,8 @@ function setupEventListeners() {
 
     document.getElementById('mycoatch-save-profile')?.addEventListener('click',async()=>{
         try {
-            const staged=stageProfileRevision(state.workoutData,readAthleteProfileFields());
+            const options=readCoachOptions();
+            const staged=stageProfileRevision(state.workoutData,options.athleteProfile,new Date(),options);
             if(staged.changed){
                 commitProfileRevision(state.workoutData,staged);
                 const saved=await saveAndSync(state.workoutData,'SAVE_MYCOATCH_PROFILE');
@@ -341,7 +341,7 @@ function setupEventListeners() {
         if (coachFeedback) coachFeedback.textContent = '';
         if (coachSubmit) {
             coachSubmit.disabled = true;
-            coachSubmit.textContent = 'Generazione in corso…';
+            coachSubmit.textContent = 'MyCoatch sta preparando la scheda…';
         }
 
         try {
@@ -358,7 +358,7 @@ function setupEventListeners() {
         } finally {
             if (coachSubmit) {
                 coachSubmit.disabled = false;
-                coachSubmit.textContent = 'Genera e scarica CSV';
+                coachSubmit.textContent = 'Genera e scarica CSV (senza importare)';
             }
         }
     });

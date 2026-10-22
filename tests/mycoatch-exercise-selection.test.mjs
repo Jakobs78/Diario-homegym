@@ -16,10 +16,10 @@ const noHistory = { byExercise: {}, stalledExercises: [], exerciseNotes: {} };
 const plan = (config = {}, previous = null) =>
     generateSmartMesocycle({ ...base, ...config }, noHistory, previous);
 
-test('catalogo di 52 esercizi con ID stabili, categorie e dotazioni esplicite', () => {
-    assert.equal(EXERCISE_DATABASE.length, 52);
-    assert.equal(new Set(EXERCISE_DATABASE.map(e => e.id)).size, 52);
-    assert.equal(new Set(EXERCISE_DATABASE.map(e => e.name)).size, 52);
+test('catalogo di 53 esercizi con ID stabili, categorie e dotazioni esplicite', () => {
+    assert.equal(EXERCISE_DATABASE.length, 53);
+    assert.equal(new Set(EXERCISE_DATABASE.map(e => e.id)).size, 53);
+    assert.equal(new Set(EXERCISE_DATABASE.map(e => e.name)).size, 53);
     assert.ok(EXERCISE_DATABASE.every(ex =>
         /^[a-z0-9_]+$/.test(ex.id) &&
         ex.primaryMuscle === ex.category &&
@@ -204,13 +204,13 @@ test('anteprima spiega le 4 alzate, lo split e gli accessori mancanti', () => {
     const compare = compareMesocyclePlans(null, meso, {});
     const review = formatCoachReview(compare,
         { inspectedMesocycles: 0, sessionsAnalyzed: 0 });
-    assert.match(review, /Split programmato: Upper → Lower → Upper → Lower/);
-    assert.match(review, /Movimenti cardine:/);
+    assert.match(review, /Suddivisione delle sedute \(split\): Upper → Lower → Upper → Lower/);
+    assert.match(review, /Esercizi principali su cui MyCoatch costruisce la progressione:/);
     assert.match(review, /Panca Piana con Bilanciere/);
     assert.match(review, /Military Press con Bilanciere/);
-    assert.match(review, /Accessori facoltativi esclusi per attrezzatura/);
+    assert.match(review, /Esercizi complementari non inseriti perché manca l’attrezzatura dichiarata/);
     assert.match(review, /G2 Femorali/);
-    assert.match(review, /Confermi la proposta/);
+    assert.match(review, /Vuoi scaricare soltanto il file CSV/);
 });
 
 test('un fondamentale o una regola di frequenza resta protetta anche dopo il tempo', () => {

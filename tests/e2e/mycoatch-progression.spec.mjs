@@ -105,14 +105,14 @@ test('UI browser reale: propone prima +1 rep, poi +kg, senza dati inventati né 
   assert.equal(check.reps.decision.action, 'build_reps');
   assert.equal(check.reps.decision.plannedKg, 80);
   assert.equal(check.reps.decision.plannedRepGoal, 8);
-  assert.equal(check.reps.first.kgMin, '80');
+  assert.equal(check.reps.first.kgMin, '77.5');
   assert.match(check.reps.first.notes, /prova 8 ripetizioni/);
-  assert.match(check.reps.review, /PROGRESSIONE FONDATA SUI DATI/);
+  assert.match(check.reps.review, /Due settimane complete con RPE misurato entro il target/);
 
   assert.equal(check.loads.decision.action, 'increase_load');
   assert.equal(check.loads.decision.plannedKg, 82.5);
-  assert.equal(check.loads.first.kgMin, '82.5');
-  assert.match(check.loads.review, /piccoli incrementi di carico/);
+  assert.equal(check.loads.first.kgMin, '85');
+  assert.match(check.loads.review, /Due settimane diverse, tutte le serie al limite alto/);
   assert.match(check.loads.csv.split('\n')[0],
     /^Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset$/);
   assert.ok(check.loads.csv.trim().split('\n').slice(1)
@@ -120,7 +120,7 @@ test('UI browser reale: propone prima +1 rep, poi +kg, senza dati inventati né 
 
   assert.equal(check.noRpe.decision.action, 'maintain');
   assert.equal(check.noRpe.first.kgMin, '80');
-  assert.match(check.noRpe.review, /RPE insufficienti/);
+  assert.ok(check.noRpe.decision.caveats.includes('rpe_mancante_o_sopra_target'));
   assert.equal(check.localUnchanged, true);
   assert.ok(check.afterLoad.includes('"reps":"8"'),
     'Le modifiche al fixture sintetico esistono soltanto nella memoria della pagina.');

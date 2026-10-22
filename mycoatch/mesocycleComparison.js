@@ -115,12 +115,25 @@ export function compareMesocyclePlans(previous, generated, analysis) {
  * Testo compatto da mostrare come conferma prima del download.
  * Il CSV mantiene lo schema a 12 colonne.
  */
+function italianMuscleName(key) {
+    const names={Back_Lats:'Dorsali (trazioni e lat machine)',Back_Thickness:'Dorso (rematori e tirate orizzontali)',Core:'Addome e stabilizzatori del tronco'};
+    return names[key] || key;
+}
+function italianCoverageStatus(value) {
+    switch(value) {
+        case 'not_programmed': return 'nessun esercizio diretto previsto';
+        case 'omitted_after_optimization': return 'esercizio tolto per rispettare la durata';
+        case 'reduced_after_optimization': return 'meno serie del previsto per rispettare la durata';
+        default: return 'stato non disponibile';
+    }
+}
+
 export function formatCoachReview(comparison, report) {
-    const lines = ['MYCOATCH — ANTEPRIMA DELLA PROPOSTA'];
-    lines.push(`Storico analizzato: ${report.inspectedMesocycles} mesocicli, ${report.sessionsAnalyzed} sedute con serie confermate.`);
+    const lines = ['MYCOATCH — PERCHÉ È STATA PROPOSTA QUESTA SCHEDA'];
+    lines.push(`Dati usati per personalizzare il piano: ${report.inspectedMesocycles} ${report.inspectedMesocycles === 1 ? 'mesociclo precedente' : 'mesocicli precedenti'} e ${report.sessionsAnalyzed} ${report.sessionsAnalyzed === 1 ? 'seduta' : 'sedute'} con serie effettivamente confermate. Le serie solo precompilate non contano come allenamenti eseguiti.`);
     if (report.closureHandoff) {
         const h = report.closureHandoff, r = h.review;
-        lines.push('ORIGINE ESPLICITA: mesociclo concluso "' + h.name +
+        lines.push('Programma di partenza scelto per il confronto: "' + h.name +
             '" (' + h.year + ', posizione ' + (h.index + 1) + ').');
         lines.push('Risultati reali del blocco: ' + r.completedSessions + '/' +
             r.plannedSessions + ' sedute complete, ' + r.partialSessions +
@@ -143,7 +156,7 @@ export function formatCoachReview(comparison, report) {
     }
     if (comparison.coachGuardrails) {
         const guard = comparison.coachGuardrails;
-        lines.push('AUTONOMIA DEL COACH: priorità all’evidenza osservata, non alle richieste di maggiore intensità.');
+        lines.push('CRITERIO DI SICUREZZA: MyCoatch non aumenta carichi e intensità su semplice richiesta. Verifica prima risultati registrati, sforzo percepito e recupero.');
         for (const decision of guard.reasons || []) {
             lines.push('[' + decision.decision + '] ' + decision.reason +
                 (decision.exercises?.length ? ' Esercizi: ' +
@@ -157,7 +170,7 @@ export function formatCoachReview(comparison, report) {
     }
     if (report.macrocycle) {
         const m = report.macrocycle;
-        lines.push('MACROCICLO MYCOATCH: orizzonte di ' + m.durationWeeks +
+        lines.push('PIANO DI LUNGO PERIODO (MACROCICLO): percorso ipotizzato di ' + m.durationWeeks +
             ' settimane, obiettivo ' + (m.goal === 'strength' ? 'forza' :
                 m.goal === 'hypertrophy' ? 'ipertrofia' : 'forza e ipertrofia') + '.');
         lines.push('Verifica ultimo blocco: ' + m.lastBlock.weeksCompleted +
@@ -175,7 +188,7 @@ export function formatCoachReview(comparison, report) {
     }
     if (report.progressionQuality) {
         const q = report.progressionQuality;
-        lines.push('PROGRESSIONE FONDATA SUI DATI: ' +
+        lines.push('POSSIBILI PROGRESSIONI IN BASE ALLE SEDUTE REGISTRATE: ' +
             q.proposedLoadIncreases + ' piccoli incrementi di carico, ' +
             q.proposedRepSteps + ' obiettivi di ripetizioni, ' +
             q.recoveryWarnings + ' revisioni prudenziali per la fatica.');
@@ -255,24 +268,24 @@ export function formatCoachReview(comparison, report) {
                 .sort((a, b) => b[1].indirectSetCredits - a[1].indirectSetCredits)
                 .slice(0, 5);
             if (relevant.length) {
-                lines.push('COME SI DISTRIBUISCE IL LAVORO MUSCOLARE — conteggio orientativo della prima settimana: ogni serie diretta vale 1, mentre una serie che coinvolge il muscolo come secondario vale 0,5. Questi numeri aiutano a confrontare la scheda, non misurano quanta massa crescerà:');
-                lines.push(relevant.map(([muscle, v]) => muscle + ': ' +
+                lines.push('COME È DISTRIBUITO IL LAVORO TRA I MUSCOLI: una serie conta 1 per il muscolo principale e, per convenzione, 0,5 per un muscolo che collabora. Sono crediti di conteggio, NON serie aggiuntive da eseguire né una misura della crescita:');
+                lines.push(relevant.map(([muscle, v]) => italianMuscleName(muscle) + ': ' +
                     v.directSets + ' dirette + ' +
-                    v.indirectSetCredits + ' crediti indiretti = ' +
+                    v.indirectSetCredits + ' crediti stimati da esercizi multiarticolari = ' +
                     v.fractionalSets).join(' · '));
             }
         }
-        lines.push('Split programmato: ' + coverage.daysOrder.join(' → ') +
+        lines.push('Suddivisione delle sedute (split): ' + coverage.daysOrder.join(' → ') +
             ' (giorni numerati, non appuntamenti fissati in calendario).');
-        lines.push('Movimenti cardine: ' + coverage.anchors
+        lines.push('Esercizi principali su cui MyCoatch costruisce la progressione: ' + coverage.anchors
             .map(x => `G${x.dayNumber} ${x.exercise || x.lift + ' NON PRESENTE'}`).join(' · '));
         if (!coverage.allPriorityLiftsPresent) {
             lines.push('ATTENZIONE: un fondamentale prioritario non è stato conservato.');
         }
         if (coverage.notDirectlyCovered.length) {
-            lines.push('Gruppi senza esercizi dedicati nella prima settimana: ' +
+            lines.push('Gruppi senza un esercizio dedicato nella prima settimana: ' +
                 coverage.notDirectlyCovered.join(', ') +
-                '. Potrebbero comunque lavorare durante altri esercizi: assenza di serie dedicate non significa che non vengano allenati.');
+                '. Possono comunque lavorare in altri movimenti, ma ciò non equivale a un esercizio specifico.');
         }
         // These metrics were already calculated but never shown in the
         // athlete's approval dialog. Surface meaningful functional gaps
@@ -284,42 +297,42 @@ export function formatCoachReview(comparison, report) {
             item.status==='omitted_after_optimization' ||
             item.status==='reduced_after_optimization');
         if(gaps.length){
-            lines.push('COPERTURA FUNZIONALE — esercizi mancanti o ridotti per alcuni movimenti, controlla prima di scaricare: ' +
+            lines.push('MOVIMENTI SPECIFICI DA CONTROLLARE PRIMA DI ACCETTARE: ' +
                 gaps.map(item=>item.label + ': ' + item.scheduledSets +
                     ' serie dirette' + (item.plannedSets === null ? '' :
                     ' su ' + item.plannedSets + ' previste') +
-                    ' (' + ({not_programmed:'non previsto nel programma',omitted_after_optimization:'eliminato per rispettare il tempo',reduced_after_optimization:'serie ridotte per rispettare il tempo'}[item.status] || 'da verificare') + ')').join(' · ') +
-                '. Spinte e tirate possono comunque dare lavoro indiretto a questi muscoli. Il conteggio non misura direttamente la crescita.');
+                    ' (' + italianCoverageStatus(item.status) + ')').join(' · ') +
+                '. Un esercizio per un altro distretto può coinvolgerli indirettamente: questo avviso non dimostra assenza di stimolo né crescita insufficiente.');
         }
         if(coverage.shoulderHeadCoverage){
             const heads=coverage.shoulderHeadCoverage.directIsolationSets;
-            lines.push('DELTOIDI, isolamento diretto: laterale ' +
-                heads.laterale + ' serie · posteriore ' + heads.posteriore +
-                ' serie; spinte verticali ' +
+            lines.push('SPALLE: lavoro mirato per il deltoide laterale ' +
+                heads.laterale + ' serie, per il deltoide posteriore ' + heads.posteriore +
+                ' serie. Spinte sopra la testa ' +
                 coverage.shoulderHeadCoverage.verticalPressSets +
-                ' serie. La spinta sopra la testa non sostituisce automaticamente il lavoro specifico per i posteriori.');
+                ' serie (allenano le spalle, ma non sostituiscono un esercizio mirato al deltoide posteriore).');
         }
     }
     if (comparison.unavailableOptionalSlots.length) {
-        lines.push('Accessori facoltativi esclusi per attrezzatura: ' +
+        lines.push('Esercizi complementari non inseriti perché manca l’attrezzatura dichiarata: ' +
             comparison.unavailableOptionalSlots
                 .map(x => `G${x.dayNumber} ${x.muscle} (${x.pattern})`).join(', ') + '.');
     }
-    lines.push('Durate previste (stime): ' + comparison.estimatedMinutesByDay
+    lines.push('Tempo indicativo per ogni seduta, incluso il riscaldamento (non misurato): ' + comparison.estimatedMinutesByDay
         .map(d => `G${d.day} ${d.minutes} min`).join(' · '));
 
     if (comparison.timeAwareSelections?.length) {
-        lines.push('SCELTA INIZIALE ESERCIZI IN BASE AL TEMPO — prima MyCoatch conserva i fondamentali, poi aggiunge i complementari che rientrano nei minuti disponibili. Alcune serie possono essere spostate in altri giorni:');
+        lines.push('COME SONO STATI SCELTI GLI ESERCIZI PER RISPETTARE IL TEMPO: MyCoatch conserva anzitutto gli esercizi principali e inserisce i complementari più utili finché resta spazio. Può spostare alcune serie in un altro giorno:');
         for (const plan of comparison.timeAwareSelections) {
             const chosen=plan.selected.slice(0, 4)
                 .map(item=>item.exercise+' ('+item.reason+')').join(' · ');
             const excluded=plan.excluded.slice(0,3).map(item=>item.exercise);
             lines.push('G'+plan.day+': '+plan.protected.length+
-                'movimenti prioritari protetti (esercizi principali mantenuti); '+
-                (chosen || 'nessun accessorio aggiunto oltre i fondamentali')+
+                ' esercizi principali mantenuti; '+
+                (chosen || 'nessun complementare aggiunto oltre gli esercizi principali')+
                 (excluded.length ? '; non inseriti: '+excluded.join(', ')+
                     (plan.excluded.length>excluded.length ? ' e altri' : '')+
-                    ' (per mantenere la seduta entro i minuti richiesti)' : '')+'.');
+                    ' (in base al tempo a disposizione)' : '')+'.');
         }
     }
     for (const a of comparison.adaptations.slice(0, 5)) {
@@ -327,25 +340,25 @@ export function formatCoachReview(comparison, report) {
     }
     const volume = comparison.weeklyVolume;
     if (volume) {
-        lines.push(`Bilancio volume prima settimana: ${volume.scheduledSets}/${volume.plannedSets} serie programmate (conteggio per gruppo primario), ${volume.recoveredSets} recuperate su altri giorni.`);
+        lines.push(`Controllo delle serie nella prima settimana: ${volume.scheduledSets}/${volume.plannedSets} serie effettivamente inserite rispetto al programma iniziale (ogni serie è assegnata al suo muscolo principale), ${volume.recoveredSets} spostate o recuperate su altre sedute.`);
         for (const move of (volume.moves || []).slice(0, 4)) {
             lines.push(`• G${move.fromDay} → G${move.toDay}: ${move.sets} serie ${move.muscle} (${move.targetExercise}).`);
         }
         if (volume.shortfallSets) {
             const missed = Object.entries(volume.byMuscle || {})
                 .filter(([, values]) => values.shortfallSets > 0)
-                .map(([muscle, values]) => `${muscle}: -${values.shortfallSets}`)
+                .map(([muscle, values]) => `${italianMuscleName(muscle)}: -${values.shortfallSets}`)
                 .join(', ');
-            lines.push(`Attenzione: restano ${volume.shortfallSets} serie sotto il template iniziale (${missed}). Tempo troppo breve per recuperarle senza compromettere le priorità.`);
+            lines.push(`Attenzione: per rispettare il tempo sono state eliminate ${volume.shortfallSets} serie rispetto alla proposta iniziale (${missed}). Per recuperarle sarebbe necessario aumentare la durata o rivedere le priorità, non aggiungerle senza considerare la fatica.`);
         }
         if (volume.missingCompoundExercises?.length) {
-            lines.push('ATTENZIONE FONDAMENTALI: il tempo scelto ha escluso questi multiarticolari: ' +
+            lines.push('ATTENZIONE: il tempo scelto non ha consentito di mantenere questi esercizi principali: ' +
                 volume.missingCompoundExercises
                     .map(ex => `G${ex.day} ${ex.exercise}`).join(', ') +
                 '. Valuta più minuti o più giorni di allenamento.');
         }
     }
-    lines.push(`Confronto vecchio/nuovo: ${comparison.changes.length} modifiche nella prima settimana.`);
+    lines.push(`Differenze rispetto al programma di confronto: ${comparison.changes.length} modifiche nella prima settimana. Sono prescrizioni nuove, non modifiche alle prestazioni già registrate.`);
     for (const c of comparison.changes.slice(0, 6)) {
         const format = info => info ?
             `${info.sets ?? '?'}×${info.reps ?? '?'} ${info.kg ? '@' + info.kg + 'kg' : '(carico non noto)'}` :
@@ -353,8 +366,8 @@ export function formatCoachReview(comparison, report) {
         lines.push(`G${c.day} · ${c.exercise}: ${format(c.previous)} → ${format(c.proposed)}`);
     }
     for (const warning of comparison.warnings.slice(0, 4)) lines.push('Attenzione: ' + warning);
-    lines.push('', 'Le decisioni si basano su stime e sullo storico, non su misure dirette di crescita muscolare.');
-    lines.push('Confermi la proposta e vuoi scaricare il CSV?');
+    lines.push('', 'COME USARE QUESTO REPORT: verifica che attrezzatura, giorni, serie, recuperi e intensità siano realistici. RPE significa fatica percepita su una scala da 1 a 10: per esempio RPE 8 corrisponde a circa due ripetizioni ancora possibili. Le scelte di MyCoatch si basano su stime e sullo storico, non misurano direttamente crescita o recupero.');
+    lines.push('Vuoi scaricare soltanto il file CSV? Il download NON importa la scheda nel diario e NON sostituisce i risultati precedenti.');
     return lines.join('\n');
 }
 

@@ -4,7 +4,7 @@ const clone=value=>JSON.parse(JSON.stringify(value));
 const savedRecord=data=>data?.athlete?.mycoatchProfileJournal || null;
 
 /** Never replace past versions. A save with identical settings creates no revision. */
-export function stageProfileRevision(data, raw, at=new Date()) {
+export function stageProfileRevision(data, raw, at=new Date(), settings=null) {
     const profile=normalizeAthleteProfile(raw);
     if(!profile)throw Error('Completa il profilo atleta prima di salvarlo.');
     if(!data || typeof data!=='object')throw Error('Diario atleta non valido.');
@@ -13,9 +13,11 @@ export function stageProfileRevision(data, raw, at=new Date()) {
     if(history.some(x=>!Number.isInteger(x.version)||x.version<1||
         !x.profile||typeof x.profile!=='object'))throw Error('Cronologia profilo non valida.');
     const latest=history.at(-1);
+    const selected=settings ? generationSettings(settings) : latest?.settings || null;
     const effective=latest?.profile || null;
     const baseVersion=latest?.version || 0;
-    if(effective && JSON.stringify(effective)===JSON.stringify(profile))
+    if(effective && JSON.stringify(effective)===JSON.stringify(profile) &&
+        JSON.stringify(latest?.settings || null)===JSON.stringify(selected))
         return { changed:false,baseVersion,version:latest.version,
             profile:clone(profile),journal:clone(journal) };
     const version=(latest?.version || 0)+1;
@@ -23,7 +25,7 @@ export function stageProfileRevision(data, raw, at=new Date()) {
     return {
         changed:true,baseVersion,version,profile:clone(profile),
         journal:{schemaVersion:1,currentVersion:version,
-            versions:[...history,{version,savedAt:timestamp,profile:clone(profile)}]}
+            versions:[...history,{version,savedAt:timestamp,profile:clone(profile),settings:selected}]}
     };
 }
 
@@ -66,7 +68,9 @@ export function assessMesocycleProfileContinuity(mesocycle, data) {
             status:'unverifiable',profileVersion,currentVersion,
             message:'Il profilo originale è archiviato nel mesociclo, ma la versione corrente non è confrontabile.'
         };
-    if(JSON.stringify(snapshot.profile)===JSON.stringify(current.profile))
+    const sameSettings=!current.settings || !snapshot.settings ||
+        JSON.stringify(generationSettings(snapshot.settings))===JSON.stringify(generationSettings(current.settings));
+    if(JSON.stringify(snapshot.profile)===JSON.stringify(current.profile) && sameSettings)
         return {
             status:'same_profile',profileVersion,currentVersion,
             message:'Il profilo usato per il mesociclo coincide con quello attualmente salvato.'
@@ -87,6 +91,18 @@ export function latestSavedProfile(data) {
     const journal=savedRecord(data);
     const entry=journal?.versions?.at(-1);
     return entry?.profile ? clone(entry.profile) : null;
+}
+
+export function generationSettings(options={}) {
+    const fields=['userAge','daysPerWeek','maxSessionMinutes','focus','splitPreference',
+        'deloadWeek','preferredLifts','availableEquipment','availableAccessories','cableSetup'];
+    return Object.fromEntries(fields.filter(key=>options[key]!==undefined)
+        .map(key=>[key,clone(options[key])]));
+}
+
+export function latestSavedSettings(data) {
+    const settings=savedRecord(data)?.versions?.at(-1)?.settings;
+    return settings ? clone(settings) : null;
 }
 
 /**

@@ -7,33 +7,32 @@
 function cue(exercise) {
     const name = exercise.name || '';
     if (name === 'Hamstring Walkout a Corpo Libero')
-        return 'Parti dal ponte con il bacino sollevato: allontana lentamente i talloni e riportali verso i glutei senza lasciare cadere il bacino. A corpo libero registra 0 kg.';
-    if (name.includes('Croci')) return 'Mantieni i gomiti leggermente flessi e quasi fermi; apri fino all’ampiezza che controlli e richiudi senza sbattere i pesi o usare slancio.';
+        return 'Parti dal ponte glutei con il bacino sollevato. Fai piccoli passi in avanti sui talloni e poi torna indietro senza abbassare il bacino. Andata e ritorno valgono una ripetizione. Se non aggiungi pesi, registra 0 kg.';
+    if (name.includes('Croci')) return 'Mantieni i gomiti leggermente piegati, apri le braccia senza forzare le spalle e richiudile lentamente, evitando di usare lo slancio.';
     if (name.includes('Lat Machine') || name.includes('Trazioni'))
-        return 'Tieni il busto stabile e tira la barra o l’impugnatura verso la parte alta del torace guidando i gomiti verso il basso. Risali lentamente senza slanciarti.';
+        return name.includes('Trazioni') ? 'Parti da una presa stabile alla sbarra fissa, tira il petto verso la sbarra senza dondolare e scendi lentamente.' : 'Alla lat machine tira l’impugnatura verso la parte alta del petto, senza inclinarti all’indietro per aiutarti, poi lascia risalire il peso lentamente.';
     if (name.includes('Rematore') || name.includes('Pulley'))
-        return 'Mantieni la schiena stabile; porta i gomiti indietro senza strappare con il busto e accompagna lentamente il peso al ritorno.';
-    if (name.includes('Alzate Posteriori') || name.includes('Reverse Fly'))
-        return 'Inclina il busto mantenendo la schiena stabile. Apri le braccia verso i lati con i gomiti leggermente flessi, senza sollevare le spalle, poi torna lentamente.';
-    if (name.includes('Alzate Laterali'))
-        return 'Solleva i manubri lateralmente fino a un’altezza che controlli, con gomiti lievemente flessi. Evita di dondolare il busto e scendi lentamente.';
-    if (name.includes('Alzate')) return 'Solleva senza slanci, poi abbassa il peso lentamente mantenendo il controllo.';
-    if (name.includes('Leg Curl')) return 'Bacino stabile, fletti il ginocchio portando il tallone verso il gluteo, poi distendi lentamente senza lasciar cadere il peso.';
-    if (name.includes('Curl')) return 'Tieni i gomiti vicini al busto e piega le braccia senza dondolare con la schiena. Scendi in modo controllato.';
-    if (name.includes('Pushdown')) return 'Mantieni i gomiti vicini ai fianchi: distendi le braccia verso il basso senza muovere le spalle, poi ritorna lentamente.';
-    if (name.includes('Crunch')) return 'Avvicina il torace al bacino flettendo l’addome, senza tirare il collo con le mani. Torna lentamente alla partenza.';
+        return 'Tieni il busto fermo, porta i gomiti indietro avvicinando il carico al tronco, poi distendi le braccia lentamente senza strattoni.';
+    if (name.includes('Alzate Posteriori')) return 'Inclina il busto mantenendo la schiena stabile, apri le braccia lateralmente con gomiti leggermente piegati e torna lentamente. Evita di alzare le spalle e di usare lo slancio.';
+    if (name.includes('Alzate Laterali')) return 'Con gomiti appena piegati solleva i manubri ai lati, senza dondolare con il busto. Fermati all’altezza che controlli e abbassa lentamente.';
+    if (name.includes('Alzate')) return 'Muovi le braccia con controllo, senza slanci e senza compensare con il tronco.';
+    if (name.includes('Leg Curl')) return 'Bacino stabile, fletti il ginocchio portando il tallone verso il gluteo. Torna lentamente senza spingere con il tronco.';
+    if (name.includes('Curl')) return 'Piega i gomiti tenendoli il più possibile fermi vicino al corpo. Evita di spingere con la schiena e abbassa lentamente il peso.';
+    if (name.includes('Estensioni Tricipiti')) return 'Tieni i gomiti stabili vicino alla testa, piega e distendi gli avambracci senza inarcare la schiena. Usa un carico che riesci a controllare.';
+    if (name.includes('Pushdown')) return 'Tieni i gomiti vicini ai fianchi, distendi gli avambracci spingendo l’impugnatura in basso e risali lentamente senza muovere le spalle.';
+    if (name.includes('Crunch')) return 'Avvicina lo sterno al bacino contraendo l’addome, senza tirare il collo o aiutarti con le braccia. Torna lentamente alla posizione iniziale.';
     if (name.includes('Squat') || name.includes('Affondi') || name.includes('Leg Press'))
-        return 'Mantieni il busto stabile, scendi con controllo fino a un’ampiezza che riesci a ripetere e risali spingendo con tutta la pianta del piede.';
-    if (name.includes('Stacco')) return 'Spingi il bacino indietro mantenendo la schiena stabile e il peso vicino alle gambe. Scendi finché controlli la posizione, poi risali estendendo le anche.';
+        return 'Mantieni addome attivo e appoggi stabili, scendi con controllo fin dove riesci a conservare la posizione e risali senza rimbalzi. Cerca la stessa profondità in ogni ripetizione.';
+    if (name.includes('Stacco')) return 'Porta il bacino indietro mantenendo il peso vicino alle gambe e il busto stabile. Fermati quando non riesci più a controllare la posizione, poi risali estendendo le anche.';
     if (name.includes('Hip Thrust') || name.includes('Glute Bridge'))
-        return 'Spingi attraverso i piedi e solleva il bacino contraendo i glutei; fermati con il tronco allineato alle cosce, senza inarcare la zona lombare.';
-    if (name.includes('Panca')) return 'Appoggia bene i piedi e mantieni le scapole stabili sulla panca. Abbassa il peso in controllo e spingi senza perdere l’assetto.';
+        return 'Spingi il pavimento con i piedi e solleva il bacino usando i glutei. Fermati quando tronco e cosce sono allineati, senza inarcare eccessivamente la zona lombare.';
+    if (name.includes('Panca')) return 'Mantieni piedi ben appoggiati e scapole stabili sulla panca. Abbassa il peso con controllo e spingi senza perdere l’assetto delle spalle.';
     if (name.includes('Military') || name.includes('Spinte'))
-        return 'Contrai addome e glutei per stabilizzare il busto: spingi sopra la testa senza piegarti all’indietro, poi scendi lentamente.';
-    if (name.includes('Calf Raise')) return 'Solleva i talloni fino alla massima altezza controllabile, fermati brevemente e scendi lentamente senza rimbalzare.';
-    if (name.includes('Pallof')) return 'Tieni il busto fermo mentre allontani l’impugnatura dal petto: il cavo tira lateralmente, ma spalle e bacino restano rivolti avanti.';
+        return 'Tieni addome e glutei attivi, spingi il peso sopra la testa senza inarcare la schiena e abbassalo lentamente mantenendo il controllo.';
+    if (name.includes('Calf Raise')) return 'Solleva i talloni spingendo sull’avampiede, fai una breve pausa in alto e abbassali lentamente. Evita di rimbalzare per risalire.';
+    if (name.includes('Pallof')) return 'Tieni il cavo di lato, allontana le mani dal petto e resisti alla trazione che vorrebbe ruotarti. Mantieni il busto immobile.';
     if (name.includes('Face Pull') || name.includes('Reverse Fly'))
-        return 'Tira verso il viso aprendo i gomiti in modo controllato, senza inarcare la schiena o strattonare il cavo.';
+        return 'Apri le braccia guidando i gomiti verso l’esterno, senza dondolare con la schiena. Controlla il ritorno per mantenere il lavoro sulla parte posteriore delle spalle.';
     if (name.includes('Pulldown')) return 'Porta le braccia verso i fianchi senza oscillare.';
     if (name.includes('Pull-through')) return 'Spingi i glutei indietro e torna in piedi senza slanci.';
     return exercise.pattern === 'hinge'
@@ -46,86 +45,38 @@ export function conciseExerciseInstruction(exercise) {
     const parts = [];
     const split = /^\[SPLIT MYCOATCH\]\s*(Upper [AB]|Lower [AB]|Full Body [ABCD])/i.exec(verbose);
     if (split) parts.push('[SPLIT MYCOATCH] ' + split[1]);
-    if (verbose.includes('[SUPERSERIE]')) parts.push('[SUPERSERIE] superset: passa al prossimo esercizio, poi recupera.');
-    if (verbose.includes('[TRISET]')) parts.push('[TRISET] triset: esegui tre esercizi consecutivi, poi recupera.');
+    if (verbose.includes('[SUPERSERIE]')) parts.push('[SUPERSERIE] Superserie (superset): esegui questo esercizio e il successivo senza pausa. Recupera dopo i due esercizi.');
+    if (verbose.includes('[TRISET]')) parts.push('[TRISET] Triset (triset): esegui tre esercizi consecutivi senza pausa. Recupera dopo il terzo, poi riparti dal primo.');
     if (verbose.includes('[WARM-UP AUTO]')) {
         const warmup = /\[WARM-UP AUTO\]:?\s*([^|.]+)/.exec(verbose);
-        parts.push('[WARM-UP AUTO] ' + (warmup?.[1]?.trim() || 'Esegui serie preparatorie leggere prima delle serie allenanti, aumentando gradualmente il peso senza arrivare a fatica.'));
-    } else if (verbose.includes('[WARM-UP]')) parts.push('[WARM-UP] Prima delle serie allenanti esegui alcune serie leggere, aumentando gradualmente il carico senza affaticarti.');
+        parts.push('[WARM-UP AUTO] Prima del lavoro esegui le serie di avvicinamento: ' + (warmup?.[1]?.trim() || 'aumenta gradualmente il peso senza affaticarti') + '. Sono riscaldamento, non serie allenanti.');
+    } else if (verbose.includes('[WARM-UP]')) parts.push('[WARM-UP] Prima del lavoro esegui serie leggere aumentando il peso senza arrivare alla fatica. Non contarle come serie allenanti.');
     if (verbose.includes('[RIFERIMENTO ATLETA]')) {
         const reference = /\[RIFERIMENTO ATLETA\]\s*(\d+(?:[.,]\d+)?)\s*kg/.exec(verbose);
         if (reference) parts.push('[RIFERIMENTO ATLETA] ' + reference[1] + ' kg indicati da te, non verificati nello storico. Controlla nella prima seduta se permettono le ripetizioni con l’RPE richiesto.' +
             (verbose.includes('Peso non prescritto automaticamente') ? ' Non adottati come carico automatico.' : ''));
     }
     if (verbose.includes('[VOLUME INIZIALE]'))
-        parts.push('[VOLUME INIZIALE] Per la fase iniziale esegui soltanto le serie indicate: non aggiungere serie extra finché non abbiamo dati sul recupero.');
+        parts.push('[VOLUME INIZIALE] Si parte con meno serie per verificare la risposta. Non aggiungerne: registra i risultati e rivaluta in seguito.');
     if (verbose.includes('[CALIBRAZIONE MYCOATCH]'))
-        parts.push('[CALIBRAZIONE MYCOATCH] Nella prima settimana scegli un peso gestibile, completa le ripetizioni con tecnica controllata e registra peso e RPE effettivi.');
+        parts.push('[CALIBRAZIONE MYCOATCH] Prima settimana: usa pesi gestibili e rispetta ripetizioni e RPE. Registra i risultati, senza provare il massimale.');
     if (verbose.includes('Scarico:') || verbose.includes('🛡️ Scarico'))
-        parts.push('SCARICO: settimana meno impegnativa. Segui le serie e l’RPE più bassi indicati, senza cercare nuovi record.');
+        parts.push('SCARICO: settimana per recuperare con meno serie e sforzo. Segui i nuovi target della riga senza aggiungere altro lavoro.');
     const drop = exercise?.sets?.at(-1)?.intensityTechnique;
-    if (drop === 'DROP_SET') parts.push('[DROP_SET] [DROP_SCOPE:LAST] dropset: riduci il peso solo dopo l’ultima serie.');
-    else if (drop === 'REST_PAUSE') parts.push('[REST_PAUSE] Ultima serie: pausa breve e riparti.');
+    if (drop === 'DROP_SET') parts.push('[DROP_SET] [DROP_SCOPE:LAST] Dropset (dropset): solo dopo l’ultima serie riduci il peso ed esegui altre ripetizioni. Registra il nuovo peso a parte.');
+    else if (drop === 'REST_PAUSE') parts.push('[REST_PAUSE] Dopo l’ultima serie fai una pausa molto breve, poi completa altre ripetizioni con lo stesso carico finché la tecnica rimane corretta.');
     if (verbose.includes('[ATTREZZATURA DA CONFIGURARE]'))
-        parts.push('Carico non ancora assegnato: configura peso e diametro del bilanciere e verifica quali dischi possiedi prima di scegliere i kg.');
+        parts.push('Carico non assegnato: indica nel diario il peso e il diametro del bilanciere che usi, insieme ai dischi disponibili. Verifica poi quale peso totale puoi caricare realmente.');
     else if (verbose.includes('non è componibile'))
-        parts.push('Il peso proposto non si può montare con i dischi registrati: scegli il carico disponibile più adatto al target, senza forzare un incremento.');
+        parts.push('Carico da verificare: il peso proposto non si ottiene esattamente con i dischi registrati. Scegli un peso davvero componibile e rispetta le ripetizioni e l’RPE della scheda.');
     else if ((exercise.kgMin === '' || exercise.kgMin == null) &&
         exercise.equipment !== 'bodyweight')
-        parts.push('Peso da definire: inizia con serie leggere di prova, poi scegli un carico che permetta le ripetizioni richieste all’RPE previsto e registralo nel diario.');
-    // More structural markers require a shorter instruction to keep the
-    // legacy twelve-column CSV concise and readable on phone screens.
-    const fullCue=cue(exercise);
-    const briefCue=String(exercise?.name||'').includes('Panca')
-        ? 'Piedi stabili e scapole ferme, abbassa e spingi in controllo.'
-        : fullCue.split(/[.!?] /)[0].slice(0,105)+'.';
-    parts.push(parts.join(' | ').length+fullCue.length+3<275 ? fullCue : briefCue);
-    // This CSV note is displayed in a compact card. Longer explanations
-    // live in the preview/report and manual. Preserve every control token and
-    // every explicitly computed warm-up kilogram value while compressing
-    // optional prose only on crowded rows.
-    let note=parts.join(' | ').replace(/;/g, ',');
-    if(note.length>=300){
-        const compressed=parts.map(part=>{
-            if(part.startsWith('[SPLIT MYCOATCH]'))return part;
-            if(part.startsWith('[SUPERSERIE]'))
-                return '[SUPERSERIE] superset: 2 esercizi, poi pausa.';
-            if(part.startsWith('[TRISET]'))
-                return '[TRISET] triset: 3 esercizi, poi pausa.';
-            if(part.startsWith('[WARM-UP AUTO]'))
-                return part; // Preserve the real preparatory set targets.
-            if(part.startsWith('[WARM-UP]'))
-                return '[WARM-UP] Serie leggere progressive.';
-            if(part.startsWith('[RIFERIMENTO ATLETA]'))
-                return part.replace(/ kg.*$/,' kg dichiarati: verifica reps e RPE.');
-            if(part.startsWith('[VOLUME INIZIALE]'))
-                return '[VOLUME INIZIALE] Non aggiungere serie.';
-            if(part.startsWith('[CALIBRAZIONE MYCOATCH]'))
-                return '[CALIBRAZIONE MYCOATCH] Registra kg, reps e RPE.';
-            if(part.startsWith('SCARICO:'))
-                return 'SCARICO: meno serie e fatica.';
-            if(part.startsWith('[DROP_SET]'))
-                return '[DROP_SET] [DROP_SCOPE:LAST] dropset solo dopo ultima serie.';
-            if(part.startsWith('[REST_PAUSE]'))
-                return '[REST_PAUSE] Pausa breve solo nell’ultima serie.';
-            if(part.startsWith('Carico') || part.startsWith('Il peso') ||
-               part.startsWith('Peso da definire'))
-                return 'Carico: verifica kg, ripetizioni e RPE.';
-            return part===fullCue || part===briefCue
-                ? 'Tecnica: esegui con controllo, senza slanci.' : part;
-        });
-        note=compressed.join(' | ').replace(/;/g, ',');
-        if(note.length>=300){
-            // Some rare rows combine more than six coaching markers.
-            // All markers are kept, but repeated explanatory prose is not.
-            note=compressed.map(part=>{
-                if(part.startsWith('[WARM-UP AUTO]') ||
-                   part.startsWith('[SPLIT MYCOATCH]'))return part;
-                const tags=part.match(/^(?:\[[^\]]+\]\s*)+/)?.[0];
-                return tags ? tags.trim() : '';
-            }).filter(Boolean).join(' | ');
-        }
-    }
+        parts.push('Carico da scegliere: dopo il riscaldamento usa un peso con cui completi le ripetizioni previste rispettando l’RPE (8 ≈ 2 ripetizioni ancora possibili). Annota kg, ripetizioni e RPE reali.');
+    const estimate=/\[CARICO STIMATO\][^|]*/.exec(verbose);
+    if(estimate)parts.push(estimate[0].trim());
+    parts.push(cue(exercise));
     // The legacy 12-column CSV must not gain a pseudo-separator in Note.
-    return note;
+    const duration = /\[DURATA STIMATA\]\s*\d+\s*minuti\s+su\s+\d+\s+disponibili/.exec(verbose);
+    if (duration) parts.push(duration[0].trim());
+    return parts.join(' | ').replace(/;/g, ',');
 }

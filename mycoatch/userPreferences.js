@@ -72,9 +72,9 @@ export function parseCoachPreferences(fields = {}) {
         userAge,
         daysPerWeek,
         focus,
-        ...(splitPreference !== 'auto' ? { splitPreference } : {}),
+        splitPreference,
         ...(deloadChoice === 'last' ? {deloadWeek:true} :
-            deloadChoice === 'none' ? {deloadWeek:false} : {}),
+            deloadChoice === 'none' ? {deloadWeek:false} : {deloadWeek:null}),
         ...selection,
         ...(athleteProfile ? { athleteProfile } : {}),
         primaryGoal: focus === 'strength' ? 'powerlifting' :

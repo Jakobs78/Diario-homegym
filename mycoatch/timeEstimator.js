@@ -23,7 +23,7 @@ function isCompound(exercise) {
     return exercise.pattern !== 'isolation';
 }
 
-function repetitionSeconds(exercise) {
+export function repetitionSeconds(exercise) {
     // La stima considera un tempo moderato per serie, non una cadenza imposta.
     const perSide = isCompound(exercise) ? 55 : 50;
     const unilateral = /Un Braccio|Bulgarian|Affondi|Step-up|Monopodalico|Pallof|Leg Curl ai Cavi/i.test(exercise.name || '');

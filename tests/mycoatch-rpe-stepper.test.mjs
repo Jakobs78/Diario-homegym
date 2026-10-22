@@ -8,7 +8,7 @@ test('RPE controls preserve half-point targets and stop at valid bounds', () => 
     assert.equal(stepRpe('8',-1,'8'), '7.5');
     assert.equal(stepRpe('8,5',1,'8'), '9');
     assert.equal(stepRpe('10',1,'8'), '10');
-    assert.equal(stepRpe('6',-1,'8'), '6');
+    assert.equal(stepRpe('6',-1,'8'), '5.5');
     assert.equal(stepRpe('',1,'7.5'), '8');
     assert.equal(stepRpe('',-1,''), null);
     assert.equal(stepRpe('7',0,'8'), null);

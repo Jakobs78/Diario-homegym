@@ -153,16 +153,15 @@ export function reviewUpcomingWeek(mesocycle,weekNumber) {
     if(targetWeekStarted(target))return {status:'started',
         message:'La nuova settimana è già iniziata: MyCoatch non riscrive gli obiettivi in corso.'};
     if(!Array.isArray(source.days)||source.days.length<2)return none;
-    const results=source.days.map(evaluateCompletedDay);
-    if(results.some(r=>r===null))return {status:'incomplete',
-        message:'Completa tutte le sedute della settimana precedente con serie realmente confermate per abilitare una revisione affidabile.'};
-    const pain=results.some(r=>r.pain);
+    const observations=source.days.map(evaluateCompletedDay);
+    const results=observations.filter(Boolean);
+    const pain=source.days.some(day=>attributedCheckin(day)?.pain==='present');
     if(pain)return {status:'pain',
         message:'È stato segnalato dolore in una seduta precedente. MyCoatch non presume che basti abbassare l’RPE: evita il movimento doloroso e richiedi una valutazione professionale se necessario. Nessun piano viene modificato.'};
     const measuredDays=results.filter(r=>r.measured>=2);
     const strainDays=results.filter(r=>r.strain&&r.measured>=2);
-    if(measuredDays.length<2)return {status:'insufficient',
-        message:'RPE realmente misurati insufficienti su giornate distinte: nessuna modifica proposta.'};
+    if(measuredDays.length<2)return {status:observations.some(r=>r===null)?'incomplete':'insufficient',
+        message:'Servono almeno due giornate concluse con serie confermate e RPE registrati. Le altre sedute incomplete restano escluse: nessun aumento viene dedotto dai dati mancanti.'};
     if(strainDays.length<2)return {status:'steady',
         message:'Nessun segnale ripetuto sufficiente per modificare la prossima settimana.'};
     // Le due giornate devono riguardare LO STESSO distretto. Un giorno
@@ -172,7 +171,7 @@ export function reviewUpcomingWeek(mesocycle,weekNumber) {
         results.filter(r=>r.byMuscle[muscle]?.measured>=2 &&
             r.byMuscle[muscle]?.strain).length>=2);
     if(!repeatedMuscles.length)return {status:'steady',
-        message:'Difficoltà rilevate in distretti diversi: mancano due sedute attendibili per lo stesso gruppo muscolare. Nessun target modificato.'};
+        message:'Difficoltà rilevate in distretti diversi: valuta il recupero complessivo prima di aumentare carichi o volume. Mancano due sedute attendibili per lo stesso gruppo: nessuna riduzione automatica generalizzata.'};
     const changes=candidateTargets(target,new Set(repeatedMuscles));
     if(!changes.length)return {status:'steady',
         message:'Nessun esercizio pertinente da alleggerire nella prossima settimana oppure target già conservativi.'};

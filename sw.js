@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v66-italian-clarity-20261020';
+const CACHE_NAME = 'workout-app-v68-coherent-coaching-20261021';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -28,6 +28,9 @@ const ASSETS_TO_CACHE = [
   '/js/storage.js',
   '/js/journalStore.js',
   '/js/historyWindow.js',
+  '/mycoatch/planMetadata.js',
+  '/mycoatch/prescribedLoad.js',
+  '/mycoatch/essentialCoverage.js',
   '/mycoatch/recentEvidence.js',
   '/mycoatch/durationCalibration.js',
   '/mycoatch/crossExposureLoad.js',

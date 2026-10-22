@@ -45,10 +45,13 @@ function createAdviceApplyButton(advice, day = null) {
     button.dataset.set = String(advice.nextSetIndex);
     button.addEventListener('click', () => {
         // Un check-in aggiornato deve impedire anche l'uso di un popup vecchio.
-        const latest = day && buildLiveSessionSnapshot(day).readiness;
+        const snapshot = day && buildLiveSessionSnapshot(day,{history:state.workoutData});
+        const latest = snapshot?.readiness;
         if (latest?.level === 'stop' ||
             (latest?.allowIncrease === false &&
                 advice.suggestedWeight > advice.weight)) return;
+        if(snapshot && (snapshot.lastAdvice?.suggestedWeight!==advice.suggestedWeight ||
+            snapshot.lastAdvice?.nextSetIndex!==advice.nextSetIndex))return;
         const currentInput = document.querySelector(selector);
         if (!currentInput || currentInput.disabled) return;
         currentInput.value = String(advice.suggestedWeight);
@@ -146,7 +149,7 @@ export function showLiveCoachToast(day, { exerciseIndex, setIndex } = {}) {
 const CHECKIN_FIELDS = [
     { key: 'sleep', label: 'Sonno', options: [['ok', 'Adeguato'], ['poor', 'Scarso']] },
     { key: 'energy', label: 'Energia', options: [['ok', 'Buona'], ['low', 'Bassa']] },
-    { key: 'soreness', label: 'Muscoli', options: [['ok', 'Nella norma'], ['high', 'Molto affaticati']] },
+    { key: 'soreness', label: 'Affaticamento muscolare', options: [['ok', 'Nella norma'], ['high', 'Molto affaticati']] },
     { key: 'pain', label: 'Dolore', options: [['none', 'Nessuno'], ['present', 'Presente']] }
 ];
 
@@ -159,7 +162,7 @@ function createSessionCheckinPanel(day, readiness, locked, panel) {
         readiness.level === 'normal' ? 'regolare' :
         readiness.level === 'stop' ? 'dolore segnalato' : 'prudenza';
     section.append(element('summary', '',
-        '🧭 Prima della seduta · ' + status));
+        '🧭 Come ti senti prima di allenarti? · ' + status));
     const body = element('div', 'mycoatch-checkin-body');
     const info = element('p', 'mycoatch-checkin-message', readiness.message);
     if (readiness.level !== 'normal' && readiness.level !== 'unknown')
@@ -208,7 +211,7 @@ function createSessionCheckinPanel(day, readiness, locked, panel) {
             }
         });
         body.append(form, element('small', 'mycoatch-checkin-disclaimer',
-            'Autovalutazione, non diagnosi. Le risposte restano nel diario e vengono sincronizzate se connesso. I set completati non cambiano.'));
+            'Questo controllo serve a contestualizzare i consigli di oggi: sonno, energia, affaticamento e dolore segnalato. Non è una diagnosi e non cambia le serie già eseguite. Le risposte vengono salvate nel diario e sincronizzate quando possibile.'));
     }
     section.append(body);
     return section;
@@ -240,7 +243,7 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
 
     const sub = element('p', 'mycoatch-live-subtitle',
         locked ? 'Sola lettura: analisi dello storico confermato.' :
-            'Indicazioni durante l’allenamento. I carichi non cambiano senza una tua azione.');
+            'Qui trovi le serie confermate, il tempo indicativo e consigli basati sui risultati che registri. Nessun peso viene cambiato automaticamente nella scheda.');
     panel.append(sub);
     panel.append(createSessionCheckinPanel(day, snapshot.readiness, locked, panel));
 
@@ -257,10 +260,10 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
     const summary = [
         `⏱ ${formatDuration(snapshot.elapsedSeconds)}${snapshot.paused ? ' · pausa' : ''}`,
         snapshot.estimatedMinutes !== null ?
-            `📋 Piano ~${snapshot.estimatedMinutes} min / limite ${snapshot.budgetMinutes} min` :
-            '📋 Durata del piano non indicata',
-        `🏋️ Volume registrato: ${snapshot.tonnageKg.toLocaleString('it-IT')} kg·rep`,
-        `RPE misurato: ${snapshot.rpeRecordedSets}/${snapshot.validSets} serie valide`
+            `📋 Durata prevista ~${snapshot.estimatedMinutes} min su ${snapshot.budgetMinutes} disponibili (stima)` :
+            '📋 Tempo previsto non disponibile: usa il cronometro della seduta come riferimento',
+        `🏋️ Tonnellaggio registrato: ${snapshot.tonnageKg.toLocaleString('it-IT')} kg × ripetizioni (non misura la crescita)`,
+        `Sforzo percepito (RPE) registrato: ${snapshot.rpeRecordedSets}/${snapshot.validSets} serie valide`
     ];
     for (const item of summary) metrics.append(element('span', '', item));
     panel.append(metrics);
@@ -294,16 +297,19 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
         return proposal?.eligible?[{ex,proposal}]:[];
     });
     if(nextLoads.length){
-        const heading=element('h4','mycoatch-next-title','📈 Prossima seduta · possibili progressioni');
+        const heading=element('h4','mycoatch-next-title','📈 Possibili carichi per la prossima seduta (non ancora applicati)');
         const section=element('section','mycoatch-next-loads');
         section.append(heading);
         for(const {ex,proposal} of nextLoads){
             const item=element('p','mycoatch-next-load');
             const stepText=proposal.suggestedWeight!==null
                 ? proposal.previousWeight+' → '+proposal.suggestedWeight+' kg'
-                : 'Carico da mantenere · servono microcarichi';
+                : proposal.nextReps ? 'Stessi kg · prossime ripetizioni '+proposal.nextReps.join('/')
+                    : 'Carico da mantenere · verifica le alternative';
             item.append(element('strong','',ex.name+' · '+stepText));
-            item.append(element('small','',proposal.reason+' '+(proposal.configured
+            item.append(element('small','',proposal.reason+' '+(proposal.verified
+                ? 'Carico componibile con il bilanciere e i dischi registrati.'
+                : proposal.configured
                 ? 'Incremento conforme alle impostazioni dell’attrezzatura.'
                 : 'Incremento indicativo: controlla i pesi realmente disponibili.')));
             section.append(item);
@@ -313,7 +319,7 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
         liveMessage.append(section);
     }
     if (!snapshot.checkedSets) {
-        liveMessage.append(element('p', '', 'Inizia confermando una serie reale con kg e ripetizioni. L’RPE è facoltativo, ma migliora la qualità dei suggerimenti.'));
+        liveMessage.append(element('p', '', 'Dopo avere eseguito una serie inserisci il peso e le ripetizioni effettive, poi premi ✓. Aggiungi l’RPE, se lo conosci: indica quanto sforzo hai percepito e rende i confronti più utili.'));
     } else if (snapshot.invalidSets) {
         liveMessage.classList.add('mycoatch-live-warning');
         liveMessage.append(element('p', '',
@@ -339,22 +345,22 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
         const exercise = day.exercises[advice.exerciseIndex];
         const adviceHistory = element('details', 'mycoatch-live-advice-history');
         adviceHistory.append(element('summary', '',
-            'Ultimo consiglio MyCoatch · tocca per rileggere'));
+            'Consiglio sulla serie appena confermata · apri per leggere il motivo'));
         const detail = element('div', 'mycoatch-live-advice');
         detail.classList.add(`is-${advice.severity}`);
         detail.append(element('strong', '', `${exercise?.name || 'Esercizio'} · serie ${advice.setIndex + 1}`));
         detail.append(element('p', '', advice.message));
         if (advice.e1rm !== null) {
-            detail.append(element('small', '', `e1RM stimato: ${advice.e1rm} kg (da ripetizioni e RPE realmente registrati).`));
+            detail.append(element('small', '', `Forza massimale stimata (e1RM): ${advice.e1rm} kg. È una stima ricavata da peso, ripetizioni e RPE registrati, non un massimale provato.`));
         }
         if (snapshot.previousExercise) {
             const prior = snapshot.previousExercise;
             detail.append(element('small', '',
-                `Ultima prestazione comparabile: ${prior.kg} kg × ${prior.reps} reps${prior.rpe !== null ? ' @RPE ' + prior.rpe : ' (RPE non registrato)'}.`));
+                `Ultima prestazione comparabile: ${prior.kg} kg × ${prior.reps} reps${prior.rpe !== null ? ' con RPE percepito ' + prior.rpe : ' (RPE non registrato)'}.`));
             if (snapshot.e1rmChangePercent !== null) {
                 const change = snapshot.e1rmChangePercent;
                 detail.append(element('small', '',
-                    `Differenza e1RM rispetto a quella singola seduta: ${change > 0 ? '+' : ''}${change}%. Non equivale da sola a una progressione consolidata.`));
+                    `Variazione della forza stimata rispetto a quella singola seduta: ${change > 0 ? '+' : ''}${change}%. Per parlare di progresso stabile servono più sedute confrontabili.`));
             }
         }
         if (!locked) {

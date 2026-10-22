@@ -8,7 +8,6 @@ import { recommendNextSessionLoad } from './loadProposal.js';
 
 const clone=x=>JSON.parse(JSON.stringify(x));
 const confirmed=s=>s?.isLocked===true||s?.completed===true;
-const warm=s=>Boolean(s?.isWarmup||s?.warmup||s?.is_warmup);
 const isWarm=ex=>Boolean(ex?.isWarmup||ex?.isExcluded||ex?.is_excluded);
 const numeric=value=>{
     if(value===null||value===undefined||String(value).trim()==='')return null;
@@ -57,7 +56,6 @@ const idFor=(w,d,i)=>[Number(w),Number(d),Number(i)].join(':');
 const getDay=(meso,w,d)=>(meso?.weeks||[]).find(x=>weekOrder(x)===Number(w))?.days?.[d];
 const activeRecord=(meso,id)=>(meso?.coachFutureLoadReviews||[])
     .find(record=>record.id===id && record.undoneAt===undefined);
-const sameSource=(record,ex)=>record?.sourceSignature===JSON.stringify(ex?.loggedSets||[]);
 const sameFuture=(candidate,ex)=>ex &&
     sameTarget(ex.kgMin,candidate.before.kgMin) &&
     sameTarget(ex.kgMax,candidate.before.kgMax);
@@ -71,6 +69,9 @@ export function previewFutureLoadReview(meso,weekNum,dayIndex,exerciseIndex,{equ
     const advice=recommendNextSessionLoad(source,{readiness,equipmentSettings});
     if(!advice?.eligible || advice.suggestedWeight===null ||
         !(advice.suggestedWeight>advice.previousWeight))return null;
+    // This workflow changes kg only. A larger jump requiring fewer reps
+    // remains a next-session suggestion until its rep targets are reviewed too.
+    if(advice.repGoal!=null)return null;
     // A proposal never overwrites another applied future review.
     const reserved=new Set((meso.coachFutureLoadReviews||[])
         .filter(x=>!x.undoneAt).flatMap(x=>x.changes||[])
