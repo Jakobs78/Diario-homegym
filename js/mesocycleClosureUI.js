@@ -1,3 +1,6 @@
+import {editJournal} from './journalTransaction.js';
+import {state} from './state.js';
+import {renderWorkoutList} from './ui.js';
 /**
  * Guided end-of-block review next to the existing lock controls.
  * No mutation happens during rendering, inspection or report download.
@@ -92,9 +95,20 @@ export function createMesocycleClosurePanel(mesocycle, athleteDiary = null) {
                 ' sedute non complete.'));
         body.append(node('strong', 'Sedute da verificare:'), list);
     }
+    {
+        const exclude=node('button',mesocycle.excludedFromCoaching?'Riutilizza questo mesociclo nel coaching':'Escludi questo mesociclo dalle decisioni future','btn btn-secondary btn-sm');
+        exclude.type='button';exclude.onclick=async()=>{try{await editJournal(candidate=>{
+            candidate.history.years[state.currentYear].mesocycles[state.activeMesocycleIndex||0].excludedFromCoaching=!mesocycle.excludedFromCoaching;
+        },'TOGGLE_COACHING_EVIDENCE');renderWorkoutList();}catch(error){alert(error.message);}};body.append(exclude);
+    }
+    if(review.exerciseCoverage?.length){
+        const coverage=node('ul');
+        for(const ex of review.exerciseCoverage)coverage.append(node('li',ex.name+' · '+ex.confirmedSets+' serie allenanti valide'+(ex.classificationStatus==='unmapped'?' · classificazione muscolare da associare':'')+' · '+(ex.comparisonStatus==='available'?'confronto disponibile':ex.comparisonStatus==='no_valid_working_sets'?'nessuna serie allenante valida':'dati datati e confrontabili insufficienti')));
+        body.append(node('strong','Tutti gli esercizi del mesociclo'),coverage);
+    }
     if (review.exerciseChanges.length) {
         const list = node('ul');
-        for (const exercise of review.exerciseChanges.slice(0, 8)) {
+        for (const exercise of review.exerciseChanges) {
             list.append(node('li', exercise.name + ' · sett. ' + exercise.firstWeek +
                 ': ' + exercise.firstKg + ' kg × minimo ' + exercise.firstMinReps +
                 ' reps → sett. ' + exercise.lastWeek + ': ' + exercise.lastKg +

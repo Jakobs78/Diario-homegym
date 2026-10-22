@@ -34,10 +34,10 @@ test('high-rep deltoids keep 15-25 rather than generic 10-15', () => {
   assert.equal(prescribeExerciseReps(bench,{focus:'strength',index:0}),'3-5');
 });
 
-test('rep progression is written into actual prescribed range, only after valid decision', () => {
+test('one-set rep progression does not raise the range for every set', () => {
   assert.equal(prescribeExerciseReps(bench,{
     focus:'hybrid',loadDecision:{action:'build_reps',plannedRepGoal:7}
-  }),'7-8');
+  }),'6-8');
   assert.equal(prescribeExerciseReps(bench,{
     focus:'hybrid',isDeload:true,loadDecision:{action:'build_reps',plannedRepGoal:7}
   }),'6-8');
@@ -124,7 +124,7 @@ test('real engine exports advanced targets and selective dropset in CSV, never a
   const firstBench=meso.weeks[0].days.flatMap(d=>d.exercises)
     .find(e=>e.name===bench.name);
   assert.ok(firstBench,'panca presente nella proposta');
-  assert.equal(firstBench.reps,'7-8');
+  assert.equal(firstBench.reps,'6-8');
   assert.equal(Number(firstBench.kgMin),80);
   const firstLateral=meso.weeks[0].days.flatMap(d=>d.exercises)
     .find(e=>e.name===lateral.name);
@@ -147,7 +147,7 @@ test('real engine exports advanced targets and selective dropset in CSV, never a
   coachState.setActiveMesocycle(meso);
   try {
     const csv=MyCoatch.exportAsCSV();
-    assert.match(csv,/;Panca Piana con Bilanciere;\d+;7-8;80;80;/);
+    assert.match(csv,/;Panca Piana con Bilanciere;\d+;6-8;80;80;/);
     assert.match(csv,/;Alzate Laterali con Manubri;\d+;15-25;/);
     if(drops.length) assert.match(csv,/\[DROP_SET\]/);
   } finally {

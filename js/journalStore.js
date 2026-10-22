@@ -119,3 +119,9 @@ export async function flushJournalStorage(){
 }
 export const journalStorageFailed=()=>Boolean(failure);
 export const journalStorageReady=()=>ready && !failure;
+
+/** Synchronous staging rollback before the single IndexedDB transaction. */
+export function stageJournalUpdates(edit){
+    const beforeValues=new Map(values),beforePending=new Map(pending);
+    try{return edit();}catch(error){values.clear();for(const [key,value] of beforeValues)values.set(key,value);pending=beforePending;throw error;}
+}

@@ -1,4 +1,5 @@
-import { canonicalExerciseKey } from './exerciseIdentity.js';
+import {validPerformedSet} from '../js/workoutSemantics.js';
+import { canonicalExerciseKey,exerciseIdentity } from './exerciseIdentity.js';
 import { estimateE1rm } from './historyAnalysis.js';
 
 function numberOrNull(value) {
@@ -20,7 +21,7 @@ function simpleValidSets(exercise) {
         const kg = numberOrNull(set.weight);
         const reps = numberOrNull(set.reps);
         const rpe = numberOrNull(set.rpe);
-        if (!kg || !Number.isInteger(reps) || reps <= 0 || reps > 40) return [];
+        if (!validPerformedSet(exercise,set) || !Number.isInteger(reps) || reps <= 0 || reps > 40) return [];
         const cleanRpe = rpe !== null && rpe >= 6 && rpe <= 10 ? rpe : null;
         const special=set.intensityTechnique || set.dropSegments?.length || exercise.isDropset;
         const e1rm = cleanRpe !== null && !special ? estimateE1rm(kg, reps, cleanRpe) : null;
@@ -66,12 +67,12 @@ function* previousDays(history, currentDay) {
  * Nessuna deduzione e1RM quando manca un RPE realmente inserito.
  */
 export function previousExercisePerformance(history, currentDay, exerciseName) {
-    const key = canonicalExerciseKey(exerciseName);
+    const key = typeof exerciseName==='object'?exerciseIdentity(exerciseName):canonicalExerciseKey(exerciseName);
     let last = null;
     if (!key) return null;
     for (const day of previousDays(history, currentDay)) {
         for (const ex of day.exercises || []) {
-            if (ex.isWarmup || ex.isExcluded || ex.is_excluded || canonicalExerciseKey(ex.name) !== key) continue;
+            if (ex.isWarmup || ex.isExcluded || ex.is_excluded || exerciseIdentity(ex) !== key) continue;
             const sets = simpleValidSets(ex);
             if (!sets.length) continue;
             last = sets

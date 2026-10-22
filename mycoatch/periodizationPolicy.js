@@ -64,7 +64,7 @@ export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}
     return {weekNumber, isDeload, phase, targetRpe,
       progressionRule: 'progress_only_after_confirmed_reps_and_rpe'};
   });
-  return {version: 1, blockNumber: Math.max(1, (history.inspectedMesocycles || 0) + 1),
+  return {version: 2, policy:'shared_recovery_with_documented_template_fallback', blockNumber: Math.max(1, (history.inspectedMesocycles || 0) + 1),
     recoveryFirst, recoveryScope:assessment.scope,
     fatiguedMuscles:assessment.fatiguedMuscles,
     recoverySignals: signals, deloadWeek, deloadRationale,

@@ -1,3 +1,4 @@
+import {EXERCISE_DATABASE} from '../mycoatch/exercisesDB.js';
 /**
  * Read-only end-of-mesocycle review. Uses only confirmed, validated working
  * sets; never changes the journal or treats an archived repeat as a scheduled
@@ -13,7 +14,7 @@ const confirmed = set => set?.isLocked === true || set?.completed === true;
 function performance(ex, set) {
     if (!confirmed(set) || isWarmupSet(set)) return null;
     const record = validateCompletedSet(set, ex, set);
-    return record.ok ? {...record, performedAt: set.completedAt ?? null} : null;
+    return record.ok ? {...record, performedAt: set.performedAt ?? set.completedAt ?? null} : null;
 }
 
 const rpeSumFor = rows => rows.reduce((sum, row) => sum + row.rpe, 0);
@@ -95,7 +96,7 @@ function inspectDay(day, weekNumber) {
 
 function observedChanges(days) {
     const byExercise = new Map();
-    for (const day of days.filter(day => day.status === 'complete')) {
+    for (const day of days) {
         for (const item of day.samples) {
             if (!item.key || !item.comparable) continue;
             if (!byExercise.has(item.key)) byExercise.set(item.key, new Map());
@@ -156,6 +157,13 @@ export function summarizeMesocycleClosure(mesocycle) {
             status: day.status, confirmedSets: day.confirmedSets, plannedSets: day.plannedSets
         })),
         exerciseChanges: observedChanges(sessions),
+        exerciseCoverage: [...new Set(weeks.flatMap(w=>(w.days||[]).flatMap(d=>(d.exercises||[]).map(ex=>ex.name))))].map(name=>{
+            const recorded=days.flatMap(d=>d.exerciseResults).filter(ex=>ex.name===name);
+            const comparable=observedChanges(sessions).some(ex=>ex.name===name);
+            const mapped=weeks.flatMap(w=>(w.days||[]).flatMap(d=>d.exercises||[])).find(ex=>ex.name===name&&ex.catalogMapping?.confirmed)?.catalogMapping.name;
+            const classified=EXERCISE_DATABASE.some(ex=>canonicalExerciseKey(ex.name)===canonicalExerciseKey(mapped||name));
+            return {name,classificationStatus:classified?'catalog':'unmapped',confirmedSets:recorded.reduce((n,ex)=>n+ex.validSets,0),comparisonStatus:comparable?'available':recorded.length?'insufficient_comparable_dated_weeks':'no_valid_working_sets'};
+        }),
         // Programmed weeks are not calendar weeks; show recorded coverage,
         // never substitute empty sessions with zero-RPE observations.
         weeklyResults: weeks.map(week => {
@@ -249,6 +257,8 @@ export function formatMesocycleClosureForChat(review) {
             '/' + w.plannedSets + ' serie confermate; RPE misurati ' +
             w.rpeMeasured + '/' + w.completedSets +
             ', media ' + (w.averageRpe ?? 'non disponibile') + '.');
+    lines.push('COPERTURA DI TUTTI GLI ESERCIZI:');
+    for(const item of review.exerciseCoverage||[])lines.push(item.name+': '+item.confirmedSets+' serie valide; '+(item.comparisonStatus==='available'?'confronto disponibile':item.comparisonStatus==='no_valid_working_sets'?'nessuna serie allenante valida':'settimane datate e confrontabili insufficienti'));
     lines.push('CARICHI E RIPETIZIONI EFFETTIVI (anche sedute parziali; intervalli descrittivi, non progressioni):');
     if (!review.exerciseResults?.length) lines.push('Nessuna serie valida confermata.');
     for (const ex of review.exerciseResults || [])

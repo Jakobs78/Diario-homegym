@@ -1,3 +1,4 @@
+import {recommendNextExposure} from '../mycoatch/nextExposure.js';
 import { recommendNextSessionReps } from '../mycoatch/nextSessionReps.js';
 
 /**
@@ -127,7 +128,7 @@ function repsCompatible(reps, exercise) {
  * Le proposte restano solo sullo schermo. Le statistiche MyCoatch leggono
  * esclusivamente set con checked/confirmed e dati reali.
  */
-export function getSetPrefill(exercise, index, { previousExercise = null, crossExposureAdvice = null } = {}) {
+export function getSetPrefill(exercise, index, { previousExercise = null, crossExposureAdvice = null, nextExposureAdvice = null } = {}) {
     const logs = Array.isArray(exercise?.loggedSets) ? exercise.loggedSets : [];
     const current = logs[index] || {};
     const plan = plannedFor(exercise, index);
@@ -181,6 +182,11 @@ export function getSetPrefill(exercise, index, { previousExercise = null, crossE
         !priorSet.is_warmup && comparablePlan && priorComparable &&
         weightFor(priorSet) && repsFor(priorSet) &&
         repsCompatible(repsFor(priorSet), exercise);
+    const nextAdvice = nextExposureAdvice || recommendNextExposure(previousExercise,exercise);
+    const currentWarm=Boolean(current.isWarmup||current.warmup||current.is_warmup);
+    const workIndex=logs.slice(0,index+1).filter(s=>!s.isWarmup&&!s.warmup&&!s.is_warmup).length-1;
+    const advisedWeight = currentWarm?null:nextAdvice?.weight;
+    const advisedReps = currentWarm?null:nextAdvice?.reps?.[workIndex];
     const nextReps = fromLastWeek
         ? recommendNextSessionReps(previousExercise, exercise) : null;
     const coachedReps = nextReps?.kind === 'build_reps'
@@ -190,15 +196,15 @@ export function getSetPrefill(exercise, index, { previousExercise = null, crossE
     const source = filled(current.weight) || filled(current.reps) || filled(current.rpe)
         ? 'current_entry' : sameSession ? 'confirmed_previous_set' :
         coachedReps !== null ? 'mycoatch_next_reps' :
-        fromLastWeek ? 'confirmed_previous_week' :
+        nextAdvice ? 'mycoatch_next_exposure' : fromLastWeek ? 'confirmed_previous_week' :
         crossKg ? 'estimated_cross_exposure' : 'csv_target';
     return {
         weight: filled(current.weight) ? String(current.weight)
-            : sameSession ? weightFor(previous)
-                : fromLastWeek ? weightFor(priorSet) : plan.weight || crossKg,
+            : !currentWarm && nextAdvice?.suppressLoad ? '' : sameSession ? weightFor(previous)
+                : advisedWeight ? String(advisedWeight) : fromLastWeek ? weightFor(priorSet) : plan.weight || crossKg,
         reps: filled(current.reps) ? String(current.reps)
             : sameSession ? repsFor(previous)
-                : coachedReps !== null ? coachedReps
+                : advisedReps ? String(advisedReps) : coachedReps !== null ? coachedReps
                     : fromLastWeek ? repsFor(priorSet) : plan.reps,
         // RPE = obiettivo della seduta corrente, NON fatica percepita
         // nell'ultima sessione. Se il piano non indica un RPE, proponi solo
@@ -208,7 +214,7 @@ export function getSetPrefill(exercise, index, { previousExercise = null, crossE
             (sameSession && targetRpe(previous?.rpe)) ||
             (fromLastWeek && targetRpe(priorSet?.rpe)) || '',
         source,
-        reason: coachedReps !== null ? nextReps.reason :
+        reason: nextAdvice ? nextAdvice.reason : coachedReps !== null ? nextReps.reason :
             fromLastWeek ? 'Carico e ripetizioni provenienti da serie precedenti confermate con prescrizione confrontabile.' :
             crossKg ? crossExposureAdvice.reason :
             'Prescrizione attuale senza incremento automatico.',

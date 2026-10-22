@@ -4,7 +4,7 @@
 
 import { saveAndSync } from './storage.js';
 import { state } from './state.js';
-import { isWarmupExercise, isWarmupSet } from './workoutSemantics.js';
+import { isWarmupExercise, isWarmupSet, validPerformedSet, plannedWorkSetCount, localCalendarDay } from './workoutSemantics.js';
 import { refreshLiveCoachClock } from './liveCoachUI.js';
 import { repeatCompletedSessionPreservingHistory, safeArchiveCount } from './historySafety.js';
 
@@ -23,10 +23,10 @@ export function updateSessionAndCompletionState(currentDay) {
 
     exercises.forEach(ex => {
         if (isWarmupExercise(ex)) return;
+        totalSets += plannedWorkSetCount(ex);
         (ex.loggedSets || []).forEach(set => {
             if(isWarmupSet(set))return;
-            totalSets++;
-            if (set.isLocked || set.completed) completedSets++;
+            if (validPerformedSet(ex,set)) completedSets++;
         });
     });
 
@@ -42,11 +42,11 @@ export function updateSessionAndCompletionState(currentDay) {
         const totalSecs = (currentDay.accumulatedSeconds || 0) + activeSegmentSecs;
         const durationMinutes = Math.round(totalSecs / 60);
 
-        currentDay.date = new Date().toISOString().split('T')[0];
+        currentDay.date ||= localCalendarDay();
         currentDay.totalDurationMinutes = Math.max(1, durationMinutes);
         currentDay.accumulatedSeconds = totalSecs; // Mantieni l'effettivo anche se una serie viene riaperta.
         currentDay.completed = true;
-        currentDay.sessionCompletedAt = new Date().toISOString();
+        currentDay.sessionCompletedAt ||= new Date().toISOString();
 
         currentDay.sessionStart = null; 
         currentDay.isPaused = false;
@@ -54,7 +54,7 @@ export function updateSessionAndCompletionState(currentDay) {
         // Correzione di una serie spuntata: riapri davvero la sessione.
         currentDay.completed = false;
         currentDay.totalDurationMinutes = undefined;
-        delete currentDay.sessionCompletedAt;
+        // Preserve performance date when reopening historical entries.
         if (completedSets > 0 && !currentDay.isPaused) currentDay.sessionStart = Date.now();
     }
 }
@@ -92,6 +92,11 @@ export function updateSessionHeaderUI(currentDay, renderCallback, readOnly = fal
         actionSessionBtn.after(pauseSessionBtn);
     }
 
+    let start=timerWrapper?.querySelector('#start-workout-session');
+    if(!start&&timerWrapper){start=document.createElement('button');start.id='start-workout-session';start.type='button';start.className='btn btn-secondary btn-sm';start.textContent='Inizia seduta';timerWrapper.append(start);}
+    if(start){start.hidden=readOnly||Boolean(currentDay.sessionStart)||Boolean(currentDay.accumulatedSeconds)||Boolean(currentDay.completed);
+        start.onclick=async()=>{if(readOnly||currentDay.completed)return;currentDay.sessionStart=Date.now();currentDay.timerMeasurement='full_session';currentDay.date ||= localCalendarDay();
+            if(await saveAndSync(state.workoutData)===false){alert('Avvio non salvato: conserva un backup e verifica lo spazio.');return;}renderCallback?.();};}
     const actionBtn = document.getElementById('reset-session-timer-btn');
     const pauseBtn = document.getElementById('pause-session-timer-btn');
 
@@ -121,10 +126,10 @@ export function updateSessionHeaderUI(currentDay, renderCallback, readOnly = fal
     let completedSets = 0;
     exercises.forEach(ex => {
         if (isWarmupExercise(ex)) return;
+        totalSets += plannedWorkSetCount(ex);
         (ex.loggedSets || []).forEach(set => {
             if(isWarmupSet(set))return;
-            totalSets++;
-            if (set.isLocked || set.completed) completedSets++;
+            if (validPerformedSet(ex,set)) completedSets++;
         });
     });
 
@@ -178,7 +183,7 @@ export function updateSessionHeaderUI(currentDay, renderCallback, readOnly = fal
                     currentDay.isPaused = false;
                     currentDay.completed = false;
                     currentDay.totalDurationMinutes = undefined;
-                    delete currentDay.sessionCompletedAt;
+                    // Preserve performance date when reopening historical entries.
                     saveAndSync(state.workoutData);
                     if (typeof renderCallback === 'function') renderCallback();
                 }

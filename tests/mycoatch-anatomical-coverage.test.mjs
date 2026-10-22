@@ -192,11 +192,8 @@ test('direct API excludes rear variants while profile exclusions are also respec
   }
   assert.throws(()=>generateSmartMesocycle({...base,excludedExercises:'wrong'},emptyHistory),
     /Lista di esercizi da evitare non valida/);
-  // Athlete UI intentionally limits its 'avoid' list to main barbell lifts,
-  // while the direct engine exclusion list accepts all catalog exercises.
-  assert.throws(()=>generateSmartMesocycle({...base,athleteProfile:{
-    ...profile,excludedExercises:avoided
-  }},emptyHistory),/esercizi da evitare non è riconosciuto/);
+  const fromProfile=generateSmartMesocycle({...base,athleteProfile:{...profile,excludedExercises:avoided}},emptyHistory);
+  assert.ok(fromProfile.weeks.every(week=>week.days.every(day=>day.exercises.every(ex=>!avoided.includes(ex.name)))));
 });
 
 test('approval preview explicitly discloses missing posterior work and current head counts',()=>{

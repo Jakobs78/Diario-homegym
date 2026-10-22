@@ -115,7 +115,7 @@ async function setupPlan(page,kind){
   const header='Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset';
   const names=kind==='drop'?['Alzate Laterali con Manubri','Calf Raise']:['Curl ai Cavi Bassi','Pushdown ai Cavi','Alzate Laterali con Manubri','Calf Raise'];
   const rows=names.map((name,i)=>`1;1;${i+1};${name};3;10-12;10;10;8;90s;"${i===0?(kind==='drop'?'[DROP_SET] Solo dopo l’ultima serie: riduci il carico di circa 20–25%, esegui altre ripetizioni pulite. Facoltativo.':'[TRISET] Esegui i prossimi tre esercizi in sequenza, poi recupera al termine del gruppo.'):''}";`);
-  const result=importWorkoutPlan([header,...rows].join('\n'));if(!result.success)throw Error(result.error);
+  const result=await importWorkoutPlan([header,...rows].join('\n'));if(!result.success)throw Error(result.error);
   renderWorkoutList();
  },kind);
 }
@@ -191,13 +191,14 @@ test('bilanciere leggero disponibile a richiesta, manubri pesanti senza calcolat
   renderWorkoutList();
  });
  const card=page.locator('.ex-card[data-ex="0"]');
- await expect(card.locator('.plates-disclosure')).not.toHaveAttribute('open','');
+ await expect(card.locator('.plates-disclosure')).toHaveAttribute('open','');
  await card.locator('.set-kg[data-set="0"]').fill('35');
- await expect(card.locator('.plates-disclosure')).not.toHaveAttribute('open','');
+ await expect(card.locator('.plates-disclosure')).toHaveAttribute('open','');
  await card.locator('.set-kg[data-set="0"]').fill('36');
  await expect(card.locator('.plates-disclosure')).toHaveAttribute('open','');
  await card.locator('.set-kg[data-set="0"]').fill('30');
- await expect(card.locator('.plates-disclosure')).not.toHaveAttribute('open','');
+ await expect(card.locator('.plates-disclosure')).toHaveAttribute('open','');
+ await card.locator('.plates-disclosure summary').click();
  await card.locator('.plates-disclosure summary').click();
  await expect(card.locator('.bar-select')).toHaveValue('20|50');
  await expect(card.locator('.plates-badge')).toContainText('5 kg/lato');
@@ -208,7 +209,11 @@ for(const [device,width,height] of [['smartphone',390,844],['tablet',768,1024],[
  await page.locator('.circuit-card').scrollIntoViewIfNeeded();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  const box=await page.locator('.circuit-card').boundingBox();console.log('CIRCUIT_HEIGHT',device,box.height);
- if(width===390)expect(box.height).toBeLessThan(1000);
+ if(width===390){
+   // Active group notes are intentionally open. No horizontal overflow; all sets remain reachable.
+   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+   expect(box.height).toBeLessThan(2200);
+ }
  await page.screenshot({path:'../../outputs/nuovo-triset-'+device+'.png'});
  await setupPlan(page,'drop');await page.locator('.ex-card[data-ex="0"]').scrollIntoViewIfNeeded();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -251,7 +256,7 @@ for(const [device,width,height] of [['telefono',390,844],['tablet',768,1024],['p
  await page.locator('#btn-user-manual').click();
  const manual=page.locator('#manual-content');
  await expect(manual).toBeVisible();
- await expect(manual.locator('.manual-section')).toHaveCount(19);
+ await expect(manual.locator('.manual-section')).toHaveCount(20);
  for(const link of await manual.locator('[data-manual-target]').all()){
   const id=await link.getAttribute('data-manual-target');
   await link.click();await expect(page.locator('#'+id)).toHaveAttribute('open','');

@@ -1,3 +1,4 @@
+import {commitJournalCandidate} from './journalTransaction.js';
 // ==========================================
 // MODULI: mesocycle.js - Gestione cicli di allenamento, navigazione mesocicli, blocco/sblocco e export PDF
 // ==========================================
@@ -60,7 +61,7 @@ export function changeMesocycle(delta) {
 /**
  * Elimina la scheda e i dati del mesociclo attivo riallineando la numerazione
  */
-export function deleteCurrentMesocycle() {
+export async function deleteCurrentMesocycle() {
     const currentYear = String(state.currentYear || new Date().getFullYear());
     const mesocycles = state.workoutData?.history?.years?.[currentYear]?.mesocycles || [];
 
@@ -76,24 +77,21 @@ export function deleteCurrentMesocycle() {
         return;
     }
 
-    if (!confirm(`Sei sicuro di voler eliminare definitivamente il "${mesoToDelete?.name || 'Mesociclo'}"?`)) {
+    if (!confirm(`Sei sicuro di voler spostare nell’archivio recuperabile il "${mesoToDelete?.name || 'Mesociclo'}"?`)) {
         return;
     }
 
-    mesocycles.splice(activeIdx, 1);
-
-    mesocycles.forEach((meso, idx) => {
-        meso.number = idx + 1;
-        meso.name = `Mesociclo ${idx + 1}`;
-    });
-
-    if (activeIdx >= mesocycles.length) {
-        state.activeMesocycleIndex = Math.max(0, mesocycles.length - 1);
-    }
-
-    saveAndSync(state.workoutData);
+    const candidate=structuredClone(state.workoutData);
+    const target=candidate.history.years[currentYear].mesocycles;
+    const [removed]=target.splice(activeIdx,1);
+    candidate.archivedMesocycles ||= [];
+    candidate.archivedMesocycles.push({year:currentYear,archivedAt:new Date().toISOString(),mesocycle:removed});
+    target.forEach((meso,idx)=>{meso.number=idx+1;});
+    try {await commitJournalCandidate(candidate,'ARCHIVE_MESOCYCLE');}
+    catch(error){showNotification(error.message,'error');return;}
+    state.activeMesocycleIndex=Math.min(activeIdx,Math.max(0,target.length-1));
     renderWorkoutList();
-    showNotification("Mesociclo eliminato e numerazione riallineata!");
+    showNotification('Mesociclo archiviato. Puoi recuperarlo dagli Strumenti o dal backup completo.');
 }
 
 // ==========================================
@@ -383,4 +381,16 @@ export function exportMesoToPDF(mesoData) {
     const name = String(mesoData.name || 'mesociclo')
         .replace(/[^a-zA-Z0-9_-]/g,'_');
     doc.save(name + '_diario_completo.pdf');
+}
+
+export async function restoreLastArchivedMesocycle(){
+    const candidate=structuredClone(state.workoutData);
+    const archived=candidate.archivedMesocycles?.pop();
+    if(!archived)throw Error('Nessun mesociclo archiviato da recuperare.');
+    candidate.history.years[archived.year] ||= {mesocycles:[]};
+    const list=candidate.history.years[archived.year].mesocycles;
+    if(list.some(m=>m.id===archived.mesocycle.id))throw Error('Identificatore già presente: nessun ripristino eseguito.');
+    list.push(archived.mesocycle);
+    await commitJournalCandidate(candidate,'RESTORE_ARCHIVED_MESOCYCLE');
+    state.currentYear=archived.year;state.activeMesocycleIndex=list.length-1;renderWorkoutList();
 }

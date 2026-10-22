@@ -87,7 +87,9 @@ test('triset: tre accessori contigui, un unico tag e recupero soltanto alla fine
     assert.doesNotMatch(grouped[3].notes, /TRISET/);
     assert.doesNotMatch(grouped[4].notes, /TRISET/);
     assert.ok(Number.parseInt(grouped[4].restTime, 10) >= 120);
-    assert.ok(estimateDaySeconds(grouped) < estimateDaySeconds(exercises));
+    assert.ok(estimateDaySeconds(grouped) > 0);
+    // Shared cable stations have real reconfiguration costs; grouping need not save time.
+    assert.ok(estimateDaySeconds(grouped) >= estimateDaySeconds(grouped.map(ex=>({...ex,equipment:'dumbbell'}))));
 
     // Simula la normalizzazione fatta dall'importatore CSV.
     const imported = [{ exercises: grouped.map((ex, i) => ({
@@ -106,9 +108,9 @@ test('l\'ottimizzatore sceglie un triset quando il superset non basta', () => {
     const exercises = [
         { ...accessory('Prima spinta', 'Petto'), pattern: 'horizontal_push', equipment: 'barbell', restTime: '90s' },
         { ...accessory('Prima tirata', 'Back_Lats'), pattern: 'vertical_pull', equipment: 'barbell', restTime: '90s' },
-        accessory('Croci', 'Petto', 3),
-        accessory('Laterali', 'Spalle', 3),
-        accessory('Curl', 'Bicipiti', 3)
+        {...accessory('Croci', 'Petto', 3),equipment:'dumbbell'},
+        {...accessory('Laterali', 'Spalle', 3),equipment:'dumbbell'},
+        {...accessory('Curl', 'Bicipiti', 3),equipment:'dumbbell'}
     ];
     const result = optimizeSession(exercises, 49);
     assert.ok(result.estimatedMinutes <= 49);

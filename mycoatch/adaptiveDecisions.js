@@ -2,7 +2,7 @@
  * Decisioni conservative e spiegabili. Nessuna diagnosi di crescita muscolare:
  * kg, reps, volume e RPE descrivono prestazione, stimolo e tolleranza al lavoro.
  */
-import { getAvailableLoadStep, resolvePlannedLoad } from './loadProposal.js';
+import { getAvailableLoadStep, resolvePlannedLoad, resolveNearbyLoad } from './loadProposal.js';
 const roundLoad = kg => Math.max(0, Math.round(kg * 4) / 4);
 
 export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
@@ -17,6 +17,7 @@ export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
         let action = 'maintain';
         let plannedKg = kg;
         let plannedRepGoal = null;
+        let unavailableIncrement=false;
         let reason = exercise.status === 'insufficient_data'
             ? 'Storico confermato insufficiente: nessuna progressione automatica del carico.'
             : 'Mantieni il carico precedente e monitora la prossima esposizione.';
@@ -42,7 +43,8 @@ export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
             const increment = getAvailableLoadStep(exercise,loadingSteps,kg).step;
             if (increment / kg <= 0.10) {
                 action = 'increase_load';
-                plannedKg = roundLoad(kg + increment);
+                plannedKg = resolveNearbyLoad(exercise,kg+increment,loadingSteps,{min:kg+.01,max:kg*1.10,origin:kg}).weight;
+                if(plannedKg===null){plannedKg=kg;action='maintain';unavailableIncrement=true;}
                 reason = exercise.progressionEvidence?.progressionTrigger === 'low_rpe'
                     ? 'Due settimane diverse: tutte le serie confermate entro il range di ripetizioni con RPE almeno 1 punto sotto il target. Incremento minimo proporzionato al carico e alla tua attrezzatura.'
                     : 'Due settimane diverse, tutte le serie al limite alto delle ripetizioni con RPE entro target. Piccolo incremento proposto (verifica i pesi disponibili).';
@@ -73,6 +75,7 @@ export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
             reason = 'Forza stimata in miglioramento: conserva il movimento e progredisci solo quando reps e RPE lo consentono.';
         }
 
+        if(unavailableIncrement)reason='Le prestazioni consentono una progressione, ma i dischi disponibili non compongono un incremento proporzionato. Mantieni i kg e riconferma ripetizioni e RPE.';
         if(action==='increase_load' && resolvePlannedLoad(exercise,plannedKg,loadingSteps).weight===null){
             action='maintain';plannedKg=kg;
             reason='Le prestazioni consentono una progressione, ma i dischi disponibili non compongono il carico proposto. Mantieni i kg e riconferma ripetizioni e RPE.';
@@ -85,6 +88,8 @@ export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
             workingKg: kg,
             plannedKg,
             plannedRepGoal,
+            plannedReps:action==='build_reps' && exercise.previousExercise?.workingReps ? exercise.previousExercise.workingReps.map((n,i)=>i===exercise.previousExercise.workingReps.findIndex(rep=>rep<exercise.lastReps?.max)?n+1:n) : null,
+            byExposureRole:exercise.byExposureRole ? Object.fromEntries(Object.entries(exercise.byExposureRole).map(([role,entry])=>[role,planAdaptiveDecisions({byExercise:{[key]:entry}},{loadingSteps}).byExercise[key]])) : {},
             evidenceWeeks: exercise.progressionEvidence?.evidenceWeeks || [],
             caveats: exercise.progressionEvidence?.caveats || [],
             status: exercise.status,

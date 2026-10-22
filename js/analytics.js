@@ -1,3 +1,4 @@
+import {validPerformedSet} from './workoutSemantics.js';
 import {historyWindow} from './historyWindow.js';
 /* global Chart */
 /**
@@ -62,13 +63,13 @@ export function filterValidSets(rawWorkoutData) {
                 const isWarmup = set.is_warmup || set.warmup || set.isWarmup;
                 
                 const rawWeight = String(set.weight || set.kg || set.peso || '').replace(',', '.').trim();
-                const weightVal = parseFloat(rawWeight) || 0;
+
                 
                 const reps = String(set.reps ?? '').trim();
                 const repsValid = /^[1-9]\d{0,2}(?:\+[1-9]\d{0,2})*$/.test(reps);
                 // Only athlete-confirmed performed sets enter statistics. A draft with
                 // weight/reps typed is NOT proof of performance.
-                return !isWarmup && repsValid && weightVal > 0 &&
+                return !isWarmup && repsValid && validPerformedSet(ex,{...set,weight:rawWeight}) &&
                     (set.completed === true || set.isLocked === true);
             });
 
@@ -323,8 +324,9 @@ export function filterDaysByRange(days, range = 'meso') {
     });
 }
 
+/** Rep-only Epley estimate (no RIR correction). Unavailable values are null, never zero. */
 export function calculate1RM(weight, reps) {
-    if (!weight || !reps || reps <= 0 || reps > 10) return 0;
+    if (!weight || !reps || reps <= 0 || reps > 12) return null;
     if (reps === 1) return weight;
     return Math.round((weight * (1 + reps / 30)) * 10) / 10;
 }

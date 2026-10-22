@@ -44,15 +44,9 @@ export function prescribeExerciseReps(exercise, {
         else reps = isolation ? '10-15' : '8-12';
     }
 
-    // Una raccomandazione validata sulle settimane precedenti deve incidere
-    // davvero sul range del CSV, senza alzare contemporaneamente anche i kg.
-    const range = repRange(reps);
-    const next = loadDecision?.action === 'build_reps' ?
-        Number(loadDecision.plannedRepGoal) : null;
-    if (!isDeload && !calibrationWeek && range &&
-        Number.isInteger(next) && next > range.min && next <= range.max) {
-        reps = next + '-' + range.max;
-    }
+    // Per-set progression is stored in sets[].targetReps. Do not raise the
+    // lower bound for every set when the decision adds one repetition only.
+    void loadDecision;void isDeload;
     return reps;
 }
 

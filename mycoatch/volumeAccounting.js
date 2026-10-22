@@ -1,3 +1,4 @@
+import {isWarmupExercise,plannedWorkSetCount,validPerformedSet} from '../js/workoutSemantics.js';
 /**
  * Analisi descrittiva del volume di allenamento.
  *
@@ -44,9 +45,10 @@ const isConfirmed = set => set?.isLocked === true || set?.completed === true;
 export function completedWorkingSetCount(exercise) {
     const logs = Array.isArray(exercise?.loggedSets) ? exercise.loggedSets :
         Array.isArray(exercise?.sets) ? exercise.sets : [];
-    return logs.filter(set => set && isWork(set) && isConfirmed(set) &&
+    if(isWarmupExercise(exercise))return 0;
+    return logs.filter(set => set && validPerformedSet(exercise,set) && isWork(set) && isConfirmed(set) &&
         (validWeight(set.weight ?? set.actualKg) ||
-            (catalog.get(canonicalExerciseKey(exercise.name))?.equipment === 'bodyweight' &&
+            ((exercise.catalogMapping?.confirmed?exercise.catalogMapping.equipment:catalog.get(canonicalExerciseKey(exercise.name))?.equipment) === 'bodyweight' &&
              String(set.weight ?? set.actualKg).trim() === '0')) &&
         numericReps(set.reps ?? set.actualReps)).length;
 }
@@ -88,20 +90,22 @@ export function summarizeMuscleVolume(exercises = [], { mode = 'planned' } = {})
     const muscles = emptyMuscleVolumes();
     const unknownExercises = [];
     const invalidSetCounts = [];
-    let physicalSets = 0;
+    let physicalSets = 0, unclassifiedSets=0;
     for (const exercise of exercises) {
+        if(isWarmupExercise(exercise))continue;
+        if(mode==='planned' && exercise?.setsCount!==undefined && !/^\d+$/.test(String(exercise.setsCount))){invalidSetCounts.push(exercise.name||'sconosciuto');continue;}
         const count = mode === 'confirmed'
             ? completedWorkingSetCount(exercise)
-            : Number(exercise?.setsCount ??
-                (Array.isArray(exercise?.sets) ? exercise.sets.filter(isWork).length : NaN));
+            : plannedWorkSetCount(exercise);
         if (!Number.isInteger(count) || count < 0) {
             invalidSetCounts.push(exercise?.name || 'sconosciuto');
             continue;
         }
         if (count === 0) continue;
-        const credits = contributionsForExercise(exercise.name, count);
+        const credits = contributionsForExercise(exercise.catalogMapping?.confirmed?exercise.catalogMapping.name:exercise.name, count);
         if (!credits) {
             unknownExercises.push(exercise?.name || 'sconosciuto');
+            unclassifiedSets+=count;
             continue;
         }
         physicalSets += count;
@@ -121,6 +125,9 @@ export function summarizeMuscleVolume(exercises = [], { mode = 'planned' } = {})
         method: VOLUME_ACCOUNTING_METHOD,
         note: 'Crediti descrittivi, non misure di ipertrofia ne soglie individuali di recupero.',
         physicalSets,
+        unclassifiedSets,
+        totalPhysicalSets:physicalSets+unclassifiedSets,
+        classificationCoverage:physicalSets+unclassifiedSets?physicalSets/(physicalSets+unclassifiedSets):null,
         byMuscle: muscles,
         unknownExercises: [...new Set(unknownExercises)],
         invalidSetCounts: [...new Set(invalidSetCounts)]

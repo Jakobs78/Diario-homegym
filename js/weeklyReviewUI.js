@@ -5,7 +5,7 @@
  */
 import { reviewUpcomingWeek, applyUpcomingWeekReview,
     undoUpcomingWeekReview } from '../mycoatch/weeklyReview.js';
-import { saveAndSync } from './storage.js';
+import {editJournal} from './journalTransaction.js';
 import { state } from './state.js';
 
 function node(tag, cls, content) {
@@ -59,10 +59,12 @@ export function createWeeklyReviewPanel(mesocycle, weekNumber, {
             const apply=node('button','btn btn-secondary btn-sm mycoatch-weekly-apply',
                 'Applica i nuovi obiettivi RPE alla settimana');
             apply.type='button';
-            apply.addEventListener('click',()=>{
+            apply.addEventListener('click',async()=>{
                 try {
-                    applyUpcomingWeekReview(mesocycle,weekNumber,proposal);
-                    saveAndSync(state.workoutData);
+                    await editJournal(candidate=>{
+                        const current=candidate.history.years[state.currentYear].mesocycles[state.activeMesocycleIndex||0];
+                        applyUpcomingWeekReview(current,weekNumber,proposal);
+                    },'APPLY_WEEKLY_REVIEW');
                     if(typeof render==='function')render();
                 } catch(error) {
                     errorLine.textContent=error.message||
@@ -84,10 +86,9 @@ export function createWeeklyReviewPanel(mesocycle, weekNumber, {
                 (day.sessionArchives||[]).length>0 ||
                 (day.exercises||[]).some(ex=>
                     (ex.loggedSets||[]).some(set=>set.isLocked||set.completed))) || false;
-        undo.addEventListener('click',()=>{
+        undo.addEventListener('click',async()=>{
             try {
-                undoUpcomingWeekReview(mesocycle,weekNumber);
-                saveAndSync(state.workoutData);
+                await editJournal(candidate=>undoUpcomingWeekReview(candidate.history.years[state.currentYear].mesocycles[state.activeMesocycleIndex||0],weekNumber),'UNDO_WEEKLY_REVIEW');
                 if(typeof render==='function')render();
             } catch(error) {
                 errorLine.textContent=error.message||

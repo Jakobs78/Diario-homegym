@@ -31,12 +31,35 @@ export function readFullBackup(text) {
                 if(!week || !Array.isArray(week.days))throw Error('Settimana non valida.');
                 for(const day of week.days){
                     if(!day || !Array.isArray(day.exercises))throw Error('Giorno non valido.');
-                    for(const ex of day.exercises){
-                        if(!ex || typeof ex.name!=='string' || !Array.isArray(ex.loggedSets))
+                    if(day.sessionArchives!==undefined&&!Array.isArray(day.sessionArchives))throw Error('Archivio sedute non valido.');
+                    for(const session of [day,...(Array.isArray(day.sessionArchives)?day.sessionArchives:[])]){
+                    if(!session||(session.exercises!==undefined&&!Array.isArray(session.exercises)))throw Error('Seduta archiviata non valida.');
+                    for(const ex of session.exercises||[]){
+                        if(!ex || typeof ex.name!=='string' || !ex.name.trim() || !Array.isArray(ex.loggedSets))
                             throw Error('Esercizio non valido.');
-                    }
+                        for(const set of ex.loggedSets){
+                            if(!set || typeof set!=='object' || Array.isArray(set))throw Error('Serie del backup non valida.');
+                            for(const key of ['weight','actualKg','rpe']){
+                                const raw=set[key];
+                                if(raw===undefined||raw===null||raw==='')continue;
+                                const n=Number(String(raw).replace(',','.'));
+                                if(!Number.isFinite(n)||n<0||(key==='rpe'?n>10:n>700))throw Error('Valore della serie non valido: '+key);
+                            }
+                            for(const key of ['isLocked','completed','isWarmup'])if(set[key]!==undefined&&typeof set[key]!=='boolean')throw Error('Stato della serie non valido.');
+                            if(set.reps!==undefined && set.reps!=='' && !/^\d{1,3}(?:\+\d{1,3})*$/.test(String(set.reps)))throw Error('Ripetizioni del backup non valide.');
+                            for(const key of ['performedAt','completedAt','recordedAt','updatedAt'])if(set[key]!==undefined&&!Number.isFinite(Date.parse(set[key])))throw Error('Data della serie non valida.');
+                        }
+                        if(day.sessionArchives!==undefined && !Array.isArray(day.sessionArchives))throw Error('Archivio sedute non valido.');
+                    }}
                 }
             }
+        }
+    }
+    if(data.archivedMesocycles!==undefined){
+        if(!Array.isArray(data.archivedMesocycles))throw Error('Archivio mesocicli non valido.');
+        for(const entry of data.archivedMesocycles){
+            if(!entry||!/^\d{4}$/.test(String(entry.year))||!entry.mesocycle)throw Error('Mesociclo archiviato non valido.');
+            readFullBackup(JSON.stringify({format:FULL_BACKUP_FORMAT,version:1,data:{history:{years:{[entry.year]:{mesocycles:[entry.mesocycle]}}}}}));
         }
     }
     return JSON.parse(JSON.stringify(data));

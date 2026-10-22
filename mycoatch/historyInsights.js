@@ -2,7 +2,7 @@ import { HIGH_REP_EXERCISES } from './prescriptionPolicy.js';
 import { canonicalExerciseKey, canonicalExerciseName } from './exerciseIdentity.js';
 import { numericValue, estimateE1rm } from './historyAnalysis.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
-import { evaluateExerciseProgression } from './progressionPolicy.js';
+import { evaluateExerciseProgression, exposureRoleKey } from './progressionPolicy.js';
 import { evaluateRepetitionTrend, compareBlockResponse } from './stallResponse.js';
 import { isWarmupExercise, plannedWorkSetCount } from '../js/workoutSemantics.js';
 import { contributionsForExercise, TRACKED_MUSCLES, VOLUME_ACCOUNTING_METHOD } from './volumeAccounting.js';
@@ -26,6 +26,7 @@ function parseRpe(value) {
 }
 
 function inspectExercise(exercise, context) {
+    if(exercise.catalogMapping?.confirmed)exercise={...exercise,name:exercise.catalogMapping.name};
     if (!exercise || isWarmupExercise(exercise)) return null;
     const logged = Array.isArray(exercise.loggedSets) ? exercise.loggedSets :
         (Array.isArray(exercise.sets) ? exercise.sets : []);
@@ -45,7 +46,7 @@ function inspectExercise(exercise, context) {
             exercise.isDropset || exercise.groupType === 'dropset' ||
             repsText.includes('+'));
         return [{
-            kg, reps, rpe, special,completedAt:set.completedAt,
+            kg, reps, rpe, special,completedAt:set.performedAt||set.completedAt,
             e1rm: !HIGH_REP_EXERCISES[catalog.get(canonicalExerciseKey(exercise.name))?.name] && rpe !== null && !special ? estimateE1rm(kg, reps, rpe) : null
         }];
     });
@@ -65,7 +66,7 @@ function inspectExercise(exercise, context) {
     const min = repsTarget?.min;
     const max = repsTarget?.max;
     const calendarIds=context.calendarWeeks ? valid.map(set=>{
-        const date=new Date(set.completedAt);
+        const date=new Date(set.performedAt||set.completedAt);
         if(!Number.isFinite(date.getTime()))return null;
         const monday=new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate()));
         monday.setUTCDate(monday.getUTCDate()-((monday.getUTCDay()+6)%7));
@@ -76,6 +77,8 @@ function inspectExercise(exercise, context) {
 
     return {
         ...context,
+        exposureRole:exercise.exposureRole||exercise.repIntent||null,
+        workingReps:valid.map(set=>set.reps),
         weekId:context.calendarWeeks && calendarComparable ? calendarIds[0] : context.weekId,
         key,
         name: canonicalExerciseName(exercise.name),
@@ -203,7 +206,7 @@ export function analyzeTrainingHistory(userHistory,{calendarWeeks=false}={}) {
                         if(calendarWeeks)for(const ex of session.exercises)
                         for(const set of ex?.loggedSets || ex?.sets || []){
                             if(!(set.isLocked===true || set.completed===true))continue;
-                            const date=new Date(set.completedAt);
+                            const date=new Date(set.performedAt||set.completedAt);
                             if(!Number.isFinite(date.getTime()))continue;
                             const monday=new Date(Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate()));
                             monday.setUTCDate(monday.getUTCDate()-((monday.getUTCDay()+6)%7));
@@ -318,6 +321,14 @@ export function analyzeTrainingHistory(userHistory,{calendarWeeks=false}={}) {
         item.nextRepTarget = nextRepTarget;
         item.fatigueConcern = fatigueConcern;
         item.progressionEvidence = progression;
+        item.byExposureRole=Object.fromEntries(Object.entries(progression.byRole||{}).map(([role,evidence])=>{
+            const exposures=item.exposures.filter(ex=>exposureRoleKey(ex)===role),last=exposures.at(-1);
+            const trend=determineExerciseStatus(exposures);
+            return [role,{name:item.name,category:item.category,equipment:item.equipment,exposures,
+                status:trend.status,lastKg:last?.topKg??null,lastWorkingKg:evidence.lastWeekWorkingKg??last?.workingKg??null,
+                lastTargetRpe:last?.targetRpe,lastReps:last?.repRange,avgRpe:last?.avgRpe??null,
+                previousExercise:last,progressionEvidence:evidence,readyForLoad:evidence.readyForLoad,readyForReps:evidence.readyForReps,nextRepTarget:evidence.nextRepTarget,fatigueConcern:evidence.fatigueConcern}];
+        }));
         item.completedSets = item.exposures.reduce((sum, e) =>
             sum + e.completedSets, 0);
         item.exposuresCount = standard.length;

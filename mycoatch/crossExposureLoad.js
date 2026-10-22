@@ -4,11 +4,11 @@
  * scheduled weight, performed set, deload, special set or athlete override.
  * RIR-based e1RM is a rough estimate, NOT the exact physiological load.
  */
-import {canonicalExerciseKey} from './exerciseIdentity.js';
+import {exerciseIdentity} from './exerciseIdentity.js';
 import {estimateE1rm} from './historyAnalysis.js';
-import {compatiblePlates} from './barbellInventory.js';
-import {getAvailableLoadStep, equipmentCategory} from './loadProposal.js';
-import {getPlateBreakdown} from '../js/helpers.js';
+
+import {resolveNearbyLoad, equipmentCategory} from './loadProposal.js';
+
 
 const number=v=>{
   if(v===null||v===undefined||String(v).trim()==='')return null;
@@ -36,7 +36,7 @@ const count=ex=>Number(ex?.setsCount??ex?.sets?.length??ex?.loggedSets?.length);
 
 function estimateFromSource(source,upcoming){
   if(special(source)||special(upcoming))return null;
-  if(canonicalExerciseKey(source?.name)!==canonicalExerciseKey(upcoming?.name)||
+  if(exerciseIdentity(source)!==exerciseIdentity(upcoming)||
      equipmentCategory(source)!==equipmentCategory(upcoming))return null;
   const range=repsRange(source),next=repsRange(upcoming);
   const sourceRpe=number(source?.targetRpe??source?.rpeTarget??source?.rpe);
@@ -81,32 +81,13 @@ export function recommendCrossExposureLoad(upcoming,recentExposures=[],equipment
   if(!upcoming||special(upcoming)||plannedKg(upcoming)!==null||
       upcoming.coachWeeklyLoadReview||!Array.isArray(recentExposures))return null;
   for(const source of recentExposures){
+    const station=equipment.stationConfigurations?.machine;
+    if(equipmentCategory(upcoming)==='machine'&&station&&(source.loggedSets||[]).some(s=>s.equipmentSnapshot?.station!==station))continue;
     const evidence=estimateFromSource(source,upcoming);
     if(!evidence)continue;
-    const {type,step,configured}=getAvailableLoadStep(upcoming,equipment,evidence.raw);
-    if(!Number.isFinite(step)||step<=0)continue;
-    let kg=Math.floor((evidence.raw+1e-8)/step)*step;
-    kg=Math.round(kg*100)/100;
-    if(kg<=0)continue;
-    if(type==='barbell'){
-      // A numeric barbell load is offered only when inventory + the actual
-      // barbell assignment prove the exact plates exist.
-      const binding=compatiblePlates(upcoming,equipment);
-      if(!binding)continue;
-      let found=null;
-      for(let candidate=kg;candidate>=Math.max(binding.weight,evidence.raw*.9)-1e-8;
-          candidate=Math.round((candidate-step)*100)/100){
-        if(candidate<binding.weight)break;
-        const exact=Math.abs(candidate-binding.weight)<.001||
-          getPlateBreakdown(candidate,binding.weight,binding.inventory)?.exact;
-        if(exact){found=candidate;break;}
-      }
-      if(found===null)continue;
-      kg=found;
-    }else if(!configured){
-      // A default step is a mathematical convenience, not confirmed stock.
-      continue;
-    }
+    const resolved=resolveNearbyLoad(upcoming,evidence.raw,equipment,{min:evidence.raw*.9,max:evidence.raw});
+    if(resolved.weight===null||!resolved.verified)continue;
+    const kg=resolved.weight;
     return {
       kg,source:'estimated_cross_exposure',confidence:'provisional',
       reason:'Stima prudente da serie confermate dello stesso esercizio con ripetizioni/RPE diversi. '+

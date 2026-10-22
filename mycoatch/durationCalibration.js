@@ -32,7 +32,7 @@ function comparableExercise(ex){
     const equipment=ex.equipment||meta?.equipment;
     const restTime=ex.restTime||ex.recupero||ex.rest;
     if(!pattern||!equipment||!restTime)return null;
-    return {name:ex.name,pattern,equipment,setsCount:performed.length,
+    return {name:ex.name,pattern,equipment,reps:ex.reps||ex.defaultReps,unilateral:ex.unilateral,setsCount:performed.length,
         restTime,groupType:ex.groupType,groupBase:ex.groupBase,
         isGroupLast:ex.isGroupLast};
 }
@@ -43,7 +43,7 @@ function expectedAfterFirstSet(session){
     const normalized=exercises.map(comparableExercise);
     if(normalized.some(ex=>!ex))return null;
     try{
-        const active=estimateDaySeconds(normalized)-firstSetStartOffsetSeconds(normalized);
+        const active=estimateDaySeconds(normalized)-(session.timerMeasurement==='full_session'?0:firstSetStartOffsetSeconds(normalized));
         return active>=15*60 ? active : null;
     }catch{return null;}
 }

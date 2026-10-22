@@ -193,18 +193,23 @@ function createSessionCheckinPanel(day, readiness, locked, panel) {
             label.append(select);
             fields.append(label);
         }
+        for(const [key,title] of [['movement','Movimento che dà fastidio (facoltativo)'],['location','Zona e limitazione pratica (facoltativo)']]){
+            const label=element('label','',title),input=element('input');input.name=key;input.maxLength=160;input.value=day.coachCheckin?.[key]||'';label.append(input);fields.append(label);
+        }
         form.append(fields);
         const submit = element('button', 'btn btn-secondary btn-sm',
             readiness.level === 'unknown' ? 'Salva check-in' : 'Aggiorna check-in');
         submit.type = 'submit';
         form.append(submit);
-        form.addEventListener('submit', event => {
+        form.addEventListener('submit', async event => {
             event.preventDefault();
             if (locked || day.completed) return;
             const values = Object.fromEntries(new FormData(form));
             try {
-                day.coachCheckin = createSessionCheckin(values);
-                saveAndSync(state.workoutData);
+                const previous=day.coachCheckin;
+                day.coachCheckin = {...createSessionCheckin(values),movement:String(values.movement||'').trim(),location:String(values.location||'').trim()};
+                try{if(await saveAndSync(state.workoutData)===false)throw Error('Check-in non salvato: riprova.');}
+                catch(error){day.coachCheckin=previous;throw error;}
                 updateLiveCoachPanel(day, { readOnly: false }, panel);
             } catch (error) {
                 info.textContent = error.message || 'Controlla i dati del check-in.';

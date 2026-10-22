@@ -25,8 +25,10 @@ function isCompound(exercise) {
 
 export function repetitionSeconds(exercise) {
     // La stima considera un tempo moderato per serie, non una cadenza imposta.
-    const perSide = isCompound(exercise) ? 55 : 50;
-    const unilateral = /Un Braccio|Bulgarian|Affondi|Step-up|Monopodalico|Pallof|Leg Curl ai Cavi/i.test(exercise.name || '');
+    const range=String(exercise.reps||exercise.defaultReps||'').match(/^(\d+)(?:[-–](\d+))?/);
+    const repCount=range?(Number(range[1])+Number(range[2]||range[1]))/2:null;
+    const perSide=repCount===null?(isCompound(exercise)?55:50):Math.max(30,Math.min(100,repCount*3+15));
+    const unilateral = exercise.unilateral ?? /Un Braccio|Bulgarian|Affondi|Step-up|Monopodalico|Pallof|Leg Curl ai Cavi/i.test(exercise.name || '');
     return unilateral ? perSide * 2 + 10 : perSide;
 }
 
@@ -56,7 +58,8 @@ function groupSeconds(group, firstIndex) {
         total + setupSeconds(exercise, firstIndex + i), 0);
     const work = sets * group.reduce((total, exercise) =>
         total + repetitionSeconds(exercise), 0);
-    const switchSeconds = sets * (group.length - 1) * 20;
+    const sharedStation=group.filter(ex=>ex.equipment==='cable'||ex.equipment==='barbell').length>1;
+    const switchSeconds = sets * (group.length - 1) * (sharedStation?60:20);
     return setup + work + switchSeconds + Math.max(0, sets - 1) * groupRest;
 }
 

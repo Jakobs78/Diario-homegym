@@ -37,7 +37,7 @@ export function compareMesocyclePlans(previous, generated, analysis) {
             const key = `${day.dayNumber}:${canonicalExerciseKey(ex.name)}`;
             matched.add(key);
             const old = before.get(key);
-            const decision = analysis?.decisions?.byExercise?.[canonicalExerciseKey(ex.name)];
+            const decision = ex.coachDecision || analysis?.decisions?.byExercise?.[canonicalExerciseKey(ex.name)];
             const now = {
                 sets: ex.setsCount, reps: ex.reps,
                 kg: ex.kgMin || null, rpe: ex.rpe
@@ -83,6 +83,7 @@ export function compareMesocyclePlans(previous, generated, analysis) {
         })),
         changes,
         adaptations: analysis?.decisions?.summary || [],
+        historicalAdaptations:true,
         coachGuardrails:generated?.coachGuardrails || null,
         // Non confondere il volume originale stimato con il volume davvero
         // programmato. Sono conteggi per categoria primaria dell'esercizio.
@@ -335,6 +336,7 @@ export function formatCoachReview(comparison, report) {
                     ' (in base al tempo a disposizione)' : '')+'.');
         }
     }
+    lines.push('VALUTAZIONE DELLO STORICO: i suggerimenti seguenti si riferiscono a target confrontabili. Nel nuovo blocco, con range/RPE diversi, valgono i carichi e le motivazioni della proposta attuale riportati nel confronto.');
     for (const a of comparison.adaptations.slice(0, 5)) {
         lines.push(`• ${a.target}: ${a.reason}`);
     }
@@ -359,11 +361,12 @@ export function formatCoachReview(comparison, report) {
         }
     }
     lines.push(`Differenze rispetto al programma di confronto: ${comparison.changes.length} modifiche nella prima settimana. Sono prescrizioni nuove, non modifiche alle prestazioni già registrate.`);
-    for (const c of comparison.changes.slice(0, 6)) {
+    for (const c of comparison.changes) {
         const format = info => info ?
-            `${info.sets ?? '?'}×${info.reps ?? '?'} ${info.kg ? '@' + info.kg + 'kg' : '(carico non noto)'}` :
+            `${info.sets ?? '?'}×${info.reps ?? '?'} ${info.kg ? '@' + info.kg + 'kg' : '(carico non noto)'} RPE ${info.rpe??'n.d.'}` :
             'non presente';
         lines.push(`G${c.day} · ${c.exercise}: ${format(c.previous)} → ${format(c.proposed)}`);
+        if(c.explanation)lines.push('Motivo della prescrizione attuale: '+c.explanation);
     }
     for (const warning of comparison.warnings.slice(0, 4)) lines.push('Attenzione: ' + warning);
     lines.push('', 'COME USARE QUESTO REPORT: verifica che attrezzatura, giorni, serie, recuperi e intensità siano realistici. RPE significa fatica percepita su una scala da 1 a 10: per esempio RPE 8 corrisponde a circa due ripetizioni ancora possibili. Le scelte di MyCoatch si basano su stime e sullo storico, non misurano direttamente crescita o recupero.');

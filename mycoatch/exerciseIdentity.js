@@ -46,8 +46,7 @@ addAliases('Military Press con Bilanciere', [
     'overhead press bilanciere'
 ]);
 addAliases('Lat Machine con Triangolo', [
-    'lat machine', 'lat machine presa stretta', 'lat machine triangolo',
-    'lat triangolo', 'lat pulldown'
+    'lat machine triangolo', 'lat triangolo'
 ]);
 addAliases('Rematore con Bilanciere', [
     'rematore bilanciere', 'rematore con bilanciere', 'barbell row',
@@ -94,4 +93,42 @@ export function canonicalExerciseName(label) {
 
 export function canonicalExerciseKey(label) {
     return normalizeExerciseLabel(canonicalExerciseName(label));
+}
+
+export function exerciseIdentity(exercise){
+    if(!exercise||typeof exercise!=='object')return canonicalExerciseKey(exercise);
+    return exercise.catalogMapping?.confirmed===true && exercise.catalogMapping.name
+        ? canonicalExerciseKey(exercise.catalogMapping.name) : canonicalExerciseKey(exercise.name);
+}
+export function confirmExerciseMapping(exercise,catalogName,{category=null,equipment=null}={}){
+    if(!exercise||!String(catalogName||'').trim())throw Error('Associazione esercizio non valida.');
+    return {...exercise,exerciseId:exercise.exerciseId||'exercise_'+crypto.randomUUID(),originalName:exercise.originalName||exercise.name,
+        catalogMapping:{confirmed:true,name:canonicalExerciseName(catalogName),category,equipment}};
+}
+
+/** Personal aliases are explicit, reversible and shared across occurrences. */
+export function applyPersonalExerciseMapping(data,label,catalog=null){
+    const key=normalizeExerciseLabel(label);
+    if(!key)throw Error('Nome personale mancante.');
+    data.athlete ||= {};data.athlete.exerciseCatalogMappings ||= {};
+    const registry=data.athlete.exerciseCatalogMappings;
+    const exerciseId=registry[key]?.exerciseId||'exercise:'+key;
+    if(catalog)registry[key]={confirmed:true,name:catalog.name,category:catalog.category,equipment:catalog.equipment,exerciseId};
+    else delete registry[key];
+    const apply=meso=>{for(const week of meso.weeks||[])for(const day of week.days||[])
+        for(const session of [day,...(day.sessionArchives||[])])for(const ex of session.exercises||[]){
+            if(normalizeExerciseLabel(ex.originalName||ex.name)!==key && normalizeExerciseLabel(ex.name)!==key)continue;
+            ex.originalName ||= ex.name;ex.exerciseId=exerciseId;
+            if(catalog)ex.catalogMapping=structuredClone(registry[key]);else delete ex.catalogMapping;
+        }};
+    for(const year of Object.values(data.history?.years||{}))for(const meso of year.mesocycles||[])apply(meso);
+    for(const item of data.archivedMesocycles||[])apply(item.mesocycle);
+}
+export function inheritPersonalExerciseMapping(data,exercise){
+    exercise.originalName ||= exercise.name;
+    const key=normalizeExerciseLabel(exercise.originalName);
+    const saved=data.athlete?.exerciseCatalogMappings?.[key];
+    exercise.exerciseId ||= saved?.exerciseId||'exercise:'+key;
+    if(saved?.confirmed)exercise.catalogMapping=structuredClone(saved);
+    return exercise;
 }

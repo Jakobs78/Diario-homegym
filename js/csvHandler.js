@@ -1,3 +1,5 @@
+import {inheritPersonalExerciseMapping} from '../mycoatch/exerciseIdentity.js';
+import {reviewImportedPlan} from './importPreview.js';
 /**
  * Module: csvHandler.js
  * Summary: Fornisce un parser universale in grado di elaborare file CSV o tabelle copiate da PDF ed Excel, rilevando automaticamente il delimitatore (\t, ;, ,) e gestendo correttamente virgolette e ritorni a capo. Si occupa inoltre della validazione del completamento del mesociclo attivo prima di caricare nuovi piani, dell'assegnazione automatica dei tag di raggruppamento visivo per Triset, Superset, Dropset e Jumpset, e dell'importazione/esportazione dello storico completo dei progressi sincronizzato con Supabase.
@@ -8,7 +10,7 @@
 // ==========================================
 import { state } from './state.js';
 import { stageProfileRevision, commitProfileRevision, profileSnapshot } from '../mycoatch/profileJournal.js';
-import { saveAndSync } from './storage.js';
+import {commitJournalCandidate} from './journalTransaction.js';
 import { applyTrisetDropsetGrouping, normalizeExerciseName } from './helpers.js';
 import { isMesocycleCompleted } from './historySafety.js';
 import { restoreProposalMetadata } from '../mycoatch/planMetadata.js';
@@ -100,7 +102,7 @@ function findColumnIndex(headers, targets) {
 // ==========================================
 // 4. IMPORTAZIONE PIANO DI ALLENAMENTO
 // ==========================================
-export function importWorkoutPlan(csvText, coachOptions = null) {
+export async function importWorkoutPlan(csvText, coachOptions = null) {
     try {
         // Non toccare state/history prima che TUTTO il file sia valido.
         // In caso di annullamento o errore non creare nemmeno anni vuoti.
@@ -122,7 +124,7 @@ export function importWorkoutPlan(csvText, coachOptions = null) {
         const nextMesoNumber = currentMesos.length + 1;
 
         let newMesocycle = {
-            id: `meso_${nextMesoNumber}`,
+            id: `meso_${crypto.randomUUID()}`,
             name: `Mesociclo ${nextMesoNumber}`,
             importedAt: new Date().toISOString(),
             weeks: []
@@ -181,6 +183,9 @@ export function importWorkoutPlan(csvText, coachOptions = null) {
                 weeksMap[weekNum].daysMap[dayNum].dayName = namedSplit[1];
             }
 
+            const perSetTag=/\[OBIETTIVO REPS PER SERIE\]\s*(\d+(?:\/\d+)*)/.exec(notesVal);
+            const perSetTargets=perSetTag?perSetTag[1].split('/'):null;
+            if(perSetTargets&&(perSetTargets.length!==setsCount||perSetTargets.some(n=>Number(n)<1||Number(n)>100)))throw Error('Obiettivi per serie non validi alla riga '+(rowIndex+2));
             const sets = [];
             for (let s = 1; s <= setsCount; s++) {
                 sets.push({
@@ -195,6 +200,7 @@ export function importWorkoutPlan(csvText, coachOptions = null) {
             weeksMap[weekNum].daysMap[dayNum].exercises.push({
                 block: blockNum,
                 name: exName,
+                originalName: rawExName,
                 set: `${setsCount} set`,
                 reps: repsVal,
                 kgMin: kgMin,
@@ -226,6 +232,7 @@ export function importWorkoutPlan(csvText, coachOptions = null) {
         if(coachOptions?.generatedPlan)
             newMesocycle=restoreProposalMetadata(newMesocycle,coachOptions.generatedPlan);
 
+        if(coachOptions?.review){const reviewed=await reviewImportedPlan(newMesocycle);if(!reviewed)return {success:false,error:'Importazione annullata.'};newMesocycle=reviewed;}
         // Anche l'avviso viene mostrato solo DOPO un parsing completo.
         // Inserire una nuova scheda mantiene il mesociclo originale intatto.
         if (activeMeso && !isMesocycleCompleted(activeMeso)) {
@@ -240,25 +247,28 @@ export function importWorkoutPlan(csvText, coachOptions = null) {
             }
         }
 
-        if (!state.workoutData.history) state.workoutData.history = { years: {} };
-        if (!state.workoutData.history.years) state.workoutData.history.years = {};
-        if (!state.workoutData.history.years[currentYear]) {
-            state.workoutData.history.years[currentYear] = { mesocycles: [] };
+        const candidate=structuredClone(state.workoutData);
+        if (!candidate.history) candidate.history = { years: {} };
+        if (!candidate.history.years) candidate.history.years = {};
+        if (!candidate.history.years[currentYear]) {
+            candidate.history.years[currentYear] = { mesocycles: [] };
         }
         // The profile snapshot belongs to this imported plan, not to a later
         // mutable form state. Manual CSV imports keep their original behavior.
         if(coachOptions?.athleteProfile) {
-            const staged=stageProfileRevision(state.workoutData,coachOptions.athleteProfile,new Date(),coachOptions);
+            const staged=stageProfileRevision(candidate,coachOptions.athleteProfile,new Date(),coachOptions);
             newMesocycle.coachProfileSnapshot=profileSnapshot(staged,coachOptions);
-            commitProfileRevision(state.workoutData,staged);
+            commitProfileRevision(candidate,staged);
         }
-        const target = state.workoutData.history.years[currentYear].mesocycles;
+        const target = candidate.history.years[currentYear].mesocycles;
+        for(const week of newMesocycle.weeks)for(const day of week.days)for(const ex of day.exercises){inheritPersonalExerciseMapping(candidate,ex);}
         target.push(newMesocycle);
+
+        await commitJournalCandidate(candidate,'IMPORT_WORKOUT');
         state.activeMesocycleIndex = target.length - 1;
         state.activeWeek = 1;
         state.activeDay = 1;
 
-        saveAndSync(state.workoutData);
         return { 
             success: true, 
             message: `Mesociclo ${nextMesoNumber} importato con successo!` 
@@ -272,7 +282,7 @@ export function importWorkoutPlan(csvText, coachOptions = null) {
 // ==========================================
 // 5. IMPORTAZIONE STORICO & ESPORTAZIONE CSV
 // ==========================================
-export function importProgressCSV(csvText) {
+export async function importProgressCSV(csvText) {
     try {
         const rows = parseCSV(csvText);
         if (rows.length < 2)
@@ -402,12 +412,14 @@ export function importProgressCSV(csvText) {
             throw new Error('Nessuna serie valida nello storico CSV.');
 
         // Commit in memoria UNICO, solo dopo ogni riga validata.
-        if (!state.workoutData.history) state.workoutData.history = { years: {} };
-        if (!state.workoutData.history.years) state.workoutData.history.years = {};
-        if (!state.workoutData.history.years[currentYear])
-            state.workoutData.history.years[currentYear] = { mesocycles: [] };
-        state.workoutData.history.years[currentYear].mesocycles.push(...drafts.values());
-        saveAndSync(state.workoutData);
+        const candidate=structuredClone(state.workoutData);
+        if (!candidate.history) candidate.history = { years: {} };
+        if (!candidate.history.years) candidate.history.years = {};
+        if (!candidate.history.years[currentYear])
+            candidate.history.years[currentYear] = { mesocycles: [] };
+        candidate.history.years[currentYear].mesocycles.push(...drafts.values());
+        await commitJournalCandidate(candidate,'IMPORT_WORKOUT');
+
 
         return {
             success: true,

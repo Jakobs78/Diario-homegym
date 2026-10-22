@@ -29,7 +29,7 @@ export const DEFAULT_LOADING_STEPS=Object.freeze({
     barbell:2.5,dumbbell:1,machine:2.5
 });
 export function equipmentCategory(ex={}) {
-    const s=String(ex.equipment||'').toLowerCase()+' '+String(ex.name||'').toLowerCase();
+    const s=String(ex.catalogMapping?.confirmed?ex.catalogMapping.equipment||ex.equipment:ex.equipment||'').toLowerCase()+' '+String(ex.name||'').toLowerCase();
     if(/dumbbell|manubrio|manubri/.test(s))return 'dumbbell';
     if(/cable|cavi|lat.machine|macchina|machine|seated|leg press/.test(s))return 'machine';
     return 'barbell';
@@ -54,6 +54,14 @@ export function resolveNearbyLoad(ex, requested, settings={}, {min=0.01,max=700,
     const raw=number(requested);
     if(raw===null || raw<=0 || raw>700)return {weight:null,verified:false,reason:'invalid_load'};
     const {type,step,configured}=getAvailableLoadStep(ex,settings,raw);
+    const limit=number(settings.loadLimits?.[type]);
+    if(limit!==null)max=Math.min(max,limit);
+    const owned=settings.availableLoads?.[type];
+    if(Array.isArray(owned)){
+        const candidates=[...new Set(owned.map(number))].filter(x=>x!==null&&x>0&&x>=min-1e-8&&x<=max+1e-8)
+            .sort((a,b)=>Math.abs(a-raw)-Math.abs(b-raw)||a-b);
+        return {weight:candidates[0]??null,verified:true,reason:candidates.length?'owned_loads':'unavailable_load'};
+    }
     if(type==='barbell' && (settings.plateInventories || settings.platePairs)){
         const binding=compatiblePlates(ex,settings);
         if(!binding)return {weight:null,verified:true,reason:'missing_assignment'};
@@ -157,6 +165,7 @@ export function resolvePlannedLoad(ex, weight, settings={}) {
     const kg=number(weight);
     if(kg===null || kg<=0 || kg>700)return {weight:null,verified:false};
     const {step,type}=getAvailableLoadStep(ex,settings,kg);
+    if(Array.isArray(settings.availableLoads?.[type])||settings.loadLimits?.[type]!==undefined)return resolveNearbyLoad(ex,kg,settings,{max:kg});
     if(type==='barbell' && (settings.plateInventories || settings.platePairs)){
         const compatible=compatiblePlates(ex,settings);
         if(!compatible)return {weight:null,verified:true,reason:'missing_assignment'};

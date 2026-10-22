@@ -1,3 +1,9 @@
+import {assessSessionReadiness} from '../mycoatch/sessionReadiness.js';
+import {EXERCISE_DATABASE} from '../mycoatch/exercisesDB.js';
+import {applyPersonalExerciseMapping} from '../mycoatch/exerciseIdentity.js';
+import {editJournal} from './journalTransaction.js';
+import {recommendNextExposure} from '../mycoatch/nextExposure.js';
+import {isWarmupSet} from './workoutSemantics.js';
 import {canonicalExerciseKey} from '../mycoatch/exerciseIdentity.js';
 import {hasDropPrescription} from './trainingTechniques.js';
 import {dropFields,dropScopeControl} from './dropSetUI.js';
@@ -71,15 +77,17 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         state.workoutData,mesoIndex,targetWeek.weekNumber,activeDayNum,ex,state.currentYear);
     const equipmentSettings = {...athleteEquipment,...(athleteEquipment.loadingSteps||{})};
     const crossExposureAdvice = recommendCrossExposureLoad(ex,recentExposures,equipmentSettings);
+    const nextExposureAdvice = recommendNextExposure(prevExercise,ex,equipmentSettings,
+        assessSessionReadiness(currentDay.coachCheckin));
     const prefillFor = setIndex=>getSetPrefill(ex,setIndex,{
-        previousExercise:prevExercise,crossExposureAdvice
+        previousExercise:prevExercise,crossExposureAdvice,nextExposureAdvice
     });
     let lastSessionSetsHtml = '';
     const nextRepAdvice = recommendNextSessionReps(prevExercise, ex);
 
     if (prevExercise && prevExercise.loggedSets && prevExercise.loggedSets.length > 0) {
         const validSets = prevExercise.loggedSets.filter(s =>
-            (s.isLocked === true || s.completed === true) && s.weight && s.reps);
+            (s.isLocked === true || s.completed === true) && !isWarmupSet(s) && s.weight && s.reps);
         
         if (validSets.length > 0) {
             const rangeStr = (prevExercise.minReps && prevExercise.maxReps) 
@@ -111,7 +119,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         cardHtml += `<p class="mycoatch-next-rep-hint">🤖 MyCoatch · ${escapeHtml(nextRepAdvice.reason)}</p>`;
 
     const notesPresent = Boolean(String(ex.notes||'').trim());
-    const expandNotes = notesPresent || Boolean(String(ex.userNotes||'').trim());
+
     // Context label: this load was inferred from another prescription, not
     // copied from an identical day and never asserted to be an exact e1RM.
     const crossLabel = crossExposureAdvice
@@ -122,9 +130,10 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         <div class="target-box mb-md">
             <strong>TARGET:</strong> ${formatExerciseSummary(ex)}
         </div>
+        ${nextExposureAdvice ? `<div class="coach-exposure-summary" role="note"><strong>Precedente → proposta di oggi</strong><small> · ${escapeHtml(nextExposureAdvice.basedOn[0]?.performedAt?.slice(0,10)||'data non disponibile')}</small><p>${escapeHtml(nextExposureAdvice.basedOn.map(s=>s.weight+' kg × '+s.reps+' @'+(s.rpe??'n.d.')).join(' · '))}</p><p><strong>${nextExposureAdvice.weight ? escapeHtml(nextExposureAdvice.weight)+' kg · '+escapeHtml(nextExposureAdvice.reps.join('/')) : 'Carico da rivalutare'}</strong> · ${escapeHtml(nextExposureAdvice.reason)}</p></div>` : ''}
         ${crossLabel}
         ${previousSessionMarkup}
-        <details class="exercise-coach-notes" aria-label="Note del coach e note personali" ${expandNotes ? 'open' : ''}>
+        <details class="exercise-coach-notes" aria-label="Note del coach e note personali" >
             <summary>📝 Istruzioni MyCoatch${notesPresent ? ' · presenti' : ''} e note personali</summary>
             <div class="exercise-coach-notes-body">
                 ${notesPresent ? `<div class="note-allenatore-text">${escapeHtml(ex.notes)}</div>` : ''}
@@ -190,20 +199,11 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
 
         const targetRpeStr = String(ex.targetRpe || ex.rpeTarget || ex.rpe || '').replace('@', '').trim();
         const setTargetRpeStr = String(ex.sets?.[setIdx]?.targetRpe ?? targetRpeStr).replace(/^@/, '').trim();
-        let minRpe = ex.minRpe;
-        let maxRpe = ex.maxRpe;
-        if (!minRpe && !maxRpe && targetRpeStr.includes('-')) {
-            const parts = targetRpeStr.split('-');
-            minRpe = parts[0];
-            maxRpe = parts[1];
-        } else if (!minRpe && !maxRpe && targetRpeStr) {
-            minRpe = targetRpeStr;
-            maxRpe = targetRpeStr;
-        }
+        const maxRpe = ex.sets?.[setIdx]?.targetRpe || ex.maxRpe || (targetRpeStr.includes('-')?targetRpeStr.split('-')[1]:targetRpeStr);
 
         const cleanDisplayRpe = parseRPE(displayRpe);
-        const isRpeOutOfRange = isValueOutOfRange(cleanDisplayRpe, minRpe, maxRpe);
-        const isRpeExceeding = isValueExceedingTarget(cleanDisplayRpe, minRpe, maxRpe);
+        const isRpeOutOfRange = cleanDisplayRpe!=='' && (Number(cleanDisplayRpe)<5 || Number(cleanDisplayRpe)>10 || (Number.isFinite(Number(maxRpe)) && Number(cleanDisplayRpe)>Number(maxRpe)));
+        const isRpeExceeding = false; // Lower RPE is margin, not a target violation.
 
         const kgClass = isKgOutOfRange ? 'input-out-of-range' : (isKgExceeding ? 'input-target-exceeded' : '');
         const repsClass = isRepsOutOfRange ? 'input-out-of-range' : (isRepsExceeding ? 'input-target-exceeded' : '');
@@ -341,6 +341,24 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             saveAndSync(state.workoutData,'SET_EQUIPMENT');
             updatePlatesBadgeUI(exIdx,exCard);
         });
+    }
+    if(!isPastMeso){
+        const mapping=document.createElement('details');mapping.className='exercise-catalog-mapping';
+        const title=document.createElement('summary');title.textContent='Identità esercizio e associazione al catalogo';
+        const select=document.createElement('select');select.setAttribute('aria-label','Associa variante esatta al catalogo');
+        const empty=document.createElement('option');empty.value='';empty.textContent='Nome personale / non associato';select.append(empty);
+        for(const catalog of EXERCISE_DATABASE){const option=document.createElement('option');option.value=catalog.name;option.textContent=catalog.name;select.append(option);}
+        select.value=ex.catalogMapping?.confirmed?ex.catalogMapping.name:'';
+        const button=document.createElement('button');button.type='button';button.textContent='Conferma per le occorrenze con questo nome';
+        const status=document.createElement('p');status.setAttribute('role','status');
+        button.onclick=async()=>{try{
+            await editJournal(candidate=>{
+                const meta=EXERCISE_DATABASE.find(item=>item.name===select.value)||null;
+                applyPersonalExerciseMapping(candidate,ex.originalName||ex.name,meta);
+            },'MAP_EXERCISE');renderWorkoutList();
+        }catch(error){status.textContent=error.message;}};
+        const note=document.createElement('p');note.textContent='Conferma solo la stessa variante e attrezzatura. L’associazione vale per le occorrenze con questo nome, anche nei prossimi import. Nome originale e prestazioni restano conservati.';
+        mapping.append(title,note,select,button,status);exCard.append(mapping);
     }
     exCard.dataset.platesAutoEligible=String(equipment==='barbell');
     const disclosure=exCard.querySelector('.plates-disclosure');
