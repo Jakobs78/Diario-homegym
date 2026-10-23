@@ -54,3 +54,16 @@ test('manual draft remains intact when corrected source changes the future recom
  });
  expect(result).toBe(80);
 });
+
+test('CSV mixed series preserve independent kg reps and RPE targets without creating results',async({page})=>{
+ await open(page);page.on('dialog',dialog=>dialog.accept());
+ const csv='Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset;RepsPerSerie;RPEPerSerie;KgMinPerSerie;KgMaxPerSerie\n1;1;1;Panca Piana con Bilanciere;3;6-8;;;8;180s;Schema misto;;3/6-8/6-8;8/8/8;100/80/80;105/85/85';
+ const result=await page.evaluate(async csv=>{
+  const {importWorkoutPlan}=await import('/js/csvHandler.js');const outcome=await importWorkoutPlan(csv);
+  const {state}=await import('/js/state.js');const ex=state.workoutData.history.years[2026].mesocycles.at(-1).weeks[0].days[0].exercises[0];
+  return {success:outcome.success,targets:ex.sets.map(s=>({reps:s.targetReps,rpe:s.targetRpe,min:s.kgMin,max:s.kgMax})),actual:ex.loggedSets.map(s=>({weight:s.weight,confirmed:s.isLocked}))};
+ },csv);
+ expect(result.success).toBe(true);
+ expect(result.targets).toEqual([{reps:'3',rpe:'8',min:'100',max:'105'},{reps:'6-8',rpe:'8',min:'80',max:'85'},{reps:'6-8',rpe:'8',min:'80',max:'85'}]);
+ expect(result.actual).toEqual([{weight:'',confirmed:false},{weight:'',confirmed:false},{weight:'',confirmed:false}]);
+});

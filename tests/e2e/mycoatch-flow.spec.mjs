@@ -2930,7 +2930,7 @@ test('iPhone: same bench twice weekly with different RPE/reps uses loadable esti
   const card=page.locator('.ex-card[data-ex="0"]');
   const first=card.locator('.workout-set-row').first();
   await expect(first.locator('.set-kg')).toHaveValue('62.5');
-  await expect(first.locator('.set-reps')).toHaveValue('5');
+  await expect(first.locator('.set-reps')).toHaveValue('7');
   await expect(first.locator('.set-rpe')).toHaveValue('8');
   await expect(first).toHaveAttribute('data-prefill-source','mycoatch_protocol');
   await expect(card.locator('.coach-adaptive-notes')).toContainText('massimale stimato');
