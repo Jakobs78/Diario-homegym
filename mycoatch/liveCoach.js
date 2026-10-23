@@ -1,3 +1,5 @@
+import {setPrescription} from './setPrescription.js';
+import {workingProposal} from './protocolLoad.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { canonicalExerciseKey } from './exerciseIdentity.js';
 import { estimateE1rm } from './historyAnalysis.js';
@@ -178,8 +180,9 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
     };
 
     const remainingIndex = hasUnconfirmed(exercise, lastIndex);
-    const range = targetRepRange(exercise);
-    const targetRpe = plannedRpe(exercise);
+    const prescription=setPrescription(exercise,lastIndex);
+    const range = prescription.reps || targetRepRange(exercise);
+    const targetRpe = prescription.rpe?.max ?? plannedRpe(exercise);
     const knownRpe = result.rpe !== null;
     // RPE 10 prescritto = cedimento programmato, non un sovraccarico imprevisto.
     const plannedFailure = targetRpe === 10 && knownRpe && result.rpe >= 9.5;
@@ -241,7 +244,7 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
     // almeno due serie consecutive COMPLETE con RPE misurato e buffer evidente.
     if (result.weight > 0 && remainingIndex >= 0 && code === 'strong_set' && paired.length >= 2 &&
         paired.slice(-2).every(set =>
-            range && set.reps >= range.max && set.rpe <= targetRpe - 1)) {
+            range && range.max<=12 && set.reps >= range.max && set.rpe <= targetRpe - 1)) {
         const step = getAvailableLoadStep(exercise,equipmentSettings,result.weight).step;
         if (!isAccessory(exercise) || step <= 1.25) {
             suggestedWeight = result.weight + step;
@@ -298,6 +301,13 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
         message += ' Nella superserie/triset recupera dopo l’ultimo esercizio del gruppo.';
     }
 
+    if(exercise.coachSetProposals && remainingIndex>=0){
+        const proposal=exercise.coachSetProposals[remainingIndex];
+        if(proposal){suggestedWeight=proposal.weight;message=(code==='on_track'?'':message+' ')+proposal.reason;}
+    }else if(remainingIndex>=0 && setPrescription(exercise,remainingIndex).role!==prescription.role){
+        const proposal=workingProposal(exercise,remainingIndex,{equipment:equipmentSettings,readiness});
+        if(proposal?.weight){suggestedWeight=proposal.weight;message=proposal.reason;}
+    }
     return {
         exerciseIndex, setIndex: lastIndex, nextSetIndex: remainingIndex,
         severity, code, message, suggestedWeight, weight: result.weight,

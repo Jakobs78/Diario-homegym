@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v69-coaching-protocol-20261022';
+const CACHE_NAME = 'workout-app-v70-adaptive-protocol-20261023';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -14,6 +14,10 @@ const ASSETS_TO_CACHE = [
   '/js/activeExercise.js',
   '/js/importPreview.js',
   '/mycoatch/nextExposure.js',
+  '/mycoatch/setPrescription.js',
+  '/mycoatch/trainingHistory.js',
+  '/mycoatch/protocolLoad.js',
+  '/mycoatch/trainingPlan.js',
   '/mycoatch/limitationsReview.js',
   '/js/analytics.js',
   '/js/vendor/supabase.js',

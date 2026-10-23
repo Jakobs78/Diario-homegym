@@ -67,15 +67,15 @@ test('one missed set, unknown RPE, unknown plates or special top set veto inferr
  assert.equal(recommendCrossExposureLoad(future({topset:'1x5 @ 60kg'}),[source()],plates()),null);
 });
 
-test('an uncompleted same-week day or future day cannot be read as real evidence',()=>{
+test('a completed exercise in an unfinished day is evidence, but a future day is excluded',()=>{
  const data={history:{years:{2026:{mesocycles:[{weeks:[{
   weekNumber:1,days:[
     {dayNumber:1,completed:false,exercises:[source()]},
     {dayNumber:2,completed:true,exercises:[source()]},
     {dayNumber:3,completed:false,exercises:[future()]}
   ]}]}]}}}};
- assert.equal(findPriorExerciseExposures(data,0,1,2,future(),2026).length,0);
- assert.equal(findPriorExerciseExposures(data,0,1,3,future(),2026).length,1);
+ assert.equal(findPriorExerciseExposures(data,0,1,2,future(),2026).length,1);
+ assert.equal(findPriorExerciseExposures(data,0,1,3,future(),2026).length,2);
 });
 
 test('RPE 5.5 prescription is confirmable but cannot seed cross-day e1RM',()=>{
@@ -86,3 +86,4 @@ test('RPE 5.5 prescription is confirmable but cannot seed cross-day e1RM',()=>{
  assert.equal(validateCompletedSet({weight:'59',reps:'5',rpe:'5.5'},{...light,targetRpe:'8'}).ok,true);
  assert.equal(recommendCrossExposureLoad({...future(),targetRpe:'5.5'},[source()],plates()),null);
 });
+

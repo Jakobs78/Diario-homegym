@@ -32,6 +32,7 @@ export function dismissLiveCoachToast() {
 // Recupera il campo all'istante del click, non quello della renderizzazione:
 // ogni check ricrea le card, dunque un riferimento precedente puo' diventare stantio.
 function createAdviceApplyButton(advice, day = null) {
+    if(day?.exercises?.[advice?.exerciseIndex]?.coachSetProposals)return null;
     if (advice?.suggestedWeight === null || advice?.suggestedWeight === undefined ||
         advice.nextSetIndex < 0) return null;
     const selector = '.set-kg[data-ex="' + advice.exerciseIndex +
@@ -99,7 +100,7 @@ export function showLiveCoachToast(day, { exerciseIndex, setIndex } = {}) {
     if (!day) return null;
     const snapshot = buildLiveSessionSnapshot(day, { history: state.workoutData });
     if (snapshot.finished) {
-        const suggested=(day.exercises||[]).flatMap(ex=>{
+        const suggested=(day.exercises||[]).filter(ex=>!ex.coachSetProposals).flatMap(ex=>{
             const p=recommendNextSessionLoad(ex,{
                 readiness:snapshot.readiness,
                 equipmentSettings:{
@@ -248,7 +249,7 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
 
     const sub = element('p', 'mycoatch-live-subtitle',
         locked ? 'Sola lettura: analisi dello storico confermato.' :
-            'Qui trovi le serie confermate, il tempo indicativo e consigli basati sui risultati che registri. Nessun peso viene cambiato automaticamente nella scheda.');
+            'Qui trovi le serie confermate, il tempo indicativo e consigli basati sui risultati che registri. MyCoatch aggiorna le proposte delle serie da eseguire e della prossima esposizione pertinente. I tuoi inserimenti e risultati confermati restano protetti.');
     panel.append(sub);
     panel.append(createSessionCheckinPanel(day, snapshot.readiness, locked, panel));
 
@@ -289,7 +290,7 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
 
     // Visibile anche a seduta finita: i consigli sono provvisori finché
     // non sono sostenuti da due settimane comparabili. Nessuna scrittura.
-    const nextLoads=(day.exercises||[]).flatMap(ex=>{
+    const nextLoads=(day.exercises||[]).filter(ex=>!ex.coachSetProposals).flatMap(ex=>{
         const proposal=recommendNextSessionLoad(ex,{
             readiness:snapshot.readiness,
             equipmentSettings:{
@@ -330,7 +331,7 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
         liveMessage.append(element('p', '',
             `Verifica ${snapshot.invalidSets} serie già spuntate ma incomplete: sono escluse dai calcoli di performance.`));
     } else if (snapshot.finished) {
-        liveMessage.append(element('p', '', 'Seduta completata. MyCoatch terrà conto delle serie confermate nella prossima proposta di mesociclo.'));
+        liveMessage.append(element('p', '', 'Seduta completata. MyCoatch usa le serie confermate per aggiornare le prossime proposte nello stesso mesociclo e per il report finale.'));
     }
 
     if (snapshot.possibleOverrun) {
@@ -410,7 +411,7 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
         if(!scored.length)done.append(element('p','',
             'Nessun confronto RPE attendibile: le serie non spuntate non vengono considerate.'));
         done.append(element('small','',
-            'Il prossimo piano usa soltanto prestazioni confermate. I suggerimenti non cambiano automaticamente il programma.'));
+            'Il prossimo piano usa soltanto prestazioni confermate. Le proposte aggiornate sono visibili nelle serie e nelle sedute pertinenti; esercizi e struttura restano invariati.'));
         panel.append(done);
     }
 

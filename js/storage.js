@@ -1,3 +1,4 @@
+import {reconcileTrainingPlan} from '../mycoatch/trainingPlan.js';
 // ==========================================
 // MODULI: storage.js - Persistenza locale, gestione coda offline (Sync Queue), sincronizzazione cloud e UI badge
 // ==========================================
@@ -302,6 +303,7 @@ export async function saveAndSync(data = state.workoutData, actionType = 'UPDATE
         updateSyncStatusUI();
         return false;
     }
+    reconcileTrainingPlan(data,{year:state.currentYear,mesoIndex:state.activeMesocycleIndex||0});
     const before=state.workoutData;
     try{stageJournalUpdates(()=>{
         if(!saveToLocalStorage(data))throw Error('Scrittura del diario non completata.');

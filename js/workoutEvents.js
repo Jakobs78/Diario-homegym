@@ -1,3 +1,4 @@
+import {setPrescription} from '../mycoatch/setPrescription.js';
 import {advanceExercise} from './activeExercise.js';
 import {canonicalExerciseKey} from '../mycoatch/exerciseIdentity.js';
 import {hasDropPrescription,needsDropScope,validateDropSegments} from './trainingTechniques.js';
@@ -103,6 +104,8 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             const isReps = target.classList.contains('set-reps');
             const isRpe = target.classList.contains('set-rpe');
 
+            setObj.manualFields ||= {};
+            if(isKg||isReps||isRpe)setObj.manualFields[isKg?'weight':isReps?'reps':'rpe']=true;
             if (isKg) {
                 const raw = val.trim();
                 setObj.weight = raw === '' ? '' : (parseFloat(raw.replace(',', '.')) || 0);
@@ -134,7 +137,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                     maxVal = ex.maxReps || ex.reps;
                     parsedVal = val;
                 } else if (isRpe) {
-                    const targetRpeStr = String(ex.targetRpe || ex.rpeTarget || ex.rpe || '').replace('@', '').trim();
+                    const targetRpeStr = String(setPrescription(ex,Number(setIdx)).rpe?.max ?? ex.targetRpe ?? ex.rpeTarget ?? ex.rpe ?? '').replace('@', '').trim();
                     minVal = ex.minRpe || (targetRpeStr.includes('-') ? targetRpeStr.split('-')[0] : targetRpeStr);
                     maxVal = ex.maxRpe || (targetRpeStr.includes('-') ? targetRpeStr.split('-')[1] : targetRpeStr);
                     parsedVal = parseRPE(val);
@@ -294,7 +297,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
                     if (isKgField) isOut = isValueOutOfRange(inp.value, ex.kgMin, ex.kgMax);
                     if (isRepsField) isOut = isValueOutOfRange(inp.value, ex.minReps || ex.reps, ex.maxReps || ex.reps);
                     if (isRpeField) {
-                        const targetRpeStr = String(ex.targetRpe || ex.rpeTarget || ex.rpe || '').replace('@', '').trim();
+                        const targetRpeStr = String(setPrescription(ex,sIdx).rpe?.max ?? ex.targetRpe ?? ex.rpeTarget ?? ex.rpe ?? '').replace('@', '').trim();
                         const maxRpe = ex.maxRpe || (targetRpeStr.includes('-') ? targetRpeStr.split('-')[1] : targetRpeStr);
                         const actual=parseRPE(inp.value);
                         isOut = actual!=='' && (Number(actual)<5||Number(actual)>10||(maxRpe!==''&&Number(actual)>Number(maxRpe)));

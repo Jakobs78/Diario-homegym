@@ -1,3 +1,4 @@
+import {setPrescription} from '../mycoatch/setPrescription.js';
 import {assessSessionReadiness} from '../mycoatch/sessionReadiness.js';
 import {EXERCISE_DATABASE} from '../mycoatch/exercisesDB.js';
 import {applyPersonalExerciseMapping} from '../mycoatch/exerciseIdentity.js';
@@ -76,8 +77,8 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     const recentExposures = findPriorExerciseExposures(
         state.workoutData,mesoIndex,targetWeek.weekNumber,activeDayNum,ex,state.currentYear);
     const equipmentSettings = {...athleteEquipment,...(athleteEquipment.loadingSteps||{})};
-    const crossExposureAdvice = recommendCrossExposureLoad(ex,recentExposures,equipmentSettings);
-    const nextExposureAdvice = recommendNextExposure(prevExercise,ex,equipmentSettings,
+    const crossExposureAdvice = ex.coachSetProposals ? null : recommendCrossExposureLoad(ex,recentExposures,equipmentSettings);
+    const nextExposureAdvice = ex.coachSetProposals ? null : recommendNextExposure(prevExercise,ex,equipmentSettings,
         assessSessionReadiness(currentDay.coachCheckin));
     const prefillFor = setIndex=>getSetPrefill(ex,setIndex,{
         previousExercise:prevExercise,crossExposureAdvice,nextExposureAdvice
@@ -128,10 +129,12 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         : '';
     cardHtml += `
         <div class="target-box mb-md">
-            <strong>TARGET:</strong> ${formatExerciseSummary(ex)}
+            <strong>${ex.coachSetProposals?'SCHEDA ORIGINALE':'TARGET'}:</strong> ${formatExerciseSummary(ex)}
         </div>
         ${nextExposureAdvice ? `<div class="coach-exposure-summary" role="note"><strong>Precedente → proposta di oggi</strong><small> · ${escapeHtml(nextExposureAdvice.basedOn[0]?.performedAt?.slice(0,10)||'data non disponibile')}</small><p>${escapeHtml(nextExposureAdvice.basedOn.map(s=>s.weight+' kg × '+s.reps+' @'+(s.rpe??'n.d.')).join(' · '))}</p><p><strong>${nextExposureAdvice.weight ? escapeHtml(nextExposureAdvice.weight)+' kg · '+escapeHtml(nextExposureAdvice.reps.join('/')) : 'Carico da rivalutare'}</strong> · ${escapeHtml(nextExposureAdvice.reason)}</p></div>` : ''}
         ${crossLabel}
+        ${ex.coachSetProposals?.find(p=>p?.basedOn?.length)?`<details class="coach-exposure-summary"><summary>Storico usato per la proposta</summary><p>${escapeHtml(ex.coachSetProposals.find(p=>p?.basedOn?.length).basedOn[0].seriesEvidence.map(s=>s.kg+' kg × '+s.reps+' @'+(s.rpe??'n.d.')).join(' · '))}</p></details>`:''}
+        ${(ex.coachAdaptiveNotes||[]).length?`<details class="coach-adaptive-notes" open><summary>🤖 MyCoatch · Proposte aggiornate</summary>${ex.coachAdaptiveNotes.map(note=>`<p>${escapeHtml(note)}</p>`).join('')}</details>`:''}
         ${previousSessionMarkup}
         <details class="exercise-coach-notes" aria-label="Note del coach e note personali" >
             <summary>📝 Istruzioni MyCoatch${notesPresent ? ' · presenti' : ''} e note personali</summary>
@@ -183,10 +186,11 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         const targetWeightDefault = ex.kgMin || ex.kgMax || 'Kg';
         const defaultTargetReps = getSetRepsTarget(ex, setIdx);
 
-        let currentKgMin = ex.kgMin;
-        let currentKgMax = ex.kgMax;
+        const rowPlan=setPrescription(ex,setIdx);
+        let currentKgMin = suggested.range?.min ?? ex.coachSetProposals?.[setIdx]?.weight ?? rowPlan.kg?.min;
+        let currentKgMax = suggested.range?.max ?? ex.coachSetProposals?.[setIdx]?.weight ?? rowPlan.kg?.max;
 
-        if ((setIdx === 0 || setObj.isTopset) && (ex.topsetKgMin || ex.topsetKgMax || ex.topsetKg)) {
+        if (!ex.coachSetProposals && (setIdx === 0 || setObj.isTopset) && (ex.topsetKgMin || ex.topsetKgMax || ex.topsetKg)) {
             currentKgMin = ex.topsetKgMin || ex.topsetKg;
             currentKgMax = ex.topsetKgMax || ex.topsetKg;
         }
@@ -194,12 +198,12 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         const isKgOutOfRange = isValueOutOfRange(displayWeight, currentKgMin, currentKgMax);
         const isKgExceeding = isValueExceedingTarget(displayWeight, currentKgMin, currentKgMax);
 
-        const isRepsOutOfRange = isValueOutOfRange(displayReps, ex.minReps || ex.reps, ex.maxReps || ex.reps);
-        const isRepsExceeding = isValueExceedingTarget(displayReps, ex.minReps || ex.reps, ex.maxReps || ex.reps);
+        const isRepsOutOfRange = isValueOutOfRange(displayReps, rowPlan.reps?.min, rowPlan.reps?.max);
+        const isRepsExceeding = isValueExceedingTarget(displayReps, rowPlan.reps?.min, rowPlan.reps?.max);
 
         const targetRpeStr = String(ex.targetRpe || ex.rpeTarget || ex.rpe || '').replace('@', '').trim();
-        const setTargetRpeStr = String(ex.sets?.[setIdx]?.targetRpe ?? targetRpeStr).replace(/^@/, '').trim();
-        const maxRpe = ex.sets?.[setIdx]?.targetRpe || ex.maxRpe || (targetRpeStr.includes('-')?targetRpeStr.split('-')[1]:targetRpeStr);
+        const setTargetRpeStr = rowPlan.rpe ? (rowPlan.rpe.min===rowPlan.rpe.max?String(rowPlan.rpe.max):rowPlan.rpe.min+'–'+rowPlan.rpe.max) : targetRpeStr;
+        const maxRpe = rowPlan.rpe?.max ?? ex.maxRpe ?? targetRpeStr;
 
         const cleanDisplayRpe = parseRPE(displayRpe);
         const isRpeOutOfRange = cleanDisplayRpe!=='' && (Number(cleanDisplayRpe)<5 || Number(cleanDisplayRpe)>10 || (Number.isFinite(Number(maxRpe)) && Number(cleanDisplayRpe)>Number(maxRpe)));
@@ -234,6 +238,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                 <td class="td-input td-kg-container">
                     <div class="kg-input-wrapper flex-column flex-center">
                         <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-kg ios-no-zoom ${kgClass} ${isUnsavedKg ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayWeight)}" placeholder="${escapeHtml(targetWeightDefault)}" ${isDisabled ? 'disabled' : ''}>
+                        ${suggested.range?`<small class="coach-load-range" title="Intervallo operativo stimato, da verificare durante la seduta">${escapeHtml(suggested.range.min)}–${escapeHtml(suggested.range.max)} kg</small>`:''}
                         ${trendHtml}
                     </div>
                 </td>

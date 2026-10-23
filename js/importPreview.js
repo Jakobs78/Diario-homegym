@@ -16,6 +16,17 @@ export function reviewImportedPlan(plan){
                     const input=document.createElement(key==='notes'?'textarea':'input');input.value=value??'';input.setAttribute('aria-label',label+' · '+ex.name);if(['name','setsCount','reps'].includes(key))input.required=true;
                     fields[key]=input;row.append(input);box.append(row);
                 }
+                const specific=(ex.sets||[]).some(row=>
+                    row.targetReps&&String(row.targetReps)!==String(ex.reps)||
+                    row.targetRpe&&String(row.targetRpe)!==String(ex.targetRpe||ex.rpe)||
+                    row.kgMin!==undefined||row.kgMax!==undefined);
+                if(specific){
+                    const summary=document.createElement('p');summary.className='import-series-targets';
+                    summary.textContent=(ex.sets||[]).map((row,i)=>'Serie '+(i+1)+': '+
+                        (row.targetReps??ex.reps)+' reps @'+(row.targetRpe??ex.targetRpe??ex.rpe)+' · '+
+                        (row.kgMin??row.targetKg??ex.kgMin??'')+'–'+(row.kgMax??row.targetKg??ex.kgMax??'')+' kg').join(' | ');
+                    box.append(summary);
+                }
                 entries.push({ex,fields});form.append(box);
             }
         }
@@ -34,8 +45,10 @@ export function reviewImportedPlan(plan){
                 for(const key of ['kgMin','kgMax'])if(value[key]&&(!Number.isFinite(Number(value[key].replace(',','.')))||Number(value[key].replace(',','.'))<0))throw Error('Carico non valido in '+value.name);
                 if(value.kgMin&&value.kgMax&&Number(value.kgMin.replace(',','.'))>Number(value.kgMax.replace(',','.')))throw Error('Kg minimi superiori ai massimi in '+value.name);
                 const old=structuredClone(ex.sets||[]);
+                const sameReps=value.reps===String(ex.reps??'');
+                const sameRpe=value.rpe===String(ex.rpe||ex.targetRpe||'');
                 Object.assign(ex,value,{setsCount:count,targetRpe:value.rpe,restTime:value.rest,recupero:value.rest});
-                ex.sets=Array.from({length:count},(_,i)=>({...old[i],setNumber:i+1,targetReps:value.reps,targetRpe:value.rpe,weight:'',reps:'',rpe:'',completed:false,isLocked:false}));
+                ex.sets=Array.from({length:count},(_,i)=>({...old[i],setNumber:i+1,targetReps:sameReps?(old[i]?.targetReps??value.reps):value.reps,targetRpe:sameRpe?(old[i]?.targetRpe??value.rpe):value.rpe,weight:'',reps:'',rpe:'',completed:false,isLocked:false}));
                 ex.loggedSets=structuredClone(ex.sets);
             }finish(draft);}catch(reason){error.textContent=reason.message;}
         };

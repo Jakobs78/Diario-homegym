@@ -132,6 +132,16 @@ export function getSetPrefill(exercise, index, { previousExercise = null, crossE
     const logs = Array.isArray(exercise?.loggedSets) ? exercise.loggedSets : [];
     const current = logs[index] || {};
     const plan = plannedFor(exercise, index);
+    const protocol=exercise?.coachSetProposals?.[index];
+    if(protocol && !(current.isWarmup||current.warmup||current.is_warmup))return {
+        weight:filled(current.weight)?String(current.weight):protocol.weight===null?'':String(protocol.weight),
+        reps:filled(current.reps)?String(current.reps):protocol.reps===null?'':String(protocol.reps),
+        rpe:filled(current.rpe)?String(current.rpe):protocol.rpe===null?'':String(protocol.rpe),
+        source:filled(current.weight)||filled(current.reps)||filled(current.rpe)?'current_entry':'mycoatch_protocol',
+        reason:protocol.reason,range:protocol.range,
+        isSuggestedWeight:!filled(current.weight),isSuggestedReps:!filled(current.reps),isSuggestedRpe:!filled(current.rpe)
+    };
+
     let previous = null;
     let previousIndex = -1;
     for (let i = index - 1; i >= 0; i--) {
