@@ -19,7 +19,11 @@ export function setPrescription(ex,index){
     const inherited=ownReps&&general&&ownReps.min===general.min&&ownReps.max===general.max;
     const reps=top&&(!ownReps||inherited)?bounds(top[1]):ownReps||general;
     const rpeValue=[row.targetRpe,ex?.targetRpe,ex?.rpeTarget,ex?.rpe].find(v=>v!==undefined&&v!==null&&String(v).trim()!=='');
-    const rpe=bounds(row.targetRpe,row.minRpe,row.maxRpe)||bounds(rpeValue,ex?.minRpe,ex?.maxRpe);
+    const topRpe=index===0?String(ex?.topset??'').match(/\bRPE\s*(?:max\s*)?(\d+(?:[.,]\d+)?)/i)?.[1]:null;
+    const specificRpe=bounds(row.targetRpe,row.minRpe,row.maxRpe);
+    const generalRpe=bounds(rpeValue,ex?.minRpe,ex?.maxRpe);
+    const inheritedRpe=!specificRpe||JSON.stringify(specificRpe)===JSON.stringify(generalRpe);
+    const rpe=topRpe&&inheritedRpe?bounds(topRpe):specificRpe||generalRpe;
     const topKg=index===0?(ex?.topsetKgMin??ex?.topsetKg??top?.[2]):null;
     const kg=bounds(row.targetKg??row.plannedKg??row.kg,row.kgMin,row.kgMax)||
         bounds(null,topKg??ex?.kgMin,(index===0?ex?.topsetKgMax??topKg:null)??ex?.kgMax);

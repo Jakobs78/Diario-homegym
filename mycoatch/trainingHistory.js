@@ -1,3 +1,4 @@
+import {validPerformedSet} from '../js/workoutSemantics.js';
 import {exerciseIdentity} from './exerciseIdentity.js';
 import {observed} from './setPrescription.js';
 /** Chronological coordinates prevent current or future rows leaking into evidence. */
@@ -21,8 +22,8 @@ export function trainingExposures(data,{year,mesoIndex,weekNumber,dayIndex,exerc
                         if(!(earlier(position)&&(!sameDay||Number.isFinite(end[4])&&ei<end[4])||archived&&sameDay)||exerciseIdentity(ex)!==identity)continue;
                         if(ex.isWarmup||ex.isExcluded||ex.is_excluded)continue;
                         const sets=(ex.loggedSets||[]).map((_,i)=>observed(ex,i)).filter(Boolean);
-                        if(!sets.length)continue;
-                        result.push({exercise:ex,sets,position:[...position,ai],source:{year:Number(y),mesoIndex:mi,weekNumber:Number(w.weekNumber),dayIndex:di,exerciseIndex:ei,archiveIndex:archived?ai:null},checkin:session.coachCheckin??null,date:session.sessionDate??session.date??sets[0].performedAt});
+                        if(!sets.length&&!(ex.loggedSets||[]).some(s=>validPerformedSet(ex,s)))continue;
+                        result.push({exercise:ex,sets,position:[...position,ai],source:{year:Number(y),mesoIndex:mi,weekNumber:Number(w.weekNumber),dayIndex:di,exerciseIndex:ei,archiveIndex:archived?ai:null},checkin:session.coachCheckin??null,date:session.sessionDate??session.date??sets[0]?.performedAt});
                     }
                 }
             }

@@ -1,6 +1,6 @@
 import {trainingExposures} from './trainingHistory.js';
 import {workingProposal,PROTOCOL_POLICY,selectEvidence} from './protocolLoad.js';
-import {confirmed,warm,blockKey} from './setPrescription.js';
+import {confirmed,warm,blockKey,setPrescription} from './setPrescription.js';
 import {exerciseIdentity} from './exerciseIdentity.js';
 import {assessSessionReadiness} from './sessionReadiness.js';
 const clone=x=>JSON.parse(JSON.stringify(x));
@@ -11,6 +11,12 @@ const fieldHasValue=v=>v!==null&&v!==undefined&&String(v).trim()!=='';
 export function reconcileTrainingPlan(data,{year,mesoIndex,now=new Date().toISOString()}={}){
     const meso=data?.history?.years?.[String(year)]?.mesocycles?.[mesoIndex];
     if(!meso||meso.locked||meso.coachClosure?.status==='closed')return false;
+    const pending=(meso.weeks||[]).some(w=>(w.days||[]).some(day=>(day.exercises||[]).some(ex=>{
+        if(ex.isWarmup||ex.isExcluded||ex.is_excluded)return false;
+        const count=Math.max(ex.sets?.length||0,ex.loggedSets?.length||0,parseInt(ex.setsCount??ex.set,10)||0);
+        return Array.from({length:count},(_,i)=>i).some(i=>!confirmed(ex.loggedSets?.[i])&&!warm(ex.loggedSets?.[i])&&!warm(ex.sets?.[i]));
+    })));
+    if(!pending)return false;
     const equipment={...data.athlete,...(data.athlete?.loadingSteps||{})};
     const reservations=new Map();let changed=false;
     const updates=[];
@@ -23,7 +29,7 @@ export function reconcileTrainingPlan(data,{year,mesoIndex,now=new Date().toISOS
             const proposals=[];
             for(let index=0;index<count;index++){
                 const log=ex.loggedSets?.[index];
-                if(confirmed(log)||warm(log)||warm(ex.sets?.[index])){proposals.push(null);continue;}
+                if(confirmed(log)||warm(log)||warm(ex.sets?.[index])||setPrescription(ex,index).special){proposals.push(null);continue;}
                 const source=selectEvidence(ex,index,exposures)[0];
                 const sourceKey=source?JSON.stringify([source.source,exerciseIdentity(ex),blockKey(source.match.prescription)]):null;
                 const targetKey=[week.weekNumber,di,ei].join(':');

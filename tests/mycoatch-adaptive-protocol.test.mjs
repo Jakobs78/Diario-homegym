@@ -164,3 +164,17 @@ test('configured large increments do not bypass the progression cap',()=>{
  const p=workingProposal(ex(),0,{exposures:[ex([done(),done(),done()])],equipment:{barbell:10}});
  assert.ok(p.weight<=84);assert.ok(p.weight>80);
 });
+
+test('legacy top-set RPE is distinct from inherited back-off RPE',()=>{
+ const mixed=ex([], {topset:'1x3 @100kg (RPE max 8.0)',targetRpe:'6.5',sets:[{targetReps:'6-8',targetRpe:'6.5'},{targetReps:'6-8',targetRpe:'6.5'}]});
+ assert.equal(setPrescription(mixed,0).rpe.max,8);assert.equal(setPrescription(mixed,1).rpe.max,6.5);
+});
+test('theoretical unavailable load includes a verified lighter alternative when one exists',()=>{
+ const p=workingProposal(ex(),0,{exposures:[ex([done(),done(),done()])],equipment:{availableLoads:{barbell:[80]}}});
+ assert.ok(p.weight>80);assert.equal(p.alternativeWeight,80);assert.match(p.reason,/disponibile: 80 kg/);
+});
+
+test('opening a fully completed mesocycle adds no proposals or audit metadata',()=>{
+ const data=fixture();for(const w of meso(data).weeks)w.days[0].exercises[0].loggedSets=[done(),done(),done()];
+ const before=JSON.stringify(data);assert.equal(refresh(data),false);assert.equal(JSON.stringify(data),before);
+});

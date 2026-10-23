@@ -133,6 +133,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         </div>
         ${nextExposureAdvice ? `<div class="coach-exposure-summary" role="note"><strong>Precedente → proposta di oggi</strong><small> · ${escapeHtml(nextExposureAdvice.basedOn[0]?.performedAt?.slice(0,10)||'data non disponibile')}</small><p>${escapeHtml(nextExposureAdvice.basedOn.map(s=>s.weight+' kg × '+s.reps+' @'+(s.rpe??'n.d.')).join(' · '))}</p><p><strong>${nextExposureAdvice.weight ? escapeHtml(nextExposureAdvice.weight)+' kg · '+escapeHtml(nextExposureAdvice.reps.join('/')) : 'Carico da rivalutare'}</strong> · ${escapeHtml(nextExposureAdvice.reason)}</p></div>` : ''}
         ${crossLabel}
+        ${ex.coachSetProposals?.find(p=>p?.basedOn?.length)?`<details class="coach-exposure-summary"><summary>Storico usato per la proposta</summary><p>${escapeHtml(ex.coachSetProposals.find(p=>p?.basedOn?.length).basedOn[0].seriesEvidence.map(s=>s.kg+' kg × '+s.reps+' @'+(s.rpe??'n.d.')).join(' · '))}</p></details>`:''}
         ${(ex.coachAdaptiveNotes||[]).length?`<details class="coach-adaptive-notes" open><summary>🤖 MyCoatch · Proposte aggiornate</summary>${ex.coachAdaptiveNotes.map(note=>`<p>${escapeHtml(note)}</p>`).join('')}</details>`:''}
         ${previousSessionMarkup}
         <details class="exercise-coach-notes" aria-label="Note del coach e note personali" >
@@ -201,7 +202,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         const isRepsExceeding = isValueExceedingTarget(displayReps, rowPlan.reps?.min, rowPlan.reps?.max);
 
         const targetRpeStr = String(ex.targetRpe || ex.rpeTarget || ex.rpe || '').replace('@', '').trim();
-        const setTargetRpeStr = String(ex.sets?.[setIdx]?.targetRpe ?? targetRpeStr).replace(/^@/, '').trim();
+        const setTargetRpeStr = rowPlan.rpe ? (rowPlan.rpe.min===rowPlan.rpe.max?String(rowPlan.rpe.max):rowPlan.rpe.min+'–'+rowPlan.rpe.max) : targetRpeStr;
         const maxRpe = rowPlan.rpe?.max ?? ex.maxRpe ?? targetRpeStr;
 
         const cleanDisplayRpe = parseRPE(displayRpe);

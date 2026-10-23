@@ -303,7 +303,7 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
 
     if(exercise.coachSetProposals && remainingIndex>=0){
         const proposal=exercise.coachSetProposals[remainingIndex];
-        if(proposal){suggestedWeight=proposal.weight;message=proposal.reason;}
+        if(proposal){suggestedWeight=proposal.weight;message=(code==='on_track'?'':message+' ')+proposal.reason;}
     }else if(remainingIndex>=0 && setPrescription(exercise,remainingIndex).role!==prescription.role){
         const proposal=workingProposal(exercise,remainingIndex,{equipment:equipmentSettings,readiness});
         if(proposal?.weight){suggestedWeight=proposal.weight;message=proposal.reason;}

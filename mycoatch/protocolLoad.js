@@ -35,8 +35,10 @@ function resolve(ex,raw,equipment,{increasing=false,base=raw}={}){
     if(!known&&!configured)return {weight:round(raw),theoretical:round(raw),verified:false,reason:'indicative_load'};
     const resolved=resolveNearbyLoad(ex,raw,equipment,{min:increasing?base+.001:Math.max(.01,raw*.975),max:Math.min(raw*1.025,increasing?base*(1+(type==='dumbbell'?PROTOCOL_POLICY.maxDumbbellIncrease:PROTOCOL_POLICY.maxIncrease)):700),origin:base});
     // Missing or explicitly unavailable stock never erases the theoretical recommendation.
-    return resolved.weight!==null?{...resolved,weight:round(resolved.weight),theoretical:round(raw)}:
-        {weight:round(raw),theoretical:round(raw),verified:false,reason:resolved.verified?'theoretical_unavailable':'indicative_load'};
+    if(resolved.weight!==null)return {...resolved,weight:round(resolved.weight),theoretical:round(raw)};
+    const alternative=resolved.verified?resolveNearbyLoad(ex,raw,equipment,{min:.01,max:raw,origin:base}):null;
+    return {weight:round(raw),theoretical:round(raw),verified:false,alternativeWeight:alternative?.verified?alternative.weight:null,
+        reason:resolved.verified?'theoretical_unavailable':'indicative_load'};
 }
 export function nextBlockDecision(ex,index,equipment={},readiness=null){
     const p=setPrescription(ex,index);
@@ -76,7 +78,7 @@ export function workingProposal(ex,index,{exposures=[],equipment={},readiness=nu
     }):exposures;
     const evidence=selectEvidence(ex,index,usable),recent=evidence[0];
     const reference=recent?.match;
-    let reps=p.reps?.min??null,kg=p.kg?.min??null,kind='prescription',range=null,verified=false;
+    let reps=p.reps?.min??null,kg=p.kg?.min??null,kind='prescription',range=null,verified=false,alternativeWeight=null;
     let reason=kg?'Carico iniziale della scheda; verifica la risposta durante l’avvicinamento.':'Manca uno storico pertinente: carico da calibrare.';
     const capacities=evidence.map(item=>estimate(item.match)).filter(v=>v!==null);
     const stable=capacities.length>=2&&Math.max(...capacities)/Math.min(...capacities)<=1+PROTOCOL_POLICY.stableSpread?median(capacities):null;
@@ -91,6 +93,7 @@ export function workingProposal(ex,index,{exposures=[],equipment={},readiness=nu
         }
         const contextUnchanged=String(recent.exercise.restTime??recent.exercise.rest??recent.exercise.recupero??'')===String(ex.restTime??ex.rest??ex.recupero??'');
         const progressCompatible=same(reference.prescription.reps,p.reps)&&reference.prescription.role===p.role&&p.rpe?.max>=reference.prescription.rpe?.max;
+        if(!contextUnchanged)reason+=' Recuperi diversi: nessun aumento trasferito automaticamente.';
         if(allowProgression&&!ex.isDeload&&!ex.isDeloadWeek&&progressCompatible&&contextUnchanged&&recent.checkin?.pain!=='present'){
             const decision=nextBlockDecision(recent.exercise,reference.index,equipment,readiness);
             if(decision){({weight:kg,reps,kind}=decision);reason=decision.reason;verified=Boolean(decision.verified);}
@@ -129,7 +132,11 @@ export function workingProposal(ex,index,{exposures=[],equipment={},readiness=nu
         const preserve=['history','today'].includes(kind);
         kg=preserve?round(kg):resolved.weight;verified=verified||resolved.verified&&Math.abs(resolved.weight-kg)<.001;
         if(!verified)reason+=' Disponibilità del peso da verificare.';
-        if(resolved.reason==='theoretical_unavailable')reason+=' Carico teorico non componibile con l’inventario dichiarato: valuta un’alternativa.';
+        if(resolved.reason==='theoretical_unavailable'){
+            alternativeWeight=resolved.alternativeWeight??null;
+            reason+=' Carico teorico non componibile con l’inventario dichiarato.';
+            if(alternativeWeight!==null)reason+=' Alternativa più leggera disponibile: '+alternativeWeight+' kg.';
+        }
         if(p.reps&&p.reps.min===p.reps.max&&p.reps.max<=12&&capacity){
             range={min:round(kg*(1-PROTOCOL_POLICY.rangeHalfWidth)),max:round(kg*(1+PROTOCOL_POLICY.rangeHalfWidth))};
         }
@@ -137,6 +144,6 @@ export function workingProposal(ex,index,{exposures=[],equipment={},readiness=nu
     if(p.reps?.max>12)reason='Range oltre 12 reps: ripropongo il carico pertinente senza aumenti automatici. '+(kind==='reduce_today'?reason:'Verifica lo sforzo dopo ogni serie.');
     const change=capacities.length>=3?(capacities[0]/capacities.at(-1)-1)*100:null;
     const monitoring=change===null?null:change<=-5?'Prestazioni recenti in calo: verifica recupero e andamento nelle prossime sedute.':Math.abs(change)<1?'Prestazioni recenti simili: continua a registrare reps e RPE prima di valutare uno stallo.':null;
-    return {weight:kg,reps,rpe:p.rpe?.max??null,kind,reason,range,verified,monitoring,confidence:stable?'consistent_history':reference?'provisional':'calibration',stableE1rm:stable,
+    return {weight:kg,reps,rpe:p.rpe?.max??null,kind,reason,range,verified,alternativeWeight,monitoring,confidence:stable?'consistent_history':reference?'provisional':'calibration',stableE1rm:stable,
         basedOn:evidence.map(item=>({source:item.source??null,date:item.date??null,series:item.match.index,weight:item.match.kg,reps:item.match.reps,rpe:item.match.rpe,seriesEvidence:item.sets.map(s=>({index:s.index,kg:s.kg,reps:s.reps,rpe:s.rpe}))}))};
 }
