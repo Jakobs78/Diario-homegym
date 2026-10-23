@@ -2,7 +2,7 @@
    TEMA CHIARO (Sfondo neutro riposante + Azzurro dinamico)
    ========================================================================== */
 :root {
-    --bg-color: #f1f5f9;
+    --bg-color: #e9eef5;
     --card-bg: #ffffff;
     --text-color: #0f172a;
     --text-muted: #64748b;
@@ -1731,7 +1731,7 @@ input[type="date"]:focus, select:focus {
 body.dark-mode .ex-card,
 body.dark-mode .exercise-card {
     background: #1e293b;
-    border-color: #334155;
+    border-color: var(--workout-card-border, #60758e);
     color: #f8fafc;
 }
 
@@ -2669,10 +2669,10 @@ body.dark-mode .group-title-badge {
 .ex-card .active-set-label { color: var(--accent-color); font-size: .76rem; font-weight: 700; }
 .ex-card .set-table { margin-bottom: 8px; table-layout: fixed; }
 .ex-card .col-set { width: 11% !important; }
-.ex-card .col-kg { width: 24% !important; }
-.ex-card .col-reps { width: 27% !important; }
-.ex-card .col-rpe { width: 22% !important; }
-.ex-card .col-check { width: 16% !important; }
+.ex-card .col-kg { width: 18% !important; }
+.ex-card .col-reps { width: 29% !important; }
+.ex-card .col-rpe { width: 29% !important; }
+.ex-card .col-check { width: 13% !important; }
 .ex-card .set-table th { height: 31px !important; line-height: 31px !important; font-size: .78rem; }
 .ex-card .set-table td,
 .ex-card .set-table td:first-child {
@@ -2805,10 +2805,14 @@ body.dark-mode .group-title-badge {
     font-size:.72rem;
     line-height:1.35;
     text-align:left;
+    display:block;
+    width:100%;
     max-width:none;
+    white-space:normal;
     overflow-wrap:anywhere;
 }
 .ex-card .ex-card-header > .flex-center {
+    width:100%;
     justify-content:flex-start;
     min-width:0;
 }
@@ -3350,7 +3354,7 @@ body.dark-mode .group-title-badge {
     background:color-mix(in srgb, var(--accent-color) 9%, var(--card-bg));
 }
 @media (max-width:480px) {
-    .ex-card .exercise-exclude-hint {max-width:210px;font-size:.7rem;line-height:1.3;}
+    .ex-card .exercise-exclude-hint {font-size:.75rem;line-height:1.4;}
     .ex-card .ex-name {font-size:1.13rem !important;}
     .ex-card .target-box {font-size:.82rem;}
 }
@@ -3428,3 +3432,96 @@ body.dark-mode .group-title-badge {
 }
 
 @media(max-width:430px){.unified-header-box .day-tabs{padding-top:4px;margin-top:4px;}.unified-header-box .day-tabs>button{min-height:32px;padding:3px 9px;}.unified-header-box .meso-compact-control,.unified-header-box .week-selector-container{min-height:34px;padding:1px 5px;}}
+
+
+
+/* Workout readability: separate exercise cards and generous series controls.
+   Presentation only; performed values and MyCoatch prescriptions are unchanged. */
+:root {
+    --workout-card-border: #9aaec4;
+    --workout-neutral-bg: #f7f9fc;
+    --workout-target-bg: #e9f4fc;
+    --workout-table-head: #dce8f3;
+}
+[data-theme="dark"], body.dark-mode {
+    --workout-card-border: #60758e;
+    --workout-neutral-bg: #182437;
+    --workout-target-bg: #163449;
+    --workout-table-head: #2b3d53;
+}
+.ex-card, .exercise-card {
+    border-color: var(--workout-card-border);
+    box-shadow: 0 3px 12px rgba(15, 23, 42, .1);
+    margin-bottom: 20px;
+}
+.ex-card.is-active-exercise {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 1px var(--accent-color), 0 4px 14px rgba(15, 23, 42, .12);
+}
+.ex-card.is-dropset { border-color: #f97316; }
+.ex-card.is-excluded { border-color: #fca5a5; }
+.ex-card .target-box { background: var(--workout-target-bg); }
+.ex-card .exercise-coach-notes,
+.ex-card .bar-plates-container { background: var(--workout-neutral-bg); }
+.ex-card .exercise-coach-notes > summary {
+    background: color-mix(in srgb, var(--workout-table-head) 55%, var(--card-bg));
+    border-radius: 9px;
+}
+.ex-card .exercise-coach-notes[open] > summary { border-radius: 9px 9px 0 0; }
+.ex-card .ex-user-notes,
+.ex-card select {
+    background: var(--card-bg);
+    color: var(--text-color);
+    border: 1px solid var(--workout-card-border);
+}
+.ex-card .set-table th { background: var(--workout-table-head); color: var(--text-color); }
+.ex-card .set-table .td-reps-stepper,
+.ex-card .set-table .td-rpe-stepper { padding: 5px 4px !important; }
+.ex-card .set-table .reps-stepper,
+.ex-card .set-table .rpe-stepper { gap: 2px; }
+.ex-card .reps-step-btn,
+.ex-card .rpe-step-btn {
+    width: 26px;
+    min-width: 26px;
+    flex-basis: 26px;
+    height: 44px;
+    min-height: 44px;
+    background: var(--card-bg);
+    border-color: var(--workout-card-border);
+}
+.ex-card .reps-target-label,
+.ex-card .rpe-target-label {
+    font-size: .8rem;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--text-color);
+    margin: 5px 0 2px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+@media (max-width: 390px) {
+    .ex-card .reps-step-btn,
+    .ex-card .rpe-step-btn { width:22px; min-width:22px; flex-basis:22px; }
+}
+@media (max-width: 360px) {
+    .ex-card .set-table .reps-stepper,
+    .ex-card .set-table .rpe-stepper {
+        display:grid;
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+        gap:3px;
+    }
+    .ex-card .reps-stepper .set-reps,
+    .ex-card .rpe-stepper .set-rpe {
+        grid-column:1 / -1;
+        grid-row:1;
+        width:100% !important;
+    }
+    .ex-card .reps-step-btn,
+    .ex-card .rpe-step-btn {
+        grid-row:2;
+        width:100%;
+        min-width:0;
+        height:40px;
+        min-height:40px;
+    }
+}
