@@ -183,13 +183,22 @@ export async function importWorkoutPlan(csvText, coachOptions = null) {
                 weeksMap[weekNum].daysMap[dayNum].dayName = namedSplit[1];
             }
 
-            const perSetTag=/\[OBIETTIVO REPS PER SERIE\]\s*(\d+(?:\/\d+)*)/.exec(notesVal);
-            const perSetTargets=perSetTag?perSetTag[1].split('/'):null;
-            if(perSetTargets&&(perSetTargets.length!==setsCount||perSetTargets.some(n=>Number(n)<1||Number(n)>100)))throw Error('Obiettivi per serie non validi alla riga '+(rowIndex+2));
+            const perSetTag=/\[OBIETTIVO REPS PER SERIE\]\s*(\d+(?:\s*[-–]\s*\d+)?(?:\/\d+(?:\s*[-–]\s*\d+)?)*)/.exec(notesVal);
+            const perSetReps=getVal(['repsperserie','ripetizioniperserie'])||perSetTag?.[1];
+            const perSetTargets=perSetReps?String(perSetReps).split('/').map(v=>v.trim()):null;
+            const perSetValues=(names)=>{const raw=getVal(names);if(!raw)return null;const values=String(raw).split('/').map(v=>v.trim());if(values.length!==setsCount)throw Error('Il numero di target per serie non coincide alla riga '+(rowIndex+2));return values;};
+            const perSetRpe=perSetValues(['rpeperserie']);
+            const perSetKgMin=perSetValues(['kgminperserie']);
+            const perSetKgMax=perSetValues(['kgmaxperserie']);
+            if(perSetTargets&&(perSetTargets.length!==setsCount||perSetTargets.some(n=>!/^\d+(?:\s*[-–]\s*\d+)?$/.test(n)||Number(n.split(/[-–]/)[0])<1||Number(n.split(/[-–]/).at(-1))>100||Number(n.split(/[-–]/)[0])>Number(n.split(/[-–]/).at(-1)))))throw Error('Obiettivi per serie non validi alla riga '+(rowIndex+2));
             const sets = [];
             for (let s = 1; s <= setsCount; s++) {
                 sets.push({
                     setNumber: s,
+                    ...(perSetTargets?{targetReps:perSetTargets[s-1]}:{}),
+                    ...(perSetRpe?{targetRpe:perSetRpe[s-1]}:{}),
+                    ...(perSetKgMin?{kgMin:perSetKgMin[s-1]}:{}),
+                    ...(perSetKgMax?{kgMax:perSetKgMax[s-1]}:{}),
                     weight: '',
                     reps: '',               
                     rpe: '',

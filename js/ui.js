@@ -1,3 +1,5 @@
+import {saveAndSync} from './storage.js';
+import {reconcileTrainingPlan} from '../mycoatch/trainingPlan.js';
 import {bindActiveExercisePanels} from './activeExercise.js';
 import {createCircuitCard} from './circuitUI.js';
 import {isCircuit} from './restPolicy.js';
@@ -179,6 +181,10 @@ export function renderWorkoutList() {
 
     if (!targetWeek) return;
 
+    if(!isPastMeso && reconcileTrainingPlan(state.workoutData,{year:state.currentYear,mesoIndex})) {
+        saveAndSync(state.workoutData,'COACH_PROTOCOL_REFRESH');
+    }
+
     // BANNER MESOCICLO BLOCCATO
     if (isPastMeso) {
         const archiveBadge = document.createElement('div');
@@ -351,11 +357,11 @@ export function renderWorkoutList() {
     coachSummary.append(coachName, coachCount);
     coachDisclosure.append(coachSummary, createLiveCoachPanel(currentDay, { readOnly: isPastMeso }));
     DOM.workoutListContainer.appendChild(coachDisclosure);
-    const futureReview=createFutureLoadReviewPanel(meso,targetWeek.weekNumber,currentDayIndex-1,{
+    const futureReview=meso.coachProtocol ? null : createFutureLoadReviewPanel(meso,targetWeek.weekNumber,currentDayIndex-1,{
         readOnly:isPastMeso,render:renderWorkoutList
     });
     if(futureReview)DOM.workoutListContainer.appendChild(futureReview);
-    const weeklyReview = createWeeklyReviewPanel(meso, targetWeek.weekNumber, {
+    const weeklyReview = meso.coachProtocol ? null : createWeeklyReviewPanel(meso, targetWeek.weekNumber, {
         readOnly:isPastMeso,wasOpen:reviewWasOpen,render:renderWorkoutList
     });
     if(weeklyReview)DOM.workoutListContainer.appendChild(weeklyReview);

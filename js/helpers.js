@@ -1,3 +1,4 @@
+import {trainingExposures} from '../mycoatch/trainingHistory.js';
 import {exerciseIdentity} from '../mycoatch/exerciseIdentity.js';
 // ==========================================
 // MODULI: helpers.js - Utility di logica pura, formattazione stringhe, calcolo dischi e ricerca storico
@@ -170,86 +171,9 @@ export function getExerciseSignature(ex) {
  * IMPORTANTE: Considera valido solo lo storico di serie CONFERMATE con Check ✓ (isLocked / completed).
  */
 export function findPreviousExercise(workoutData, currentMesoIdx, currentWeekNum, currentDayIdx, currentExercise, sameMesoOnly = true, activeYear = null) {
-    const years = workoutData?.history?.years;
-    if(!years || !currentExercise) return null;
-    const year = String(activeYear || (years[String(new Date().getFullYear())]
-        ? new Date().getFullYear()
-        : Math.max(...Object.keys(years).map(Number).filter(Number.isFinite))));
-    if(!years[year])return null;
-    const signature = getExerciseSignature(currentExercise);
-
-    // Only real, checked working sets; skipped warm-ups must not become the
-    // next session's historical reference or weight suggestion.
-    const suitable = ex => ex && !(ex.isWarmup || ex.isExcluded || ex.is_excluded) &&
-        getExerciseSignature(ex)===signature &&
-        (ex.loggedSets || []).some(set=>
-            (set.isLocked===true || set.completed===true) &&
-            !(set.isWarmup || set.warmup || set.is_warmup) &&
-            Number(String(set.weight).replace(',','.'))>0 &&
-            parseInt(set.reps,10)>0);
-    const findInDay=day=>{
-        const exercise=(day?.exercises || day?.esercizi || []).find(suitable);
-        return exercise || null;
-    };
-    const dayOf=(week)=>{
-        const days=week?.days || [];
-        return days.find(d=>Number(d.dayNumber)===currentDayIdx+1) ||
-            days[currentDayIdx] || null;
-    };
-    const archiveOf=day=>{
-        const archives=Array.isArray(day?.sessionArchives) ? day.sessionArchives : [];
-        for(let a=archives.length-1;a>=0;a--){
-            const found=findInDay(archives[a]);
-            if(found)return found;
-        }
-        return null;
-    };
-    const scan=(meso,weekLimit=Infinity)=>{
-        const weeks=(meso?.weeks || []).filter(w=>Number(w.weekNumber)<=weekLimit)
-            .sort((a,b)=>Number(b.weekNumber)-Number(a.weekNumber));
-        for(const week of weeks){
-            const day=dayOf(week);
-            const archived=archiveOf(day);
-            const found=findInDay(day);
-            // The live plan has priority if that week itself was performed.
-            if(found)return found;
-            if(archived)return archived;
-        }
-        return null;
-    };
-
-    const mesos=years[year]?.mesocycles || [];
-    const current=mesos[currentMesoIdx];
-    if(!current)return null;
-    // Repeated sessions: use the archived preceding performance of the same
-    // day before looking into earlier weeks (do not use live current entries).
-    const activeWeek=(current.weeks || []).find(w=>Number(w.weekNumber)===Number(currentWeekNum));
-    const recentWeeks=[...(current.weeks||[])].filter(w=>Number(w.weekNumber)<=Number(currentWeekNum)).sort((a,b)=>Number(b.weekNumber)-Number(a.weekNumber));
-    for(const week of recentWeeks){
-        const earlier=(week.days||[]).map((day,index)=>({day,position:Number(day.dayNumber??index+1)}))
-            .filter(({position})=>Number(week.weekNumber)<Number(currentWeekNum)||position<currentDayIdx+1)
-            .sort((a,b)=>b.position-a.position);
-        for(const {day} of earlier){const found=findInDay(day)||archiveOf(day);if(found)return found;}
-    }
-    const archived=archiveOf(dayOf(activeWeek));
-    if(archived)return archived;
-    const same=scan(current,Number(currentWeekNum)-1);
-    if(same || sameMesoOnly)return same;
-
-    for(let m=currentMesoIdx-1;m>=0;m--){
-        const result=scan(mesos[m]);
-        if(result)return result;
-    }
-    for(const priorYear of Object.keys(years)
-        .filter(y=>/^\d{4}$/.test(y)&&Number(y)<Number(year))
-        .sort((a,b)=>Number(b)-Number(a))){
-        const older=years[priorYear]?.mesocycles || [];
-        for(let m=older.length-1;m>=0;m--){
-            const result=scan(older[m]);
-            if(result)return result;
-        }
-    }
-    return null;
+    const years=workoutData?.history?.years||{};
+    const year=activeYear||Object.keys(years).map(Number).sort((a,b)=>b-a)[0];
+    return trainingExposures(workoutData,{year,mesoIndex:currentMesoIdx,weekNumber:currentWeekNum,dayIndex:currentDayIdx},currentExercise,{sameMesoOnly})[0]?.exercise??null;
 }
 /**
  * Calcola la combinazione di dischi da caricare per lato sul bilanciere
@@ -519,28 +443,5 @@ export function checkFatigueAlert(ex, exIdx) {
  * different-repetition exposure can supply cautious calibration evidence.
  */
 export function findPriorExerciseExposures(workoutData,mesoIdx,weekNum,dayNum,exercise,year=null){
-    const years=workoutData?.history?.years||{};
-    const current=years[String(year||new Date().getFullYear())]?.mesocycles?.[mesoIdx];
-    if(!current||!exercise?.name)return [];
-    const expected=exerciseIdentity(exercise);
-    const result=[];
-    const weeks=[...(current.weeks||[])].sort((a,b)=>Number(b.weekNumber)-Number(a.weekNumber));
-    for(const week of weeks){
-        const w=Number(week.weekNumber);
-        if(!Number.isFinite(w)||w>Number(weekNum))continue;
-        const days=[...(week.days||[])].map((day,index)=>({day,index}))
-            .sort((a,b)=>b.index-a.index);
-        for(const {day,index} of days){
-            const position=Number(day.dayNumber??index+1);
-            if(w===Number(weekNum)&&position>=Number(dayNum))continue;
-            // An unfinished workout cannot become evidence for another day.
-            if(day.completed!==true)continue;
-            for(const prior of day.exercises||[]){
-                if(exerciseIdentity(prior)===expected && !prior.isWarmup &&
-                    !prior.isExcluded && !prior.is_excluded)
-                    result.push(prior);
-            }
-        }
-    }
-    return result.slice(0,8);
+    return trainingExposures(workoutData,{year:year||new Date().getFullYear(),mesoIndex:mesoIdx,weekNumber:weekNum,dayIndex:Number(dayNum)-1},exercise).map(item=>item.exercise);
 }
