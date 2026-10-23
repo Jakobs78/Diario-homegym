@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v70-adaptive-protocol-20261023';
+const CACHE_NAME = 'workout-app-v71-mobile-cards-20261023';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
