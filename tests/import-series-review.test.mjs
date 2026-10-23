@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {reviewImportedPlan} from '../js/importPreview.js';
 class Element {
  constructor(tag){this.tag=tag;this.children=[];this.attributes={};this.value='';}
+ set value(value){this._value=String(value??'');}
+ get value(){return this._value;}
  append(...children){this.children.push(...children);}
  setAttribute(key,value){this.attributes[key]=value;}
  showModal(){} close(){} remove(){}
