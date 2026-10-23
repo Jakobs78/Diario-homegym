@@ -1,5 +1,5 @@
 import {trainingExposures} from './trainingHistory.js';
-import {workingProposal,PROTOCOL_POLICY,selectEvidence} from './protocolLoad.js';
+import {workingProposal,PROTOCOL_POLICY,selectEvidence,relatedSets} from './protocolLoad.js';
 import {confirmed,warm,blockKey,setPrescription} from './setPrescription.js';
 import {exerciseIdentity} from './exerciseIdentity.js';
 import {assessSessionReadiness} from './sessionReadiness.js';
@@ -29,13 +29,25 @@ export function reconcileTrainingPlan(data,{year,mesoIndex,now=new Date().toISOS
             const proposals=[];
             for(let index=0;index<count;index++){
                 const log=ex.loggedSets?.[index];
+                const targetKey=[week.weekNumber,di,ei].join(':');
+                const previous=ex.coachSetProposals?.[index];
+                const previousOrigin=previous?.basedOn?.[0];
+                const previousSource=previousOrigin&&exposures.find(item=>same(item.source,previousOrigin.source));
+                const unchangedSource=previousSource&&same(previousOrigin.seriesEvidence,
+                    relatedSets(previousSource.exercise,setPrescription(ex,index),index).map(s=>({index:s.index,kg:s.kg,reps:s.reps,rpe:s.rpe})));
+                const transferred=previous?.kind==='increase_load'||previous?.kind==='build_reps';
+                if(started(day)&&transferred&&unchangedSource){
+                    const consumed=JSON.stringify([previousSource.source,exerciseIdentity(ex),blockKey(setPrescription(previousSource.exercise,previousOrigin.series))]);
+                    reservations.set(consumed,targetKey);
+                }
                 if(confirmed(log)||warm(log)||warm(ex.sets?.[index])||setPrescription(ex,index).special){proposals.push(null);continue;}
                 const source=selectEvidence(ex,index,exposures)[0];
                 const sourceKey=source?JSON.stringify([source.source,exerciseIdentity(ex),blockKey(source.match.prescription)]):null;
-                const targetKey=[week.weekNumber,di,ei].join(':');
                 const held=sourceKey&&reservations.get(sourceKey);
                 const eligible=!started(day)&&!week.isDeloadWeek&&!week.isDeload&&(!held||held===targetKey);
-                const proposal=workingProposal(ex,index,{exposures,equipment,readiness,allowProgression:eligible});
+                const keepStarted=started(day)&&transferred&&unchangedSource&&
+                    !(ex.loggedSets||[]).some(confirmed)&&readiness.level!=='stop'&&readiness.allowIncrease!==false;
+                const proposal=keepStarted?clone(previous):workingProposal(ex,index,{exposures,equipment,readiness,allowProgression:eligible});
                 if(proposal&&sourceKey&&eligible)reservations.set(sourceKey,targetKey);
                 if(proposal){
                     proposal.destination={...context,setIndex:index};

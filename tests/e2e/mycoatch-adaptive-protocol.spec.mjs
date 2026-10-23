@@ -70,3 +70,12 @@ test('CSV mixed series preserve independent kg reps and RPE targets without crea
  expect(result.targets).toEqual([{reps:'3',rpe:'8',min:'100',max:'105'},{reps:'6-8',rpe:'8',min:'80',max:'85'},{reps:'6-8',rpe:'8',min:'80',max:'85'}]);
  expect(result.actual).toEqual([{weight:'',confirmed:false},{weight:'',confirmed:false},{weight:'',confirmed:false}]);
 });
+
+test('starting and navigating a session keeps its already suggested load without updating every week',async({page})=>{
+ await open(page);await page.getByRole('button',{name:'Inizia seduta',exact:true}).click();
+ await expect(page.locator('.set-kg').first()).toHaveValue('82');
+ await page.getByRole('combobox',{name:'Seleziona settimana',exact:true}).selectOption('3');
+ await expect(page.locator('.set-kg').first()).toHaveValue('80');
+ await page.getByRole('combobox',{name:'Seleziona settimana',exact:true}).selectOption('2');
+ await expect(page.locator('.set-kg').first()).toHaveValue('82');
+});

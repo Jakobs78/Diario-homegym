@@ -183,3 +183,10 @@ test('an explicit per-series RPE overrides a different legacy top-set hint',()=>
  const mixed=ex([], {topset:'1x3 @100kg (RPE 8)',targetRpe:'6.5',sets:[{targetReps:'3',targetRpe:'9'}]});
  assert.equal(setPrescription(mixed,0).rpe.max,9);
 });
+
+test('starting a session retains its transferred proposal and consumes the source only once',()=>{
+ const data=fixture();refresh(data);meso(data).weeks[1].days[0].sessionStart=Date.now();refresh(data);
+ assert.equal(prefill(data,2).weight,'82');assert.equal(prefill(data,3).weight,'80');
+ lift(data,1).loggedSets[2].completed=false;lift(data,1).loggedSets[2].isLocked=false;refresh(data);
+ assert.equal(prefill(data,2).weight,'80','corrected origin still invalidates an untouched proposal');
+});
