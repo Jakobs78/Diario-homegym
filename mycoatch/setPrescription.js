@@ -18,7 +18,7 @@ export function setPrescription(ex,index){
     const ownReps=bounds(row.targetReps,row.minReps,row.maxReps);
     const inherited=ownReps&&general&&ownReps.min===general.min&&ownReps.max===general.max;
     const reps=top&&(!ownReps||inherited)?bounds(top[1]):ownReps||general;
-    const rpeValue=[row.targetRpe,ex?.targetRpe,ex?.rpeTarget,ex?.rpe].find(v=>v!==undefined&&v!==null&&String(v).trim()!=='');
+    const rpeValue=[ex?.targetRpe,ex?.rpeTarget,ex?.rpe].find(v=>v!==undefined&&v!==null&&String(v).trim()!=='');
     const topRpe=index===0?String(ex?.topset??'').match(/\bRPE\s*(?:max\s*)?(\d+(?:[.,]\d+)?)/i)?.[1]:null;
     const specificRpe=bounds(row.targetRpe,row.minRpe,row.maxRpe);
     const generalRpe=bounds(rpeValue,ex?.minRpe,ex?.maxRpe);

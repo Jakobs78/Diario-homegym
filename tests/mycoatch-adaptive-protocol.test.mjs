@@ -178,3 +178,8 @@ test('opening a fully completed mesocycle adds no proposals or audit metadata',(
  const data=fixture();for(const w of meso(data).weeks)w.days[0].exercises[0].loggedSets=[done(),done(),done()];
  const before=JSON.stringify(data);assert.equal(refresh(data),false);assert.equal(JSON.stringify(data),before);
 });
+
+test('an explicit per-series RPE overrides a different legacy top-set hint',()=>{
+ const mixed=ex([], {topset:'1x3 @100kg (RPE 8)',targetRpe:'6.5',sets:[{targetReps:'3',targetRpe:'9'}]});
+ assert.equal(setPrescription(mixed,0).rpe.max,9);
+});
