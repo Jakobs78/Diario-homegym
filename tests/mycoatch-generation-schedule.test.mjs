@@ -63,6 +63,19 @@ test('missing knee flexion is disclosed; no bodyweight fallback; imported exerci
     assert.equal(EXERCISE_DATABASE.find(e=>e.name==='Alzate Laterali ai Cavi').unilateral,true);
 });
 
+test('barbell reference loads cannot become machine or dumbbell prescriptions',()=>{
+    const performedOn=new Date().toISOString().slice(0,10);
+    const m=generateSmartMesocycle({durationWeeks:1,daysPerWeek:4,deloadWeek:false,
+        availableEquipment:['barbell','dumbbell','lat_machine','cable','machine'],
+        availableMachines:['chest_press'],preferredLifts:{bench:'Chest Press',hinge:'Stacco Rumeno con Manubri'},
+        athleteProfile:{experience:'advanced',calibration:'regular',referenceLoads:{
+            bench:{kg:80,reps:8,rpe:7,performedOn},hinge:{kg:120,reps:8,rpe:7,performedOn}}}});
+    for(const name of ['Chest Press','Stacco Rumeno con Manubri']){
+        const ex=m.weeks[0].days.flatMap(d=>d.exercises).find(e=>e.name===name);
+        assert.ok(ex);assert.equal(ex.kgMin,'');
+    }
+});
+
 test('one detailed block only; full CSV export reaches week 12 / day 6 without mutating history',()=>{
     const history={history:{years:{2026:{mesocycles:[]}}}};const before=JSON.stringify(history);
     const m=MyCoatch.generateNextFromHistory(history,{durationWeeks:12,daysPerWeek:6,maxSessionMinutes:60,deloadWeek:false});

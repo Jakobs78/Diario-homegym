@@ -273,9 +273,10 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 }
                 const reference = ex.anchorKey
                     ? athleteProfile?.referenceLoads?.[ex.anchorKey] : null;
+                // The legacy reference fields identify the original barbell
+                // lifts, not any subsequently selected machine/DB variant.
                 const expectedVariant = ex.anchorKey
-                    ? (selectionPreferences.preferredLifts[ex.anchorKey] ||
-                        defaultFundamentalName(ex.anchorKey, focus)) : null;
+                    ? defaultFundamentalName(ex.anchorKey, focus) : null;
                 // Non trasformare un peso riferito alla panca in un carico
                 // prescritto per una variante alternativa scelta automaticamente.
                 const referenceKg = !hasConfirmedHistory && !onboarding.calibrationWeek &&

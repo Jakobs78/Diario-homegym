@@ -31,6 +31,8 @@ Se manca una variante ammessa per uno slot opzionale, la lacuna rimane nel repor
 
 L'importatore già accettava fino a 52 settimane e 7 giorni. Il rilascio non amplia quei limiti: aggiunge un collaudo sintetico di importazione e navigazione fino a settimana 52/giorno 7 su smartphone, con tutte le 364 sedute nel modello del report.
 
+I riferimenti iniziali dei fondamentali con bilanciere non vengono trasferiti automaticamente alle nuove alternative a macchina o con manubri. Un test dedicato verifica questo confine della generazione.
+
 Non vengono modificati gli algoritmi di `protocolLoad`, `trainingPlan`, precompilazione, gestione delle conferme, timer, salvataggio o sincronizzazione. Un test verifica che la riconciliazione delle proposte raggiunga settimana 8/giorno 6 e protegga risultati confermati e valori manuali.
 
 L'anteprima non modifica il diario. Solo l'adozione esplicita importa un nuovo mesociclo separato.
@@ -43,7 +45,7 @@ Il sito di produzione è raggiungibile, ma la sessione browser disponibile mostr
 
 ## Validazione locale
 
-- 564 test Node superati, compresa la matrice settimane/giorni, il CSV fino a settimana 12/giorno 6 e la riconciliazione live oltre i vecchi limiti.
+- 565 test Node superati, compresa la matrice settimane/giorni, il CSV fino a settimana 12/giorno 6 e la riconciliazione live oltre i vecchi limiti.
 - 113 test browser eseguiti: 111 superati al primo passaggio; un controllo grafico e un controllo temporale audio richiedono distinzione dai problemi del generatore.
 - La soglia grafica del primo esercizio su mobile misura 435,21875 px contro una soglia di 435 px sia nella versione modificata sia nella copia isolata del precedente main dc8d2da: nessuna regressione introdotta da questo rilascio. Il test non è stato allentato e il CSS del diario non è stato modificato.
 - Il controllo audio riesce nella copia precedente; la prima esecuzione completa ha rilevato quattro beep brevi anziché cinque. La ripetizione mirata sulla versione modificata supera il test: cinque beep brevi e uno finale, senza modificare il timer.
