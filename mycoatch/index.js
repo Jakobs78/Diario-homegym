@@ -64,6 +64,14 @@ export const MyCoatch = {
         // I dati storici non vengono modificati: proponiamo un mesociclo separato.
         const newMesocycle = generateSmartMesocycle(config, analysis, previousMesocycle);
         newMesocycle.macrocycle = macrocycle;
+        newMesocycle.generationScope = {
+            detailedMesocycles:1,
+            plannedWeeks:newMesocycle.weeks.length,
+            sessionsPerWeek:config.daysPerWeek,
+            futureBlocksConditional:true,
+            activePlanUnchanged:true,
+            notice:'Questa proposta riguarda un solo mesociclo. La prosecuzione viene rivalutata sui risultati confermati; i carichi in allenamento seguono il protocollo attivo.'
+        };
         const comparison = compareMesocyclePlans(previousMesocycle, newMesocycle, analysis);
         const progressionValues = Object.values(decisions.byExercise);
         const progressionQuality = {

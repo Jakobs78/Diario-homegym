@@ -39,6 +39,6 @@ export function restoreProposalMetadata(imported, proposal) {
             }
         }
     }
-    copy(result,proposal,['periodization','coachReport','macrocycle']);
+    copy(result,proposal,['periodization','coachReport','macrocycle','generationScope']);
     return result;
 }

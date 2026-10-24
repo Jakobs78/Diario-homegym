@@ -1,7 +1,8 @@
-const CACHE_NAME = 'workout-app-v71-mobile-cards-20261023';
+const CACHE_NAME = 'workout-app-v72-generation-schedule-20261024';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
+  '/mycoatch/generationSchedule.js',
   '/',
   '/index.html',
   '/manifest.webmanifest',

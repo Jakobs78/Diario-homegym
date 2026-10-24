@@ -8,17 +8,17 @@ import { canonicalExerciseKey } from './exerciseIdentity.js';
 export const FUNDAMENTAL_CHOICES = Object.freeze({
     bench: Object.freeze([
         'Panca Piana con Bilanciere', 'Panca Inclinata con Manubri',
-        'Panca Inclinata con Bilanciere', 'Push-up a Terra'
+        'Panca Inclinata con Bilanciere', 'Panca Piana con Manubri', 'Chest Press'
     ]),
     squat: Object.freeze([
         'Squat con Bilanciere', 'Front Squat',
-        'Goblet Squat con Manubrio', 'Bulgarian Split Squat con Manubri'
+        'Goblet Squat con Manubrio', 'Bulgarian Split Squat con Manubri', 'Leg Press 45°', 'Hack Squat'
     ]),
     military: Object.freeze([
-        'Military Press con Bilanciere', 'Spinte con Manubri da Seduto'
+        'Military Press con Bilanciere', 'Spinte con Manubri da Seduto', 'Shoulder Press alla Macchina'
     ]),
     hinge: Object.freeze([
-        'Stacco Rumeno (RDL)', 'Stacco da Terra Convenzionale'
+        'Stacco Rumeno (RDL)', 'Stacco da Terra Convenzionale', 'Stacco Rumeno con Manubri'
     ])
 });
 
@@ -37,6 +37,8 @@ export const OPTIONAL_ACCESSORIES = Object.freeze([
 export const CABLE_SETUPS = Object.freeze([
     'none', 'high_only', 'low_only', 'single_high_low', 'dual_adjustable'
 ]);
+export const MACHINE_CHOICES = Object.freeze(EXERCISE_DATABASE
+    .filter(ex=>ex.machineId).map(ex=>Object.freeze({id:ex.machineId,label:ex.name})));
 const HIGH_CABLE_EXERCISES = new Set([
     'Pulldown ai Cavi a Braccia Tese', 'Pushdown ai Cavi',
     'Pushdown ai Cavi con Corda', 'Estensioni Tricipiti Sopra la Testa ai Cavi',
@@ -74,6 +76,8 @@ export function normalizeSelectionPreferences(config = {}) {
     const availableAccessories = normalizeList(
         config.availableAccessories, DEFAULT_HOME_GYM_ACCESSORIES, accessoryIds, 'accessori'
     );
+    const availableMachines = config.availableMachines === undefined ? undefined :
+        normalizeList(config.availableMachines, [], MACHINE_CHOICES.map(x=>x.id), 'macchine');
     const cableSetup = config.cableSetup ?? 'single_high_low';
     if (!CABLE_SETUPS.includes(cableSetup)) throw new Error('Configurazione dei cavi non valida.');
     const raw = config.preferredLifts ?? {};
@@ -102,10 +106,13 @@ export function normalizeSelectionPreferences(config = {}) {
         }
     }
     return { availableEquipment, availableAccessories, cableSetup, preferredLifts,
+        ...(availableMachines === undefined ? {} : {availableMachines}),
         ...(config.excludedExercises === undefined ? {} : { excludedExercises: excluded }) };
 }
 
 export function isExerciseAvailable(exercise, preferences) {
+    if (exercise.equipment === 'machine' &&
+        !(preferences.availableMachines || []).includes(exercise.machineId)) return false;
     const cableSetup = preferences.cableSetup ?? 'single_high_low';
     const hasHigh = ['high_only', 'single_high_low', 'dual_adjustable'].includes(cableSetup);
     const hasLow = ['low_only', 'single_high_low', 'dual_adjustable'].includes(cableSetup);
@@ -204,6 +211,7 @@ export function selectExerciseForSlot(slot, options = {}) {
             ex.shoulderHeadIsolation === slot.shoulderHeadIsolation) &&
         !usedNames.has(canonicalExerciseKey(ex.name)) &&
         isExerciseAvailable(ex, preferences)
+        && ex.generationAllowed !== false
     );
     const alternatives=candidates.filter(ex=>canonicalExerciseKey(ex.name)!==canonicalExerciseKey(options.previousName));
     if(options.allowVariation && alternatives.length && !preferences.preferredLifts[slot.anchor])

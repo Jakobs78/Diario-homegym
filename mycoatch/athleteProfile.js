@@ -85,6 +85,8 @@ export function normalizeAthleteProfile(input = null) {
         throw new Error('Seleziona il livello di esperienza: principiante, intermedio o avanzato.');
     }
     const calibration = String(input.calibration ?? 'guided');
+    const sex = input.sex || null;
+    if (sex !== null && !['male','female'].includes(sex)) throw Error('Sesso non valido.');
     if (!CALIBRATION_MODES.includes(calibration)) {
         throw new Error('Modalità di calibrazione non valida.');
     }
@@ -106,7 +108,8 @@ export function normalizeAthleteProfile(input = null) {
     }
     return {
         version: 1, experience, calibration, priorityMuscle,
-        excludedExercises, referenceLoads
+        excludedExercises, referenceLoads,
+        ...(sex ? {sex} : {})
     };
 }
 

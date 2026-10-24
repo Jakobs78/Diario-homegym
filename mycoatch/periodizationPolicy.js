@@ -47,7 +47,10 @@ export function deriveMesocyclePolicy(config = {}, history = {}, onboarding = {}
     const weekNumber = i + 1;
     const isDeload = weekNumber === deloadWeek;
     const typical = config.focus === 'strength' ? [7.5, 8, 8.5] : [7.5, 8, 8];
-    const guided = onboarding.calibrationWeek ? onboarding.rpeTargets?.[i] : null;
+    // The fourth entry in the old onboarding array assumed a four-week
+    // deload. It must not create an unexplained light week in a longer plan.
+    const guided = onboarding.calibrationWeek
+        ? onboarding.rpeTargets?.[Math.min(i,2)] : null;
     const raw = guided === undefined || guided === null ? typical[Math.min(i, 2)] : Number(guided);
     // Some guided onboards preallocate a very light final week assuming
     // the legacy deload. In the opt-in adaptive Full Body programme this is

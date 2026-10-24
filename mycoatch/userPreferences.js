@@ -1,6 +1,7 @@
 import { normalizeSelectionPreferences, isExerciseAvailable, FUNDAMENTAL_CHOICES } from './exerciseSelection.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { normalizeAthleteProfile } from './athleteProfile.js';
+import { generationSchedule } from './generationSchedule.js';
 
 /**
  * Convalida la durata scelta dall'utente, senza convertire input vuoti in valori
@@ -31,9 +32,8 @@ export function parseCoachPreferences(fields = {}) {
     if (!Number.isInteger(userAge) || userAge < 18 || userAge > 100) {
         throw new Error("Inserisci un'età valida (18-100 anni).");
     }
-    if (![3, 4].includes(daysPerWeek)) {
-        throw new Error('La programmazione attuale supporta 3 o 4 allenamenti a settimana.');
-    }
+    const schedule = generationSchedule({daysPerWeek,
+        ...(fields.durationWeeks !== undefined ? {durationWeeks:fields.durationWeeks} : {})});
     if (!['hybrid', 'strength', 'hypertrophy'].includes(focus)) {
         throw new Error("Seleziona un obiettivo di allenamento.");
     }
@@ -50,6 +50,7 @@ export function parseCoachPreferences(fields = {}) {
         preferredLifts: fields.preferredLifts,
         availableAccessories: fields.availableAccessories,
         availableEquipment: fields.availableEquipment,
+        availableMachines: fields.availableMachines,
         cableSetup: fields.cableSetup,
         excludedExercises: athleteProfile?.excludedExercises
     });
@@ -59,7 +60,7 @@ export function parseCoachPreferences(fields = {}) {
             throw new Error('Preferenza di fondamentale non valida: ' + key);
         }
         const exercise = EXERCISE_DATABASE.find(ex => ex.name === name);
-        if (!exercise || !isExerciseAvailable(exercise, selection)) {
+        if (!exercise || exercise.generationAllowed === false || !isExerciseAvailable(exercise, selection)) {
             throw new Error(
                 'La variante ' + name + ' richiede attrezzatura non selezionata. ' +
                 'Abilita l’accessorio necessario o scegli la variante automatica.'
@@ -71,6 +72,7 @@ export function parseCoachPreferences(fields = {}) {
         maxSessionMinutes,
         userAge,
         daysPerWeek,
+        ...(fields.durationWeeks !== undefined ? {durationWeeks:schedule.durationWeeks} : {}),
         focus,
         splitPreference,
         ...(deloadChoice === 'last' ? {deloadWeek:true} :

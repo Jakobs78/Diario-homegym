@@ -16,6 +16,7 @@ import { prescribeExerciseReps, prescribeExerciseRpe, HIGH_REP_EXERCISES } from 
 import { suggestDropset } from './intensityTechniquePolicy.js';
 import { evaluateCoachingGuardrails, authorizeTopset } from './coachGuardrails.js';
 import { addFocusAccessorySlot, selectExercisesForTime, registerSelectedWeeklySets } from './sessionSelection.js';
+import { generationSchedule, additionalDayTemplates } from './generationSchedule.js';
 
 /**
  * Intervalli iniziali orientativi, NON valori MEV/MAV/MRV universali validati.
@@ -65,6 +66,7 @@ export function previousComparableTrainingDay(lastMesocycle, dayNumber) {
 }
 
 export function generateSmartMesocycle(config = {}, historicalData = {}, rawLastMesocycle = null) {
+    config = {...config, ...generationSchedule(config)};
     const safeHistory = historicalData || {};
     
     // Analizziamo lo storico con il motore avanzato basato su e1RM e note trasparenti
@@ -271,9 +273,10 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 }
                 const reference = ex.anchorKey
                     ? athleteProfile?.referenceLoads?.[ex.anchorKey] : null;
+                // The legacy reference fields identify the original barbell
+                // lifts, not any subsequently selected machine/DB variant.
                 const expectedVariant = ex.anchorKey
-                    ? (selectionPreferences.preferredLifts[ex.anchorKey] ||
-                        defaultFundamentalName(ex.anchorKey, focus)) : null;
+                    ? defaultFundamentalName(ex.anchorKey, focus) : null;
                 // Non trasformare un peso riferito alla panca in un carico
                 // prescritto per una variante alternativa scelta automaticamente.
                 const referenceKg = !hasConfirmedHistory && !onboarding.calibrationWeek &&
@@ -570,7 +573,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
             // Il CSV originale non contiene la colonna "nome giornata":
             // conserviamo lo split nella nota del primo esercizio, così
             // l'importatore può mostrare Upper A / Lower A / Upper B / Lower B.
-            const dayLabel = String(day.dayName).match(/^(Upper [AB]|Lower [AB]|Full Body [ABCD])\b/)?.[1];
+            const dayLabel = String(day.dayName).match(/^(Upper [A-F]|Lower [A-F]|Full Body [A-F])\b/)?.[1];
             const splitNote = dayLabel ? `[SPLIT MYCOATCH] ${dayLabel}` : '';
             const calibrated = (config.durationCalibration?.sampleCount ?? 0) >= 3;
             const durationNote = `[DURATA STIMATA] ${day.estimatedMinutes} minuti su ${maxSessionMinutes} disponibili, inclusi riscaldamento generale, avvicinamento e lavoro su entrambi i lati. ${calibrated ? 'Stima prudente calibrata su ' + config.durationCalibration.sampleCount + ' sedute reali. ' : ''}Usa Inizia seduta per misurare anche la preparazione iniziale; senza avvio esplicito, il timer parte dopo la prima serie confermata. Stima orientativa.`;
@@ -650,8 +653,13 @@ function generateContextNote(ex, rpe, isDeload) {
 }
 
 export function getTemplateForDays(daysPerWeek = 3, splitPreference = 'auto') {
+    daysPerWeek = generationSchedule({daysPerWeek}).daysPerWeek;
     if (!['auto', 'upperlower', 'fullbody'].includes(splitPreference)) {
         throw new Error('Struttura settimanale MyCoatch non valida.');
+    }
+    if ([1,2,5,6].includes(daysPerWeek)) {
+        return additionalDayTemplates(daysPerWeek,
+            daysPerWeek > 4 ? getTemplateForDays(4, 'upperlower') : []);
     }
     if (daysPerWeek === 3) {
         // Con tre sedute si preferisce la Full Body: i quattro fondamentali
@@ -694,7 +702,7 @@ export function getTemplateForDays(daysPerWeek = 3, splitPreference = 'auto') {
             }
         ];
     }
-    if (daysPerWeek !== 4) throw new Error('MyCoatch supporta 3 o 4 giorni a settimana.');
+    if (daysPerWeek !== 4) throw new Error('MyCoatch supporta da 1 a 6 giorni a settimana.');
 
     // Opzione esplicita: quattro Full Body con due esposizioni distinte per
     // ciascun fondamentale. Il template Upper/Lower precedente resta invariato.

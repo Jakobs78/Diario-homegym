@@ -40,8 +40,8 @@ test('rifiuta durata mancante anche se gli altri dati sono presenti', () => {
 
 test('rifiuta numero di giorni non supportato e obiettivo sconosciuto', () => {
     assert.throws(() => parseCoachPreferences({
-        selectedTime: '60', userAge: '49', daysPerWeek: '5', focus: 'hybrid'
-    }), /3 o 4/);
+        selectedTime: '60', userAge: '49', daysPerWeek: '7', focus: 'hybrid'
+    }), /1 a 6/);
     assert.throws(() => parseCoachPreferences({
         selectedTime: '60', userAge: '49', daysPerWeek: '4', focus: 'unknown'
     }), /obiettivo/);

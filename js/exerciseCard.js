@@ -349,7 +349,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     }
     if(!isPastMeso){
         const mapping=document.createElement('details');mapping.className='exercise-catalog-mapping';
-        const title=document.createElement('summary');title.textContent='Identità esercizio e associazione al catalogo';
+        const title=document.createElement('summary');title.textContent='Correggi il riconoscimento dell’esercizio';
         const select=document.createElement('select');select.setAttribute('aria-label','Associa variante esatta al catalogo');
         const empty=document.createElement('option');empty.value='';empty.textContent='Nome personale / non associato';select.append(empty);
         for(const catalog of EXERCISE_DATABASE){const option=document.createElement('option');option.value=catalog.name;option.textContent=catalog.name;select.append(option);}
