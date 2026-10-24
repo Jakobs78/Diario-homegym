@@ -43,7 +43,7 @@ function cue(exercise) {
 export function conciseExerciseInstruction(exercise) {
     const verbose = String(exercise?.notes || '');
     const parts = [];
-    const split = /^\[SPLIT MYCOATCH\]\s*(Upper [AB]|Lower [AB]|Full Body [ABCD])/i.exec(verbose);
+    const split = /^\[SPLIT MYCOATCH\]\s*(Upper [A-F]|Lower [A-F]|Full Body [A-F])/i.exec(verbose);
     if (split) parts.push('[SPLIT MYCOATCH] ' + split[1]);
     if (verbose.includes('[SUPERSERIE]')) parts.push('[SUPERSERIE] Superserie (superset): esegui questo esercizio e il successivo senza pausa. Recupera dopo i due esercizi.');
     if (verbose.includes('[TRISET]')) parts.push('[TRISET] Triset (triset): esegui tre esercizi consecutivi senza pausa. Recupera dopo il terzo, poi riparti dal primo.');

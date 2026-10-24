@@ -178,7 +178,7 @@ export async function importWorkoutPlan(csvText, coachOptions = null) {
             // Compatibilità retroattiva: SOLO i CSV generati da MyCoatch
             // possono ricostruire l'etichetta Upper/Lower nel vecchio formato
             // a 12 colonne, senza influenzare importazioni di altri coach.
-            const namedSplit = /^\[SPLIT MYCOATCH\]\s*(Upper [AB]|Lower [AB]|Full Body [ABCD])\b/i.exec(notesVal);
+            const namedSplit = /^\[SPLIT MYCOATCH\]\s*(Upper [A-F]|Lower [A-F]|Full Body [A-F])\b/i.exec(notesVal);
             if (blockNum === 1 && namedSplit) {
                 weeksMap[weekNum].daysMap[dayNum].dayName = namedSplit[1];
             }

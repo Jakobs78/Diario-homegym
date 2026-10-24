@@ -5,7 +5,7 @@ const RAW_EXERCISES = [
     { name: "Panca Piana con Bilanciere", category: "Petto", pattern: "horizontal_push", equipment: "barbell", cnsCost: 8, profile: "Curva bilanciata - Max tensione medio-range", defaultReps: "6-8", defaultKg: "" },
     { name: "Panca Inclinata con Manubri", category: "Petto", pattern: "horizontal_push", equipment: "dumbbell", cnsCost: 6, profile: "Enfasi fascio clavicolare - Ottimizzazione ROM", defaultReps: "8-10", defaultKg: "" },
     { name: "Dip alle Parallele (sovraccarico)", category: "Petto", pattern: "vertical_push", equipment: "bodyweight", cnsCost: 7, profile: "Forte enfasi in allungamento sul basso petto", defaultReps: "8-12", defaultKg: "" },
-    { name: "Croci ai Cavi in Allungamento", category: "Petto", pattern: "isolation", equipment: "cable", cnsCost: 3, profile: "Resistenza costante - Picco in massimo allungamento", defaultReps: "12-15", defaultKg: "" },
+    { name: "Croci ai Cavi in Allungamento", category: "Petto", pattern: "isolation", equipment: "cable", cnsCost: 3, profile: "Isolamento del petto - curva dipendente da assetto e pulegge", defaultReps: "12-15", defaultKg: "" },
     { name: "Croci con Manubri su Panca Piana", category: "Petto", pattern: "isolation", equipment: "dumbbell", cnsCost: 3, defaultReps: "10-15", defaultKg: "" },
 
     // --- SCHIENA / TRAZIONE ---
@@ -17,7 +17,7 @@ const RAW_EXERCISES = [
     // --- GAMBE / LOWER BODY ---
     { name: "Squat con Bilanciere", category: "Quadricipiti", pattern: "squat", equipment: "barbell", cnsCost: 10, profile: "Multiarticolare fondamentale - ROM completo ginocchio", defaultReps: "5-6", defaultKg: "" },
     { name: "Front Squat", category: "Quadricipiti", pattern: "squat", equipment: "barbell", cnsCost: 9, profile: "Maggiore verticalità tronco - enfasi quadricipite", defaultReps: "6-8", defaultKg: "" },
-    { name: "Leg Press 45°", category: "Quadricipiti", pattern: "squat", equipment: "machine", cnsCost: 6, profile: "Azzeramento carico spinale - Target stabilità", defaultReps: "10-12", defaultKg: "" },
+    { name: "Leg Press 45°", category: "Quadricipiti", pattern: "squat", equipment: "machine", cnsCost: 6, profile: "Esecuzione supportata - traiettoria dipendente dalla macchina", defaultReps: "10-12", defaultKg: "" },
     { name: "Stacco da Terra Convenzionale", category: "Femorali", pattern: "hinge", equipment: "barbell", cnsCost: 10, profile: "Catena posteriore completa - Espressione di forza pura", defaultReps: "4-5", defaultKg: "" },
     { name: "Stacco Rumeno (RDL)", category: "Femorali", pattern: "hinge", equipment: "barbell", cnsCost: 8, profile: "Allungamento sotto carico - Ischiocrurali e glutei", defaultReps: "8-10", defaultKg: "" },
     { name: "Leg Curl Steso", category: "Femorali", pattern: "isolation", equipment: "machine", cnsCost: 4, profile: "Curve di resistenza a flessione di ginocchio", defaultReps: "10-12", defaultKg: "" },
@@ -27,13 +27,13 @@ const RAW_EXERCISES = [
     { name: "Military Press con Bilanciere", category: "Spalle", pattern: "vertical_push", equipment: "barbell", cnsCost: 8, profile: "Stabilità core e deltoide anteriore / asse claveare", defaultReps: "6-8", defaultKg: "" },
     { name: "Spinte con Manubri da Seduto", category: "Spalle", pattern: "vertical_push", equipment: "dumbbell", cnsCost: 6, profile: "Isolamento spinta verticale con supporto spinale", defaultReps: "8-10", defaultKg: "" },
     { name: "Alzate Laterali con Manubri", category: "Spalle", pattern: "isolation", equipment: "dumbbell", cnsCost: 3, profile: "Focus deltoide laterale - ROM limitato in basso", defaultReps: "12-15", defaultKg: "" },
-    { name: "Alzate Laterali ai Cavi", category: "Spalle", pattern: "isolation", equipment: "cable", cnsCost: 3, profile: "Curva di resistenza uniforme sul deltoide laterale", defaultReps: "12-15", defaultKg: "" },
+    { name: "Alzate Laterali ai Cavi", category: "Spalle", pattern: "isolation", equipment: "cable", cnsCost: 3, profile: "Deltoide laterale - curva dipendente dalla posizione del cavo", defaultReps: "12-15", defaultKg: "" },
 
     // --- BRACCIA ---
     { name: "Estensioni Tricipiti con Manubrio", category: "Tricipiti", pattern: "isolation", equipment: "dumbbell", cnsCost: 3, defaultReps: "10-15", defaultKg: "" },
     { name: "Curl con Bilanciere EZ", category: "Bicipiti", pattern: "isolation", equipment: "barbell", cnsCost: 4, profile: "Flessione gomito - Minimo stress polsi", defaultReps: "8-10", defaultKg: "" },
     { name: "Curl Manubri su Panca Inclinata", category: "Bicipiti", pattern: "isolation", equipment: "dumbbell", cnsCost: 3, profile: "Enfasi capo lungo in massimo allungamento", defaultReps: "10-12", defaultKg: "" },
-    { name: "French Press con Bilanciere EZ", category: "Tricipiti", pattern: "isolation", equipment: "barbell", cnsCost: 4, profile: "Capo mediale e laterale - Allungamento gomito", defaultReps: "8-10", defaultKg: "" },
+    { name: "French Press con Bilanciere EZ", category: "Tricipiti", pattern: "isolation", equipment: "barbell", cnsCost: 4, profile: "Estensione del gomito - posizione del braccio da mantenere ripetibile", defaultReps: "8-10", defaultKg: "" },
     { name: "Pushdown ai Cavi con Corda", category: "Tricipiti", pattern: "isolation", equipment: "cable", cnsCost: 3, profile: "Resistenza lineare - Picco di contrazione", defaultReps: "10-12", defaultKg: "" },
     // Varianti compatibili con cavi alti/bassi della home gym.
     { name: "Leg Curl ai Cavi (cavigliera)", category: "Femorali", pattern: "isolation", equipment: "cable", cnsCost: 3, defaultReps: "10-15", defaultKg: "" },
@@ -64,6 +64,24 @@ const RAW_EXERCISES = [
     { name: "Crunch ai Cavi", category: "Core", pattern: "isolation", equipment: "cable", cnsCost: 3, defaultReps: "10-20", defaultKg: "" },
     { name: "Reverse Crunch su Panca", category: "Core", pattern: "isolation", equipment: "bodyweight", cnsCost: 2, defaultReps: "12-20", defaultKg: "" },
     { name: "Pallof Press ai Cavi", category: "Core", pattern: "isolation", equipment: "cable", cnsCost: 3, defaultReps: "8-15", defaultKg: "" },
+    // Machine identities are independent: one available machine enables no other.
+    ...[
+        ['Chest Press','Petto','horizontal_push','chest_press','8-12'],
+        ['Shoulder Press alla Macchina','Spalle','vertical_push','shoulder_press','8-12'],
+        ['Hack Squat','Quadricipiti','squat','hack_squat','8-12'],
+        ['Leg Extension','Quadricipiti','isolation','leg_extension','10-15'],
+        ['Leg Curl Seduto','Femorali','isolation','seated_leg_curl','10-15'],
+        ['Rematore alla Macchina con Appoggio','Back_Thickness','horizontal_pull','supported_row','8-12'],
+        ['Pec Deck','Petto','isolation','pec_deck','10-15'],
+        ['Reverse Pec Deck','Spalle','isolation','reverse_pec_deck','12-20'],
+        ['Calf Raise alla Macchina in Piedi','Polpacci','isolation','standing_calf','10-20'],
+        ['Calf Raise Seduto alla Macchina','Polpacci','isolation','seated_calf','10-20'],
+        ['Crunch alla Macchina','Core','isolation','abdominal_machine','10-20']
+    ].map(([name,category,pattern,machineId,defaultReps])=>({
+        name,category,pattern,machineId,equipment:'machine',cnsCost:pattern==='isolation'?3:6,defaultReps,defaultKg:''
+    })),
+    {name:'Panca Piana con Manubri',category:'Petto',pattern:'horizontal_push',equipment:'dumbbell',cnsCost:6,defaultReps:'8-12',defaultKg:''},
+    {name:'Stacco Rumeno con Manubri',category:'Femorali',pattern:'hinge',equipment:'dumbbell',cnsCost:6,defaultReps:'8-12',defaultKg:''},
 ];
 
 /**
@@ -73,6 +91,10 @@ const RAW_EXERCISES = [
  * Le `secondaryMuscles` indicano coinvolgimento, NON serie effettive misurate.
  */
 const STABLE_IDS = new Map([
+    ...['Chest Press','Shoulder Press alla Macchina','Hack Squat','Leg Extension',
+        'Leg Curl Seduto','Rematore alla Macchina con Appoggio','Pec Deck','Reverse Pec Deck',
+        'Calf Raise alla Macchina in Piedi','Calf Raise Seduto alla Macchina','Crunch alla Macchina',
+        'Panca Piana con Manubri','Stacco Rumeno con Manubri'].map(name=>[name,name.toLowerCase().replace(/ /g,'_')]),
     ["Estensioni Tricipiti con Manubrio", "estensioni_tricipiti_con_manubrio"],
     ["Hamstring Walkout a Corpo Libero", "hamstring_walkout_corpo_libero"],
     ["Panca Piana con Bilanciere", "panca_piana_con_bilanciere"],
@@ -142,6 +164,10 @@ const CATEGORY_SECONDARIES = {
     Core: []
 };
 const REQUIRES = {
+    'Panca Piana con Manubri': ['flat_bench'],
+    'Panca Stretta con Bilanciere': ['rack','flat_bench'],
+    'Spinte con Manubri da Seduto': ['flat_bench'],
+    'Bulgarian Split Squat con Manubri': ['flat_bench'],
     'Panca Piana con Bilanciere': ['rack', 'flat_bench'],
     'Croci con Manubri su Panca Piana': ['flat_bench'],
     'Lat Machine con Triangolo': ['triangle_handle'],
@@ -162,6 +188,7 @@ const REQUIRES = {
 };
 
 const MUSCLE_OVERRIDES = {
+    'Stacco Rumeno con Manubri': ['Glutei','Back_Thickness'],
     'Stacco da Terra Convenzionale': ['Glutei', 'Back_Thickness', 'Quadricipiti'],
     'Stacco Rumeno (RDL)': ['Glutei', 'Back_Thickness'],
     'Military Press con Bilanciere': ['Tricipiti', 'Core'],
@@ -179,6 +206,7 @@ const MUSCLE_OVERRIDES = {
 // Copertura dei capi deltoidei: un isolamento diretto non si confonde
 // con il lavoro indiretto di panca/rematore o con una misura di crescita.
 const SHOULDER_HEAD = Object.freeze({
+    'Reverse Pec Deck': 'posteriore',
     'Alzate Laterali con Manubri': 'laterale',
     'Alzate Laterali ai Cavi': 'laterale',
     'Alzate Posteriori con Manubri': 'posteriore',
@@ -186,7 +214,7 @@ const SHOULDER_HEAD = Object.freeze({
     'Reverse Fly ai Cavi': 'posteriore'
 });
 
-const UNILATERAL_EXERCISES=new Set(['Rematore con Manubrio a Un Braccio','Bulgarian Split Squat con Manubri','Affondi con Manubri','Step-up con Manubri','Calf Raise Monopodalico','Pallof Press ai Cavi','Leg Curl ai Cavi (cavigliera)']);
+const UNILATERAL_EXERCISES=new Set(['Alzate Laterali ai Cavi','Rematore con Manubrio a Un Braccio','Bulgarian Split Squat con Manubri','Affondi con Manubri','Step-up con Manubri','Calf Raise Monopodalico','Pallof Press ai Cavi','Leg Curl ai Cavi (cavigliera)']);
 
 export const EXERCISE_DATABASE = Object.freeze(RAW_EXERCISES.map(exercise => {
     const id = STABLE_IDS.get(exercise.name);
@@ -196,6 +224,8 @@ export const EXERCISE_DATABASE = Object.freeze(RAW_EXERCISES.map(exercise => {
         : (MUSCLE_OVERRIDES[exercise.name] || CATEGORY_SECONDARIES[exercise.category] || []);
     return Object.freeze({
         ...exercise,
+        machineId: exercise.machineId || ({'Leg Press 45°':'leg_press','Leg Curl Steso':'lying_leg_curl'}[exercise.name]) || null,
+        generationAllowed: exercise.equipment !== 'bodyweight',
         id,
         primaryMuscle: exercise.category,
         unilateral:UNILATERAL_EXERCISES.has(exercise.name),

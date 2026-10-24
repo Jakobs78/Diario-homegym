@@ -15,7 +15,7 @@ const config={daysPerWeek:4,maxSessionMinutes:60,durationWeeks:4,userAge:49,
 const build=overrides=>generateSmartMesocycle({...config,...overrides});
 
 test('4 giorni/60 minuti/49 anni: flessione ginocchio, hip hinge e seconda spinta conservati',()=>{
- const plan=build();
+ const plan=build({availableAccessories:[...config.availableAccessories,'ankle_strap']});
  for(const week of plan.weeks){
   assert.ok(week.days.every(d=>d.estimatedSeconds<=3600));
   assert.ok(week.days[1].exercises.some(e=>e.category==='Femorali' && e.pattern==='isolation'));
@@ -24,10 +24,12 @@ test('4 giorni/60 minuti/49 anni: flessione ginocchio, hip hinge e seconda spint
   assert.ok(week.days.flatMap(d=>d.exercises).filter(e=>e.pattern==='hip_thrust').length<=1);
  }
 });
-test('cavigliera disponibile: leg curl, altrimenti alternativa senza accessori inventati',()=>{
- const simple=build().weeks[0].days[1].exercises;
- assert.ok(simple.some(e=>e.name==='Hamstring Walkout a Corpo Libero'));
+test('cavigliera disponibile: leg curl, altrimenti lacuna dichiarata senza corpo libero',()=>{
+ const plan=build();
+ const simple=plan.weeks[0].days[1].exercises;
+ assert.ok(!simple.some(e=>e.name==='Hamstring Walkout a Corpo Libero'));
  assert.ok(!simple.some(e=>e.name.includes('cavigliera')));
+ assert.ok(plan.weeks[0].optionalSlotsNotAvailable.some(slot=>slot.muscle==='Femorali'));
  const equipped=build({availableAccessories:[...config.availableAccessories,'ankle_strap']});
  assert.ok(equipped.weeks[0].days[1].exercises.some(e=>e.name==='Leg Curl ai Cavi (cavigliera)'));
 });

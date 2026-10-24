@@ -1,4 +1,5 @@
 import {EXERCISE_DATABASE,DEFAULT_HOME_GYM_EQUIPMENT} from '../mycoatch/exercisesDB.js';
+import {FUNDAMENTAL_CHOICES} from '../mycoatch/exerciseSelection.js';
 import {editJournal} from './journalTransaction.js';
 import { initializeJournalStorage, flushJournalStorage } from './journalStore.js';
 /**
@@ -276,6 +277,7 @@ function setupEventListeners() {
     function readAthleteProfileFields() {
         return {
                     experience: document.getElementById('mycoatch-experience')?.value,
+                    sex: document.getElementById('mycoatch-sex')?.value || null,
                     calibration: document.getElementById('mycoatch-calibration')?.value,
                     priorityMuscle: document.getElementById('mycoatch-priority-muscle')?.value || null,
                     excludedExercises: Array.from(
@@ -293,23 +295,55 @@ function setupEventListeners() {
     }
 
     // Every catalog exercise can be excluded, preserving the saved preferences.
-    const avoidContainer=document.querySelector('.mycoatch-avoid-check')?.closest('fieldset') || document.querySelector('.mycoatch-avoid-check')?.parentElement?.parentElement;
+    const avoidContainer=document.getElementById('mycoatch-avoid-exercises');
     if(avoidContainer)for(const ex of EXERCISE_DATABASE){
         if([...document.querySelectorAll('.mycoatch-avoid-check')].some(input=>input.value===ex.name))continue;
         const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.className='mycoatch-avoid-check';input.value=ex.name;label.append(input,document.createTextNode(ex.name));avoidContainer.append(label);
     }
     const baseEquipment=document.createElement('fieldset');baseEquipment.className='mycoatch-base-equipment';
     const legend=document.createElement('legend');legend.textContent='Attrezzatura di base effettivamente disponibile';baseEquipment.append(legend);
-    for(const id of DEFAULT_HOME_GYM_EQUIPMENT){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=id;input.checked=true;input.defaultChecked=true;input.className='mycoatch-base-equipment-check';label.append(input,document.createTextNode(({barbell:'Bilancieri',dumbbell:'Manubri',bodyweight:'Corpo libero',lat_machine:'Lat machine',cable:'Cavi'})[id]||id));baseEquipment.append(label);}
+    for(const id of DEFAULT_HOME_GYM_EQUIPMENT.filter(id=>id!=='bodyweight')){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=id;input.checked=true;input.defaultChecked=true;input.className='mycoatch-base-equipment-check';label.append(input,document.createTextNode(({barbell:'Bilancieri',dumbbell:'Manubri',lat_machine:'Lat machine',cable:'Cavi'})[id]||id));baseEquipment.append(label);}
     for(const id of DEFAULT_HOME_GYM_ACCESSORIES){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.value=id;input.defaultChecked=true;input.checked=true;input.className='mycoatch-accessory-check';label.append(input,document.createTextNode(id==='rack'?'Rack / supporti per bilanciere':'Panca piana'));baseEquipment.append(label);}
-    document.getElementById('mycoatch-config-form')?.append(baseEquipment);
+    const confirmEquipment=document.createElement('label'),confirmInput=document.createElement('input');
+    confirmInput.type='checkbox';confirmInput.id='mycoatch-equipment-confirmed';
+    confirmEquipment.append(confirmInput,document.createTextNode('Confermo gli attrezzi selezionati per questa proposta.'));
+    baseEquipment.append(confirmEquipment);
+    const machines=document.createElement('details');machines.id='mycoatch-machines';
+    const machineTitle=document.createElement('summary');machineTitle.textContent='Macchine realmente disponibili';machines.append(machineTitle);
+    for(const ex of EXERCISE_DATABASE.filter(ex=>ex.machineId)){
+        const label=document.createElement('label'),input=document.createElement('input');
+        input.type='checkbox';input.value=ex.machineId;input.className='mycoatch-machine-check';
+        label.append(input,document.createTextNode(ex.name));machines.append(label);
+    }
+    baseEquipment.append(machines);
+    coachForm?.insertBefore(baseEquipment,coachFeedback);
+    for(const [lift,names] of Object.entries(FUNDAMENTAL_CHOICES)){
+        const select=document.getElementById('mycoatch-lift-'+lift);
+        if(!select)continue;
+        select.replaceChildren(new Option('Automatica — variante compatibile con la dotazione','auto'),
+            ...names.map(name=>new Option(name,name)));
+    }
+    const updateSplit=()=>{
+        const split=document.getElementById('mycoatch-split');
+        const days=Number(document.getElementById('select-days')?.value);
+        if(split){
+            split.disabled=days!==4;
+            if(split.disabled)split.value='auto';
+            split.options[0].textContent=days===4?'Upper/Lower — 2 sedute sopra + 2 sotto':
+                days<=3?'Automatica — Full Body':'Automatica — distribuzione su '+days+' giorni';
+        }
+    };
+    document.getElementById('select-days')?.addEventListener('change',updateSplit);
     function readCoachOptions() {
         const review=document.getElementById('mycoatch-limitations-confirmed');
         if(review&&!review.checked)throw Error('Rivaluta le limitazioni segnalate e conferma prima di generare il nuovo mesociclo.');
+        if(!confirmInput.checked)throw Error('Controlla gli attrezzi e conferma la dotazione della proposta.');
+        const availableMachines=Array.from(document.querySelectorAll('.mycoatch-machine-check:checked'),input=>input.value);
         return parseCoachPreferences({
                 selectedTime: timeSelect?.value,
                 customTime: customTime?.value,
                 daysPerWeek: document.getElementById('select-days')?.value,
+                durationWeeks: document.getElementById('mycoatch-weeks')?.value,
                 splitPreference: document.getElementById('mycoatch-split')?.value || 'auto',
                 deloadChoice: document.getElementById('mycoatch-deload-choice')?.value || 'auto',
                 userAge: document.getElementById('input-age')?.value,
@@ -318,7 +352,8 @@ function setupEventListeners() {
                     .map(lift => [lift, document.getElementById('mycoatch-lift-' + lift)?.value || 'auto'])),
                 cableSetup: document.getElementById('mycoatch-cable-setup')?.value || 'single_high_low',
                 availableAccessories: Array.from(document.querySelectorAll('.mycoatch-accessory-check:checked'),input=>input.value),
-                availableEquipment:Array.from(document.querySelectorAll('.mycoatch-base-equipment-check:checked'),input=>input.value),
+                availableEquipment:[...Array.from(document.querySelectorAll('.mycoatch-base-equipment-check:checked'),input=>input.value),...(availableMachines.length?['machine']:[])],
+                availableMachines,
                 athleteProfile: readAthleteProfileFields()
             })
     }

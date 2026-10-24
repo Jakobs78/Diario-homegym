@@ -149,7 +149,7 @@ export function startCoachChatAndGenerate(mesocycleOrEvent = null) {
     const settings=latestSavedSettings(state.workoutData);
     const set=(id,value)=>{const node=document.getElementById(id);if(node)node.value=value??'';};
     if(settings){
-        for(const [key,id] of Object.entries({userAge:'input-age',daysPerWeek:'select-days',
+        for(const [key,id] of Object.entries({userAge:'input-age',daysPerWeek:'select-days',durationWeeks:'mycoatch-weeks',
             focus:'select-focus',splitPreference:'mycoatch-split',cableSetup:'mycoatch-cable-setup'}))
             if(settings[key]!==undefined)set(id,settings[key]);
         set('mycoatch-deload-choice',settings.deloadWeek===true?'last':settings.deloadWeek===false?'none':'auto');
@@ -161,6 +161,7 @@ export function startCoachChatAndGenerate(mesocycleOrEvent = null) {
             if(!standard && custom)custom.value=String(minutes);
         }
         document.querySelectorAll('.mycoatch-base-equipment-check').forEach(input=>{input.checked=Array.isArray(settings.availableEquipment)?settings.availableEquipment.includes(input.value):input.defaultChecked;});
+        document.querySelectorAll('.mycoatch-machine-check').forEach(input=>{input.checked=settings.availableMachines?.includes(input.value)===true;});
         document.querySelectorAll('.mycoatch-accessory-check').forEach(node=>{
             node.checked=settings.availableAccessories?.includes(node.value)===true;
         });
@@ -168,6 +169,7 @@ export function startCoachChatAndGenerate(mesocycleOrEvent = null) {
             set('mycoatch-lift-'+lift,settings.preferredLifts?.[lift] || 'auto');
     }
     if(saved){
+        set('mycoatch-sex',saved.sex || '');
         set('mycoatch-experience',saved.experience);
         set('mycoatch-calibration',saved.calibration);
         set('mycoatch-priority-muscle',saved.priorityMuscle);
@@ -180,6 +182,7 @@ export function startCoachChatAndGenerate(mesocycleOrEvent = null) {
             set('mycoatch-load-'+lift+'-date',ref.performedOn);
         }
     }
+    document.getElementById('select-days')?.dispatchEvent(new Event('change'));
     document.getElementById('mycoatch-limitations-review')?.remove();
     const reports=recentPainReports(state.workoutData);
     if(reports.length){

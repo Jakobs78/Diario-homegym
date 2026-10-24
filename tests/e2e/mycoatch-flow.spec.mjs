@@ -130,6 +130,7 @@ async function startCoach(page, minutes = '45') {
   await page.locator('#input-age').fill('49');
   await page.locator('#select-focus').selectOption('hybrid');
   await page.locator('#mycoatch-experience').selectOption('intermediate');
+  await page.locator('#mycoatch-equipment-confirmed').check();
 }
 
 test('percorso reale: tempo scelto, storico multianno, anteprima, download, import e timer superset', async ({ page }) => {
@@ -2963,6 +2964,7 @@ test('saved generation settings return editable; cancelled draft and new plan pr
   await expect(page.locator('#mycoatch-custom-time')).toHaveValue('55');
   await expect(page.locator('#mycoatch-split')).toHaveValue('fullbody');
   await page.locator('#mycoatch-split').selectOption('auto');
+  await page.locator('#mycoatch-equipment-confirmed').check();
   await page.locator('#mycoatch-preview-btn').click();
   await expect(page.locator('#mycoatch-preview-overlay')).not.toHaveClass(/hidden/);
   await page.locator('#mycoatch-preview-apply').click();
@@ -3075,4 +3077,105 @@ test('protocollo: PDF reale esportato conserva tutti gli esercizi e impagina not
   });
   expect(pdf.pages).toBeGreaterThan(1);expect(pdf.bytes.length).toBeGreaterThan(10000);
   const {writeFile}=await import('node:fs/promises');await writeFile(testInfo.outputPath('report-reale.pdf'),Buffer.from(pdf.bytes));
+});
+
+// Extended schedule: exercise the real form, CSV, import, archive and menus.
+test('8 settimane e 6 giorni: anteprima e importazione preservano il diario e tutti i giorni',async({page})=>{
+  const monitor=await openIsolatedApp(page);page.on('dialog',dialog=>dialog.accept());
+  await startCoach(page,'60');
+  await page.locator('#mycoatch-weeks').fill('8');
+  await page.locator('#select-days').selectOption('6');
+  await expect(page.locator('#mycoatch-split')).toBeDisabled();
+  await page.locator('#mycoatch-equipment-confirmed').uncheck();
+  await page.locator('#mycoatch-preview-btn').click();
+  await expect(page.locator('#mycoatch-form-feedback')).toContainText('conferma');
+  await page.locator('#mycoatch-equipment-confirmed').check();
+  const old=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    return JSON.stringify(state.workoutData.history.years);
+  });
+  await page.locator('#mycoatch-preview-btn').click();
+  await expect(page.locator('.mycoatch-preview-week')).toHaveCount(8);
+  await expect(page.locator('.mycoatch-preview-day h4')).toHaveCount(48);
+  const beforeImport=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');return JSON.stringify(state.workoutData.history.years);
+  });
+  assert.equal(beforeImport,old,'preview must not edit the diary');
+  const downloading=page.waitForEvent('download');
+  await page.locator('#mycoatch-preview-download').click();
+  const file=await downloading;const csv=await readFile(await file.path(),'utf8');
+  assert.ok(csv.split('\n').some(row=>row.startsWith('8;6;')));
+  assert.match(csv,/SPLIT MYCOATCH\] Lower C/);
+  assert.doesNotMatch(csv,/Hamstring Walkout|Push-up a Terra/);
+  await page.locator('#mycoatch-preview-apply').click();
+  await expect(page.locator('#mycoatch-preview-overlay')).toHaveClass(/hidden/);
+  const result=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const m=state.workoutData.history.years[new Date().getFullYear()].mesocycles.at(-1);
+    const {summarizeMesocycleClosure}=await import('/js/mesocycleClosure.js');
+    const {buildMesocyclePdfOutline}=await import('/js/mesocyclePdfModel.js');
+    return {weeks:m.weeks.length,days:m.weeks.at(-1).days.length,
+      last:m.weeks.at(-1).days.at(-1).dayName,settings:m.coachProfileSnapshot.settings,
+      sessions:summarizeMesocycleClosure(m).plannedSessions,
+      pdfWeeks:buildMesocyclePdfOutline(m).filter(r=>r.kind==='week').length,
+      oldWeight:state.workoutData.history.years[2025].mesocycles[0].weeks[0].days[0].exercises[0].loggedSets[0].weight};
+  });
+  expect(result.weeks).toBe(8);expect(result.days).toBe(6);expect(result.last).toBe('Lower C');
+  expect(result.settings.durationWeeks).toBe(8);expect(result.sessions).toBe(48);expect(result.pdfWeeks).toBe(8);
+  expect(result.oldWeight).toBe('70');
+  await page.locator('#week-selector').selectOption('8');
+  await expect(page.locator('.day-tabs button')).toHaveCount(6);
+  await page.locator('.day-tabs button').last().click();
+  await expect(page.locator('.active-day-btn')).toHaveText('Lower C');
+  assert.deepEqual(monitor.pageErrors,[]);assert.deepEqual(monitor.remoteRequests,[]);
+});
+
+test('CSV esterno: 52 settimane e 7 giorni consultabili su mobile, anche nel report completo',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  const monitor=await openIsolatedApp(page);page.on('dialog',dialog=>dialog.accept());
+  const rows=[HEADER];
+  for(let w=1;w<=52;w++)for(let d=1;d<=7;d++)
+    rows.push(`${w};${d};1;Alzate Laterali con Manubri;1;15-20;5;5;8;60s;Test esterno;;`);
+  const imported=await page.evaluate(async csv=>{
+    const {importWorkoutPlan}=await import('/js/csvHandler.js');
+    return importWorkoutPlan(csv);
+  },rows.join('\n'));
+  expect(imported.success).toBe(true);
+  await page.evaluate(async()=>{const {renderWorkoutList}=await import('/js/ui.js');renderWorkoutList();});
+  await expect(page.locator('#week-selector option')).toHaveCount(52);
+  await page.locator('#week-selector').selectOption('52');
+  await expect(page.locator('.day-tabs button')).toHaveCount(7);
+  await page.locator('.day-tabs button').last().click();
+  await expect(page.locator('.active-day-btn')).toHaveText('Giorno 7');
+  const last=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const m=state.workoutData.history.years[new Date().getFullYear()].mesocycles.at(-1);
+    const {summarizeMesocycleClosure}=await import('/js/mesocycleClosure.js');
+    const {buildMesocyclePdfOutline}=await import('/js/mesocyclePdfModel.js');
+    return {weeks:m.weeks.length,sessions:summarizeMesocycleClosure(m).plannedSessions,
+      pdfDays:buildMesocyclePdfOutline(m).filter(r=>r.kind==='day').length,
+      last:m.weeks.at(-1).days.at(-1).dayNumber,
+      pageOverflows:document.documentElement.scrollWidth>innerWidth+2};
+  });
+  expect(last).toEqual({weeks:52,sessions:364,pdfDays:364,last:7,pageOverflows:false});
+  assert.deepEqual(monitor.pageErrors,[]);assert.deepEqual(monitor.remoteRequests,[]);
+});
+
+test('menu e sottomenu: nessun ID, azione o esercizio duplicato dopo aperture ripetute',async({page})=>{
+  await openIsolatedApp(page);
+  for(let i=0;i<3;i++){
+    await startCoach(page,'60');
+    const duplicates=await page.evaluate(()=>{
+      const repeated=xs=>xs.filter((x,i)=>xs.indexOf(x)!==i);
+      const modal=document.getElementById('mycoatch-config-modal');
+      return {ids:repeated([...document.querySelectorAll('[id]')].map(n=>n.id)),
+        actions:repeated([...document.querySelectorAll('#tools-modal [data-action]')].map(n=>n.dataset.action)),
+        exclusions:repeated([...modal.querySelectorAll('.mycoatch-avoid-check')].map(n=>n.value)),
+        misplaced:[...modal.querySelectorAll('.mycoatch-avoid-check')].filter(n=>!n.closest('#mycoatch-avoid-exercises')).length,
+        machines:repeated([...modal.querySelectorAll('.mycoatch-machine-check')].map(n=>n.value)),
+        options:[...modal.querySelectorAll('select')].flatMap(s=>repeated([...s.options].map(o=>o.value)))};
+    });
+    expect(duplicates).toEqual({ids:[],actions:[],exclusions:[],misplaced:0,machines:[],options:[]});
+    await page.locator('#close-mycoatch-config').click();
+  }
 });

@@ -118,7 +118,8 @@ test('barbell assignment persists by canonical exercise and never falls back aft
 
 test('short full-body plans retain weekly pulls and knee flexion within the actual budget',()=>{
     for(const maxSessionMinutes of [30,45,60]){
-        const p=generateSmartMesocycle({...config,splitPreference:'fullbody',maxSessionMinutes,deloadWeek:false},{});
+        const p=generateSmartMesocycle({...config,splitPreference:'fullbody',maxSessionMinutes,deloadWeek:false,
+            availableAccessories:['rack','flat_bench','ankle_strap']},{});
         for(const week of p.weeks){
             const exercises=week.days.flatMap(day=>day.exercises);
             for(const pattern of ['horizontal_pull','vertical_pull','horizontal_push','vertical_push','squat','hinge'])

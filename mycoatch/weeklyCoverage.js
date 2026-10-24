@@ -159,7 +159,7 @@ export function auditWeeklyCoverage(days, templates = [], requestedDays = []) {
         } else if (item.status === 'reduced_after_optimization') {
             warnings.push(item.label + ': riduzione da ' + item.plannedSets +
                 ' a ' + item.scheduledSets + ' serie dirette dopo l’ottimizzazione.');
-        } else if (item.status === 'not_programmed' && (days || []).length === 4) {
+        } else if (item.status === 'not_programmed' && (days || []).length > 0) {
             warnings.push(item.label + ': nessuna serie diretta nella settimana. ' +
                 'Controlla obiettivi e attrezzatura; non implica assenza di stimolo indiretto.');
         }

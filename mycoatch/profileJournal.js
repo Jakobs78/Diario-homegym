@@ -94,8 +94,8 @@ export function latestSavedProfile(data) {
 }
 
 export function generationSettings(options={}) {
-    const fields=['userAge','daysPerWeek','maxSessionMinutes','focus','splitPreference',
-        'deloadWeek','preferredLifts','availableEquipment','availableAccessories','cableSetup'];
+    const fields=['userAge','daysPerWeek','durationWeeks','maxSessionMinutes','focus','splitPreference',
+        'deloadWeek','preferredLifts','availableEquipment','availableMachines','availableAccessories','cableSetup'];
     return Object.fromEntries(fields.filter(key=>options[key]!==undefined)
         .map(key=>[key,clone(options[key])]));
 }
@@ -131,20 +131,21 @@ export function equipmentMatchesSnapshot(captured, athlete) {
  * v1 snapshots remain readable; no automatic migration or historical write.
  */
 export function profileSnapshot(staged,{
-    splitPreference='auto',daysPerWeek=null,maxSessionMinutes=null,focus=null,
+    splitPreference='auto',daysPerWeek=null,durationWeeks=4,maxSessionMinutes=null,focus=null,
     userAge=null,preferredLifts={},availableEquipment=[],
-    availableAccessories=[],cableSetup=null,deloadWeek=null,
+    availableAccessories=[],availableMachines=[],cableSetup=null,deloadWeek=null,
     equipmentAtGeneration:previewEquipment={}
 }={},equipmentAtGeneration=null) {
     if(!staged?.profile||!Number.isInteger(staged.version))
         throw Error('Profilo non disponibile.');
     const settings={
-        splitPreference,daysPerWeek,maxSessionMinutes,focus,
+        splitPreference,daysPerWeek,durationWeeks,maxSessionMinutes,focus,
         userAge:Number.isInteger(Number(userAge)) && userAge !== null
             ? Number(userAge) : null,
         preferredLifts:preferredLifts || {},
         availableEquipment:Array.isArray(availableEquipment) ? availableEquipment : [],
         availableAccessories:Array.isArray(availableAccessories) ? availableAccessories : [],
+        availableMachines:Array.isArray(availableMachines) ? availableMachines : [],
         cableSetup,
         deloadWeek:typeof deloadWeek === 'boolean' ||
             Number.isInteger(deloadWeek) ? deloadWeek : null
