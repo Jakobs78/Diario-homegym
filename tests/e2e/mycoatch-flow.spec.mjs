@@ -374,12 +374,8 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   await page.locator('.set-rpe[data-set="0"]').fill('9.5');
   await page.locator('.set-lock-check[data-set="0"]').check();
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 1/3');
-  await expect(page.locator('#mycoatch-live-guidance')).toContainText('RPE molto alto');
-  await expect(page.locator('#mycoatch-live-guidance')).toContainText('Ultima prestazione comparabile');
-  await expect(page.locator('#mycoatch-live-guidance')).toContainText('Variazione della forza stimata');
-  await expect(page.locator('#mycoatch-live-toast')).toContainText('RPE molto alto');
+  await expect(page.locator('.ex-card .coach-adaptive-notes').first()).toContainText('RPE molto alto');
   await expect(page.locator('.mycoatch-live-toast .mycoatch-live-apply')).toHaveCount(0);
-  await expect(page.locator('.mycoatch-live-advice-history')).not.toHaveAttribute('open', '');
   await expect(page.locator('.set-kg[data-set="1"]')).toHaveValue('80');
   await expect(page.locator('.set-reps[data-set="1"]')).toHaveValue('6');
   await expect(page.locator('.set-rpe[data-set="1"]')).toHaveValue('8');
@@ -398,7 +394,7 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   await page.locator('.set-rpe[data-set="2"]').fill('8');
   await page.locator('.set-lock-check[data-set="2"]').check();
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 3/3');
-  await expect(page.locator('#mycoatch-live-guidance')).toContainText('Seduta completata');
+  await expect(page.locator('.mycoatch-session-summary')).toBeVisible();
 
   const completed = await page.evaluate(async () => {
     const { state } = await import('/js/state.js');
@@ -459,14 +455,14 @@ test('MyCoatch check-in reale: sonno/energia limitano aumenti, dolore impone cau
     await page.locator('.set-rpe[data-set="'+i+'"]').fill('7');
     await page.locator('.set-lock-check[data-set="'+i+'"]').check();
   }
-  await expect(page.locator('#mycoatch-live-guidance')).toContainText('oggi mantieni il carico');
+  await expect(page.locator('.ex-card .coach-adaptive-notes').first()).toContainText('oggi mantieni il carico');
   await expect(page.locator('.mycoatch-live-apply')).toHaveCount(0);
   await expect(page.locator('.set-kg[data-set="2"]')).toHaveValue('80');
   // Modificare il check-in non trasforma serie future in completate.
   await checkin.locator('select[name="pain"]').selectOption('present');
   await checkin.locator('button[type="submit"]').click();
   await expect(checkin).toContainText('interrompi il movimento');
-  await expect(page.locator('#mycoatch-live-guidance')).toContainText('Dolore segnalato');
+  await expect(page.locator('.ex-card .coach-adaptive-notes').first()).toContainText('Dolore segnalato');
   await expect(page.locator('.mycoatch-live-apply')).toHaveCount(0);
   const future=await page.evaluate(async()=>{
     const {state}=await import('/js/state.js');
@@ -574,10 +570,10 @@ test('MyCoatch LIVE con RPE mancante non inventa massimale o suggerimenti', asyn
   // Un RPE lasciato volontariamente vuoto è consentito, ma MyCoatch non stima la fatica.
   await page.locator('.set-rpe[data-set="0"]').fill('');
   await page.locator('.set-lock-check[data-set="0"]').check();
-  await expect(page.locator('#mycoatch-live-guidance')).toContainText('senza RPE');
+  await expect(page.locator('.ex-card .coach-adaptive-notes').first()).toContainText('senza RPE');
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Sforzo percepito (RPE) registrato: 0/1');
   await expect(page.locator('.mycoatch-live-apply')).toHaveCount(0);
-  await expect(page.locator('#mycoatch-live-guidance')).not.toContainText('e1RM stimato');
+  await expect(page.locator('.ex-card .coach-adaptive-notes').first()).not.toContainText('e1RM stimato');
   assert.deepEqual(monitoring.remoteRequests, []);
   assert.deepEqual(monitoring.pageErrors, []);
 });
@@ -1307,56 +1303,28 @@ test('settimane successive: riusa soltanto le serie confermate dello stesso meso
 });
 
 
-test('feedback MyCoatch flottante: 15 secondi, chiusura manuale e consiglio recuperabile', async ({ page }) => {
-  const monitoring = await openIsolatedApp(page);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await prepareLiveWorkout(page);
-  const toast = page.locator('#mycoatch-live-toast');
-  await expect(toast).toHaveCount(0);
-
-  // La digitazione NON e' una performance registrata, non apre popup.
+test('feedback utile persistente nella card, senza popup a ogni conferma', async ({page})=>{
+  const monitor=await openIsolatedApp(page);await page.setViewportSize({width:390,height:844});
+  await prepareLiveWorkout(page);await page.clock.install();
   await page.locator('.set-kg[data-set="0"]').fill('80');
   await page.locator('.set-reps[data-set="0"]').fill('8');
   await page.locator('.set-rpe[data-set="0"]').fill('9.5');
-  await expect(toast).toHaveCount(0);
-
-  await page.clock.install();
+  await expect(page.locator('#mycoatch-live-toast')).toHaveCount(0);
   await page.locator('.set-lock-check[data-set="0"]').check();
-  await expect(toast).toBeVisible();
-  await expect(toast).toContainText('RPE molto alto');
-  const coords = await toast.boundingBox();
-  assert.ok(coords && coords.x >= 0 && coords.y >= 0 &&
-    coords.y + coords.height <= 844 && coords.y < 260,
-    'MyCoatch toast is centered near the top of the mobile viewport, not below the fold');
-  await expect(page.locator('.mycoatch-live-advice-history')).not.toHaveAttribute('open', '');
-
-  // Il coach continua a offrire il dettaglio dopo la scadenza.
-  // Il test non deve dipendere dal millisecondo esatto: il browser puo'
-  // aver consumato qualche ms tra check, layout e assertions.
-  await page.clock.fastForward(12000);
-  await expect(toast).toBeVisible();
-  await page.clock.fastForward(4000);
-  await expect(toast).toHaveCount(0);
-  await page.locator('.mycoatch-live-trigger').click();
-  await page.locator('.mycoatch-live-advice-history > summary').click();
-  await expect(page.locator('.mycoatch-live-advice-history .mycoatch-live-advice')).toBeVisible();
-  await expect(page.locator('.mycoatch-live-advice-history')).toContainText('RPE molto alto');
-
-  // Nuovo check -> messaggio nuovo e timer riavviato. X chiude subito.
+  const panel=page.locator('.ex-card .exercise-coach-notes').first();
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('.coach-adaptive-notes')).toContainText('RPE molto alto');
+  await expect(panel.locator('summary')).toHaveCount(0);
+  await page.clock.fastForward(16000);
+  await expect(panel.locator('.coach-adaptive-notes')).toContainText('RPE molto alto');
+  await expect(page.locator('#mycoatch-live-toast,.mycoatch-live-advice-history')).toHaveCount(0);
   await page.locator('.set-kg[data-set="1"]').fill('75');
   await page.locator('.set-reps[data-set="1"]').fill('7');
   await page.locator('.set-rpe[data-set="1"]').fill('8');
   await page.locator('.set-lock-check[data-set="1"]').check();
-  await expect(toast).toBeVisible();
-  await expect(toast).toContainText('serie 2');
-  await page.locator('.mycoatch-live-toast-dismiss').click();
-  await expect(toast).toHaveCount(0);
-
-  // Uncheck non costituisce una serie nuova e non apre un altro avviso.
-  await page.locator('.set-lock-check[data-set="1"]').uncheck();
-  await expect(toast).toHaveCount(0);
-  assert.deepEqual(monitoring.remoteRequests,[]);
-  assert.deepEqual(monitoring.pageErrors,[]);
+  await expect(panel.locator('.coach-adaptive-notes')).toBeHidden();
+  await expect(page.locator('#mycoatch-live-toast')).toHaveCount(0);
+  assert.deepEqual(monitor.remoteRequests,[]);assert.deepEqual(monitor.pageErrors,[]);
 });
 
 test('errore validazione della serie appare anche vicino all atleta in basso', async ({ page }) => {
@@ -1421,7 +1389,7 @@ test('shell compatto mobile: navigazione rapida, menu utility e MyCoatch apribil
   await page.locator('.set-lock-check[data-set="0"]').check();
   await expect(page.locator('.mycoatch-live-count')).toContainText('1/3');
   await expect(page.locator('#mycoatch-live-disclosure')).toHaveAttribute('open', '');
-  await expect(page.locator('#mycoatch-live-toast')).toBeVisible();
+  await expect(page.locator('#mycoatch-live-toast')).toHaveCount(0);
   assert.deepEqual(monitoring.remoteRequests, []);
   assert.deepEqual(monitoring.pageErrors, []);
 });
@@ -1992,7 +1960,7 @@ test('all confirmed sets at upper rep range and low RPE can propose a small load
     await page.locator('.set-rpe[data-set="'+i+'"]').fill('6');
     await page.locator('.set-lock-check[data-set="'+i+'"]').check();
   }
-  await expect(page.locator('#mycoatch-live-panel')).toContainText('aggiornare le prossime proposte nello stesso mesociclo');
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Le proposte aggiornate sono visibili nelle serie');
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Riepilogo fine seduta');
   await expect(page.locator('#mycoatch-live-panel')).toContainText('RPE 6 percepito / 8 previsto');
   await expect(page.locator('.mycoatch-live-apply')).toHaveCount(0);
@@ -2888,8 +2856,8 @@ test('iPhone: no redundant BLOCCO label; notes open only with text and history c
   await expect(second.locator('.block-title')).toHaveCount(0);
   await first.locator('.ex-name').click();
   await expect(first.locator('.exercise-exclude-hint')).toContainText('swipe');
-  await expect(first.locator('details.exercise-coach-notes')).toHaveAttribute('open','');
-  await expect(second.locator('details.exercise-coach-notes')).not.toHaveAttribute('open','');
+  await expect(first.locator('section.exercise-coach-notes')).toBeVisible();
+  await expect(second.locator('.exercise-coach-heading')).toBeHidden();
   const prev=first.locator('details.exercise-history-box');
   await expect(prev).toHaveAttribute('open','');
   await prev.locator('summary').click();
@@ -2935,7 +2903,7 @@ test('iPhone: same bench twice weekly with different RPE/reps uses loadable esti
   await expect(first.locator('.set-rpe')).toHaveValue('8');
   await expect(first).toHaveAttribute('data-prefill-source','mycoatch_protocol');
   await expect(card.locator('.coach-adaptive-notes')).toContainText('massimale stimato');
-  await expect(card.locator('details.exercise-coach-notes')).toHaveAttribute('open','');
+  await expect(card.locator('section.exercise-coach-notes')).toBeVisible();
   const saved=await page.evaluate(async()=>{
     const {state}=await import('/js/state.js');
     const ex=state.workoutData.history.years['2026'].mesocycles[0].weeks[0].days[1].exercises[0];
@@ -2984,7 +2952,7 @@ test('saved generation settings return editable; cancelled draft and new plan pr
   expect(monitor.pageErrors).toEqual([]);
 });
 
-test('protocollo: ultima serie apre prossimo esercizio, note persistono fra serie e recupero continua',async({page})=>{
+test('protocollo: note sempre visibili fra serie, avanzamento e navigazione',async({page})=>{
   const monitor=await openIsolatedApp(page);
   await page.evaluate(async()=>{
     const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');
@@ -2993,22 +2961,17 @@ test('protocollo: ultima serie apre prossimo esercizio, note persistono fra seri
     state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=1;renderWorkoutList();
   });
   const first=page.locator('.ex-card[data-ex="0"]'),second=page.locator('.ex-card[data-ex="1"]');
-  await expect(first.locator('.exercise-coach-notes')).toHaveAttribute('open','');
-  await expect(second.locator('.exercise-coach-notes')).not.toHaveAttribute('open','');
-  await first.locator('.exercise-coach-notes summary').click();
+  for(const card of [first,second]){
+    await expect(card.locator('.note-allenatore-text')).toBeVisible();
+    await expect(card.locator('.exercise-coach-notes summary')).toHaveCount(0);
+  }
   await first.locator('.set-lock-check').nth(0).check();
-  await expect(first.locator('.exercise-coach-notes')).not.toHaveAttribute('open','');
-  await first.locator('.exercise-coach-notes summary').click();
+  await expect(first.locator('.note-allenatore-text')).toBeVisible();
   await first.locator('.set-lock-check').nth(1).check();
-  await expect(first).not.toHaveClass(/is-active-exercise/);
-  await expect(first.locator('.exercise-coach-notes')).not.toHaveAttribute('open','');
-  await expect(second).toHaveClass(/is-active-exercise/);
-  await expect(second.locator('.exercise-coach-notes')).toHaveAttribute('open','');
+  await expect(first).not.toHaveClass(/is-active-exercise/);await expect(second).toHaveClass(/is-active-exercise/);
+  await expect(second.locator('.note-allenatore-text')).toBeVisible();
   await expect(page.locator('#timer-display')).toContainText(/\d/);
-  await first.locator('.exercise-coach-notes summary').click();
-  await expect(first.locator('.exercise-coach-notes')).toHaveAttribute('open','');
-  expect(monitor.pageErrors).toEqual([]);
-  expect(monitor.remoteRequests).toEqual([]);
+  expect(monitor.pageErrors).toEqual([]);expect(monitor.remoteRequests).toEqual([]);
 });
 
 test('protocollo: fallimento import non avanza selezione e retry salva senza duplicati',async({page})=>{
@@ -3178,4 +3141,63 @@ test('menu e sottomenu: nessun ID, azione o esercizio duplicato dopo aperture ri
     expect(duplicates).toEqual({ids:[],actions:[],exclusions:[],misplaced:0,machines:[],options:[]});
     await page.locator('#close-mycoatch-config').click();
   }
+});
+
+test('note unificate: istruzioni sicure, aggiornamento singolo, silenzio e focus su mobile',async({page})=>{
+  await page.setViewportSize({width:320,height:800});
+  const monitor=await openIsolatedApp(page);await prepareLiveWorkout(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');
+    const {renderExerciseCoachPanel}=await import('/js/exerciseCoachUI.js');
+    const ex=state.workoutData.history.years[new Date().getFullYear()].mesocycles[0].weeks[0].days[0].exercises[0];
+    ex.notes='Fermo di due secondi. | <img src=x onerror="window.noteInjected=true"> | [DURATA STIMATA] 32 minuti';
+    ex.coachSetProposals=[0,1,2].map(()=>({kind:'increase_load',weight:82.5,reps:6,reason:'Tutte le serie al limite alto.',basedOn:[{weight:80,reps:8}]}));
+    window.notesBefore=JSON.stringify(ex);
+    renderExerciseCoachPanel(document.querySelector('.ex-card'),ex,{prefills:[{weight:82.5},{weight:82.5},{weight:82.5}]});
+  });
+  const panel=page.locator('.ex-card .exercise-coach-notes').first();
+  await expect(panel).toBeVisible();await expect(panel.locator('summary')).toHaveCount(0);
+  await expect(panel.locator('.note-allenatore-text')).toContainText('Fermo di due secondi.');
+  await expect(panel.locator('.note-allenatore-text')).not.toContainText('DURATA STIMATA');
+  await expect(panel.locator('.note-allenatore-text img')).toHaveCount(0);
+  await expect(panel.locator('.coach-adaptive-notes p')).toHaveCount(1);
+  await expect(panel.locator('.coach-adaptive-notes')).toContainText('Serie 1, 2, 3: Proposta 82.5 kg');
+  const input=panel.locator('.ex-user-notes');await input.focus();
+  const result=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');const {refreshExerciseCoachPanel}=await import('/js/exerciseCoachUI.js');
+    const ex=state.workoutData.history.years[new Date().getFullYear()].mesocycles[0].weeks[0].days[0].exercises[0];
+    const card=document.querySelector('.ex-card');const old=card.querySelector('.coach-adaptive-notes p');
+    refreshExerciseCoachPanel(card,null);
+    return {sameNode:old===card.querySelector('.coach-adaptive-notes p'),unchanged:window.notesBefore===JSON.stringify(ex),injected:!!window.noteInjected,overflow:document.documentElement.scrollWidth>innerWidth+2};
+  });
+  expect(result).toEqual({sameNode:true,unchanged:true,injected:false,overflow:false});await expect(input).toBeFocused();
+  await panel.screenshot({path:'/tmp/notes-mobile-320.png'});
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');const {refreshExerciseCoachPanel}=await import('/js/exerciseCoachUI.js');
+    const ex=state.workoutData.history.years[new Date().getFullYear()].mesocycles[0].weeks[0].days[0].exercises[0];
+    ex.coachSetProposals.forEach(p=>{p.kind='history';p.weight=80;p.reps=8;p.reason='Ripropongo il riferimento.';});
+    refreshExerciseCoachPanel(document.querySelector('.ex-card'),{code:'on_track',severity:'ok',message:'Serie confermata.',nextSetIndex:1});
+  });
+  await expect(panel.locator('.coach-adaptive-notes')).toBeHidden();
+  await expect(panel.locator('.note-allenatore-text')).toBeVisible();
+  assert.deepEqual(monitor.pageErrors,[]);assert.deepEqual(monitor.remoteRequests,[]);
+});
+
+test('superserie: istruzioni sempre fuori dai menu dello storico su schermo piccolo',async({page})=>{
+  await page.setViewportSize({width:320,height:800});
+  const monitor=await openIsolatedApp(page);await prepareLiveWorkout(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');
+    const day=state.workoutData.history.years[new Date().getFullYear()].mesocycles[0].weeks[0].days[0];
+    const a=day.exercises[0];a.groupType='superset';a.groupBase=1;a.block='1a';a.notes='Fermo al petto.';
+    const b=structuredClone(a);b.block='1b';b.name='Rematore con Manubri';b.notes='Busto stabile.';day.exercises=[a,b];
+    renderWorkoutList();
+  });
+  await expect(page.locator('.circuit-exercise .exercise-coach-notes')).toHaveCount(2);
+  for(const panel of await page.locator('.circuit-exercise .exercise-coach-notes').all())await expect(panel).toBeVisible();
+  await expect(page.locator('.circuit-details .exercise-coach-notes')).toHaveCount(0);
+  await expect(page.locator('.circuit-exercise').first()).toContainText('Fermo al petto.');
+  await expect(page.locator('.circuit-exercise').last()).toContainText('Busto stabile.');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2)).toBe(false);
+  assert.deepEqual(monitor.pageErrors,[]);assert.deepEqual(monitor.remoteRequests,[]);
 });

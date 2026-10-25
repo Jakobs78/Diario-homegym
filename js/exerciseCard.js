@@ -1,4 +1,5 @@
 import {setPrescription} from '../mycoatch/setPrescription.js';
+import {renderExerciseCoachPanel} from './exerciseCoachUI.js';
 import {assessSessionReadiness} from '../mycoatch/sessionReadiness.js';
 import {EXERCISE_DATABASE} from '../mycoatch/exercisesDB.js';
 import {applyPersonalExerciseMapping} from '../mycoatch/exerciseIdentity.js';
@@ -116,36 +117,23 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             <div class="history-content">${lastSessionSetsHtml}</div>
         </details>` : '';
 
-    if (nextRepAdvice?.kind === 'build_reps' && !isPastMeso)
-        cardHtml += `<p class="mycoatch-next-rep-hint">🤖 MyCoatch · ${escapeHtml(nextRepAdvice.reason)}</p>`;
-
-    const notesPresent = Boolean(String(ex.notes||'').trim());
-
-    // Context label: this load was inferred from another prescription, not
-    // copied from an identical day and never asserted to be an exact e1RM.
-    const crossLabel = crossExposureAdvice
-        ? `<p class="mycoatch-load-origin" role="note">🤖 Carico iniziale suggerito:
-                <strong>${escapeHtml(crossExposureAdvice.kg)} kg</strong> · stima prudente da seduta con ripetizioni/RPE diversi. Verifica con avvicinamento.</p>`
-        : '';
     cardHtml += `
         <div class="target-box mb-md">
             <strong>${ex.coachSetProposals?'SCHEDA ORIGINALE':'TARGET'}:</strong> ${formatExerciseSummary(ex)}
         </div>
-        ${nextExposureAdvice ? `<div class="coach-exposure-summary" role="note"><strong>Precedente → proposta di oggi</strong><small> · ${escapeHtml(nextExposureAdvice.basedOn[0]?.performedAt?.slice(0,10)||'data non disponibile')}</small><p>${escapeHtml(nextExposureAdvice.basedOn.map(s=>s.weight+' kg × '+s.reps+' @'+(s.rpe??'n.d.')).join(' · '))}</p><p><strong>${nextExposureAdvice.weight ? escapeHtml(nextExposureAdvice.weight)+' kg · '+escapeHtml(nextExposureAdvice.reps.join('/')) : 'Carico da rivalutare'}</strong> · ${escapeHtml(nextExposureAdvice.reason)}</p></div>` : ''}
-        ${crossLabel}
-        ${ex.coachSetProposals?.find(p=>p?.basedOn?.length)?`<details class="coach-exposure-summary"><summary>Storico usato per la proposta</summary><p>${escapeHtml(ex.coachSetProposals.find(p=>p?.basedOn?.length).basedOn[0].seriesEvidence.map(s=>s.kg+' kg × '+s.reps+' @'+(s.rpe??'n.d.')).join(' · '))}</p></details>`:''}
-        ${(ex.coachAdaptiveNotes||[]).length?`<details class="coach-adaptive-notes" open><summary>🤖 MyCoatch · Proposte aggiornate</summary>${ex.coachAdaptiveNotes.map(note=>`<p>${escapeHtml(note)}</p>`).join('')}</details>`:''}
         ${previousSessionMarkup}
-        <details class="exercise-coach-notes" aria-label="Note del coach e note personali" >
-            <summary>📝 Istruzioni MyCoatch${notesPresent ? ' · presenti' : ''} e note personali</summary>
+        <section class="exercise-coach-notes" aria-label="Istruzioni e aggiornamenti dell’esercizio">
+            <h4 class="exercise-coach-heading">📝 Istruzioni e aggiornamenti</h4>
             <div class="exercise-coach-notes-body">
-                ${notesPresent ? `<div class="note-allenatore-text">${escapeHtml(ex.notes)}</div>` : ''}
+                <div class="note-allenatore-text"></div>
+                <div class="coach-adaptive-notes" aria-live="polite" aria-atomic="true"></div>
+                <div class="coach-apply-slot"></div>
                 <label class="workout-notes-label" for="ex-user-notes-${exIdx}">✍️ Note personali</label>
                 <input type="text" id="ex-user-notes-${exIdx}" placeholder="Aggiungi una nota all'esercizio..."
                     value="${escapeHtml(ex.userNotes || '')}" class="ex-user-notes w-100"
                     data-ex="${exIdx}" ${isPastMeso ? 'disabled' : ''}>
             </div>
-        </details>
+        </section>
     `;
 
     cardHtml += dropScopeControl(ex,exIdx,isPastMeso);
@@ -291,6 +279,8 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     `;
 
     exCard.innerHTML = cardHtml;
+    renderExerciseCoachPanel(exCard,ex,{getPrefill:prefillFor,readOnly:isPastMeso,
+        nextExposureAdvice,crossExposureAdvice,nextRepAdvice});
 
     // Il coaching in seduta è calcolato centralmente solo dai set confermati.
     // Nessun consiglio si basa su placeholder o su RPE inventati.

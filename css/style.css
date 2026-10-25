@@ -3525,3 +3525,31 @@ body.dark-mode .group-title-badge {
         min-height:40px;
     }
 }
+
+/* One persistent exercise note panel; advice no longer hides in disclosures. */
+.ex-card .exercise-coach-heading {
+    margin:0;
+    padding:10px 12px 6px;
+    font-size:.88rem;
+    line-height:1.4;
+}
+.ex-card .note-allenatore-text p,
+.ex-card .coach-adaptive-notes p {margin:4px 0;}
+.ex-card .coach-adaptive-notes:not([hidden]) {
+    border-left:3px solid var(--accent-color);
+    padding:4px 9px;
+    background:var(--workout-target-bg,var(--card-bg));
+    border-radius:6px;
+    overflow-wrap:anywhere;
+}
+.ex-card .coach-adaptive-notes .coach-exposure-summary {
+    border:0;
+    padding:0;
+    margin-top:6px;
+    background:none;
+    font-size:.8rem;
+    color:var(--text-muted);
+}
+.ex-card .coach-apply-slot:empty {display:none;}
+.ex-card .exercise-coach-notes:not(.has-coach-content) .exercise-coach-notes-body {padding-top:8px;}
+.ex-card .coach-message-warning {font-weight:650;}
