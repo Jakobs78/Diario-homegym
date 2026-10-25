@@ -34,9 +34,9 @@ export function createCircuitCard(members,start,day,mesoIndex,week,dayNumber,rea
         card.querySelector('.ex-card-header')?.remove();
         card.querySelector('.workout-set-status')?.remove();
         const details=document.createElement('details');details.className='circuit-details';
-        const summary=document.createElement('summary');summary.textContent='Note e storico';details.append(summary);
-        card.querySelectorAll('.exercise-history-box,.exercise-coach-notes').forEach(node=>details.append(node));
-        card.append(details);
+        const summary=document.createElement('summary');summary.textContent='Storico delle sedute precedenti';details.append(summary);
+        card.querySelectorAll('.exercise-history-box').forEach(node=>details.append(node));
+        if(details.querySelector('.exercise-history-box'))card.append(details);
         if(!ex.loggedSets?.[round]){
             const note=document.createElement('p');note.textContent='Nessuna serie prevista in questo giro.';card.querySelector('.set-table')?.replaceWith(note);
         }

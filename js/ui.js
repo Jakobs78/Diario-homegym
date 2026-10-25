@@ -349,7 +349,7 @@ export function renderWorkoutList() {
     coachSummary.className = 'mycoatch-live-trigger';
     coachSummary.setAttribute('aria-label', 'Apri o chiudi il riepilogo MyCoatch');
     const coachName = document.createElement('strong');
-    coachName.textContent = '🤖 MyCoatch';
+    coachName.textContent = '🤖 Riepilogo seduta';
     const coachCount = document.createElement('span');
     coachCount.className = 'mycoatch-live-count';
     coachCount.setAttribute('aria-live', 'off');
@@ -370,7 +370,7 @@ export function renderWorkoutList() {
     if ((currentDay.exercises || []).length) {
         const info = document.createElement('p');
         info.className = 'workout-confirmation-help';
-        info.textContent = 'I valori visibili di kg, ripetizioni e RPE sono proposte, non risultati già eseguiti. Correggili dopo la serie e premi ✓ solo se corrispondono a ciò che hai fatto: MyCoatch usa per i confronti soltanto le serie confermate.';
+        info.textContent = 'Conferma ✓ dopo aver verificato i valori realmente eseguiti.';
         DOM.workoutListContainer.appendChild(info);
     }
 

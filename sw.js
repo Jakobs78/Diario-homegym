@@ -1,7 +1,9 @@
-const CACHE_NAME = 'workout-app-v72-generation-schedule-20261024';
+const CACHE_NAME = 'workout-app-v73-unified-coach-notes-20261025';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
+  '/mycoatch/coachCommunication.js',
+  '/js/exerciseCoachUI.js',
   '/mycoatch/generationSchedule.js',
   '/',
   '/index.html',
