@@ -27,3 +27,7 @@ I messaggi popup rimangono riservati agli errori che impediscono la conferma e d
 - Controlli visivi a 390 px e 320 px, tema chiaro/scuro. Dati sintetici isolati con richieste a Supabase bloccate; nessun accesso autenticato al diario personale.
 
 Rilascio 1.2.3-20261026, cache PWA v75 con entrambi i nuovi moduli.
+
+## Ambiente di collaudo remoto
+
+Il workflow browser falliva prima dei test perché `ubuntu-latest` aveva selezionato Ubuntu 26.04, non supportato dal Playwright 1.55 già fissato nel progetto. Il runner viene fissato a `ubuntu-24.04`, presente nella matrice di dipendenze della stessa versione installata. Il comando dei test e i suoi controlli non vengono allentati.
