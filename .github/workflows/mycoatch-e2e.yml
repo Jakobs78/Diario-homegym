@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   browser-e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Compatible with the pinned Playwright 1.55 runtime.
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4

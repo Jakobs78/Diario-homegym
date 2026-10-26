@@ -1,3 +1,4 @@
+import {createSessionFeedback} from './sessionFeedbackUI.js';
 import { buildLiveSessionSnapshot, assessExerciseLive } from '../mycoatch/liveCoach.js';
 import { calibrationContextForDay } from '../mycoatch/calibrationReview.js';
 import { state } from './state.js';
@@ -13,13 +14,7 @@ function element(tag, className, text) {
     return node;
 }
 
-function formatDuration(seconds) {
-    const safe = Math.max(0, Math.floor(seconds || 0));
-    return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`;
-}
-
-
-const LIVE_COACH_TOAST_DURATION_MS = 15_000;
+const LIVE_COACH_TOAST_DURATION_MS = 10_000;
 let toastDismissTimer = null;
 
 export function dismissLiveCoachToast() {
@@ -190,14 +185,14 @@ function createSessionCheckinPanel(day, readiness, locked, panel) {
 export function createLiveCoachPanel(day, { readOnly = false } = {}) {
     const panel = element('section', 'mycoatch-live-panel');
     panel.id = 'mycoatch-live-panel';
-    panel.setAttribute('aria-labelledby', 'mycoatch-live-title');
+    panel.setAttribute('aria-label', 'Riepilogo seduta');
     panel.dataset.readOnly = readOnly ? 'true' : 'false';
     updateLiveCoachPanel(day, { readOnly }, panel);
     return panel;
 }
 
 /**
- * Viene chiamato su input, sul check/uncheck e dal timer sessione.
+ * Viene chiamato su input e sul check/uncheck.
  * Aggiorna SOLO il box, mai la tabella degli esercizi o i dati archiviati.
  */
 export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPanel = null) {
@@ -207,11 +202,7 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
     const locked = readOnly || panel.dataset.readOnly === 'true';
     panel.replaceChildren();
 
-    const title = element('h3', 'mycoatch-live-title', '🤖 Riepilogo seduta');
-    title.id = 'mycoatch-live-title';
-    panel.append(title);
-
-    panel.append(createSessionCheckinPanel(day, snapshot.readiness, locked, panel));
+    if(!snapshot.finished)panel.append(createSessionCheckinPanel(day, snapshot.readiness, locked, panel));
 
     const meter = element('div', 'mycoatch-live-progress');
     const textProgress = element('span', '', `Serie confermate: ${snapshot.checkedSets}/${snapshot.totalSets} (${snapshot.percent}%)`);
@@ -221,25 +212,6 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
     progress.setAttribute('aria-label', 'Progressione delle serie confermate');
     meter.append(textProgress, progress);
     panel.append(meter);
-
-    const metrics = element('div', 'mycoatch-live-metrics');
-    const summary = [
-        `⏱ ${formatDuration(snapshot.elapsedSeconds)}${snapshot.paused ? ' · pausa' : ''}`,
-        snapshot.estimatedMinutes !== null ?
-            `📋 Durata prevista ~${snapshot.estimatedMinutes} min su ${snapshot.budgetMinutes} disponibili (stima)` :
-            '📋 Tempo previsto non disponibile: usa il cronometro della seduta come riferimento',
-        `🏋️ Tonnellaggio registrato: ${snapshot.tonnageKg.toLocaleString('it-IT')} kg × ripetizioni (non misura la crescita)`,
-        `Sforzo percepito (RPE) registrato: ${snapshot.rpeRecordedSets}/${snapshot.validSets} serie valide`
-    ];
-    for (const item of summary) metrics.append(element('span', '', item));
-    panel.append(metrics);
-
-    if (snapshot.projectedMinutes !== null && !locked) {
-        panel.append(element('p', 'mycoatch-live-time-estimate',
-            `Tempo finale approssimativo: ~${snapshot.projectedMinutes} min (${snapshot.paceCalibration
-                ? 'calibrato su ' + snapshot.paceCalibration.samples + ' sedute precedenti'
-                : 'stimato da serie e recuperi rimanenti'}; non è una misura).`));
-    }
 
     const liveMessage = element('div', 'mycoatch-live-guidance');
     liveMessage.id = 'mycoatch-live-guidance';
@@ -254,7 +226,7 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
             'Verifica '+snapshot.invalidSets+' serie confermate con kg o ripetizioni incompleti.'));
     }
 
-    if (snapshot.possibleOverrun) {
+    if (snapshot.possibleOverrun && !snapshot.finished) {
         liveMessage.classList.add('mycoatch-live-warning');
         liveMessage.append(element('p', '',
             'Il ritmo corrente potrebbe superare il tempo disponibile. Non comprimere i recuperi dei fondamentali: valuta gli accessori rimasti.'));
@@ -286,38 +258,11 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
 
     panel.append(liveMessage);
 
-    if(snapshot.finished){
-        const done=element('section','mycoatch-session-summary');
-        done.setAttribute('aria-label','Riepilogo conclusivo seduta');
-        done.append(element('h4','','✅ Riepilogo fine seduta'));
-        done.append(element('p','',
-            snapshot.validSets+' serie allenanti valide · volume '+
-            snapshot.tonnageKg.toLocaleString('it-IT')+' kg·rep · RPE dichiarato su '+
-            snapshot.rpeRecordedSets+'/'+snapshot.validSets+' serie.'));
-        const scored=(day.exercises||[]).flatMap(ex=>{
-            if(ex.isWarmup||ex.isExcluded)return [];
-            const sets=(ex.loggedSets||[]).filter(s=>
-                !s.isWarmup&&!s.warmup&&!s.is_warmup&&
-                (s.isLocked===true||s.completed===true)&&
-                Number.isFinite(Number(s.rpe))&&String(s.rpe??'').trim()!=='');
-            if(!sets.length)return [];
-            const target=Number(String(ex.targetRpe??ex.rpeTarget??ex.rpe??'')
-                .replace('@','').replace(',','.'));
-            if(!Number.isFinite(target)||target<6||target>10)return [];
-            const avg=sets.reduce((sum,s)=>sum+Number(s.rpe),0)/sets.length;
-            return [ex.name+': RPE '+(Math.round(avg*10)/10)+
-                ' percepito / '+target+' previsto'];
-        });
-        for(const line of scored)done.append(element('p','mycoatch-session-summary-exercise',line));
-        if(!scored.length)done.append(element('p','',
-            'Nessun confronto RPE attendibile: le serie non spuntate non vengono considerate.'));
-        done.append(element('small','',
-            'Il prossimo piano usa soltanto prestazioni confermate. Le proposte aggiornate sono visibili nelle serie e nelle sedute pertinenti; esercizi e struttura restano invariati.'));
-        panel.append(done);
-    }
+    const report=snapshot.finished?createSessionFeedback(day,state.workoutData,snapshot.readiness):null;
+    if(report)panel.append(report);
 
     const calibration = calibrationContextForDay(state.workoutData, day);
-    if (calibration) {
+    if (calibration && !snapshot.finished) {
         const review = element('section', 'mycoatch-calibration-review');
         review.setAttribute('aria-label', 'Riepilogo calibrazione prima settimana');
         review.append(element('h4', '', '🧭 Calibrazione iniziale · ' +
@@ -350,30 +295,22 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
         }
         panel.append(review);
     }
-    const count = panel.closest('.mycoatch-live-disclosure')?.querySelector('.mycoatch-live-count');
-    if (count) count.textContent = `Serie ${snapshot.checkedSets}/${snapshot.totalSets}`;
+    if(report&&calibration?.missingAnchors.length){
+        report.append(element('p','mycoatch-session-calibration',
+            'Calibrazione iniziale · riferimenti ancora mancanti: '+calibration.missingAnchors.join(', ')+'.'));
+    }
+    const disclosure=panel.closest('.mycoatch-live-disclosure');
+    disclosure?.classList.toggle('is-session-complete',snapshot.finished);
+    const trigger=disclosure?.querySelector('.mycoatch-live-trigger');
+    trigger?.setAttribute('aria-label','Apri o chiudi il riepilogo MyCoatch'+(snapshot.finished?' · seduta completata':''));
+    const count=disclosure?.querySelector('.mycoatch-live-count');
+    if(count)count.textContent=snapshot.finished?'Completata':`Serie ${snapshot.checkedSets}/${snapshot.totalSets}`;
     return snapshot;
 }
 
-/**
- * Il timer aggiorna solo i numeri: non ricrea la regione aria-live e non
- * rimuove il focus da un eventuale bottone "Applica al prossimo set".
- */
-export function refreshLiveCoachClock(day) {
-    const panel = document.getElementById('mycoatch-live-panel');
-    if (!panel || !day) return;
-    const snapshot = buildLiveSessionSnapshot(day, { history: state.workoutData });
-    const clock = panel.querySelector('.mycoatch-live-metrics > span');
-    if (clock) {
-        clock.textContent = `⏱ ${formatDuration(snapshot.elapsedSeconds)}${snapshot.paused ? ' · pausa' : ''}`;
-    }
-    const forecast = panel.querySelector('.mycoatch-live-time-estimate');
-    if (forecast && snapshot.projectedMinutes !== null) {
-        forecast.textContent = `Tempo finale approssimativo: ~${snapshot.projectedMinutes} min (${snapshot.paceCalibration
-            ? 'calibrato su ' + snapshot.paceCalibration.samples + ' sedute precedenti'
-            : 'stimato da serie e recuperi rimanenti'}; non è una misura).`;
-    }
-}
+// Compatibility hook for sessionTimer: the live clock is shown only in the
+// session header. No second clock or per-tick report rebuild is needed.
+export function refreshLiveCoachClock() {}
 
 export function showLiveCoachInputError(message) {
     const panel = document.getElementById('mycoatch-live-panel');

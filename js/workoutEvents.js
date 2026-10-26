@@ -353,8 +353,8 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             saveAndSync(state.workoutData);
             if(isChecked)advanceExercise(currentDay,exIdx);
             if (typeof renderCallback === 'function') renderCallback();
-            // Il popup nasce DOPO il render e soltanto per un check valido.
-            // Input e modifiche bozze NON devono far comparire consigli.
+            // Dopo il render aggiorna i consigli inline; a fine seduta apre il report.
+            // I popup restano riservati agli errori di registrazione.
             if (isChecked && !isPastMeso) {
                 showLiveCoachToast(currentDay, { exerciseIndex: exIdx, setIndex: setIdx });
             }

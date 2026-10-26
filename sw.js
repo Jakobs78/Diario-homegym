@@ -1,7 +1,9 @@
-const CACHE_NAME = 'workout-app-v74-single-history-20261026';
+const CACHE_NAME = 'workout-app-v75-session-feedback-20261026';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
+  '/mycoatch/sessionFeedback.js',
+  '/js/sessionFeedbackUI.js',
   '/js/exerciseHistoryUI.js',
   '/mycoatch/coachCommunication.js',
   '/js/exerciseCoachUI.js',
