@@ -395,6 +395,7 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   await page.locator('.set-lock-check[data-set="2"]').check();
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 3/3');
   await expect(page.locator('.mycoatch-session-summary')).toBeVisible();
+  await expect(page.locator('#mycoatch-live-disclosure')).toHaveClass(/is-session-complete/);
 
   const completed = await page.evaluate(async () => {
     const { state } = await import('/js/state.js');
@@ -410,6 +411,8 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   // Correggere una serie riapre la sessione anche dopo l'ultimo check.
   await page.locator('.set-lock-check[data-set="2"]').uncheck();
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie confermate: 2/3');
+  await expect(page.locator('#mycoatch-live-disclosure')).not.toHaveClass(/is-session-complete/);
+  await expect(page.locator('#mycoatch-session-checkin')).toBeVisible();
   const reopened = await page.evaluate(async () => {
     const { state } = await import('/js/state.js');
     const day = state.workoutData.history.years[new Date().getFullYear()]
@@ -571,7 +574,13 @@ test('MyCoatch LIVE con RPE mancante non inventa massimale o suggerimenti', asyn
   await page.locator('.set-rpe[data-set="0"]').fill('');
   await page.locator('.set-lock-check[data-set="0"]').check();
   await expect(page.locator('.ex-card .coach-adaptive-notes').first()).toContainText('senza RPE');
-  await expect(page.locator('#mycoatch-live-panel')).toContainText('Sforzo percepito (RPE) registrato: 0/1');
+  await expect(page.locator('.mycoatch-live-metrics')).toHaveCount(0);
+  const rpeCount=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');const {buildLiveSessionSnapshot}=await import('/mycoatch/liveCoach.js');
+    const day=state.workoutData.history.years[new Date().getFullYear()].mesocycles[0].weeks[0].days[0];
+    return buildLiveSessionSnapshot(day).rpeRecordedSets;
+  });
+  expect(rpeCount).toBe(0);
   await expect(page.locator('.mycoatch-live-apply')).toHaveCount(0);
   await expect(page.locator('.ex-card .coach-adaptive-notes').first()).not.toContainText('e1RM stimato');
   assert.deepEqual(monitoring.remoteRequests, []);
@@ -1327,15 +1336,24 @@ test('feedback utile persistente nella card, senza popup a ogni conferma', async
   assert.deepEqual(monitor.remoteRequests,[]);assert.deepEqual(monitor.pageErrors,[]);
 });
 
-test('errore validazione della serie appare anche vicino all atleta in basso', async ({ page }) => {
+test('errore serie: avviso immediato, chiusura dopo 10 secondi e messaggio inline persistente', async ({ page }) => {
   await openIsolatedApp(page);
   await prepareLiveWorkout(page);
+  await page.clock.install();
   await page.locator('.set-kg[data-set="0"]').fill('');
   // La validazione deseleziona correttamente il check: usare click, non check.
   await page.locator('.set-lock-check[data-set="0"]').click();
   await expect(page.locator('.set-lock-check[data-set="0"]')).not.toBeChecked();
   await expect(page.locator('#mycoatch-live-toast')).toContainText('Inserisci il peso');
   await expect(page.locator('#mycoatch-live-toast')).toHaveAttribute('role','alert');
+  await page.clock.fastForward(9000);
+  await expect(page.locator('#mycoatch-live-toast')).toBeVisible();
+  await page.clock.fastForward(1000);
+  await expect(page.locator('#mycoatch-live-toast')).toHaveCount(0);
+  await expect(page.locator('#mycoatch-live-input-error')).toContainText('Inserisci il peso');
+  await page.locator('.set-lock-check[data-set="0"]').click();
+  await page.locator('.mycoatch-live-toast-dismiss').click();
+  await expect(page.locator('#mycoatch-live-toast')).toHaveCount(0);
 });
 
 
@@ -1961,9 +1979,9 @@ test('all confirmed sets at upper rep range and low RPE can propose a small load
     await page.locator('.set-rpe[data-set="'+i+'"]').fill('6');
     await page.locator('.set-lock-check[data-set="'+i+'"]').check();
   }
-  await expect(page.locator('#mycoatch-live-panel')).toContainText('Le proposte aggiornate sono visibili nelle serie');
+  await expect(page.locator('#mycoatch-live-panel')).not.toContainText('Il prossimo piano usa soltanto prestazioni confermate');
   await expect(page.locator('#mycoatch-live-panel')).toContainText('Riepilogo fine seduta');
-  await expect(page.locator('#mycoatch-live-panel')).toContainText('RPE 6 percepito / 8 previsto');
+  await expect(page.locator('#mycoatch-live-panel')).toContainText('Sforzo inferiore al previsto nelle serie 1, 2, 3.');
   await expect(page.locator('.mycoatch-live-apply')).toHaveCount(0);
   const state=await page.evaluate(async()=>{
     const {state}=await import('/js/state.js');
@@ -3243,4 +3261,75 @@ test('11 reps confermate: proposta 12-11-11 nelle celle, un solo storico e note 
   await expect(card.locator('.coach-adaptive-notes')).toContainText('Suggerisco 15 kg × 12 reps');
   await expect(card.locator('.coach-adaptive-notes')).not.toContainText('Ho aggiunto');
   assert.deepEqual(monitor.pageErrors,[]);assert.deepEqual(monitor.remoteRequests,[]);
+});
+
+test('report finale: confronto per serie, nessun tab ridondante e verde solo a seduta completa',async({page},testInfo)=>{
+  await page.setViewportSize({width:390,height:844});const monitor=await openIsolatedApp(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');
+    const ex={name:'Panca Piana con Bilanciere',set:'3 set',reps:'6-8',rpe:8,targetRpe:8,
+      sets:[{targetReps:3,targetRpe:8,role:'top'},{targetReps:'6-8',targetRpe:7,role:'backoff'},{targetReps:'6-8',targetRpe:7,role:'backoff'}],
+      loggedSets:[{weight:80,reps:3,rpe:8,isLocked:true},{weight:70,reps:8,rpe:8,isLocked:true},{weight:70,reps:6,rpe:'',isLocked:true}]};
+    state.workoutData={athlete:{},history:{years:{2026:{mesocycles:[{name:'Verifica report',weeks:[{weekNumber:1,days:[{dayNumber:1,completed:true,exercises:[ex]}]}]}]}}}};
+    state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=1;renderWorkoutList();
+  });
+  const menu=page.locator('#mycoatch-live-disclosure');await expect(menu).toHaveClass(/is-session-complete/);
+  await menu.locator('summary').first().click();
+  const report=page.locator('.mycoatch-session-summary');await expect(report).toBeVisible();
+  await expect(page.locator('#mycoatch-live-panel h3')).toHaveCount(0);
+  await expect(page.locator('#mycoatch-session-checkin,.mycoatch-live-metrics,.mycoatch-live-time-estimate')).toHaveCount(0);
+  await expect(report).toContainText('Sforzo superiore al previsto nelle serie 2.');
+  await expect(report).toContainText('RPE mancante o non valido nelle serie 3.');
+  await expect(report.locator('tbody tr')).toHaveCount(3);
+  await expect(report.locator('tbody tr').nth(0)).toContainText('3 / 3');
+  await expect(report.locator('tbody tr').nth(1)).toContainText('8 / 7');
+  await expect(report.locator('tbody tr').nth(2)).toContainText('— / 7');
+  await expect(report).not.toContainText('Il prossimo piano');
+  await expect(menu.locator('.mycoatch-live-count')).toHaveText('Completata');
+  await page.evaluate(async()=>{const {stopTimer}=await import('/js/timer.js');stopTimer();});
+  await menu.screenshot({path:testInfo.outputPath('report-390.png')});
+  await page.setViewportSize({width:320,height:800});await page.evaluate(()=>document.documentElement.setAttribute('data-theme','dark'));
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2)).toBe(true);
+  await menu.screenshot({path:testInfo.outputPath('report-320-dark.png')});
+  await menu.locator('summary').first().click();await expect(report).not.toBeVisible();await expect(menu).toHaveClass(/is-session-complete/);
+  const green=await menu.locator('summary').first().evaluate(el=>getComputedStyle(el).backgroundColor);
+  await page.locator('.set-lock-check[data-set="2"]').uncheck();
+  await expect(menu).not.toHaveClass(/is-session-complete/);
+  await expect(page.locator('.mycoatch-session-summary')).toHaveCount(0);
+  await expect(page.locator('#mycoatch-session-checkin')).toHaveCount(1);
+  expect(await menu.locator('summary').first().evaluate(el=>getComputedStyle(el).backgroundColor)).not.toBe(green);
+  assert.deepEqual(monitor.remoteRequests,[]);assert.deepEqual(monitor.pageErrors,[]);
+});
+
+test('report finale collega soltanto la proposta successiva ai risultati confermati di oggi',async({page})=>{
+  const monitor=await openIsolatedApp(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');
+    const ex={name:'Curl Manubri su Panca Inclinata',set:'3 set',reps:'10-12',rpe:8.5,targetRpe:8.5,kgMin:15,kgMax:15,recupero:'90s',sets:[{},{},{}],loggedSets:[{},{},{}]};
+    state.workoutData={athlete:{},history:{years:{2026:{mesocycles:[{name:'Report progressione',weeks:[{weekNumber:1,days:[{dayNumber:1,exercises:[ex]},{dayNumber:2,exercises:[structuredClone(ex)]}]}]}]}}}};
+    state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=1;renderWorkoutList();
+  });
+  for(let i=0;i<3;i++){
+    await page.locator('.set-kg[data-set="'+i+'"]').fill('15');
+    await page.locator('.set-reps[data-set="'+i+'"]').fill('11');
+    await page.locator('.set-rpe[data-set="'+i+'"]').fill('8.5');
+    await page.locator('.set-lock-check[data-set="'+i+'"]').check();
+    await expect(page.locator('#mycoatch-live-toast')).toHaveCount(0);
+  }
+  const report=page.locator('.mycoatch-session-summary');await expect(report).toBeVisible();
+  await expect(report).toContainText('Reps entro l’obiettivo in 3/3 serie.');
+  await expect(report).toContainText('RPE entro l’obiettivo in 3/3 serie.');
+  await expect(report).toContainText('Proposta per la prossima esposizione · settimana 1, giorno 2');
+  await expect(report.locator('.mycoatch-session-next')).toHaveText('Serie 1: 15 kg × 12 reps (+1 ripetizione).');
+  const result=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');const days=state.workoutData.history.years[2026].mesocycles[0].weeks[0].days;
+    return {actual:days[0].exercises[0].loggedSets.map(s=>[s.weight,String(s.reps),s.isLocked]),
+      next:days[1].exercises[0].coachSetProposals.map(p=>p.reps),logs:days[1].exercises[0].loggedSets};
+  });
+  expect(result.actual.every(s=>s[0]===15&&s[1]==='11'&&s[2])).toBe(true);
+  expect(result.next).toEqual([12,11,11]);expect(result.logs.every(s=>!s.completed&&!s.isLocked)).toBe(true);
+  await page.locator('.day-tabs button').nth(1).click();
+  await expect(page.locator('#mycoatch-live-disclosure')).not.toHaveClass(/is-session-complete/);
+  await expect(page.locator('.set-reps').first()).toHaveValue('12');
+  assert.deepEqual(monitor.remoteRequests,[]);assert.deepEqual(monitor.pageErrors,[]);
 });
