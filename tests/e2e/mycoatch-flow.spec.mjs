@@ -1507,7 +1507,7 @@ test('punto 3: mobile card keeps previous performance, per-set plates, coach not
     renderWorkoutList();
   });
   const card=page.locator('.ex-card[data-ex="0"]');
-  await expect(card.locator('.history-content')).toContainText('72.5kg');
+  await expect(card.locator('.history-content')).toContainText('72,5');
   await expect(card.locator('.exercise-coach-notes')).toBeVisible();
   await expect(card.locator('.exercise-coach-notes .note-allenatore-text')).toContainText('Scapole stabili');
   await expect(card.locator('.ex-user-notes')).toBeVisible();
@@ -1547,7 +1547,7 @@ test('punto 3: mobile card keeps previous performance, per-set plates, coach not
   await expect(card.locator('.workout-set-row.is-active-set')).toHaveAttribute('data-set-index','1');
   await expect(card.locator('.exercise-coach-notes')).toBeVisible();
   await expect(card.locator('.ex-user-notes')).toHaveValue('Ricordare fermo al petto');
-  await expect(card.locator('.history-content')).toContainText('72.5kg');
+  await expect(card.locator('.history-content')).toContainText('72,5');
   assert.deepEqual(monitoring.remoteRequests,[]);
   assert.deepEqual(monitoring.pageErrors,[]);
 });
@@ -1569,12 +1569,13 @@ test('scheda mobile: storico uno sotto l’altro, note sopra i set, testo leggib
     renderWorkoutList();
   });
   const card=page.locator('.ex-card[data-ex="0"]');
-  const disclosure=card.locator('details.exercise-history-box');
-  await expect(disclosure).toHaveAttribute('open','');
-  const rows=card.locator('.history-content > div');
+  const history=card.locator('section.exercise-history-box');
+  await expect(history).toBeVisible();
+  await expect(history.locator('summary')).toHaveCount(0);
+  const rows=card.locator('.history-content tbody tr');
   await expect(rows).toHaveCount(2);
-  await expect(rows.nth(0)).toContainText('72.5kg');
-  await expect(rows.nth(1)).toContainText('75kg');
+  await expect(rows.nth(0)).toContainText('72,5');
+  await expect(rows.nth(1)).toContainText('75');
   const boxes=await rows.evaluateAll(nodes=>nodes.map(n=>{
     const r=n.getBoundingClientRect();
     return {top:r.top,bottom:r.bottom};
@@ -1589,7 +1590,7 @@ test('scheda mobile: storico uno sotto l’altro, note sopra i set, testo leggib
   assert.ok(beforeSets & 4,'note prima della tabella');
   await expect(card.locator('.workout-set-status, .active-set-label')).toHaveCount(0);
   const sizes=await card.evaluate(el=>({
-    history:parseFloat(getComputedStyle(el.querySelector('.history-content > div')).fontSize),
+    history:parseFloat(getComputedStyle(el.querySelector('.history-content td')).fontSize),
     tableHeading:parseFloat(getComputedStyle(el.querySelector('.set-table th')).fontSize),
     tableInput:parseFloat(getComputedStyle(el.querySelector('.set-kg')).fontSize)
   }));
@@ -2858,12 +2859,9 @@ test('iPhone: no redundant BLOCCO label; notes open only with text and history c
   await expect(first.locator('.exercise-exclude-hint')).toContainText('swipe');
   await expect(first.locator('section.exercise-coach-notes')).toBeVisible();
   await expect(second.locator('.exercise-coach-heading')).toBeHidden();
-  const prev=first.locator('details.exercise-history-box');
-  await expect(prev).toHaveAttribute('open','');
-  await prev.locator('summary').click();
-  await expect(prev).not.toHaveAttribute('open','');
-  await prev.locator('summary').click();
-  await expect(prev).toHaveAttribute('open','');
+  const prev=first.locator('section.exercise-history-box');
+  await expect(prev).toBeVisible();
+  await expect(prev.locator('summary')).toHaveCount(0);
   const fits=await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1);
   assert.equal(fits,true,'card must not overflow iPhone viewport');
 });
@@ -3017,13 +3015,13 @@ test('protocollo: squat 70→79 kg fra giorni diversi e warmup escluso dalla pro
     state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=2;renderWorkoutList();
   });
   await expect(page.locator('.set-kg').first()).toHaveValue('79');
-  await expect(page.locator('.coach-exposure-summary')).toContainText('6.5');
+  await expect(page.locator('.exercise-history-box')).toContainText('6,5');
   await expect(page.locator('.coach-adaptive-notes')).toContainText('Recuperi diversi');
   await page.evaluate(async()=>{const {stopTimer}=await import('/js/timer.js');stopTimer();});
   await page.locator('.ex-name').scrollIntoViewIfNeeded();
   await page.screenshot({path:testInfo.outputPath('squat-proposta-mobile.png'),fullPage:true});
   await page.evaluate(async()=>{const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');state.workoutData.history.years[2026].mesocycles[0].weeks[0].days[0].exercises[0].isWarmup=true;renderWorkoutList();});
-  await expect(page.locator('.coach-exposure-summary')).toHaveCount(0);await expect(page.locator('.set-kg').first()).toHaveValue('70');
+  await expect(page.locator('.exercise-history-box')).toHaveCount(0);await expect(page.locator('.set-kg').first()).toHaveValue('70');
   expect(monitor.pageErrors).toEqual([]);
 });
 
@@ -3161,8 +3159,8 @@ test('note unificate: istruzioni sicure, aggiornamento singolo, silenzio e focus
   await expect(panel.locator('.note-allenatore-text')).not.toContainText('DURATA STIMATA');
   await expect(panel.locator('.note-allenatore-text img')).toHaveCount(0);
   await expect(panel.locator('.coach-adaptive-notes p')).toHaveCount(1);
-  await expect(panel.locator('.coach-adaptive-notes')).toContainText('Serie 1, 2, 3: Proposta 82.5 kg');
-  const input=panel.locator('.ex-user-notes');await input.focus();
+  await expect(panel.locator('.coach-adaptive-notes')).toContainText('Ho aumentato il carico alle serie 1, 2, 3: 82,5 kg');
+  const input=page.locator('.ex-card').first().locator('.ex-user-notes');await input.focus();
   const result=await page.evaluate(async()=>{
     const {state}=await import('/js/state.js');const {refreshExerciseCoachPanel}=await import('/js/exerciseCoachUI.js');
     const ex=state.workoutData.history.years[new Date().getFullYear()].mesocycles[0].weeks[0].days[0].exercises[0];
@@ -3199,5 +3197,50 @@ test('superserie: istruzioni sempre fuori dai menu dello storico su schermo picc
   await expect(page.locator('.circuit-exercise').first()).toContainText('Fermo al petto.');
   await expect(page.locator('.circuit-exercise').last()).toContainText('Busto stabile.');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2)).toBe(false);
+  assert.deepEqual(monitor.pageErrors,[]);assert.deepEqual(monitor.remoteRequests,[]);
+});
+
+test('11 reps confermate: proposta 12-11-11 nelle celle, un solo storico e note unite',async({page},testInfo)=>{
+  await page.setViewportSize({width:390,height:844});
+  const monitor=await openIsolatedApp(page);
+  await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');
+    const source={name:'Curl Manubri su Panca Inclinata',set:'3 set',reps:'10-12',rpe:8.5,targetRpe:8.5,recupero:'90s',notes:'Gomiti stabili, evita di oscillare.',sets:[{},{},{}],loggedSets:[15,12.5,12.5].map(weight=>({weight,reps:11,rpe:8,isLocked:true,completed:true,performedAt:'2026-10-20'}))};
+    const next={...structuredClone(source),loggedSets:[{},{},{}]};
+    const days=[{dayNumber:1,date:'2026-10-20',completed:true,exercises:[source]},{dayNumber:2,exercises:[next]}];
+    state.workoutData={athlete:{},history:{years:{2026:{mesocycles:[{name:'Progressione reps',weeks:[{weekNumber:1,days}]}]}}}};
+    state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=2;renderWorkoutList();
+  });
+  const card=page.locator('.ex-card').first(),panel=card.locator('.exercise-coach-notes');
+  await expect(panel).toBeVisible();await expect(panel.locator('strong')).toHaveText(['Note della scheda','Consigli di MyCoatch']);
+  await expect(panel).toContainText('Ho aggiunto una ripetizione alla serie 1: 15 kg × 12 reps.');
+  await expect(panel).not.toContainText('Disponibilità del peso');await expect(panel).not.toContainText('precompilati');
+  await expect(card.locator('.set-reps').nth(0)).toHaveValue('12');
+  await expect(card.locator('.set-reps').nth(1)).toHaveValue('11');
+  await expect(card.locator('.set-reps').nth(2)).toHaveValue('11');
+  await expect(card.locator('.set-kg').nth(0)).toHaveValue('15');
+  await expect(card.locator('.set-kg').nth(1)).toHaveValue('12.5');
+  await expect(card.locator('.exercise-history-box')).toHaveCount(1);
+  await expect(card.locator('.exercise-history-box')).toContainText('20/10/2026');
+  await expect(card.locator('.history-content tbody tr')).toHaveCount(3);
+  await expect(card.locator('.exercise-history-box summary,.circuit-details,.coach-exposure-summary')).toHaveCount(0);
+  const ordering=await card.evaluate(el=>{
+    const selectors=['.exercise-coach-notes','.exercise-history-box','.set-table','.exercise-personal-notes'];
+    return selectors.slice(1).every((selector,i)=>Boolean(el.querySelector(selectors[i]).compareDocumentPosition(el.querySelector(selector))&4));
+  });expect(ordering).toBe(true);
+  await page.evaluate(async()=>{const {stopTimer}=await import('/js/timer.js');stopTimer();});
+  const historyWidths=await card.locator('.exercise-history-box').evaluate(el=>({outer:el.clientWidth,table:el.querySelector('table').getBoundingClientRect().width}));
+  expect(historyWidths.table).toBeGreaterThan(historyWidths.outer*.85);
+  await card.screenshot({path:testInfo.outputPath('curl-note-storico-390.png')});
+  await page.setViewportSize({width:320,height:800});await page.evaluate(()=>document.documentElement.setAttribute('data-theme','dark'));
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2)).toBe(true);
+  await card.screenshot({path:testInfo.outputPath('curl-note-storico-320-dark.png')});
+  const before=await page.evaluate(async()=>{const {state}=await import('/js/state.js');return state.workoutData.history.years[2026].mesocycles[0].weeks[0].days[1].exercises[0].loggedSets;});
+  expect(before.every(s=>!s.isLocked&&!s.completed&&!s.weight&&!s.reps)).toBe(true);
+  await card.locator('.set-reps').nth(0).fill('11');
+  await page.evaluate(async()=>{const {renderWorkoutList}=await import('/js/ui.js');renderWorkoutList();});
+  await expect(card.locator('.set-reps').nth(0)).toHaveValue('11');
+  await expect(card.locator('.coach-adaptive-notes')).toContainText('Suggerisco 15 kg × 12 reps');
+  await expect(card.locator('.coach-adaptive-notes')).not.toContainText('Ho aggiunto');
   assert.deepEqual(monitor.pageErrors,[]);assert.deepEqual(monitor.remoteRequests,[]);
 });

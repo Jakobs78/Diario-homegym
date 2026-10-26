@@ -1,11 +1,12 @@
 import {setPrescription} from '../mycoatch/setPrescription.js';
+import {trainingExposures} from '../mycoatch/trainingHistory.js';
+import {previousSessionMarkup} from './exerciseHistoryUI.js';
 import {renderExerciseCoachPanel} from './exerciseCoachUI.js';
 import {assessSessionReadiness} from '../mycoatch/sessionReadiness.js';
 import {EXERCISE_DATABASE} from '../mycoatch/exercisesDB.js';
 import {applyPersonalExerciseMapping} from '../mycoatch/exerciseIdentity.js';
 import {editJournal} from './journalTransaction.js';
 import {recommendNextExposure} from '../mycoatch/nextExposure.js';
-import {isWarmupSet} from './workoutSemantics.js';
 import {canonicalExerciseKey} from '../mycoatch/exerciseIdentity.js';
 import {hasDropPrescription} from './trainingTechniques.js';
 import {dropFields,dropScopeControl} from './dropSetUI.js';
@@ -15,7 +16,7 @@ import {equipmentKind,automaticallyShowPlates,selectableBarbells,suggestedBarbel
  * Summary: Genera dinamicamente le card per ogni esercizio gestendo lo stato di esclusione dai massimali, i selettori del bilanciere, il calcolo dei dischi per lato e l'evidenziatura automatica fuori target per KG (inclusi Topset), REPS ed RPE (con supporto al feedback verde di miglioramento).
  */
 
-import { formatExerciseSummary, getPlateBreakdown, findPreviousExercise, findPriorExerciseExposures, isValueOutOfRange, isValueExceedingTarget, parseRPE, escapeHtml } from './helpers.js';
+import { formatExerciseSummary, getPlateBreakdown, findPriorExerciseExposures, isValueOutOfRange, isValueExceedingTarget, parseRPE, escapeHtml } from './helpers.js';
 import { state } from './state.js';
 import { enableCardSwipeGesture } from './gestures.js';
 import { isWarmupExercise } from './workoutSemantics.js';
@@ -74,7 +75,8 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         
     `;
 
-    const prevExercise = findPreviousExercise(state.workoutData, mesoIndex, targetWeek.weekNumber, activeDayNum - 1, ex, false, state.currentYear);
+    const previousExposure=trainingExposures(state.workoutData,{year:state.currentYear,mesoIndex,weekNumber:targetWeek.weekNumber,dayIndex:activeDayNum-1},ex)[0];
+    const prevExercise=previousExposure?.exercise??null;
     const recentExposures = findPriorExerciseExposures(
         state.workoutData,mesoIndex,targetWeek.weekNumber,activeDayNum,ex,state.currentYear);
     const equipmentSettings = {...athleteEquipment,...(athleteEquipment.loadingSteps||{})};
@@ -84,58 +86,28 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     const prefillFor = setIndex=>getSetPrefill(ex,setIndex,{
         previousExercise:prevExercise,crossExposureAdvice,nextExposureAdvice
     });
-    let lastSessionSetsHtml = '';
     const nextRepAdvice = recommendNextSessionReps(prevExercise, ex);
-
-    if (prevExercise && prevExercise.loggedSets && prevExercise.loggedSets.length > 0) {
-        const validSets = prevExercise.loggedSets.filter(s =>
-            (s.isLocked === true || s.completed === true) && !isWarmupSet(s) && s.weight && s.reps);
-        
-        if (validSets.length > 0) {
-            const rangeStr = (prevExercise.minReps && prevExercise.maxReps) 
-                ? `${prevExercise.minReps}-${prevExercise.maxReps}`
-                : ((typeof prevExercise.reps === 'string' && prevExercise.reps.includes('-')) ? prevExercise.reps : null);
-
-            lastSessionSetsHtml = validSets.map((s, idx) => {
-                const kg = s.weight ? `${s.weight}kg` : '-';
-                let repsFormatted = rangeStr 
-                    ? ((s.reps && s.reps !== rangeStr) ? `${s.reps} reps (target ${rangeStr})` : `${rangeStr} reps`)
-                    : `${s.reps || prevExercise.reps || '-'} reps`;
-                const rpeFormatted = s.rpe ? `, con ${s.rpe} rpe` : '';
-
-                return `<div class="text-xs mt-xs"><strong>${idx + 1}° set:</strong> ${escapeHtml(kg)}, ${escapeHtml(repsFormatted)}${escapeHtml(rpeFormatted)}</div>`;
-            }).join('');
-        }
-    }
-
-    // Historical numbers remain available but do not consume workout space.
-    // Never discard their evidence just because the card is compact.
-    const previousSessionMarkup = lastSessionSetsHtml ? `
-        <details class="exercise-history-box exercise-notes-box mb-md"
-                 aria-label="Ultima sessione precedente">
-            <summary class="history-title">↩ Confronta con l’ultima seduta registrata</summary>
-            <div class="history-content">${lastSessionSetsHtml}</div>
-        </details>` : '';
+    const personalNotesMarkup = `
+        <div class="exercise-personal-notes">
+            <label class="workout-notes-label" for="ex-user-notes-${exIdx}">✍️ Note personali</label>
+            <input type="text" id="ex-user-notes-${exIdx}" placeholder="Aggiungi una nota all'esercizio..."
+                value="${escapeHtml(ex.userNotes || '')}" class="ex-user-notes w-100"
+                data-ex="${exIdx}" ${isPastMeso ? 'disabled' : ''}>
+        </div>`;
 
     cardHtml += `
         <div class="target-box mb-md">
             <strong>${ex.coachSetProposals?'SCHEDA ORIGINALE':'TARGET'}:</strong> ${formatExerciseSummary(ex)}
         </div>
-        ${previousSessionMarkup}
         <section class="exercise-coach-notes" aria-label="Istruzioni e aggiornamenti dell’esercizio">
-            <h4 class="exercise-coach-heading">📝 Istruzioni e aggiornamenti</h4>
             <div class="exercise-coach-notes-body">
-                <div class="note-allenatore-text"></div>
-                <div class="coach-adaptive-notes" aria-live="polite" aria-atomic="true"></div>
-                <div class="coach-apply-slot"></div>
-                <label class="workout-notes-label" for="ex-user-notes-${exIdx}">✍️ Note personali</label>
-                <input type="text" id="ex-user-notes-${exIdx}" placeholder="Aggiungi una nota all'esercizio..."
-                    value="${escapeHtml(ex.userNotes || '')}" class="ex-user-notes w-100"
-                    data-ex="${exIdx}" ${isPastMeso ? 'disabled' : ''}>
+                <div class="exercise-plan-notes"><strong>Note della scheda</strong><div class="note-allenatore-text"></div></div>
+                <div class="exercise-coach-updates"><strong>Consigli di MyCoatch</strong><div class="coach-adaptive-notes" aria-live="polite" aria-atomic="true"></div><div class="coach-apply-slot"></div></div>
             </div>
         </section>
     `;
 
+    cardHtml += previousSessionMarkup(previousExposure,escapeHtml);
     cardHtml += dropScopeControl(ex,exIdx,isPastMeso);
     cardHtml += `
         <table class="set-table mb-sm">
@@ -279,8 +251,9 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     `;
 
     exCard.innerHTML = cardHtml;
+    exCard.querySelector('.set-table')?.insertAdjacentHTML('afterend',personalNotesMarkup);
     renderExerciseCoachPanel(exCard,ex,{getPrefill:prefillFor,readOnly:isPastMeso,
-        nextExposureAdvice,crossExposureAdvice,nextRepAdvice});
+        nextExposureAdvice,crossExposureAdvice,nextRepAdvice,historySource:previousExposure?.source});
 
     // Il coaching in seduta è calcolato centralmente solo dai set confermati.
     // Nessun consiglio si basa su placeholder o su RPE inventati.
