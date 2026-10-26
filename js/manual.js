@@ -1,7 +1,7 @@
 // Guida integrata: descrive i controlli presenti, senza promesse di dati infallibili.
 const sections = [
 ['seduta-attiva','Seduta guidata: esercizio attivo e storico',`
-<p>Le istruzioni e gli aggiornamenti utili sono riuniti in un pannello sempre visibile in ogni esercizio, anche nelle superserie. Lo storico si può aprire separatamente. Alla conferma valida dell’ultima serie, il prossimo esercizio si apre automaticamente; il recupero continua. Nei gruppi si completa il gruppo prima di avanzare. Puoi sempre riaprire un esercizio precedente o attivarlo dal suo titolo.</p>
+<p>Note della scheda e consigli di MyCoatch sono riuniti in un pannello sempre visibile quando presenti, anche nelle superserie. L’ultima seduta è visibile una sola volta, vicino alle celle, con i risultati per serie. Alla conferma valida dell’ultima serie, il prossimo esercizio si apre automaticamente; il recupero continua. Nei gruppi si completa il gruppo prima di avanzare. Puoi sempre riaprire un esercizio precedente o attivarlo dal suo titolo.</p>
 <p>Il target originario resta distinto da ciò che hai eseguito e dalla proposta di oggi. La precedente esecuzione può provenire anche da un altro giorno della stessa settimana. Un aumento è una proposta da rivalutare, non un risultato già registrato.</p>
 <p>W esclude la sola serie; classificare l’intero esercizio come riscaldamento esclude tutte le sue serie dalle decisioni allenanti. La parola WARM-UP nelle istruzioni non basta a escludere le serie di lavoro. Un RPE inferiore al target non è automaticamente un errore.</p>
 <p>Il pulsante <strong>Inizia seduta</strong> permette di registrare anche il tempo iniziale; le vecchie misure iniziate dopo la prima serie vengono ancora interpretate come tali.</p>

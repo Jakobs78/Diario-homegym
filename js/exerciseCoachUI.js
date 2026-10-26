@@ -16,22 +16,21 @@ export function renderExerciseCoachPanel(card,exercise,context={}) {
     instructions.replaceChildren();
     for(const text of model.instructions){const p=document.createElement('p');p.textContent=text;instructions.append(p);}
     instructions.hidden=!model.instructions.length;
+    instructions.closest('.exercise-plan-notes').hidden=instructions.hidden;
     const updates=panel.querySelector('.coach-adaptive-notes');updates.replaceChildren();
     for(const entry of model.updates){
         const p=document.createElement('p');
         if(entry.severity==='caution')p.className='coach-message-warning';
-        p.textContent=(entry.severity==='caution'?'⚠️ ':'')+(entry.series.length?'Serie '+entry.series.join(', ')+': ':'')+entry.text;
+        p.textContent=(entry.severity==='caution'?'⚠️ ':'')+(entry.labelSeries!==false&&entry.series.length?'Serie '+entry.series.join(', ')+': ':'')+entry.text;
         updates.append(p);
     }
-    if(model.evidence){
-        const p=document.createElement('p');p.className='coach-exposure-summary';
-        p.textContent='Storico di riferimento: '+model.evidence.map(s=>s.kg+' kg × '+s.reps+(s.rpe!==null&&s.rpe!==undefined?' @'+s.rpe:'')).join(' · ');
-        updates.append(p);
+    for(const text of model.references){
+        const p=document.createElement('p');p.className='coach-reference-source';p.textContent=text;updates.append(p);
     }
     updates.hidden=!model.updates.length;
-    const heading=panel.querySelector('.exercise-coach-heading');
-    heading.hidden=!model.instructions.length&&!model.updates.length;
-    panel.classList.toggle('has-coach-content',!heading.hidden);
+    panel.hidden=!model.instructions.length&&!model.updates.length;
+    panel.querySelector('.exercise-coach-updates').hidden=updates.hidden;
+    panel.classList.toggle('has-coach-content',!panel.hidden);
     return model;
 }
 

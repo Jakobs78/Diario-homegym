@@ -31,21 +31,42 @@ export function exerciseInstructionNotes(ex,{hasLoad=false}={}) {
     }));
 }
 
+const conciseReason = value => clean(value).replace(/\s*Disponibilità del peso da verificare\./g,'').trim();
+const sourceKey = source => source ? JSON.stringify([source.year,source.mesoIndex,source.weekNumber,source.dayIndex,source.exerciseIndex,source.archiveIndex??null]) : null;
+const referenceLabel = reference => {
+    const s=reference.source;if(!s)return '';
+    const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(reference.date??''));
+    return `Riferimento del consiglio: ${m?m[3]+'/'+m[2]+'/'+m[1]+' · ':''}settimana ${s.weekNumber}, giorno ${s.dayIndex+1} (${s.year}, mesociclo ${s.mesoIndex+1}).`;
+};
+const decimal = value => String(value).replace('.',',');
+function appliedChange(entry){
+    const c=entry.change;if(!c)return entry;
+    const where=entry.series.length===1?'alla serie '+entry.series[0]:'alle serie '+entry.series.join(', ');
+    const target=decimal(c.weight)+' kg × '+c.reps+' reps';
+    let text;
+    if(c.manual)text='Suggerisco '+target+' '+(entry.series.length===1?'per la serie ':'per le serie ')+entry.series.join(', ')+'.';
+    else if(c.kind==='reps')text='Ho aggiunto '+(c.delta===1?'una ripetizione':c.delta+' ripetizioni')+' '+where+': '+target+'.';
+    else if(c.kind==='increase')text='Ho aumentato il carico '+where+': '+target+(c.today?'. La serie precedente è risultata più facile del target.':'. Tutte le serie hanno raggiunto il limite alto rispettando l’RPE.');
+    else if(c.kind==='reduce')text='Ho ridotto il carico '+where+': '+target+'. La serie precedente è risultata più difficile del target.';
+    else text='Ho adattato il carico '+where+': '+target+(c.today?' in base alla serie appena confermata.':' usando il massimale stimato dallo storico pertinente.');
+    return {...entry,text:text+(c.warning?' '+c.warning:''),labelSeries:false};
+}
+
 export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=null,
-    nextExposureAdvice=null,crossExposureAdvice=null,nextRepAdvice=null}={}) {
+    nextExposureAdvice=null,crossExposureAdvice=null,nextRepAdvice=null,historySource=null}={}) {
     const count=Math.max(ex.loggedSets?.length||0,ex.sets?.length||0,ex.coachSetProposals?.length||0);
     const indices=Array.from({length:count},(_,i)=>i).filter(i=>pending(ex,i));
     const hasLoad=indices.length>0 && indices.every(i=>number(prefills[i]?.weight ?? ex.loggedSets?.[i]?.weight ?? ex.coachSetProposals?.[i]?.weight)!==null);
     const instructions=exerciseInstructionNotes(ex,{hasLoad:readOnly?true:hasLoad});
     const groups=new Map();
-    const add=(text,index=null,severity='info')=>{
+    const add=(text,index=null,severity='info',change=null)=>{
         if(!clean(text))return;
-        const k=key(text),entry=groups.get(k)||{text,series:[],severity};
+        const k=key(text)+JSON.stringify(change),entry=groups.get(k)||{text,series:[],severity,...(change?{change}:{})};
         if(severity==='caution')entry.severity=severity;
         if(index!==null)entry.series.push(index+1);
         groups.set(k,entry);
     };
-    let evidence=null;
+    const references=new Map();
     if(!readOnly && !ex.isWarmup && !ex.isExcluded && !ex.is_excluded){
         for(const i of indices){
             const p=ex.coachSetProposals?.[i];if(!p)continue;
@@ -58,13 +79,23 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
             const repsChanged=reps!==null && number(p.reps)!==null && number(p.reps)!==reps;
             const loadProblem=/non componibile|non è componibile|recuperi diversi/i.test(p.reason||'');
             const caution=p.kind==='pain_caution' || p.kind==='reduce_today';
-            const update=['increase_load','increase_today','build_reps','estimated_history','today_estimate'].includes(p.kind) && (weightChanged||repsChanged);
+            const update=(['increase_load','increase_today','build_reps','estimated_history','today_estimate'].includes(p.kind) || p.kind==='today'&&/Margine di sforzo/.test(p.reason||'')) && (weightChanged||repsChanged);
             const calibration=number(p.weight)===null && p.kind!=='pain_caution' && !hasLoad;
             if(caution||loadProblem||update||calibration){
+                const shown=prefills[i]??ex.loggedSets?.[i]??{};
+                const manual=['weight','reps','rpe'].some(field=>number(p[field])!==null&&number(shown[field])!==null&&number(shown[field])!==number(p[field]));
+                const warning=loadProblem?conciseReason(p.reason):'';
+                let change=null;
+                if(number(p.weight)!==null&&number(p.reps)!==null&&!loadProblem){
+                    if(repsChanged&&number(p.reps)>reps&&!weightChanged)change={kind:'reps',delta:number(p.reps)-reps,weight:p.weight,reps:p.reps,manual};
+                    else if(['increase_load','increase_today'].includes(p.kind))change={kind:'increase',weight:p.weight,reps:p.reps,today,manual};
+                    else if(p.kind==='reduce_today')change={kind:'reduce',weight:p.weight,reps:p.reps,manual};
+                    else if(update)change={kind:'estimate',weight:p.weight,reps:p.reps,today,manual};
+                }
                 const target=number(p.weight)!==null
-                    ? `Proposta ${p.weight} kg${number(p.reps)!==null?' × '+p.reps+' reps':''}. ` : '';
-                add(target+(p.reason||''),i,caution||loadProblem?'caution':'info');
-                if(!evidence && reference?.seriesEvidence?.length)evidence=reference.seriesEvidence;
+                    ? `${decimal(p.weight)} kg${number(p.reps)!==null?' × '+p.reps+' reps':''}. ` : '';
+                add(target+conciseReason(p.reason),i,caution||loadProblem?'caution':'info',change);
+                if(reference?.source && sourceKey(reference.source)!==sourceKey(historySource))references.set(sourceKey(reference.source),referenceLabel(reference));
             }
             if(p.monitoring && /in calo/i.test(p.monitoring))add(p.monitoring,null,'caution');
         }
@@ -73,7 +104,7 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
                 if(!routineCoachText(note))add(note);
             }
             if(nextExposureAdvice && (nextExposureAdvice.kind!=='maintain' || nextExposureAdvice.restChanged || nextExposureAdvice.suppressLoad)){
-                add((nextExposureAdvice.weight?nextExposureAdvice.weight+' kg. ':'')+nextExposureAdvice.reason);
+                add((nextExposureAdvice.weight?decimal(nextExposureAdvice.weight)+' kg. ':'')+conciseReason(nextExposureAdvice.reason));
             }else if(crossExposureAdvice){
                 add('Carico iniziale suggerito: '+crossExposureAdvice.kg+' kg, stimato da una seduta con reps/RPE diversi. Verifica durante l’avvicinamento.');
             }
@@ -84,12 +115,12 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
             // live warning as well only when it conveys a separate problem.
             if(!ex.coachSetProposals || ![...groups.values()].some(x=>key(x.text).includes(key(liveAdvice.message))))
                 {
-                    let message=liveAdvice.message;
+                    let message=conciseReason(liveAdvice.message);
                     for(const p of ex.coachSetProposals||[])if(p?.reason)message=message.replace(p.reason,'');
                     message=message.replace(/Esercizio completato; registra il risultato e valuta il prossimo\./g,'').trim();
                     add(message,null,liveAdvice.severity);
                 }
         }
     }
-    return {instructions,updates:[...groups.values()],evidence};
+    return {instructions,updates:[...groups.values()].map(appliedChange),references:[...references.values()]};
 }

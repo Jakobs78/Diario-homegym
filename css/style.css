@@ -3553,3 +3553,27 @@ body.dark-mode .group-title-badge {
 .ex-card .coach-apply-slot:empty {display:none;}
 .ex-card .exercise-coach-notes:not(.has-coach-content) .exercise-coach-notes-body {padding-top:8px;}
 .ex-card .coach-message-warning {font-weight:650;}
+
+/* Notes and advice share one open panel; history is shown once by the sets. */
+.ex-card .exercise-coach-notes-body {padding:10px 12px;gap:9px;}
+.ex-card .exercise-plan-notes > strong,
+.ex-card .exercise-coach-updates > strong {display:block;font-size:.84rem;margin-bottom:4px;}
+.ex-card .exercise-coach-updates {
+    border-top:1px solid var(--border-color);padding-top:8px;
+}
+.ex-card .exercise-plan-notes[hidden] + .exercise-coach-updates {border-top:0;padding-top:0;}
+.ex-card .coach-adaptive-notes:not([hidden]) {padding:5px 8px;}
+.ex-card .coach-reference-source {font-size:.78rem;color:var(--text-muted);}
+.ex-card section.exercise-history-box {
+    margin:8px 0;padding:9px 11px;border:1px solid var(--border-color);
+    border-radius:9px;background:var(--card-bg);color:var(--text-color);
+}
+.ex-card .exercise-history-box h4 {margin:0;font-size:.84rem;line-height:1.4;}
+.ex-card .exercise-history-location {margin:2px 0 6px;font-size:.75rem;color:var(--text-muted);}
+.ex-card .exercise-history-box table {display:table;width:100%;border-collapse:collapse;table-layout:fixed;font-size:.9rem;}
+.ex-card .exercise-history-box th,
+.ex-card .exercise-history-box td {padding:4px;text-align:center;border:0;line-height:1.4;}
+.ex-card .exercise-history-box thead {background:var(--block-bg);}
+.ex-card .exercise-history-box tbody tr + tr {border-top:1px solid var(--border-color);}
+.ex-card .exercise-personal-notes {margin:10px 0 8px;}
+.ex-card .exercise-personal-notes label {display:block;margin-bottom:5px;}

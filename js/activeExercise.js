@@ -21,7 +21,7 @@ export function bindActiveExercisePanels(container,day){
     container.querySelectorAll('.ex-card').forEach(card=>{
         const index=Number(card.dataset.ex),isActive=active.includes(index);
         card.classList.toggle('is-active-exercise',isActive);
-        card.querySelectorAll('.exercise-history-box,.plates-disclosure,.circuit-details').forEach((panel,i)=>{
+        card.querySelectorAll('.plates-disclosure').forEach((panel,i)=>{
             const key=index+':'+i;
             panel.open=value.manual.has(key)?value.manual.get(key):isActive;
             if(panel.classList.contains('plates-disclosure'))panel.dataset.manual='true';

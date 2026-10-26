@@ -9,7 +9,7 @@ const exercise=(extra={})=>({name:'Panca Piana con Bilanciere',reps:'6-8',rpe:8,
 test('maintenance and empty exercises generate no filler; useful instructions survive',()=>{
  const ex=exercise({coachSetProposals:[proposal(),proposal()],coachAdaptiveNotes:['Nessun aggiornamento necessario.']});
  const m=exerciseCoachModel(ex,{prefills:[{weight:80},{weight:80}],liveAdvice:{code:'on_track',severity:'ok',nextSetIndex:1,message:'Serie confermata.',weight:80}});
- assert.deepEqual(m.instructions,['Scapole stabili.']);assert.deepEqual(m.updates,[]);assert.equal(m.evidence,null);
+ assert.deepEqual(m.instructions,['Scapole stabili.']);assert.deepEqual(m.updates,[]);assert.deepEqual(m.references,[]);
  assert.deepEqual(exerciseCoachModel(exercise({notes:''})).instructions,[]);
 });
 
@@ -67,11 +67,33 @@ test('protocol reason and live reason render once, keeping the separate warning'
  const p=proposal({kind:'reduce_today',weight:75,reason});
  const m=exerciseCoachModel(exercise({loggedSets:[locked(80,6,9.5),{}],coachSetProposals:[null,p]}),{
   liveAdvice:{code:'high_effort',severity:'caution',nextSetIndex:1,message:'RPE molto alto. '+reason}});
- assert.equal(m.updates.filter(x=>x.text.includes(reason)).length,1);
+ assert.equal(m.updates.filter(x=>/Ho ridotto il carico/.test(x.text)).length,1);
  assert.ok(m.updates.some(x=>x.text==='RPE molto alto.'));
 });
 
 test('read-only plans hide active suggestions without mutating saved prescriptions or notes',()=>{
  const ex=exercise({coachSetProposals:[proposal({kind:'increase_load',weight:82.5}),null]});const before=structuredClone(ex);
  assert.deepEqual(exerciseCoachModel(ex,{readOnly:true}).updates,[]);assert.deepEqual(ex,before);
+});
+
+test('rep correction is concise and preserves manual choices and genuine equipment warnings',()=>{
+ const p=proposal({kind:'build_reps',reps:12,reason:'Mantieni il carico: propongo una ripetizione in più in una sola serie, entro il range e l’RPE previsti. Disponibilità del peso da verificare.',basedOn:[{...origin,reps:11}]});
+ const ex=exercise({coachSetProposals:[p,null]});
+ const m=exerciseCoachModel(ex,{prefills:[{weight:80,reps:12,rpe:8}]});
+ assert.equal(m.updates[0].text,'Ho aggiunto una ripetizione alla serie 1: 80 kg × 12 reps.');
+ assert.doesNotMatch(m.updates[0].text,/precompilat|Disponibilità/);
+ const manual=exerciseCoachModel(ex,{prefills:[{weight:80,reps:11,rpe:8}]});
+ assert.match(manual.updates[0].text,/^Suggerisco/);assert.doesNotMatch(manual.updates[0].text,/Ho aggiunto/);
+ p.reason+=' Carico teorico non componibile con l’inventario dichiarato.';
+ assert.match(exerciseCoachModel(ex).updates[0].text,/non componibile/);
+});
+
+test('advice cites an older reference only when it differs from the visible last session',()=>{
+ const source={year:2026,mesoIndex:0,weekNumber:1,dayIndex:0,exerciseIndex:0,archiveIndex:null};
+ const p=proposal({kind:'increase_load',weight:82.5,basedOn:[{...origin,source,date:'2026-10-20'}]});
+ const ex=exercise({coachSetProposals:[p,null]});
+ assert.deepEqual(exerciseCoachModel(ex,{historySource:source}).references,[]);
+ const m=exerciseCoachModel(ex,{historySource:{...source,dayIndex:1}});
+ assert.equal(m.references.length,1);assert.match(m.references[0],/20\/10\/2026 · settimana 1, giorno 1/);
+ assert.doesNotMatch(m.references[0],/80 kg/);
 });
