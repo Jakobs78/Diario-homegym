@@ -3018,6 +3018,7 @@ test('protocollo: anteprima import modificabile prima del salvataggio',async({pa
   });
   const dialog=page.getByRole('dialog',{name:'Controlla e modifica la scheda prima di importare'});
   await expect(dialog).toBeVisible();await dialog.getByLabel(/^Esercizio · Squat Personale$/i).fill('Squat variante personale');
+  await dialog.getByLabel(/^Associazione · Squat Personale$/i).selectOption('custom');
   await dialog.getByRole('button',{name:'Conferma importazione'}).click();
   const saved=await page.evaluate(async()=>{const result=await window.protocolImport;const {state}=await import('/js/state.js');return {result,name:state.workoutData.history.years[state.currentYear].mesocycles.at(-1).weeks[0].days[0].exercises[0].name};});
   expect(saved.result.success).toBe(true);expect(saved.name).toBe('Squat variante personale');expect(monitor.pageErrors).toEqual([]);

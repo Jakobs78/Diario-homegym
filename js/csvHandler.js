@@ -1,3 +1,4 @@
+import {commitImportedIdentities} from '../mycoatch/importIdentity.js';
 import {inheritPersonalExerciseMapping} from '../mycoatch/exerciseIdentity.js';
 import {reviewImportedPlan} from './importPreview.js';
 /**
@@ -241,7 +242,7 @@ export async function importWorkoutPlan(csvText, coachOptions = null) {
         if(coachOptions?.generatedPlan)
             newMesocycle=restoreProposalMetadata(newMesocycle,coachOptions.generatedPlan);
 
-        if(coachOptions?.review){const reviewed=await reviewImportedPlan(newMesocycle);if(!reviewed)return {success:false,error:'Importazione annullata.'};newMesocycle=reviewed;}
+        if(coachOptions?.review){const reviewed=await reviewImportedPlan(newMesocycle,{journal:state.workoutData});if(!reviewed)return {success:false,error:'Importazione annullata.'};newMesocycle=reviewed;}
         // Anche l'avviso viene mostrato solo DOPO un parsing completo.
         // Inserire una nuova scheda mantiene il mesociclo originale intatto.
         if (activeMeso && !isMesocycleCompleted(activeMeso)) {
@@ -269,6 +270,7 @@ export async function importWorkoutPlan(csvText, coachOptions = null) {
             newMesocycle.coachProfileSnapshot=profileSnapshot(staged,coachOptions);
             commitProfileRevision(candidate,staged);
         }
+        commitImportedIdentities(candidate,newMesocycle);
         const target = candidate.history.years[currentYear].mesocycles;
         for(const week of newMesocycle.weeks)for(const day of week.days)for(const ex of day.exercises){inheritPersonalExerciseMapping(candidate,ex);}
         target.push(newMesocycle);

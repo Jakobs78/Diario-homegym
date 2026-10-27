@@ -3405,8 +3405,7 @@ body.dark-mode .group-title-badge {
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;}}
 
-.exercise-catalog-mapping select{width:100%;max-width:100%;min-width:0;font-size:inherit;}
-.exercise-catalog-mapping{margin-top:10px;}
+
 .app-version{display:block;text-align:center;color:var(--text-muted,#64748b);font-size:.75rem;margin:12px;}
 .mycoatch-base-equipment,.equipment-extra-inventory{display:grid;gap:8px;}
 .mycoatch-base-equipment label,.equipment-extra-inventory label{display:flex;gap:8px;flex-wrap:wrap;}
@@ -3605,3 +3604,7 @@ body.dark-mode .group-title-badge {
 .exercise-skip-actions { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; margin-top:.5rem; }
 .exercise-skip-status { font-size:.85rem; line-height:1.4; }
 .ex-user-notes[aria-invalid="true"] { outline:2px solid #b45309; }
+
+.import-identity{grid-column:1 / -1;display:grid;gap:8px;padding:12px;border:1px solid var(--accent-color,#0284c7);border-radius:8px;}
+.import-identity select,.import-identity input{width:100%;min-width:0;font:inherit;}
+.import-identity p{margin:0;}
