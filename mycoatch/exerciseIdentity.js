@@ -113,7 +113,7 @@ export function applyPersonalExerciseMapping(data,label,catalog=null){
     data.athlete ||= {};data.athlete.exerciseCatalogMappings ||= {};
     const registry=data.athlete.exerciseCatalogMappings;
     const exerciseId=registry[key]?.exerciseId||'exercise:'+key;
-    if(catalog)registry[key]={confirmed:true,name:catalog.name,category:catalog.category,equipment:catalog.equipment,exerciseId};
+    if(catalog)registry[key]=catalog.custom?{custom:true,confirmed:false,exerciseId}:{confirmed:true,name:catalog.name,category:catalog.category,equipment:catalog.equipment,exerciseId};
     else delete registry[key];
     const apply=meso=>{for(const week of meso.weeks||[])for(const day of week.days||[])
         for(const session of [day,...(day.sessionArchives||[])])for(const ex of session.exercises||[]){
@@ -129,6 +129,6 @@ export function inheritPersonalExerciseMapping(data,exercise){
     const key=normalizeExerciseLabel(exercise.originalName);
     const saved=data.athlete?.exerciseCatalogMappings?.[key];
     exercise.exerciseId ||= saved?.exerciseId||'exercise:'+key;
-    if(saved?.confirmed)exercise.catalogMapping=structuredClone(saved);
+    if(saved?.confirmed||saved?.custom)exercise.catalogMapping=structuredClone(saved);
     return exercise;
 }

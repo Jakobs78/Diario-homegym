@@ -539,3 +539,61 @@ test('esclusione in circuito: solo i membri rimanenti completano il giro e avvia
  await expect(page.locator('.set-lock-check[data-ex="0"][data-set="0"]')).not.toBeChecked();
  await confirmSet(page,2,1);await confirmSet(page,2,2);await expect(page.locator('.set-lock-check[data-ex="2"][data-set="2"]')).toBeChecked();
 });
+
+test('importazione: nomi ambigui verificati una volta, scelta ricordata e annullamento senza scritture',async({page})=>{
+ const monitor=await openIsolatedApp(page);page.on('dialog',dialog=>dialog.accept());
+ await page.setViewportSize({width:320,height:740});
+ await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');window.__beforeImport=JSON.stringify(state.workoutData);
+  const {importWorkoutPlan}=await import('/js/csvHandler.js');
+  window.__importPromise=importWorkoutPlan('Settimana;Giorno;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero\n1;1;Rematore;3;6-8;50;50;8;90s\n2;1;Rematore;3;6-8;50;50;8;90s',{review:true});
+ });
+ const dialog=page.locator('.import-review-dialog');
+ await expect(dialog.locator('.import-identity:visible')).toHaveCount(2);
+ await dialog.getByRole('button',{name:'Conferma importazione'}).click();await expect(dialog).toBeVisible();
+ await dialog.getByLabel('Associazione · Rematore',{exact:true}).first().selectOption('custom');
+ await dialog.getByLabel('Associazione · Rematore',{exact:true}).first().selectOption('Rematore con Bilanciere');
+ await expect(dialog.getByLabel('Associazione · Rematore',{exact:true}).nth(1)).toHaveValue('Rematore con Bilanciere');
+ expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+ await dialog.getByRole('button',{name:'Annulla',exact:true}).click();
+ expect(await page.evaluate(async()=>{await window.__importPromise;const {state}=await import('/js/state.js');return JSON.stringify(state.workoutData)===window.__beforeImport;})).toBe(true);
+ await page.evaluate(async()=>{
+  const {importWorkoutPlan}=await import('/js/csvHandler.js');
+  window.__importPromise=importWorkoutPlan('Settimana;Giorno;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero\n1;1;Rematore;3;6-8;50;50;8;90s',{review:true});
+ });
+ await dialog.getByLabel('Associazione · Rematore',{exact:true}).selectOption('custom');
+ await dialog.getByRole('button',{name:'Conferma importazione'}).click();
+ const saved=await page.evaluate(async()=>{
+  const result=await window.__importPromise;const {state}=await import('/js/state.js');const {importedIdentity}=await import('/mycoatch/importIdentity.js');
+  return {result,identity:importedIdentity('Rematore',state.workoutData),mapping:state.workoutData.history.years[state.currentYear].mesocycles.at(-1).weeks[0].days[0].exercises[0].catalogMapping};
+ });
+ expect(saved.result.success).toBe(true);expect(saved.identity.kind).toBe('custom');expect(saved.mapping.custom).toBe(true);
+ await page.evaluate(async()=>{
+  const {importWorkoutPlan}=await import('/js/csvHandler.js');
+  window.__importPromise=importWorkoutPlan('Settimana;Giorno;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero\n1;1;Rematore;3;6-8;50;50;8;90s',{review:true});
+ });
+ await expect(dialog).toBeVisible();await expect(dialog.locator('.import-identity:visible')).toHaveCount(0);
+ await dialog.getByRole('button',{name:'Annulla',exact:true}).click();
+ await expect(page.locator('.exercise-catalog-mapping')).toHaveCount(0);
+ expect(monitor.pageErrors).toEqual([]);
+});
+
+test('importazione: PDF rifiutato e CSV letto senza libreria Excel o rete',async({page})=>{
+ const monitor=await openIsolatedApp(page);page.on('dialog',dialog=>dialog.accept());
+ const rejected=await page.evaluate(async()=>{
+  const {handleUniversalImport}=await import('/js/importer.js');const {state}=await import('/js/state.js');
+  const before=JSON.stringify(state.workoutData),status=document.createElement('p');
+  await handleUniversalImport(new File(['non leggere'],'scheda.pdf'),status);
+  return {unchanged:before===JSON.stringify(state.workoutData),message:status.textContent,hasPdfReader:Boolean(window.pdfjsLib),accept:document.querySelector('#import-file-input').accept};
+ });
+ expect(rejected.unchanged).toBe(true);expect(rejected.message).toContain('Formato non supportato');expect(rejected.hasPdfReader).toBe(false);expect(rejected.accept).not.toContain('.pdf');
+ await page.evaluate(async()=>{
+  const {handleUniversalImport}=await import('/js/importer.js');
+  window.__fileImport=handleUniversalImport(new File(['Settimana;Giorno;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero\n1;1;Squat;3;5-6;70;70;7;180s'],'scheda.csv'),document.createElement('p'));
+ });
+ const dialog=page.locator('.import-review-dialog');await expect(dialog).toBeVisible();
+ await expect(dialog.locator('.import-identity:visible')).toHaveCount(0);
+ await dialog.getByRole('button',{name:'Conferma importazione'}).click();
+ await page.evaluate(()=>window.__fileImport);
+ expect(monitor.pageErrors).toEqual([]);
+});

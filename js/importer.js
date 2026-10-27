@@ -1,15 +1,9 @@
-import {inheritPersonalExerciseMapping} from '../mycoatch/exerciseIdentity.js';
-import {reviewImportedPlan} from './importPreview.js';
-import {commitJournalCandidate} from './journalTransaction.js';
 /* global XLSX */
 // ==========================================
 // MODULI: importer.js - Generazione template Excel di esempio e parsing di file tabellari (.xlsx, .xls, .csv)
 // ==========================================
-import { state } from './state.js';
 
 import { renderWorkoutList } from './ui.js';
-import { parseCoachPDF } from './pdfParser.js';
-import { mapPdfTextToWorkoutData } from './pdfTextMapper.js';
 import { importWorkoutPlan } from './csvHandler.js';
 // ==========================================
 // 1. GENERAZIONE E DOWNLOAD TEMPLATE EXCEL
@@ -25,7 +19,7 @@ export function downloadExcelTemplate() {
         [1, 1, "Panca Piana", 4, "5", 65, 70, "", "@7.0", ""],
         
         // Esempio Drop Set (notazione 10+10+10 o nota esplicita)
-        [1, 2, "Alzate Laterali (Drop Set)", 3, "10+10+10", 12, 8, "", "@9.5", "3 scalate di carico senza recupero"],
+        [1, 2, "Alzate Laterali (Drop Set)", 3, "10+10+10", 12, 12, "", "@9.5", "3 scalate di carico senza recupero"],
         
         // Esempio Triset / Super Set (esercizi concatenati di seguito)
         [1, 3, "Leg Extension (Triset 1/3)", 3, "12", 40, 45, "", "@8.5", "In triset - Passa subito a Leg Curl"],
@@ -97,7 +91,7 @@ export function parseExcelFile(file, callback) {
     reader.readAsArrayBuffer(file);
 }
 /**
- * Gestisce l'importazione universale di qualsiasi file (PDF, XLSX, XLS, CSV)
+ * Gestisce l'importazione universale di qualsiasi file (XLSX, XLS, CSV)
  */
 export async function handleUniversalImport(file, statusMsgEl, closeModalCallback) {
     if (!file) return;
@@ -109,88 +103,13 @@ export async function handleUniversalImport(file, statusMsgEl, closeModalCallbac
         statusMsgEl.style.color = 'var(--primary, #007bff)';
     }
 
-    if (ext === 'pdf') {
-        if (statusMsgEl) {
-            statusMsgEl.style.color = '#d97706';
-            statusMsgEl.textContent = "⏳ Analisi e pulizia del PDF del coach in corso...";
-        }
-
-        try {
-            const pdfData = await parseCoachPDF(file);
-            const mappedData = mapPdfTextToWorkoutData(pdfData.cleanedText);
-            const preview=(mappedData?.weeks || []).flatMap(week=>
-                (week.days || []).flatMap(day=>(day.exercises || []).map(ex=>({
-                    week:week.weekNumber,day:day.dayName || day.dayNumber,
-                    name:ex.name,sets:ex.setsCount || ex.set || ex.loggedSets?.length || '?',
-                    reps:ex.reps || 'da verificare'
-                }))));
-            if(!preview.length)throw Error('Il PDF non contiene esercizi riconosciuti.');
-            const summary='PDF letto: '+mappedData.weeks.length+' settimane, '+
-                preview.length+' esercizi.\n\n'+
-                preview.map(x=>'S'+x.week+' '+x.day+': '+x.name+
-                    ' · '+x.sets+' serie × '+x.reps+' reps').join('\n')+
-
-                '\n\nControlla attentamente la scheda e i recuperi dopo l’importazione. Aggiungere questo mesociclo?';
-            if(!window.confirm(summary)){
-                if(statusMsgEl)statusMsgEl.textContent='Importazione annullata: lo storico è invariato.';
-                return;
-            }
-            
-            const candidate=structuredClone(state.workoutData);
-            const currentYear = new Date().getFullYear().toString();
-            if (!candidate.history) candidate.history = {};
-            if (!candidate.history.years) candidate.history.years = {};
-            if (!candidate.history.years[currentYear]) {
-                candidate.history.years[currentYear] = { mesocycles: [] };
-            }
-
-            const currentMesos = candidate.history.years[currentYear].mesocycles;
-            const extractedMeso = await reviewImportedPlan(mappedData);
-            if(!extractedMeso){if(statusMsgEl)statusMsgEl.textContent='Importazione annullata.';return;}
-
-            if (extractedMeso && extractedMeso.weeks && extractedMeso.weeks.length > 0) {
-                const nextMesoNumber = currentMesos.length + 1;
-                extractedMeso.id = 'meso_'+crypto.randomUUID();
-                extractedMeso.name = `Mesociclo ${nextMesoNumber}`;
-                extractedMeso.importedAt = new Date().toISOString();
-                extractedMeso.locked = false;
-
-                for(const week of extractedMeso.weeks)for(const day of week.days)for(const ex of day.exercises)inheritPersonalExerciseMapping(candidate,ex);
-                currentMesos.push(extractedMeso);
-
-                await commitJournalCandidate(candidate,'IMPORT_PDF');
-                state.activeMesocycleIndex = currentMesos.length - 1;
-                state.activeWeek = 1;
-                state.activeDay = 1;
-                renderWorkoutList();
-
-                if (statusMsgEl) {
-                    statusMsgEl.style.color = '#16a34a';
-                    statusMsgEl.textContent = `✅ Mesociclo ${nextMesoNumber} importato con successo!`;
-                }
-            } else {
-                throw new Error("Impossibile strutturare il mesociclo dal file PDF.");
-            }
-
-            setTimeout(() => {
-                if (typeof closeModalCallback === 'function') closeModalCallback();
-                if (statusMsgEl) statusMsgEl.style.display = 'none';
-            }, 2000);
-
-        } catch (err) {
-            console.error("Errore parsing PDF:", err);
-            if (statusMsgEl) {
-                statusMsgEl.style.color = '#dc2626';
-                statusMsgEl.textContent = 'Importazione non confermata: '+err.message;
-            }
-        }
-    } else if (['xlsx', 'xls', 'csv'].includes(ext)) {
+    if (['xlsx', 'xls', 'csv'].includes(ext)) {
         if (statusMsgEl) {
             statusMsgEl.style.color = 'var(--primary, #007bff)';
             statusMsgEl.textContent = "⏳ Leggendo il file Tabellare...";
         }
 
-        parseExcelFile(file, async (res) => {
+        const onParsed = async (res) => {
             if (!res.success) {
                 alert(res.error);
                 if (statusMsgEl) statusMsgEl.style.display = 'none';
@@ -208,11 +127,15 @@ export async function handleUniversalImport(file, statusMsgEl, closeModalCallbac
             }
 
             if (statusMsgEl) statusMsgEl.style.display = 'none';
-        });
+        };
+        if(ext==='csv'){
+            try{await onParsed({success:true,csvData:await file.text()});}
+            catch(error){await onParsed({success:false,error:'Impossibile leggere il CSV: '+error.message});}
+        }else parseExcelFile(file,onParsed);
     } else {
         if (statusMsgEl) {
             statusMsgEl.style.color = '#dc2626';
-            statusMsgEl.textContent = "❌ Formato non supportato. Usa .xlsx, .xls, .csv o .pdf";
+            statusMsgEl.textContent = "❌ Formato non supportato. Usa .xlsx, .xls o .csv. Il PDF è disponibile solo per esportare e stampare.";
         }
     }
 }

@@ -88,7 +88,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 // ==========================================
 async function initApp() {
     console.log(`Avvio Advanced Workout Tracker v${CONFIG.APP_VERSION}`);
-    const version=document.createElement('small');version.className='app-version';version.textContent='Versione '+CONFIG.APP_VERSION+' · Excel/PDF possono richiedere rete';
+    const version=document.createElement('small');version.className='app-version';version.textContent='Versione '+CONFIG.APP_VERSION+' · Importazione Excel può richiedere rete';
     document.getElementById('app-container')?.append(version);
     navigator.serviceWorker?.getRegistration?.().then(registration=>{
         if(!registration)return;

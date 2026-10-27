@@ -7,6 +7,8 @@ class Element {
  get value(){return this._value;}
  append(...children){this.children.push(...children);}
  setAttribute(key,value){this.attributes[key]=value;}
+ addEventListener(type,listener){this['on'+type]=listener;}
+ replaceChildren(...children){this.children=children;}
  showModal(){} close(){} remove(){}
 }
 const find=(root,predicate)=>predicate(root)?root:root.children?.filter(x=>typeof x==='object').map(c=>find(c,predicate)).find(Boolean);
@@ -16,7 +18,8 @@ test('import preview preserves independent row targets when only name is correct
  globalThis.document={body,createElement:tag=>new Element(tag)};
  try{
   const source=original(),before=JSON.stringify(source),pending=reviewImportedPlan(source);
-  const name=find(body,e=>e.attributes?.['aria-label']==='Esercizio · Panca');name.value='Panca personale';
+  const name=find(body,e=>e.attributes?.['aria-label']==='Esercizio · Panca');name.value='Panca personale';name.oninput();
+  find(body,e=>e.attributes?.['aria-label']==='Associazione · Panca').value='custom';
   const summary=find(body,e=>e.className==='import-series-targets');assert.match(summary.textContent,/Serie 1: 3 reps/);
   find(body,e=>e.tag==='form').onsubmit({preventDefault(){}});
   const result=await pending;const exercise=result.weeks[0].days[0].exercises[0];

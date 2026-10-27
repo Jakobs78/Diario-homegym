@@ -20,9 +20,7 @@
     <!-- jsPDF per esportazione report -->
     <script src="js/vendor/jspdf.js"></script>
     <!-- SheetJS per la lettura nativa dei file Excel e CSV -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <!-- PDF.js per la lettura dei file PDF della scheda allenamento -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js?homegym=20261027"></script>
     <!-- Icona coerente con l'app installata su iOS e Android -->
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
 </head>
@@ -249,7 +247,7 @@
                     <button class="sheet-item" data-action="export-pdf">🖨️ Scarica la scheda del giorno (PDF)<small class="sheet-item-help">Documento da consultare o stampare. Non cambia i risultati.</small></button>
                     <button class="sheet-item" data-action="export-meso-pdf">📑 Scarica programma e report completi (PDF)<small class="sheet-item-help">Tutte le settimane, le note e i risultati. Non è un backup ripristinabile.</small></button>
                     <button class="sheet-item mycoatch-btn" data-action="generate-mycoatch-csv">🤖 Progetta una nuova scheda con MyCoatch<small class="sheet-item-help">Imposta obiettivo, giorni, tempo e attrezzatura. Puoi scaricare il CSV senza importarlo.</small></button>
-                    <button class="sheet-item" data-action="import-plan">📥 Importa una scheda nel diario<small class="sheet-item-help">Carica CSV, Excel o PDF come nuovo programma. Verifica le conferme.</small></button>
+                    <button class="sheet-item" data-action="import-plan">📥 Importa una scheda nel diario<small class="sheet-item-help">Carica CSV o Excel come nuovo programma. Controlla l’anteprima prima di confermare.</small></button>
                     <button class="sheet-item" data-action="export-csv">📄 Scarica lo storico dell’anno (CSV)<small class="sheet-item-help">Esporta risultati già registrati, non una nuova scheda da importare.</small></button>
                     <button class="sheet-item" data-action="import-history">📥 Importa risultati precedenti (CSV)<small class="sheet-item-help">Carica risultati storici nel formato previsto e verifica anno e contenuto.</small></button>
                     <button class="sheet-item" data-action="backup-json">🛡️ Salva una copia completa del diario (JSON)<small class="sheet-item-help">Contiene anni, programmi, risultati e impostazioni. Conservala fuori dal browser.</small></button>
@@ -544,9 +542,9 @@
                 </div>
 
                 <div class="import-box">
-                    <p class="import-box-title">📄 Carica una scheda PDF, Excel o CSV</p>
-                    <p class="import-box-desc">L’app prova a riconoscere esercizi, serie e recuperi. I PDF complessi potrebbero essere interpretati in modo incompleto: confronta sempre la scheda risultante con il documento originale.</p>
-                    <input type="file" id="import-file-input" accept=".pdf, .xlsx, .xls, .csv" class="import-file-input">
+                    <p class="import-box-title">📄 Carica una scheda Excel o CSV</p>
+                    <p class="import-box-desc">Usa il modello per organizzare esercizi, serie e recuperi. Controlla i dati e gli eventuali nomi da associare nell’anteprima prima di confermare.</p>
+                    <input type="file" id="import-file-input" accept=".xlsx,.xls,.csv" class="import-file-input">
                 </div>
 
                 <div class="import-box mb-lg">

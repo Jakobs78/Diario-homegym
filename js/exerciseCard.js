@@ -4,9 +4,6 @@ import {trainingExposures} from '../mycoatch/trainingHistory.js';
 import {previousSessionMarkup} from './exerciseHistoryUI.js';
 import {renderExerciseCoachPanel} from './exerciseCoachUI.js';
 import {assessSessionReadiness} from '../mycoatch/sessionReadiness.js';
-import {EXERCISE_DATABASE} from '../mycoatch/exercisesDB.js';
-import {applyPersonalExerciseMapping} from '../mycoatch/exerciseIdentity.js';
-import {editJournal} from './journalTransaction.js';
 import {recommendNextExposure} from '../mycoatch/nextExposure.js';
 import {canonicalExerciseKey} from '../mycoatch/exerciseIdentity.js';
 import {hasDropPrescription} from './trainingTechniques.js';
@@ -312,24 +309,6 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             saveAndSync(state.workoutData,'SET_EQUIPMENT');
             updatePlatesBadgeUI(exIdx,exCard);
         });
-    }
-    if(!isPastMeso){
-        const mapping=document.createElement('details');mapping.className='exercise-catalog-mapping';
-        const title=document.createElement('summary');title.textContent='Correggi il riconoscimento dell’esercizio';
-        const select=document.createElement('select');select.setAttribute('aria-label','Associa variante esatta al catalogo');
-        const empty=document.createElement('option');empty.value='';empty.textContent='Nome personale / non associato';select.append(empty);
-        for(const catalog of EXERCISE_DATABASE){const option=document.createElement('option');option.value=catalog.name;option.textContent=catalog.name;select.append(option);}
-        select.value=ex.catalogMapping?.confirmed?ex.catalogMapping.name:'';
-        const button=document.createElement('button');button.type='button';button.textContent='Conferma per le occorrenze con questo nome';
-        const status=document.createElement('p');status.setAttribute('role','status');
-        button.onclick=async()=>{try{
-            await editJournal(candidate=>{
-                const meta=EXERCISE_DATABASE.find(item=>item.name===select.value)||null;
-                applyPersonalExerciseMapping(candidate,ex.originalName||ex.name,meta);
-            },'MAP_EXERCISE');renderWorkoutList();
-        }catch(error){status.textContent=error.message;}};
-        const note=document.createElement('p');note.textContent='Conferma solo la stessa variante e attrezzatura. L’associazione vale per le occorrenze con questo nome, anche nei prossimi import. Nome originale e prestazioni restano conservati.';
-        mapping.append(title,note,select,button,status);exCard.append(mapping);
     }
     exCard.dataset.platesAutoEligible=String(equipment==='barbell');
     const disclosure=exCard.querySelector('.plates-disclosure');

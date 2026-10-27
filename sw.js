@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v77-skip-progression-20261027';
+const CACHE_NAME = 'workout-app-v78-import-review-20261027';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -22,6 +22,7 @@ const ASSETS_TO_CACHE = [
   '/js/journalTransaction.js',
   '/js/activeExercise.js',
   '/js/importPreview.js',
+  '/mycoatch/importIdentity.js',
   '/mycoatch/nextExposure.js',
   '/mycoatch/setPrescription.js',
   '/mycoatch/trainingHistory.js',
@@ -65,8 +66,6 @@ const ASSETS_TO_CACHE = [
   '/js/mesocycleReminder.js',
   '/js/pdfExport.js',
   '/js/importer.js',
-  '/js/pdfParser.js',
-  '/js/pdfTextMapper.js',
   '/js/ui.js',
   '/js/workoutEvents.js',
   '/js/exerciseCard.js',

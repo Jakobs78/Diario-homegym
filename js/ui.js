@@ -41,7 +41,7 @@ export function showNotification(message) {
 }
 
 // ==========================================
-// 2.5 MODULO DI UPLOAD UNIVERSALE (PDF / EXCEL / XML)
+// 2.5 MODULO DI IMPORTAZIONE SCHEDE (CSV / EXCEL)
 // ==========================================
 // ==========================================
 // FUNZIONE DI SUPPORTO: RECUPERO SICURO MESOCICLO ATTIVO
