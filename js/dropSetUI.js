@@ -15,7 +15,7 @@ export function dropFields(ex,exIndex,setIndex,readOnly){
         <section class="drop-fields" data-ex="${exIndex}" data-set="${setIndex}" aria-label="Scarichi serie ${setIndex+1}">
         <strong>Serie ${setIndex+1} · base + scarico</strong>
         <p>Completa la serie base, poi gli scarichi senza pausa. Spunta la serie solo al termine dell’intera sequenza.</p>
-        ${locked && !set.dropSegments?.length && !set.dropSkipped?'<p>Registro precedente: fasi non separate. I dati originali restano conservati.</p>':''}
+        ${(set.isLocked||set.completed) && !set.dropSegments?.length && !set.dropSkipped?'<p>Registro precedente: fasi non separate. I dati originali restano conservati.</p>':''}
         <label class="drop-skip-label"><input class="drop-skip" type="checkbox" ${set.dropSkipped?'checked':''} ${locked?'disabled':''}> Dropset non eseguito</label>
         ${!set.dropSkipped?segments.map((s,i)=>`<div class="drop-segment">
             <span>Scarico ${i+1}</span>

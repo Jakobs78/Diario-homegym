@@ -1,3 +1,4 @@
+import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {compatiblePlates,PLATE_SIZES} from './barbellInventory.js';
 /**
  * Pure, non-writing suggestion for the NEXT workout, not an automatic
@@ -15,7 +16,7 @@ const number=value=>{
 };
 const confirmed=set=>set?.isLocked===true||set?.completed===true;
 const warmup=set=>Boolean(set?.isWarmup||set?.warmup||set?.is_warmup);
-const isSpecial=(ex,set)=>Boolean(ex?.isDropset||ex?.groupType==='dropset'||
+const isSpecial=(ex,set)=>Boolean(isExerciseSkipped(ex)||ex?.isDropset||ex?.groupType==='dropset'||
     ex?.groupType==='restpause'||set?.intensityTechnique||set?.dropSegments?.length||
     String(set?.reps||'').includes('+'));
 const repsRange=ex=>{

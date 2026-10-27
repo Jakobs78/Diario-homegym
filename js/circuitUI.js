@@ -1,3 +1,4 @@
+import {isExerciseSkipped} from './sessionSkip.js';
 import {createSingleExerciseCard,updatePlatesBadgeUI} from './exerciseCard.js';
 import {currentCircuitRound,circuitRoundComplete} from './restPolicy.js';
 import {isWarmupExercise,isWarmupSet} from './workoutSemantics.js';
@@ -17,9 +18,9 @@ export function createCircuitCard(members,start,day,mesoIndex,week,dayNumber,rea
         btn.setAttribute('aria-pressed',String(i===round));btn.addEventListener('click',()=>{choices.set(key,i);render();});nav.append(btn);
     }
     const status=document.createElement('p');status.className='circuit-status';status.setAttribute('aria-live','polite');
-    const pending=members.find(ex=>!isWarmupExercise(ex)&&ex.loggedSets?.[round]&&!isWarmupSet(ex.loggedSets[round])&&!ex.loggedSets[round].isLocked&&!ex.loggedSets[round].completed);
+    const pending=members.find(ex=>!isWarmupExercise(ex)&&!isExerciseSkipped(ex)&&ex.loggedSets?.[round]&&!isWarmupSet(ex.loggedSets[round])&&!ex.loggedSets[round].isLocked&&!ex.loggedSets[round].completed);
     const rest=members.at(-1).recupero||members.at(-1).restTime||members.at(-1).rest||'90s';
-    status.textContent=pending?'Prossimo: '+pending.name+' · Recupero '+rest+' solo dopo il giro completo.':'Giro completato · Recupero '+rest+'.';
+    status.textContent=members.every(ex=>isExerciseSkipped(ex)||isWarmupExercise(ex))?'Gruppo saltato per questa seduta.':pending?'Prossimo: '+pending.name+' · Recupero '+rest+' solo dopo il giro completo.':'Giro completato · Recupero '+rest+'.';
     header.append(title,nav,status);section.append(header);
     const grid=document.createElement('div');grid.className='circuit-exercises';section.append(grid);
     members.forEach((ex,offset)=>{

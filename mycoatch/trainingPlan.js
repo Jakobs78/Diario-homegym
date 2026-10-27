@@ -1,3 +1,4 @@
+import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {trainingExposures} from './trainingHistory.js';
 import {workingProposal,PROTOCOL_POLICY,selectEvidence,relatedSets} from './protocolLoad.js';
 import {confirmed,warm,blockKey,setPrescription} from './setPrescription.js';
@@ -40,7 +41,7 @@ export function reconcileTrainingPlan(data,{year,mesoIndex,now=new Date().toISOS
                     const consumed=JSON.stringify([previousSource.source,exerciseIdentity(ex),blockKey(setPrescription(previousSource.exercise,previousOrigin.series))]);
                     reservations.set(consumed,targetKey);
                 }
-                if(confirmed(log)||warm(log)||warm(ex.sets?.[index])||setPrescription(ex,index).special){proposals.push(null);continue;}
+                if(isExerciseSkipped(ex)||confirmed(log)||warm(log)||warm(ex.sets?.[index])||setPrescription(ex,index).special){proposals.push(null);continue;}
                 const source=selectEvidence(ex,index,exposures)[0];
                 const sourceKey=source?JSON.stringify([source.source,exerciseIdentity(ex),blockKey(source.match.prescription)]):null;
                 const held=sourceKey&&reservations.get(sourceKey);

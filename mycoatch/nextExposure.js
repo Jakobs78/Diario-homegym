@@ -1,9 +1,10 @@
+import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {exerciseIdentity} from './exerciseIdentity.js';
 import {isWarmupExercise,isWarmupSet,validPerformedSet,plannedWorkSetCount} from '../js/workoutSemantics.js';
 import {recommendNextSessionLoad,resolveNearbyLoad,equipmentCategory} from './loadProposal.js';
 /** One decision payload for the next exposure; never mutate prescriptions or results. */
 export function recommendNextExposure(previous,upcoming,equipment={},readiness=null){
-    if(!previous||!upcoming||isWarmupExercise(previous)||isWarmupExercise(upcoming)||upcoming.coachWeeklyLoadReview||upcoming.isDeload||upcoming.isDeloadWeek)return null;
+    if(isExerciseSkipped(previous)||isExerciseSkipped(upcoming)||!previous||!upcoming||isWarmupExercise(previous)||isWarmupExercise(upcoming)||upcoming.coachWeeklyLoadReview||upcoming.isDeload||upcoming.isDeloadWeek)return null;
     if(exerciseIdentity(previous)!==exerciseIdentity(upcoming)||equipmentCategory(previous)!==equipmentCategory(upcoming))return null;
     if(String(previous.reps)!==String(upcoming.reps)||Number(String(previous.targetRpe??previous.rpe).replace(/^@/,'').replace(',','.'))!==Number(String(upcoming.targetRpe??upcoming.rpe).replace(/^@/,'').replace(',','.'))||plannedWorkSetCount(previous)!==plannedWorkSetCount(upcoming))return null;
     const planned=ex=>Number(String(ex.kgMin??ex.kgMax??'').replace(',','.'));

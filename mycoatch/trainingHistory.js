@@ -1,3 +1,4 @@
+import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {validPerformedSet} from '../js/workoutSemantics.js';
 import {exerciseIdentity} from './exerciseIdentity.js';
 import {observed} from './setPrescription.js';
@@ -20,7 +21,7 @@ export function trainingExposures(data,{year,mesoIndex,weekNumber,dayIndex,exerc
                         const archived=ai<(day.sessionArchives||[]).length;
                         const sameDay=position.slice(0,4).every((v,i)=>v===end[i]);
                         if(!(earlier(position)&&(!sameDay||Number.isFinite(end[4])&&ei<end[4])||archived&&sameDay)||exerciseIdentity(ex)!==identity)continue;
-                        if(ex.isWarmup||ex.isExcluded||ex.is_excluded)continue;
+                        if(isExerciseSkipped(ex)||ex.isWarmup||ex.isExcluded||ex.is_excluded)continue;
                         const sets=(ex.loggedSets||[]).map((_,i)=>observed(ex,i)).filter(Boolean);
                         if(!sets.length&&!(ex.loggedSets||[]).some(s=>validPerformedSet(ex,s)))continue;
                         result.push({exercise:ex,sets,position:[...position,ai],source:{year:Number(y),mesoIndex:mi,weekNumber:Number(w.weekNumber),dayIndex:di,exerciseIndex:ei,archiveIndex:archived?ai:null},checkin:session.coachCheckin??null,date:session.sessionDate??session.date??sets[0]?.performedAt});

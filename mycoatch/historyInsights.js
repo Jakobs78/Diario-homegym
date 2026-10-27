@@ -1,3 +1,4 @@
+import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {specialSeries} from './seriesTechnique.js';
 import { HIGH_REP_EXERCISES } from './prescriptionPolicy.js';
 import { canonicalExerciseKey, canonicalExerciseName } from './exerciseIdentity.js';
@@ -28,7 +29,7 @@ function parseRpe(value) {
 
 function inspectExercise(exercise, context) {
     if(exercise.catalogMapping?.confirmed)exercise={...exercise,name:exercise.catalogMapping.name};
-    if (!exercise || isWarmupExercise(exercise)) return null;
+    if (!exercise || isWarmupExercise(exercise)||isExerciseSkipped(exercise)) return null;
     const logged = Array.isArray(exercise.loggedSets) ? exercise.loggedSets :
         (Array.isArray(exercise.sets) ? exercise.sets : []);
     const valid = logged.flatMap((set,index) => {

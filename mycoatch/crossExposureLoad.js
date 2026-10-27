@@ -1,3 +1,4 @@
+import {isExerciseSkipped} from '../js/sessionSkip.js';
 /**
  * Conservative, read-only INITIAL working-load suggestion when the SAME
  * exercise occurs with a DIFFERENT rep/RPE prescription. Never overwrite a
@@ -27,7 +28,7 @@ const repsRange=ex=>{
 };
 const confirmed=s=>s?.isLocked===true||s?.completed===true;
 const warm=s=>Boolean(s?.isWarmup||s?.warmup||s?.is_warmup);
-const special=ex=>Boolean(ex?.isWarmup||ex?.isExcluded||ex?.is_excluded||
+const special=ex=>Boolean(isExerciseSkipped(ex)||ex?.isWarmup||ex?.isExcluded||ex?.is_excluded||
  ex?.isDeload||ex?.isDeloadWeek||ex?.isDropset||ex?.groupType||
  ex?.topset||ex?.topsetKg||ex?.topsetKgMin||ex?.topsetKgMax||
  (ex?.sets||[]).some(s=>s?.isTopset||s?.intensityTechnique||s?.targetKg!==undefined||s?.kg!==undefined));

@@ -1,3 +1,4 @@
+import {isExerciseSkipped,sessionWorkCounts} from '../js/sessionSkip.js';
 import {specialSeries} from './seriesTechnique.js';
 import {setPrescription} from './setPrescription.js';
 import {workingProposal} from './protocolLoad.js';
@@ -161,7 +162,7 @@ function lastCompletedIndex(exercise) {
  * che dalla panoramica della seduta. Legge ESCLUSIVAMENTE serie confermate.
  */
 export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = null,equipmentSettings={} } = {}) {
-    if(isWarmupExercise(exercise))return null;
+    if(isWarmupExercise(exercise)||isExerciseSkipped(exercise))return null;
     const sets = Array.isArray(exercise?.loggedSets) ? exercise.loggedSets : [];
     const lastIndex = lastCompletedIndex(exercise);
     if (lastIndex < 0) return null;
@@ -358,7 +359,7 @@ export function assessSessionAdjustment(day, readiness = null) {
     if (hard.length < 2) return null;
 
     const optional = (day?.exercises || []).filter(ex =>
-        !isWarmupExercise(ex) && (ex.pattern === 'isolation' || ex.isOptional) &&
+        !isWarmupExercise(ex) && !isExerciseSkipped(ex) && (ex.pattern === 'isolation' || ex.isOptional) &&
         !ex.anchorKey && !ex.priorityProtected &&
         (ex.loggedSets || []).length > 0 &&
         (ex.loggedSets || []).every(set => !isConfirmed(set) || isWarmup(set))
@@ -405,7 +406,7 @@ function timeRemainingSeconds(day) {
     let result = 0;
     let unstarted = 0;
     for (const ex of day?.exercises || []) {
-        if (isWarmupExercise(ex)) continue;
+        if (isWarmupExercise(ex)||isExerciseSkipped(ex)) continue;
         const sets = (ex.loggedSets || []).filter(set => !isWarmup(set));
         const remaining = sets.filter(set => !isConfirmed(set)).length;
         if (!remaining) continue;
@@ -467,6 +468,8 @@ export function buildLiveSessionSnapshot(day, { now = Date.now(), history = null
         }
     });
 
+    const work=sessionWorkCounts(day);
+    total=work.required;
     const seconds = elapsedSeconds(day, now);
     const pace = history && checked && checked < total
         ? historicalSessionPace(history, day) : null;
@@ -489,10 +492,11 @@ export function buildLiveSessionSnapshot(day, { now = Date.now(), history = null
 
     return {
         totalSets: total,
+        skippedSets:work.skipped,
         checkedSets: checked,
         validSets: valid,
         invalidSets: checked - valid,
-        percent: total ? Math.round(100 * checked / total) : 0,
+        percent: total ? Math.round(100 * checked / total) : work.finished?100:0,
         tonnageKg: Math.round(tonnage * 10) / 10,
         rpeRecordedSets: rpeCount,
         elapsedSeconds: seconds,
@@ -507,7 +511,7 @@ export function buildLiveSessionSnapshot(day, { now = Date.now(), history = null
         previousExercise: previous,
         e1rmChangePercent,
         paceCalibration: pace,
-        finished: total > 0 && checked === total && !warnedInvalid,
+        finished: work.finished && !warnedInvalid,
         paused: Boolean(day?.isPaused),
         readOnly: Boolean(day?.completed)
     };

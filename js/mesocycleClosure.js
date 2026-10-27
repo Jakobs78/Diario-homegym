@@ -1,3 +1,4 @@
+import {isExerciseSkipped,sessionWorkCounts} from './sessionSkip.js';
 import {EXERCISE_DATABASE} from '../mycoatch/exercisesDB.js';
 /**
  * Read-only end-of-mesocycle review. Uses only confirmed, validated working
@@ -59,7 +60,7 @@ function inspectDay(day, weekNumber) {
             rpeMeasured: realRpe.length,
             averageRpe: realRpe.length ? rounded(rpeSumFor(realRpe) / realRpe.length) : null
         });
-        if (valid >= expected && rows.length) {
+        if (!isExerciseSkipped(ex)&&valid >= expected && rows.length) {
             const dates = rows.map(row => row.performedAt ||
                 day?.sessionCompletedAt || day?.date || null).map(value => {
                 if (!value) return null;
@@ -82,13 +83,14 @@ function inspectDay(day, weekNumber) {
             });
         }
     }
+    const skippedSets=sessionWorkCounts(day).skipped;
     const status = plannedSets === 0 ? 'no_plan' :
-        confirmedSets === plannedSets && invalidConfirmedSets === 0
+        confirmedSets+skippedSets === plannedSets && invalidConfirmedSets === 0
             ? 'complete' : confirmedSets ? 'partial' : 'not_started';
     return {
         weekNumber, dayNumber: day?.dayNumber ?? null,
         dayName: day?.dayName || 'Giorno ' + (day?.dayNumber ?? '?'),
-        status, plannedSets, confirmedSets, invalidConfirmedSets,
+        status, plannedSets, confirmedSets, invalidConfirmedSets,skippedSets,
         measuredRpe, rpeSum, samples, exerciseResults,
         archivedRepeats: Array.isArray(day?.sessionArchives) ? day.sessionArchives.length : 0
     };
@@ -130,7 +132,9 @@ export function summarizeMesocycleClosure(mesocycle) {
         inspectDay(day, week.weekNumber)));
     const sessions = days.filter(day => day.status !== 'no_plan');
     const plannedSessions = sessions.length;
-    const completedSessions = sessions.filter(day => day.status === 'complete').length;
+    const resolvedSessions=sessions.filter(day=>day.status==='complete').length;
+    const completedSessions = sessions.filter(day => day.status === 'complete'&&!day.skippedSets).length;
+    const sessionsWithSkips=sessions.filter(day=>day.status==='complete'&&day.skippedSets>0).length;
     const partialSessions = sessions.filter(day => day.status === 'partial').length;
     const skippedSessions = sessions.filter(day => day.status === 'not_started').length;
     const plannedSets = sessions.reduce((n, day) => n + day.plannedSets, 0);
@@ -140,9 +144,10 @@ export function summarizeMesocycleClosure(mesocycle) {
     const rpeSum = sessions.reduce((n, day) => n + day.rpeSum, 0);
     const review = {
         version: 1, name: mesocycle?.name || 'Mesociclo',
-        weeks: weeks.length, plannedSessions, completedSessions,
+        weeks: weeks.length, plannedSessions, completedSessions,sessionsWithSkips,
         partialSessions, skippedSessions, plannedSets, completedSets,
         invalidConfirmedSets, measuredRpeSets,
+        skippedSets:sessions.reduce((n,day)=>n+day.skippedSets,0),
         averageRpe: measuredRpeSets ? rounded(rpeSum / measuredRpeSets) : null,
         adherencePercent: plannedSessions ?
             rounded(100 * completedSessions / plannedSessions, 0) : null,
@@ -150,7 +155,7 @@ export function summarizeMesocycleClosure(mesocycle) {
             rounded(100 * completedSets / plannedSets, 0) : null,
         archivedRepeats: days.reduce((n, day) => n + day.archivedRepeats, 0),
         status: !plannedSessions ? 'no_plan' :
-            completedSessions === plannedSessions ? 'complete' :
+            resolvedSessions === plannedSessions ? 'complete' :
                 completedSets ? 'partial' : 'not_started',
         incompleteDays: sessions.filter(day => day.status !== 'complete').map(day => ({
             weekNumber: day.weekNumber, dayNumber: day.dayNumber, dayName: day.dayName,
@@ -235,6 +240,7 @@ export function formatMesocycleClosureForChat(review) {
         'Sedute parziali: ' + review.partialSessions,
         'Sedute non iniziate: ' + review.skippedSessions,
         'Serie valide confermate: ' + review.completedSets + '/' + review.plannedSets,
+        'Serie saltate intenzionalmente: '+(review.skippedSets||0),
         'Serie confermate con dati non validi: ' + review.invalidConfirmedSets,
         'RPE misurati: ' + review.measuredRpeSets + '/' + review.completedSets,
         'RPE medio dei valori realmente misurati: ' + (review.averageRpe ?? 'non disponibile'),

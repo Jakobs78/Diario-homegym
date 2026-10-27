@@ -1,3 +1,4 @@
+import {isExerciseSkipped} from './sessionSkip.js';
 import {setPrescription} from '../mycoatch/setPrescription.js';
 import {trainingExposures} from '../mycoatch/trainingHistory.js';
 import {previousSessionMarkup} from './exerciseHistoryUI.js';
@@ -36,11 +37,12 @@ const selectedKey=exIdx=>[
 
 export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targetWeek, activeDayNum, isPastMeso) {
     const isExExcluded = isWarmupExercise(ex);
+    const skipped=isExerciseSkipped(ex);
     const isDropsetPlan = ex.isDropset || (ex.sets||[]).some(s=>s.intensityTechnique==='DROP_SET');
     const equipment=equipmentKind(ex);
 
     const exCard = document.createElement('div');
-    exCard.className = `ex-card ${isExExcluded ? 'is-excluded' : ''} ${isDropsetPlan ? 'is-dropset' : ''}`;
+    exCard.className = `ex-card ${isExExcluded ? 'is-excluded' : ''} ${isDropsetPlan ? 'is-dropset' : ''} ${skipped?'is-session-skipped':''}`;
     exCard.dataset.ex = exIdx;
     exCard.id = 'workout-exercise-' + exIdx;
     const uiKey=selectedKey(exIdx);
@@ -92,7 +94,8 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             <label class="workout-notes-label" for="ex-user-notes-${exIdx}">✍️ Note personali</label>
             <input type="text" id="ex-user-notes-${exIdx}" placeholder="Aggiungi una nota all'esercizio..."
                 value="${escapeHtml(ex.userNotes || '')}" class="ex-user-notes w-100"
-                data-ex="${exIdx}" ${isPastMeso ? 'disabled' : ''}>
+                data-ex="${exIdx}" ${isPastMeso&&!skipped ? 'disabled' : ''} ${skipped?'required':''}>
+            ${!isExExcluded?`<div class="exercise-skip-actions"><button type="button" class="btn btn-secondary btn-sm exercise-session-skip" data-ex="${exIdx}" ${isPastMeso||!skipped&&!logs.some(s=>!s.isLocked&&!s.completed&&!s.isWarmup)?'disabled':''}>${skipped?'Ripristina esercizio':'Salta per questa seduta'}</button><span class="exercise-skip-status" role="status">${skipped?'Saltato oggi · Motivo obbligatorio nelle note personali. Le serie già eseguite restano registrate.':''}</span></div>`:''}
         </div>`;
 
     cardHtml += `
@@ -108,7 +111,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     `;
 
     cardHtml += previousSessionMarkup(previousExposure,escapeHtml);
-    cardHtml += dropScopeControl(ex,exIdx,isPastMeso);
+    cardHtml += dropScopeControl(ex,exIdx,isPastMeso||skipped);
     cardHtml += `
         <table class="set-table mb-sm">
             <thead>
@@ -125,7 +128,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
 
     (ex.loggedSets || []).forEach((setObj, setIdx) => {
         const isLocked = setObj.isLocked || setObj.completed || false;
-        const isDisabled = isLocked || isPastMeso;
+        const isDisabled = isLocked || isPastMeso || skipped;
 
         // A persistent mini badge for confirmed comparable sets, also across
         // mesocycle/year boundaries. Never treat a draft or warmup as volume.
@@ -192,7 +195,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                         aria-pressed="${Boolean(setObj.isWarmup || setObj.warmup || setObj.is_warmup)}"
                         title="Alterna riscaldamento / serie allenante"
                         aria-label="Serie ${setIdx+1}: ${setObj.isWarmup || setObj.warmup || setObj.is_warmup ? 'riscaldamento, passa ad allenante' : 'segna come riscaldamento'}"
-                        ${isPastMeso ? 'disabled' : ''}>${setObj.isWarmup || setObj.warmup || setObj.is_warmup ? 'W ✓' : 'W'}</button>
+                        ${isPastMeso||skipped ? 'disabled' : ''}>${setObj.isWarmup || setObj.warmup || setObj.is_warmup ? 'W ✓' : 'W'}</button>
                     ${intensityBadgeHtml}
                 </td>
                 <td class="td-input td-kg-container">
@@ -219,11 +222,11 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                     <small class="rpe-target-label" title="Obiettivo RPE di MyCoatch, non prestazione effettuata">Target ${escapeHtml(setTargetRpeStr || '—')}</small>
                 </td>
                 <td class="td-check text-center">
-                    <input type="checkbox" class="set-lock-check custom-big-check" aria-label="Conferma o riapri serie ${setIdx+1}" title="${hasDropPrescription(ex,setIdx)?'Conferma base e scarichi insieme':'Conferma serie'}" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso ? 'disabled' : ''}>
+                    <input type="checkbox" class="set-lock-check custom-big-check" aria-label="Conferma o riapri serie ${setIdx+1}" title="${hasDropPrescription(ex,setIdx)?'Conferma base e scarichi insieme':'Conferma serie'}" data-ex="${exIdx}" data-set="${setIdx}" ${isLocked ? 'checked' : ''} ${isPastMeso||skipped ? 'disabled' : ''}>
                 </td>
             </tr>
         `;
-        cardHtml += dropFields(ex,exIdx,setIdx,isPastMeso);
+        cardHtml += dropFields(ex,exIdx,setIdx,isPastMeso||skipped);
     });
 
     cardHtml += `
@@ -236,7 +239,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         <div class="bar-plates-container" aria-label="Calcolo dischi serie attiva">
             <div class="bar-controls-row">
                 <span class="bar-select-label">🏋️ SERIE <span class="plates-active-set">${selected+1}</span></span>
-                <select class="bar-select" aria-label="Bilanciere: peso e diametro" ${isPastMeso ? 'disabled' : ''}>
+                <select class="bar-select" aria-label="Bilanciere: peso e diametro" ${isPastMeso||skipped ? 'disabled' : ''}>
                     <option value="">Scegli bilanciere…</option>
                     ${barOptions.length ? barOptions.map(bar=>`<option value="${barbellOptionValue(bar)}">Bil ${bar.weight} kg · Ø${bar.diameter} mm</option>`).join('')
                         : ''}
@@ -258,7 +261,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     // Il coaching in seduta è calcolato centralmente solo dai set confermati.
     // Nessun consiglio si basa su placeholder o su RPE inventati.
     const toggleExclusion = () => {
-        if (isPastMeso) return;
+        if (isPastMeso||skipped) return;
         const exercise=currentDay.exercises[exIdx];
         const warmup=!isWarmupExercise(exercise);
         // Preserve compatibility with legacy isExcluded flags and analytics.

@@ -1,8 +1,9 @@
+import {isExerciseSkipped} from './sessionSkip.js';
 import {isCircuit,circuitMembers} from './restPolicy.js';
 import {isWarmupExercise,isWarmupSet} from './workoutSemantics.js';
 const sessions=new WeakMap();
-const complete=ex=>isWarmupExercise(ex)||((ex.loggedSets||[]).length>0&&(ex.loggedSets||[]).filter(s=>!isWarmupSet(s)).every(s=>s.isLocked||s.completed));
-function session(day){if(!sessions.has(day))sessions.set(day,{index:Math.max(0,(day.exercises||[]).findIndex(ex=>!complete(ex))),manual:new Map(),scroll:false});return sessions.get(day);}
+const complete=ex=>isWarmupExercise(ex)||isExerciseSkipped(ex)||((ex.loggedSets||[]).length>0&&(ex.loggedSets||[]).filter(s=>!isWarmupSet(s)).every(s=>s.isLocked||s.completed));
+function session(day){if(!sessions.has(day))sessions.set(day,{index:(day.exercises||[]).findIndex(ex=>!complete(ex)),manual:new Map(),scroll:false});return sessions.get(day);}
 export function advanceExercise(day,index){
     const current=day.exercises?.[index];if(!current||!complete(current))return;
     const group=isCircuit(current)?circuitMembers(day,current):[current];

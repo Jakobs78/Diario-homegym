@@ -205,7 +205,7 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
     if(!snapshot.finished)panel.append(createSessionCheckinPanel(day, snapshot.readiness, locked, panel));
 
     const meter = element('div', 'mycoatch-live-progress');
-    const textProgress = element('span', '', `Serie confermate: ${snapshot.checkedSets}/${snapshot.totalSets} (${snapshot.percent}%)`);
+    const textProgress = element('span', '', `Serie confermate: ${snapshot.checkedSets}/${snapshot.totalSets} (${snapshot.percent}%)${snapshot.skippedSets?' · Serie saltate: '+snapshot.skippedSets:''}`);
     const progress = element('progress');
     progress.max = Math.max(1, snapshot.totalSets);
     progress.value = snapshot.checkedSets;
@@ -304,7 +304,7 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
     const trigger=disclosure?.querySelector('.mycoatch-live-trigger');
     trigger?.setAttribute('aria-label','Apri o chiudi il riepilogo MyCoatch'+(snapshot.finished?' · seduta completata':''));
     const count=disclosure?.querySelector('.mycoatch-live-count');
-    if(count)count.textContent=snapshot.finished?'Completata':`Serie ${snapshot.checkedSets}/${snapshot.totalSets}`;
+    if(count)count.textContent=snapshot.finished?(snapshot.skippedSets?'Conclusa con esclusioni':'Completata'):`Serie ${snapshot.checkedSets}/${snapshot.totalSets}`;
     return snapshot;
 }
 

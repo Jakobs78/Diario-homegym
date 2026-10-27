@@ -462,3 +462,80 @@ test('consigli dropset: base fuori target visibile, scarico intenso senza falso 
  expect(await update(8)).toEqual({code:'special_technique',e1rm:null,suggested:null});
  await expect(panel).toBeHidden();
 });
+
+test('esclusione temporanea: nota obbligatoria, persistenza, riepilogo e ripristino',async({page},testInfo)=>{
+ await page.setViewportSize({width:390,height:844});
+ await setupPlan(page,'drop');
+ let card=page.locator('.ex-card[data-ex="0"]');
+ await card.locator('.exercise-session-skip').click();
+ await expect(card).not.toHaveClass(/is-session-skipped/);
+ await expect(card.locator('.ex-user-notes')).toBeFocused();
+ await card.locator('.ex-user-notes').fill('Dolore alla spalla: salto solo oggi');
+ await card.locator('.exercise-session-skip').click();
+ await expect(card).toHaveClass(/is-session-skipped/);
+ await expect(card).not.toContainText('Registro precedente: fasi non separate');
+ await expect(card.locator('.ex-user-notes')).toBeEnabled();
+ await expect(card.locator('.set-lock-check').first()).not.toBeChecked();
+ await expect(card.locator('.set-lock-check').first()).toBeDisabled();
+ await page.evaluate(async()=>{await (await import('/js/journalStore.js')).flushJournalStorage();});
+ await page.reload();await page.evaluate(()=>{document.getElementById('auth-overlay').style.display='none';});card=page.locator('.ex-card[data-ex="0"]');
+ await expect(card).toHaveClass(/is-session-skipped/);
+ await expect(card.locator('.ex-user-notes')).toHaveValue('Dolore alla spalla: salto solo oggi');
+ await card.locator('.exercise-personal-notes').scrollIntoViewIfNeeded();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+ await page.screenshot({path:testInfo.outputPath('esclusione-mobile.png')});
+ await card.locator('.ex-user-notes').fill('   ');
+ await page.locator('.ex-card[data-ex="1"] .ex-name').click();
+ await expect(card.locator('.ex-user-notes')).toHaveValue('Dolore alla spalla: salto solo oggi');
+ for(let i=0;i<3;i++)await confirmSet(page,1,i);
+ const result=await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');const {buildMesocyclePdfDetails}=await import('/js/mesocyclePdfModel.js');
+  const m=Object.values(state.workoutData.history.years)[0].mesocycles[0],day=m.weeks[0].days[0];
+  return {completed:day.completed,skipped:day.exercises[0].sessionSkip.active,locked:day.exercises[0].loggedSets.some(s=>s.isLocked),warm:day.exercises[0].isWarmup,pdf:buildMesocyclePdfDetails(m).filter(r=>r.kind==='note'||r.kind==='notice')};
+ });
+ expect(result.completed).toBe(true);expect(result.skipped).toBe(true);expect(result.locked).toBe(false);expect(result.warm).not.toBe(true);
+ expect(result.pdf.some(r=>r.label==='NOTE PERSONALI'&&r.text==='Dolore alla spalla: salto solo oggi')).toBe(true);
+ await expect(page.locator('#mycoatch-live-panel')).toContainText('Serie saltate: 3');
+ await expect(page.locator('#mycoatch-live-panel')).toContainText('Dolore alla spalla: salto solo oggi');
+ await card.locator('.exercise-session-skip').click();await expect(card).not.toHaveClass(/is-session-skipped/);
+ await expect(card.locator('.set-lock-check').first()).toBeEnabled();
+ expect(await page.evaluate(async()=>{const {state}=await import('/js/state.js');return Object.values(state.workoutData.history.years)[0].mesocycles[0].weeks[0].days[0].completed;})).toBe(false);
+});
+
+test('esclusione: serie eseguite conservate e note modificabili anche nel mesociclo bloccato',async({page})=>{
+ await setupPlan(page,'drop');await confirmSet(page,0,0);
+ const card=page.locator('.ex-card[data-ex="0"]');await card.locator('.ex-user-notes').fill('Attrezzo non disponibile per le serie rimanenti');await card.locator('.exercise-session-skip').click();
+ await expect(card.locator('.set-lock-check').first()).toBeChecked();
+ await page.locator('#toggle-lock-meso-btn').click();await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Sblocca');
+ await expect(card.locator('.ex-user-notes')).toBeEnabled();await expect(card.locator('.exercise-session-skip')).toBeDisabled();
+ await card.locator('.ex-user-notes').fill('Attrezzo indisponibile: completata soltanto la prima serie');
+ await page.evaluate(async()=>{await (await import('/js/journalStore.js')).flushJournalStorage();});await page.reload();await page.evaluate(()=>{document.getElementById('auth-overlay').style.display='none';});
+ await expect(card.locator('.ex-user-notes')).toHaveValue('Attrezzo indisponibile: completata soltanto la prima serie');
+ await expect(card.locator('.set-lock-check').first()).toBeChecked();
+});
+
+test('progressione 5-7-7: celle successive aggiornate e spiegazione senza falsa affermazione su tutte le serie',async({page})=>{
+ await setupPlan(page,'drop');
+ await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');
+  const m=Object.values(state.workoutData.history.years)[0].mesocycles[0];
+  const exercise=logs=>({name:'Panca Piana con Bilanciere',reps:'5-6',targetRpe:7.5,rpe:7.5,recupero:'120s',sets:[{},{},{}],loggedSets:logs});
+  m.weeks=[{weekNumber:1,days:[{dayNumber:1,exercises:[exercise([5,7,7].map(reps=>({weight:80,reps,rpe:7,isLocked:true,completed:true}))) ]},{dayNumber:2,exercises:[exercise([{},{},{}])]}]}];
+  state.workoutData.athlete={loadingSteps:{barbell:1}};state.activeDay=2;state.activeWeek=1;renderWorkoutList();
+ });
+ const card=page.locator('.ex-card[data-ex="0"]');
+ await expect(card.locator('.set-kg').first()).toHaveValue('81');await expect(card.locator('.set-reps').first()).toHaveValue('5');
+ await expect(card.locator('.coach-adaptive-notes')).toContainText('meno favorevole');
+ await expect(card.locator('.coach-adaptive-notes')).not.toContainText('Tutte le serie hanno raggiunto');
+ await expect(card.locator('.set-lock-check').first()).not.toBeChecked();
+});
+
+test('esclusione in circuito: solo i membri rimanenti completano il giro e avviano il recupero',async({page})=>{
+ await setupPlan(page,'group');
+ for(const index of [0,1]){
+  const card=page.locator('.ex-card[data-ex="'+index+'"]');await card.locator('.ex-user-notes').fill('Salto questo movimento per oggi');await card.locator('.exercise-session-skip').click();await expect(card).toHaveClass(/is-session-skipped/);
+ }
+ await confirmSet(page,2,0);await expect(page.locator('.set-lock-check[data-ex="2"][data-set="0"]')).toBeChecked();await expect(page.locator('#floating-timer')).toHaveClass(/active/);
+ await expect(page.locator('.set-lock-check[data-ex="0"][data-set="0"]')).not.toBeChecked();
+ await confirmSet(page,2,1);await confirmSet(page,2,2);await expect(page.locator('.set-lock-check[data-ex="2"][data-set="2"]')).toBeChecked();
+});

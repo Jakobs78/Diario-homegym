@@ -1,10 +1,11 @@
+import {sessionWorkCounts,isExerciseSkipped} from './sessionSkip.js';
 // ==========================================
 // MODULI: sessionTimer.js - Gestione del timer di sessione, calcolo durata e stati di completamento allenamento
 // ==========================================
 
 import { saveAndSync } from './storage.js';
 import { state } from './state.js';
-import { isWarmupExercise, isWarmupSet, validPerformedSet, plannedWorkSetCount, localCalendarDay } from './workoutSemantics.js';
+import { localCalendarDay } from './workoutSemantics.js';
 import { refreshLiveCoachClock } from './liveCoachUI.js';
 import { repeatCompletedSessionPreservingHistory, safeArchiveCount } from './historySafety.js';
 
@@ -18,24 +19,15 @@ export function updateSessionAndCompletionState(currentDay) {
     const exercises = currentDay.exercises;
     if (exercises.length === 0) return;
 
-    let totalSets = 0;
-    let completedSets = 0;
-
-    exercises.forEach(ex => {
-        if (isWarmupExercise(ex)) return;
-        totalSets += plannedWorkSetCount(ex);
-        (ex.loggedSets || []).forEach(set => {
-            if(isWarmupSet(set))return;
-            if (validPerformedSet(ex,set)) completedSets++;
-        });
-    });
+    const work=sessionWorkCounts(currentDay);
+    const completedSets=work.confirmed;
 
     if (completedSets > 0 && !currentDay.sessionStart && !currentDay.completed && !currentDay.isPaused) {
         currentDay.sessionStart = Date.now();
         currentDay.accumulatedSeconds = currentDay.accumulatedSeconds || 0;
     }
 
-    if (totalSets > 0 && completedSets === totalSets) {
+    if (work.finished) {
         if (currentDay.completed) return;
 
         const activeSegmentSecs = currentDay.sessionStart ? Math.floor((Date.now() - currentDay.sessionStart) / 1000) : 0;
@@ -43,14 +35,14 @@ export function updateSessionAndCompletionState(currentDay) {
         const durationMinutes = Math.round(totalSecs / 60);
 
         currentDay.date ||= localCalendarDay();
-        currentDay.totalDurationMinutes = Math.max(1, durationMinutes);
+        currentDay.totalDurationMinutes = work.confirmed?Math.max(1,durationMinutes):durationMinutes;
         currentDay.accumulatedSeconds = totalSecs; // Mantieni l'effettivo anche se una serie viene riaperta.
         currentDay.completed = true;
         currentDay.sessionCompletedAt ||= new Date().toISOString();
 
         currentDay.sessionStart = null; 
         currentDay.isPaused = false;
-    } else if (completedSets < totalSets && currentDay.completed) {
+    } else if (!work.finished && currentDay.completed) {
         // Correzione di una serie spuntata: riapri davvero la sessione.
         currentDay.completed = false;
         currentDay.totalDurationMinutes = undefined;
@@ -121,19 +113,9 @@ export function updateSessionHeaderUI(currentDay, renderCallback, readOnly = fal
         };
     }
 
-    const exercises = currentDay.exercises || [];
-    let totalSets = 0;
-    let completedSets = 0;
-    exercises.forEach(ex => {
-        if (isWarmupExercise(ex)) return;
-        totalSets += plannedWorkSetCount(ex);
-        (ex.loggedSets || []).forEach(set => {
-            if(isWarmupSet(set))return;
-            if (validPerformedSet(ex,set)) completedSets++;
-        });
-    });
-
-    const isAllChecked = totalSets > 0 && completedSets === totalSets;
+    const headerWork=sessionWorkCounts(currentDay);
+    const totalSets=headerWork.required,completedSets=headerWork.confirmed;
+    const isAllChecked=headerWork.finished;
 
     if (actionBtn) {
         actionBtn.disabled = readOnly;
@@ -213,9 +195,9 @@ export function updateSessionHeaderUI(currentDay, renderCallback, readOnly = fal
             for (const ex of item.exercises || []) {
                 const performed = (ex.loggedSets || []).filter(set =>
                     set.isLocked === true || set.completed === true);
-                if (!performed.length) continue;
+                if (!performed.length&&!isExerciseSkipped(ex)) continue;
                 const line = document.createElement('li');
-                line.textContent = ex.name + ': ' + performed.map(set =>
+                line.textContent = ex.name + (isExerciseSkipped(ex)?' · Saltato in questa seduta · '+(ex.userNotes||''):'') + ': ' + performed.map(set =>
                     String(set.weight) + ' kg × ' + String(set.reps) +
                     (set.rpe === '' || set.rpe === null || set.rpe === undefined
                         ? '' : ' · RPE ' + String(set.rpe))).join(' / ');

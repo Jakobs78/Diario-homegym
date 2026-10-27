@@ -64,6 +64,7 @@ export function createMesocycleClosurePanel(mesocycle, athleteDiary = null) {
         'RPE medio percepito nelle serie registrate: ' + (review.averageRpe ?? 'dato insufficiente')
     ];
     for (const line of stats) body.append(node('p', line));
+    if(review.skippedSets)body.append(node('p','Sedute concluse con esclusioni: '+review.sessionsWithSkips+'. Serie saltate intenzionalmente: '+review.skippedSets+'. I motivi sono nelle note personali del diario e nella stampa completa. Le esclusioni consentono di concludere la seduta, senza contare queste serie come eseguite.'));
     // Snapshot provenance is informative: never change an active training
     // prescription merely because the athlete edited their saved profile.
     const continuity=assessMesocycleProfileContinuity(mesocycle, athleteDiary);

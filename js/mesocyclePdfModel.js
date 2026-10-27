@@ -1,3 +1,4 @@
+import {isExerciseSkipped} from './sessionSkip.js';
 /**
  * Pure outline for complete mesocycle PDF: preserve week/day boundaries and
  * prescription fields. Do not convert planned RPE into actual performance.
@@ -63,6 +64,7 @@ export function buildMesocyclePdfDetails(meso) {
                     (ex.topset ? ' · Top set ' + ex.topset : ''),
                 excluded: Boolean(ex.isWarmup || ex.isExcluded || ex.is_excluded)
             });
+            if(isExerciseSkipped(ex))rows.push({kind:'notice',text:'SALTATO IN QUESTA SEDUTA · Le serie non confermate non sono state eseguite.'});
             if (String(ex.notes ?? '').trim()) rows.push({
                 kind: 'note', label: 'NOTE ALLENATORE', text: String(ex.notes)
             });

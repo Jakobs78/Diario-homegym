@@ -1,3 +1,4 @@
+import {isExerciseSkipped,sessionWorkCounts} from './sessionSkip.js';
 /**
  * Pure/history-only safeguards for the legacy workout diary.
  * No Supabase API, localStorage, timers or coach state in this module.
@@ -17,8 +18,8 @@ function validLoggedPerformance(set) {
 }
 
 /**
- * "Completed" must mean checked + actually performed, NOT merely typed text
- * in an unchecked row or an empty/untouched imported exercise.
+ * A resolved plan requires checked actual work or an explicit per-session skip.
+ * Typed drafts and untouched unchecked rows never count as performed work.
  */
 export function isMesocycleCompleted(mesocycle) {
     if (!Array.isArray(mesocycle?.weeks) || !mesocycle.weeks.length) return false;
@@ -33,6 +34,7 @@ export function isMesocycleCompleted(mesocycle) {
                 for (const set of sets) {
                     if (isWarmupSet(set)) continue;
                     scheduledSets++;
+                    if(isExerciseSkipped(exercise)&&!confirmed(set))continue;
                     if (!confirmed(set) || !validLoggedPerformance(set)) return false;
                 }
             }
@@ -55,9 +57,7 @@ function jsonClone(data) {
 export function repeatCompletedSessionPreservingHistory(day, { capturedAt = new Date().toISOString() } = {}) {
     if (!day || !Array.isArray(day.exercises) || !day.exercises.length)
         throw new Error('Sessione assente: nessun dato modificato.');
-    const working = day.exercises.flatMap(ex => isWarmupExercise(ex) ? [] :
-        (ex.loggedSets || []).filter(set => !isWarmupSet(set)));
-    if (!working.length || working.some(set => !confirmed(set) || !validLoggedPerformance(set)))
+    if (!sessionWorkCounts(day).finished)
         throw new Error('La sessione non risulta completata con dati reali: nessun dato modificato.');
 
     const archive = jsonClone({
@@ -87,6 +87,7 @@ export function repeatCompletedSessionPreservingHistory(day, { capturedAt = new 
     delete day.coachCheckin;
 
     for (const ex of day.exercises) {
+        delete ex.sessionSkip;
         for (const [index, set] of (ex.loggedSets || []).entries()) {
             set.isLocked = false;
             set.completed = false;
