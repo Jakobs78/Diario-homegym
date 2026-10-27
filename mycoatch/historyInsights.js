@@ -1,3 +1,4 @@
+import {specialSeries} from './seriesTechnique.js';
 import { HIGH_REP_EXERCISES } from './prescriptionPolicy.js';
 import { canonicalExerciseKey, canonicalExerciseName } from './exerciseIdentity.js';
 import { numericValue, estimateE1rm } from './historyAnalysis.js';
@@ -30,7 +31,7 @@ function inspectExercise(exercise, context) {
     if (!exercise || isWarmupExercise(exercise)) return null;
     const logged = Array.isArray(exercise.loggedSets) ? exercise.loggedSets :
         (Array.isArray(exercise.sets) ? exercise.sets : []);
-    const valid = logged.flatMap(set => {
+    const valid = logged.flatMap((set,index) => {
         if (!set || (set.isLocked !== true && set.completed !== true) ||
             set.isWarmup || set.warmup || set.is_warmup) return [];
         const kg = numericValue(set.weight ?? set.actualKg);
@@ -42,9 +43,7 @@ function inspectExercise(exercise, context) {
         if (kg === null || kg < 0 || (kg === 0 && !bodyweight) || reps === null ||
             !Number.isInteger(reps) || reps <= 0 || reps > 100) return [];
         const rpe = parseRpe(set.rpe);
-        const special = Boolean(set.intensityTechnique || set.dropSegments?.length || set.isDropset ||
-            exercise.isDropset || exercise.groupType === 'dropset' ||
-            repsText.includes('+'));
+        const special = specialSeries(exercise,index,set);
         return [{
             kg, reps, rpe, special,completedAt:set.performedAt||set.completedAt,
             e1rm: !HIGH_REP_EXERCISES[catalog.get(canonicalExerciseKey(exercise.name))?.name] && rpe !== null && !special ? estimateE1rm(kg, reps, rpe) : null

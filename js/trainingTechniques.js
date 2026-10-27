@@ -1,22 +1,4 @@
-/** Explicit prescriptions, separate from the performed drop segments. */
-export function dropScope(exercise) {
-    if(['last','all'].includes(exercise?.dropSetScope))return exercise.dropSetScope;
-    const notes=String(exercise?.notes||'').toLowerCase();
-    if(!exercise?.isDropset && !/drop[ _-]?set|dropserie/.test(notes))return null;
-    if(/\[drop_scope:last\]|(?:dopo|su|solo).*ultim[ao]\s+seri[ea]/.test(notes))return 'last';
-    if(/\[drop_scope:all\]|(?:ogni|tutte le)\s+seri[ea]/.test(notes) && exercise?.isDropset)return 'all';
-    return null;
-}
-export function hasDropPrescription(exercise,index) {
-    const plan=exercise?.sets?.[index];
-    if(plan?.intensityTechnique==='DROP_SET' || plan?.isDropset)return true;
-    const scope=dropScope(exercise);
-    return scope==='all' || scope==='last' && index===(exercise?.loggedSets?.length||exercise?.sets?.length||1)-1;
-}
-export function needsDropScope(exercise) {
-    return Boolean(exercise?.isDropset && !dropScope(exercise) &&
-        !(exercise.sets||[]).some(s=>s.intensityTechnique==='DROP_SET'||s.isDropset));
-}
+export {dropScope,hasDropPrescription,needsDropScope} from '../mycoatch/seriesTechnique.js';
 export function validateDropSegments(baseWeight,segments,skipped=false) {
     if(skipped)return {ok:true,segments:[],skipped:true};
     if(!Array.isArray(segments)||!segments.length)return {ok:false,message:'Registra lo scarico oppure indica “Dropset non eseguito”.'};

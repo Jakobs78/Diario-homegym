@@ -1,3 +1,4 @@
+import {specialSeries} from './seriesTechnique.js';
 import {confirmed,warm,number,setPrescription} from './setPrescription.js';
 import {isWarmupExercise,validPerformedSet} from '../js/workoutSemantics.js';
 import {exerciseIdentity} from './exerciseIdentity.js';
@@ -66,9 +67,11 @@ export function buildSessionExerciseFeedback(day,history=null){
             const valid=validPerformedSet(exercise,log),rp=number(log.rpe);
             const rpe=rp!==null&&rp>=5&&rp<=10?rp:null;
             const reps=number(log.reps??log.actualReps);
+            const special=specialSeries(exercise,index,log),separateBase=Boolean(log.dropSegments?.length)&&!String(log.reps).includes('+');
             return {index,confirmed:confirmed(log),valid,actualReps:valid?text(log.reps??log.actualReps):'—',
                 reps:valid?reps:null,rpe:valid?rpe:null,target,
-                comparableReps:valid&&!target.special&&Number.isInteger(reps)&&Boolean(target.reps)};
+                comparableRpe:!special||separateBase,
+                comparableReps:valid&&(!special||separateBase)&&Number.isInteger(reps)&&Boolean(target.reps)};
         }).filter(Boolean);
         if(!rows.length)return [];
         const valid=rows.filter(row=>row.valid),messages=[];
@@ -86,17 +89,19 @@ export function buildSessionExerciseFeedback(day,history=null){
                     'Reps entro l’obiettivo in '+reps.length+'/'+rows.length+' serie.');
             }
         }
-        const special=valid.filter(row=>row.target.special);
+        const special=valid.filter(row=>row.target.special&&!row.comparableReps);
         if(special.length)messages.push('Tecnica speciale nelle serie '+indices(special)+': reps riportate senza confronto numerico diretto.');
         const unknown=valid.filter(row=>!row.target.reps&&!row.target.special);
         if(unknown.length)messages.push('Obiettivo reps non disponibile per le serie '+indices(unknown)+'.');
         const missingRpe=valid.filter(row=>row.rpe===null);
         if(missingRpe.length)messages.push('RPE mancante o non valido nelle serie '+indices(missingRpe)+'.');
-        const rpe=valid.filter(row=>row.rpe!==null&&row.target.rpe);
+        const rpe=valid.filter(row=>row.rpe!==null&&row.target.rpe&&row.comparableRpe);
         const hard=rpe.filter(row=>row.rpe>row.target.rpe.max),easy=rpe.filter(row=>row.rpe<row.target.rpe.min);
         if(hard.length)messages.push('Sforzo superiore al previsto nelle serie '+indices(hard)+'.');
         if(easy.length)messages.push('Sforzo inferiore al previsto nelle serie '+indices(easy)+'.');
         if(rpe.length&&!hard.length&&!easy.length)messages.push('RPE entro l’obiettivo in '+rpe.length+'/'+rows.length+' serie.');
+        const techniqueRpe=valid.filter(row=>row.rpe!==null&&!row.comparableRpe);
+        if(techniqueRpe.length)messages.push('RPE della tecnica nelle serie '+indices(techniqueRpe)+': non confrontato con il target della sola base.');
         const unknownRpe=valid.filter(row=>row.rpe!==null&&!row.target.rpe);
         if(unknownRpe.length)messages.push('Obiettivo RPE non disponibile per le serie '+indices(unknownRpe)+'.');
         return [{name:exercise.name,exerciseIndex,rows,messages,next:nextProposal(exercise,exerciseIndex,context)}];

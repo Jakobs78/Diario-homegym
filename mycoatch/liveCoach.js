@@ -1,3 +1,4 @@
+import {specialSeries} from './seriesTechnique.js';
 import {setPrescription} from './setPrescription.js';
 import {workingProposal} from './protocolLoad.js';
 import { EXERCISE_DATABASE } from './exercisesDB.js';
@@ -103,8 +104,7 @@ export function validateCompletedSet(values, exercise = {}, set = {}) {
     if (weight === null || weight < 0 || (weight === 0 && !bodyweight) || weight > 700) {
         return { ok: false, message: 'Inserisci il peso realmente usato in kg, maggiore di zero.' };
     }
-    const tech = Boolean(set?.intensityTechnique || exercise?.isDropset ||
-        set?.isDropset || exercise?.groupType === 'dropset');
+    const tech = specialSeries(exercise,Math.max(0,exercise?.loggedSets?.indexOf(set)??0),set);
     const repsInfo = repsValue(values?.reps, tech);
     if (!repsInfo) {
         return {
@@ -127,7 +127,7 @@ export function validateCompletedSet(values, exercise = {}, set = {}) {
         weight,
         reps: String(values.reps).trim(),
         numericReps: repsInfo.reps,
-        technique: repsInfo.technique || Boolean(set?.intensityTechnique || set?.dropSegments?.length),
+        technique: repsInfo.technique || tech,
         rpe,
         message: rpe === null ? 'Serie registrata senza RPE; stima della fatica limitata.' : ''
     };
@@ -141,7 +141,7 @@ function normalizedConfirmedSet(set, exercise) {
         weight: parsed.weight,
         reps: parsed.numericReps,
         rpe: parsed.rpe,
-        technique: parsed.technique || set.intensityTechnique==='DROP_SET' || Boolean(set.dropSegments?.length),
+        technique: parsed.technique,
         timestamp: typeof set.completedAt === 'string' ? Date.parse(set.completedAt) : NaN
     };
 }
@@ -199,7 +199,20 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
     if (result.technique) {
         code = 'special_technique';
         severity = 'info';
-        message = 'Tecnica d’intensità registrata. Non stimare il massimale da una sequenza dropset/rest-pause.';
+        message = 'Tecnica d’intensità registrata.';
+        const separateBase=Boolean(currentSet.dropSegments?.length)&&!String(currentSet.reps).includes('+');
+        if(!knownRpe){
+            code='missing_rpe';
+            message=separateBase?'RPE della serie base non registrato: indica lo sforzo della base separatamente dagli scarichi.':'RPE della tecnica d’intensità non registrato: lo sforzo resta sconosciuto.';
+        }else if(separateBase && !plannedFailure && targetRpe!==null && result.rpe>targetRpe+0.5){
+            code='special_effort';severity='caution';
+            message=`RPE della serie base ${result.rpe} contro target ${targetRpe}: verifica tecnica e recupero prima della prossima serie. L’RPE degli scarichi è distinto.`;
+        }
+        if(separateBase && range && result.reps<range.min){
+            if(code==='special_technique')code='special_reps';
+            severity='caution';
+            message+=' '+`Serie base: ${result.reps} reps, sotto il minimo di ${range.min}. Verifica tecnica e recupero prima della prossima serie.`;
+        }
     } else if (knownRpe && result.rpe >= 9.5 && !plannedFailure) {
         code = 'high_effort';
         severity = 'caution';
@@ -297,11 +310,11 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
         suggestedWeight = null;
     }
 
-    if (exercise?.groupType && !exercise?.isGroupLast && remainingIndex >= 0) {
+    if (['superset','triset','jumpset'].includes(exercise?.groupType) && !exercise?.isGroupLast && remainingIndex >= 0) {
         message += ' Nella superserie/triset recupera dopo l’ultimo esercizio del gruppo.';
     }
 
-    if(exercise.coachSetProposals && remainingIndex>=0){
+    if(exercise.coachSetProposals && remainingIndex>=0 && !setPrescription(exercise,remainingIndex).special){
         const proposal=exercise.coachSetProposals[remainingIndex];
         if(proposal){suggestedWeight=proposal.weight;message=(code==='on_track'?'':message+' ')+proposal.reason;}
     }else if(remainingIndex>=0 && setPrescription(exercise,remainingIndex).role!==prescription.role){

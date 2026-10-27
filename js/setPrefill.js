@@ -1,3 +1,4 @@
+import {specialSeries,hasDropPrescription} from '../mycoatch/seriesTechnique.js';
 import {recommendNextExposure} from '../mycoatch/nextExposure.js';
 import { recommendNextSessionReps } from '../mycoatch/nextSessionReps.js';
 
@@ -95,12 +96,11 @@ export function getSetRepsTarget(exercise, index) {
     return top || specific || general || '';
 }
 
-function repsCompatible(reps, exercise) {
+function repsCompatible(reps, exercise,index) {
     const value = String(reps);
     // Tecniche speciali non vanno trasferite ad un esercizio ordinario.
     if (value.includes('+')) {
-        return Boolean(exercise?.isDropset ||
-            exercise?.groupType === 'dropset');
+        return specialSeries(exercise,index)&&!hasDropPrescription(exercise,index);
     }
     const n = Number(value);
     if (!Number.isInteger(n) || n < 1 || n > 100) return false;
@@ -133,7 +133,7 @@ export function getSetPrefill(exercise, index, { previousExercise = null, crossE
     const current = logs[index] || {};
     const plan = plannedFor(exercise, index);
     const protocol=exercise?.coachSetProposals?.[index];
-    if(protocol && !(current.isWarmup||current.warmup||current.is_warmup))return {
+    if(protocol && !specialSeries(exercise,index) && !(current.isWarmup||current.warmup||current.is_warmup))return {
         weight:filled(current.weight)?String(current.weight):protocol.weight===null?'':String(protocol.weight),
         reps:filled(current.reps)?String(current.reps):protocol.reps===null?'':String(protocol.reps),
         rpe:filled(current.rpe)?String(current.rpe):protocol.rpe===null?'':String(protocol.rpe),
@@ -169,8 +169,8 @@ export function getSetPrefill(exercise, index, { previousExercise = null, crossE
     // programma prescrive lavoro omogeneo. Non copiarlo nei back-off, nei
     // ramping set o tra target RPE/ripetizioni differenti.
     const sameSession = Boolean(previous && !backoffAfterTop && !programmedStep &&
-        repsCompatible(repsFor(previous),exercise) &&
-        !(previous?.intensityTechnique && !logs[index]?.intensityTechnique));
+        repsCompatible(repsFor(previous),exercise,index) &&
+        (!specialSeries(exercise,previousIndex,previous)||specialSeries(exercise,index)));
 
     const priorSet = previousExercise?.loggedSets?.[index];
     const priorPlan = previousExercise ? plannedFor(previousExercise, index) : null;
@@ -181,7 +181,7 @@ export function getSetPrefill(exercise, index, { previousExercise = null, crossE
         (!plan.reps || !priorPlan?.reps || plan.reps === priorPlan.reps) &&
         (!plan.rpe || !priorPlan?.rpe || plan.rpe === priorPlan.rpe) &&
         !exercise?.isDeload && !exercise?.isDeloadWeek &&
-        !(priorSet?.intensityTechnique && !logs[index]?.intensityTechnique);
+        (!specialSeries(previousExercise,index,priorSet)||specialSeries(exercise,index));
     // Prevent copying a 7–9@7 day into a 5–7@8 day, or matching only
     // the first number of two different ranges. Count/slot must also match.
     const priorComparable=Boolean(previousExercise) &&
@@ -191,7 +191,7 @@ export function getSetPrefill(exercise, index, { previousExercise = null, crossE
         confirmed(priorSet) && !priorSet.isWarmup && !priorSet.warmup &&
         !priorSet.is_warmup && comparablePlan && priorComparable &&
         weightFor(priorSet) && repsFor(priorSet) &&
-        repsCompatible(repsFor(priorSet), exercise);
+        repsCompatible(repsFor(priorSet), exercise,index);
     const nextAdvice = nextExposureAdvice || recommendNextExposure(previousExercise,exercise);
     const currentWarm=Boolean(current.isWarmup||current.warmup||current.is_warmup);
     const workIndex=logs.slice(0,index+1).filter(s=>!s.isWarmup&&!s.warmup&&!s.is_warmup).length-1;

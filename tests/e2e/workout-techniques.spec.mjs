@@ -442,3 +442,23 @@ test('REPS shows unchanged prescribed targets for equal and different series, on
     expect(layout).toEqual({labels:true,noOverflow:true,repsInside:true});
   }
 });
+
+test('consigli dropset: base fuori target visibile, scarico intenso senza falso allarme',async({page})=>{
+ await setupPlan(page,'drop');
+ const update=async baseRpe=>page.evaluate(async baseRpe=>{
+  const {state}=await import('/js/state.js');
+  const {assessExerciseLive}=await import('/mycoatch/liveCoach.js');
+  const {renderExerciseCoachPanel}=await import('/js/exerciseCoachUI.js');
+  const ex=Object.values(state.workoutData.history.years)[0].mesocycles[0].weeks[0].days[0].exercises[0];
+  ex.dropSetScope='all';ex.loggedSets[0]={weight:10,reps:12,rpe:baseRpe,isLocked:true,intensityTechnique:'DROP_SET',dropSegments:[{weight:7.5,reps:8,rpe:10}]};
+  const advice=assessExerciseLive(ex);
+  renderExerciseCoachPanel(document.querySelector('.ex-card[data-ex="0"]'),ex,{liveAdvice:advice});
+  return {code:advice.code,e1rm:advice.e1rm,suggested:advice.suggestedWeight};
+ },baseRpe);
+ expect(await update(10)).toEqual({code:'special_effort',e1rm:null,suggested:null});
+ const panel=page.locator('.ex-card[data-ex="0"] .coach-adaptive-notes');
+ await expect(panel).toBeVisible();await expect(panel).toContainText('RPE della serie base 10 contro target 8');
+ await expect(panel).not.toContainText('superserie/triset');
+ expect(await update(8)).toEqual({code:'special_technique',e1rm:null,suggested:null});
+ await expect(panel).toBeHidden();
+});

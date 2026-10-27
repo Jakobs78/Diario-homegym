@@ -3034,7 +3034,7 @@ test('protocollo: squat 70→79 kg fra giorni diversi e warmup escluso dalla pro
   });
   await expect(page.locator('.set-kg').first()).toHaveValue('79');
   await expect(page.locator('.exercise-history-box')).toContainText('6,5');
-  await expect(page.locator('.coach-adaptive-notes')).toContainText('Recuperi diversi');
+  await expect(page.locator('.coach-adaptive-notes')).toContainText('Recupero diverso dalla seduta di riferimento');
   await page.evaluate(async()=>{const {stopTimer}=await import('/js/timer.js');stopTimer();});
   await page.locator('.ex-name').scrollIntoViewIfNeeded();
   await page.screenshot({path:testInfo.outputPath('squat-proposta-mobile.png'),fullPage:true});
