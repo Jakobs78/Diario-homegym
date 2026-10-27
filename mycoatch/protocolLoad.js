@@ -6,8 +6,13 @@ export const PROTOCOL_POLICY=Object.freeze({version:'1.4',historyExposures:3,rpe
 const round=x=>Math.round(x*100)/100;
 const median=values=>{const a=[...values].sort((x,y)=>x-y);return a.length?(a[Math.floor((a.length-1)/2)]+a[Math.ceil((a.length-1)/2)])/2:null;};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+export function recoveryKey(ex){
+    const raw=String(ex?.restTime??ex?.rest??ex?.recupero??'').trim().toLowerCase().replace(/,/g,'.');
+    const match=raw.match(/^(\d+(?:\.\d+)?)\s*(s|sec|secondi|secondo|seconds|min|minuti|minuto|minutes|m|['’]|["”])?$/);
+    return match?String(Number(match[1])*(/^(min|minuti|minuto|minutes|m|['’])$/.test(match[2]||'')?60:1)):raw.replace(/\s+/g,' ');
+}
 export function relatedSets(ex,p,index){
-    const rows=(ex?.loggedSets||[]).map((_,i)=>observed(ex,i)).filter(Boolean);
+    const rows=(ex?.loggedSets||[]).map((_,i)=>observed(ex,i)).filter(s=>s&&!s.prescription.special);
     const role=rows.filter(s=>s.prescription.role===p.role);
     const candidates=role.length?role:rows.filter(s=>s.prescription.role==='work'&&p.role!=='top');
     return candidates.sort((a,b)=>(a.index===index?-1:b.index===index?1:a.index-b.index));
@@ -45,7 +50,7 @@ export function nextBlockDecision(ex,index,equipment={},readiness=null){
     const count=Math.max(ex?.sets?.length||0,ex?.loggedSets?.length||0,parseInt(ex?.setsCount??ex?.set,10)||0);
     const indices=Array.from({length:count},(_,i)=>i).filter(i=>!warm(ex?.loggedSets?.[i])&&!warm(ex?.sets?.[i])&&blockKey(setPrescription(ex,i))===blockKey(p));
     const sets=indices.map(i=>observed(ex,i));
-    if(!sets.length||sets.some(s=>!s)||!p.reps||!p.rpe||p.special||ex.isDeload||ex.isDeloadWeek||ex.isWarmup||ex.isExcluded)return null;
+    if(!sets.length||sets.some(s=>!s||s.prescription.special)||!p.reps||!p.rpe||p.special||ex.isDeload||ex.isDeloadWeek||ex.isWarmup||ex.isExcluded)return null;
     if(sets.some(s=>s.rpe===null||s.rpe>p.rpe.max||s.reps<p.reps.min))return null;
     const matched=sets.find(s=>s.index===index)||sets[0];
     if(p.reps.max>12)return {kind:'maintain',weight:matched.kg,reps:Math.min(p.reps.max,Math.max(p.reps.min,matched.reps)),reason:'Range oltre 12 reps: ripropongo i carichi confermati, senza aumento automatico. Cambiare il range richiede una revisione esplicita.'};
@@ -71,7 +76,7 @@ export function nextBlockDecision(ex,index,equipment={},readiness=null){
 }
 export function workingProposal(ex,index,{exposures=[],equipment={},readiness=null,allowProgression=true}={}){
     const p=setPrescription(ex,index);
-    if(ex?.isWarmup||ex?.isExcluded||ex?.is_excluded||warm(ex?.loggedSets?.[index])||warm(ex?.sets?.[index]))return null;
+    if(p.special||ex?.isWarmup||ex?.isExcluded||ex?.is_excluded||warm(ex?.loggedSets?.[index])||warm(ex?.sets?.[index]))return null;
     const station=equipment.stationConfigurations?.machine;
     const usable=station&&equipmentCategory(ex)==='machine'?exposures.filter(item=>{
         const source=item.exercise??item;return !(source.loggedSets||[]).some(s=>s.equipmentSnapshot?.station&&s.equipmentSnapshot.station!==station);
@@ -91,16 +96,16 @@ export function workingProposal(ex,index,{exposures=[],equipment={},readiness=nu
             kg=desiredWeight(capacity,p,reps);kind='estimated_history';
             reason='Carico adattato alle reps e all’RPE di questa serie usando il massimale stimato dallo storico pertinente.';
         }
-        const contextUnchanged=String(recent.exercise.restTime??recent.exercise.rest??recent.exercise.recupero??'')===String(ex.restTime??ex.rest??ex.recupero??'');
+        const contextUnchanged=recoveryKey(recent.exercise)===recoveryKey(ex);
         const progressCompatible=same(reference.prescription.reps,p.reps)&&reference.prescription.role===p.role&&p.rpe?.max>=reference.prescription.rpe?.max;
-        if(!contextUnchanged)reason+=' Recuperi diversi: nessun aumento trasferito automaticamente.';
+        if(!contextUnchanged)reason+=' Recupero diverso: la progressione della seduta precedente non viene trasferita; il carico è valutato per i target attuali.';
         if(allowProgression&&!ex.isDeload&&!ex.isDeloadWeek&&progressCompatible&&contextUnchanged&&recent.checkin?.pain!=='present'){
             const decision=nextBlockDecision(recent.exercise,reference.index,equipment,readiness);
             if(decision){({weight:kg,reps,kind}=decision);reason=decision.reason;verified=Boolean(decision.verified);}
         }
     }
     // Only confirmed rows BEFORE this series inform today's proposal. Fatigue does not rewrite stable capacity.
-    const today=(ex.loggedSets||[]).slice(0,index).map((_,i)=>observed(ex,i)).filter(Boolean);
+    const today=(ex.loggedSets||[]).slice(0,index).map((_,i)=>observed(ex,i)).filter(s=>s&&!s.prescription.special);
     const last=today.at(-1);
     if(last&&p.reps&&!p.special){
         const q=last.prescription;

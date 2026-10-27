@@ -37,7 +37,6 @@ test('high-rep repeat, similar performance and unchanged estimated kg stay silen
 test('real warnings remain, including pain, unavailable loads and recovery changes',()=>{
  for(const overrides of [{kind:'pain_caution',weight:null,reason:'Dolore segnalato: rivaluta il movimento.'},
   {kind:'reduce_today',weight:75,reason:'Serie più difficile del target.'},
-  {reason:'Recuperi diversi: nessun aumento trasferito automaticamente.'},
   {reason:'Carico teorico non componibile con l’inventario dichiarato.'}]){
   const m=exerciseCoachModel(exercise({coachSetProposals:[proposal(overrides),null]}));
   assert.equal(m.updates[0].severity,'caution');
@@ -96,4 +95,11 @@ test('advice cites an older reference only when it differs from the visible last
  const m=exerciseCoachModel(ex,{historySource:{...source,dayIndex:1}});
  assert.equal(m.references.length,1);assert.match(m.references[0],/20\/10\/2026 · settimana 1, giorno 1/);
  assert.doesNotMatch(m.references[0],/80 kg/);
+});
+
+test('recovery changes are informational and repeated once, not load alarms',()=>{
+ const p=proposal({reason:'Recuperi diversi: nessun aumento trasferito automaticamente.'});
+ const m=exerciseCoachModel(exercise({coachSetProposals:[p,p]}));
+ assert.equal(m.updates.length,1);assert.equal(m.updates[0].severity,'info');
+ assert.match(m.updates[0].text,/Recupero diverso/);
 });

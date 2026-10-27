@@ -1,3 +1,4 @@
+import {specialSeries} from './seriesTechnique.js';
 /** Original per-series targets. Never read performed or proposed values here. */
 export const number = value => {
     if(value===null||value===undefined||typeof value==='boolean')return null;
@@ -32,7 +33,7 @@ export function setPrescription(ex,index){
     const hasTop=Boolean(ex?.topset||ex?.topsetKg||ex?.topsetKgMin||first?.isTopset||first?.role==='top'||
         (first&&bounds(first.targetReps)?.max<(general?.min??0)));
     const role=row.role??(row.isTopset||index===0&&hasTop?'top':index>0&&(hasTop||mixedFirst)?'backoff':'work');
-    const special=Boolean(ex?.isDropset||ex?.groupType==='dropset'||ex?.groupType==='restpause'||row.intensityTechnique||String(row.targetReps??ex?.reps??'').includes('+'));
+    const special=specialSeries(ex,index);
     return {index,reps,rpe,kg,role,special};
 }
 export const blockKey=p=>JSON.stringify([p.role,p.reps,p.rpe,p.kg]);

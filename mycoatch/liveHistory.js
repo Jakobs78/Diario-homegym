@@ -1,3 +1,4 @@
+import {specialSeries} from './seriesTechnique.js';
 import {validPerformedSet} from '../js/workoutSemantics.js';
 import { canonicalExerciseKey,exerciseIdentity } from './exerciseIdentity.js';
 import { estimateE1rm } from './historyAnalysis.js';
@@ -16,14 +17,14 @@ function confirmed(set) {
 }
 
 function simpleValidSets(exercise) {
-    return (exercise?.loggedSets || []).flatMap(set => {
+    return (exercise?.loggedSets || []).flatMap((set,index) => {
         if (!confirmed(set)) return [];
         const kg = numberOrNull(set.weight);
         const reps = numberOrNull(set.reps);
         const rpe = numberOrNull(set.rpe);
         if (!validPerformedSet(exercise,set) || !Number.isInteger(reps) || reps <= 0 || reps > 40) return [];
         const cleanRpe = rpe !== null && rpe >= 6 && rpe <= 10 ? rpe : null;
-        const special=set.intensityTechnique || set.dropSegments?.length || exercise.isDropset;
+        const special=specialSeries(exercise,index,set);
         const e1rm = cleanRpe !== null && !special ? estimateE1rm(kg, reps, cleanRpe) : null;
         return [{ kg, reps, rpe: cleanRpe, e1rm }];
     });

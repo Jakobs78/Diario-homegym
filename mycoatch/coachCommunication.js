@@ -1,3 +1,4 @@
+import {specialSeries} from './seriesTechnique.js';
 // Presentation policy only. Never writes proposals, prescriptions or results.
 import {confirmed,warm} from './setPrescription.js';
 
@@ -69,7 +70,7 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
     const references=new Map();
     if(!readOnly && !ex.isWarmup && !ex.isExcluded && !ex.is_excluded){
         for(const i of indices){
-            const p=ex.coachSetProposals?.[i];if(!p)continue;
+            const p=ex.coachSetProposals?.[i];if(!p||specialSeries(ex,i))continue;
             const reference=p.basedOn?.[0];
             const previous=(ex.loggedSets||[]).slice(0,i).filter(s=>confirmed(s)&&!warm(s)).at(-1);
             const today=['today','increase_today','reduce_today','today_estimate','prescribed_step'].includes(p.kind);
@@ -77,11 +78,12 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
             const kg=number(origin?.weight),reps=number(origin?.reps);
             const weightChanged=kg!==null && number(p.weight)!==null && Math.abs(number(p.weight)-kg)>.001;
             const repsChanged=reps!==null && number(p.reps)!==null && number(p.reps)!==reps;
-            const loadProblem=/non componibile|non è componibile|recuperi diversi/i.test(p.reason||'');
+            const loadProblem=/non componibile|non è componibile/i.test(p.reason||'');
+            const recoveryChanged=/recuper[oi] divers[oi]/i.test(p.reason||'');
             const caution=p.kind==='pain_caution' || p.kind==='reduce_today';
             const update=(['increase_load','increase_today','build_reps','estimated_history','today_estimate'].includes(p.kind) || p.kind==='today'&&/Margine di sforzo/.test(p.reason||'')) && (weightChanged||repsChanged);
             const calibration=number(p.weight)===null && p.kind!=='pain_caution' && !hasLoad;
-            if(caution||loadProblem||update||calibration){
+            if(caution||loadProblem||update||calibration||recoveryChanged){
                 const shown=prefills[i]??ex.loggedSets?.[i]??{};
                 const manual=['weight','reps','rpe'].some(field=>number(p[field])!==null&&number(shown[field])!==null&&number(shown[field])!==number(p[field]));
                 const warning=loadProblem?conciseReason(p.reason):'';
@@ -94,8 +96,9 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
                 }
                 const target=number(p.weight)!==null
                     ? `${decimal(p.weight)} kg${number(p.reps)!==null?' × '+p.reps+' reps':''}. ` : '';
-                add(target+conciseReason(p.reason),i,caution||loadProblem?'caution':'info',change);
-                if(reference?.source && sourceKey(reference.source)!==sourceKey(historySource))references.set(sourceKey(reference.source),referenceLabel(reference));
+                if(change||!recoveryChanged||caution||loadProblem||calibration)add(target+conciseReason(p.reason).replace(/Recuper[oi] divers[oi]:[^.]*(?:\.|$)/i,'').trim(),i,caution||loadProblem?'caution':'info',change);
+                if(recoveryChanged)add('Recupero diverso dalla seduta di riferimento: il carico è valutato per reps e RPE attuali, senza trasferire la precedente progressione.');
+                for(const item of p.basedOn||[])if(item?.source&&sourceKey(item.source)!==sourceKey(historySource))references.set(sourceKey(item.source),referenceLabel(item));
             }
             if(p.monitoring && /in calo/i.test(p.monitoring))add(p.monitoring,null,'caution');
         }

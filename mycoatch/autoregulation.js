@@ -56,8 +56,8 @@ function weekOf(value) {
 }
 const confirmed = set => set?.isLocked === true || set?.completed === true;
 const special = (ex, set) => Boolean(
-    ex?.isDropset || ex?.groupType === 'dropset' ||
-    set?.isDropset || set?.intensityTechnique ||
+    ex?.isDropset || ['dropset','restpause','rest-pause'].includes(ex?.groupType) ||
+    set?.isDropset || set?.intensityTechnique || set?.dropSegments?.length ||
     /\+/.test(String(set?.reps ?? ''))
 );
 
