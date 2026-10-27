@@ -1,3 +1,4 @@
+import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {specialSeries} from './seriesTechnique.js';
 import {confirmed,warm,number,setPrescription} from './setPrescription.js';
 import {isWarmupExercise,validPerformedSet} from '../js/workoutSemantics.js';
@@ -68,14 +69,16 @@ export function buildSessionExerciseFeedback(day,history=null){
             const rpe=rp!==null&&rp>=5&&rp<=10?rp:null;
             const reps=number(log.reps??log.actualReps);
             const special=specialSeries(exercise,index,log),separateBase=Boolean(log.dropSegments?.length)&&!String(log.reps).includes('+');
-            return {index,confirmed:confirmed(log),valid,actualReps:valid?text(log.reps??log.actualReps):'—',
+            return {index,confirmed:confirmed(log),valid,actualReps:valid?text(log.reps??log.actualReps):isExerciseSkipped(exercise)?'Saltata':'—',
                 reps:valid?reps:null,rpe:valid?rpe:null,target,
                 comparableRpe:!special||separateBase,
                 comparableReps:valid&&(!special||separateBase)&&Number.isInteger(reps)&&Boolean(target.reps)};
         }).filter(Boolean);
         if(!rows.length)return [];
         const valid=rows.filter(row=>row.valid),messages=[];
-        const missing=rows.filter(row=>!row.confirmed),invalid=rows.filter(row=>row.confirmed&&!row.valid);
+        const skipped=isExerciseSkipped(exercise);
+        const missing=rows.filter(row=>!row.confirmed&&!skipped),invalid=rows.filter(row=>row.confirmed&&!row.valid);
+        if(skipped)messages.push('Saltato per questa seduta. Note personali: '+String(exercise.userNotes||'Motivo non disponibile.'));
         if(missing.length)messages.push('Serie non confermate: '+indices(missing)+'.');
         if(invalid.length)messages.push('Dati da verificare nelle serie '+indices(invalid)+'.');
         const reps=valid.filter(row=>row.comparableReps);
@@ -104,6 +107,6 @@ export function buildSessionExerciseFeedback(day,history=null){
         if(techniqueRpe.length)messages.push('RPE della tecnica nelle serie '+indices(techniqueRpe)+': non confrontato con il target della sola base.');
         const unknownRpe=valid.filter(row=>row.rpe!==null&&!row.target.rpe);
         if(unknownRpe.length)messages.push('Obiettivo RPE non disponibile per le serie '+indices(unknownRpe)+'.');
-        return [{name:exercise.name,exerciseIndex,rows,messages,next:nextProposal(exercise,exerciseIndex,context)}];
+        return [{name:exercise.name,exerciseIndex,rows,messages,next:skipped?null:nextProposal(exercise,exerciseIndex,context)}];
     });
 }

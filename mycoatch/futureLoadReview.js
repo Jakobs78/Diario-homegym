@@ -1,3 +1,4 @@
+import {isExerciseSkipped} from '../js/sessionSkip.js';
 /**
  * Explicit, reversible MyCoatch update of untouched FUTURE exposures only.
  * Preview is pure. The source performance and original prescriptions are
@@ -14,7 +15,7 @@ const numeric=value=>{
     const n=Number(String(value).replace(',','.'));
     return Number.isFinite(n)?n:null;
 };
-const special=ex=>Boolean(
+const special=ex=>Boolean(isExerciseSkipped(ex)||
     ex?.isDropset||ex?.isDeload||ex?.isDeloadWeek||ex?.groupType||
     ex?.topset||ex?.topsetKg||ex?.topsetKgMin||ex?.topsetKgMax||
     (ex?.sets||[]).some(s=>s?.isTopset||s?.isDropset||s?.intensityTechnique||

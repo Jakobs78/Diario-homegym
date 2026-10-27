@@ -1,7 +1,9 @@
-const CACHE_NAME = 'workout-app-v76-series-techniques-20261027';
+const CACHE_NAME = 'workout-app-v77-skip-progression-20261027';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
+  '/js/sessionSkip.js',
+  '/js/sessionSkipUI.js',
   '/mycoatch/seriesTechnique.js',
   '/mycoatch/sessionFeedback.js',
   '/js/sessionFeedbackUI.js',

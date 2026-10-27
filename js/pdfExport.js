@@ -1,3 +1,4 @@
+import {isExerciseSkipped} from './sessionSkip.js';
 /* global QRCode */
 /**
  * Module: pdfExport.js
@@ -565,7 +566,7 @@ if (ex.notes || prevSessionLines.length > 0) {
 
 
         // 7. Box Note Atleta
-        const athleteNotes = ex.userNotes || '';
+        const athleteNotes = (isExerciseSkipped(ex)?'SALTATO IN QUESTA SEDUTA · ':'')+(ex.userNotes || '');
         if (cursorY + 10 > 270) {
             doc.addPage();
             cursorY = 14;

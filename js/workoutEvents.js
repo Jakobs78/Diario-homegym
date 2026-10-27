@@ -1,3 +1,5 @@
+import {isExerciseSkipped} from './sessionSkip.js';
+import {bindSessionSkip} from './sessionSkipUI.js';
 import {setPrescription} from '../mycoatch/setPrescription.js';
 import {advanceExercise} from './activeExercise.js';
 import {canonicalExerciseKey} from '../mycoatch/exerciseIdentity.js';
@@ -34,6 +36,7 @@ function updateInputStatusClasses(element, isOut, isImprovedOrExceeding) {
 export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
     const workoutListContainer = document.getElementById('workout-list-container');
     if (!workoutListContainer) return;
+    bindSessionSkip(workoutListContainer,currentDay,isPastMeso,renderCallback);
     bindDropFields(workoutListContainer,currentDay,{readOnly:isPastMeso,save:()=>saveAndSync(state.workoutData),render:renderCallback});
 
     // Only the editable perceived RPE changes. Keep MyCoatch's prescription unchanged.
@@ -81,23 +84,35 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
     workoutListContainer.querySelectorAll('.set-input, .ex-user-notes').forEach(input => {
         input.addEventListener('input',()=>{if(input.classList.contains('set-rpe'))input.dataset.edited='true';});
         input.addEventListener('focus', (e) => e.target.select());
+        if(input.classList.contains('ex-user-notes'))input.addEventListener('blur',()=>{
+            const ex=currentDay.exercises?.[input.dataset.ex];
+            if(isExerciseSkipped(ex)&&!input.value.trim()){
+                input.value=ex.userNotes||'';input.setCustomValidity('');input.setAttribute('aria-invalid','false');
+            }
+        });
 
         input.addEventListener('input', (e) => {
-            if (isPastMeso) return;
             const target = e.target;
             const exIdx = target.dataset.ex;
             const ex = currentDay.exercises[exIdx];
             if (!ex) return;
+            const notes=target.classList.contains('ex-user-notes');
+            if(isPastMeso&&!(notes&&isExerciseSkipped(ex)))return;
 
-            if (target.classList.contains('ex-user-notes')) {
+            if (notes) {
+                const invalid=isExerciseSkipped(ex)&&!target.value.trim();
+                target.setCustomValidity(invalid?'Il motivo dell’esclusione deve restare nelle note personali.':'');
+                target.setAttribute('aria-invalid',String(invalid));
+                if(invalid)return;
                 ex.userNotes = target.value;
+                updateLiveCoachPanel(currentDay,{readOnly:isPastMeso});
                 saveAndSync(state.workoutData);
                 return;
             }
 
             const setIdx = parseInt(target.dataset.set, 10);
             const setObj = ex.loggedSets?.[setIdx];
-            if (!setObj) return;
+            if (!setObj||isExerciseSkipped(ex)) return;
 
             const val = target.value;
             const isKg = target.classList.contains('set-kg');
@@ -188,7 +203,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             event.stopPropagation();
             const exIdx=Number(button.dataset.ex),setIdx=Number(button.dataset.set);
             const set=currentDay.exercises?.[exIdx]?.loggedSets?.[setIdx];
-            if(!set)return;
+            if(!set||isExerciseSkipped(currentDay.exercises?.[exIdx]))return;
             const wasWarm=Boolean(set.isWarmup||set.warmup||set.is_warmup);
             set.isWarmup=!wasWarm;
             delete set.warmup;delete set.is_warmup;
@@ -209,6 +224,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             const ex = currentDay.exercises[exIdx];
             const setObj = ex?.loggedSets?.[setIdx];
             if (!setObj) return;
+            if(isExerciseSkipped(ex)){e.target.checked=Boolean(setObj.isLocked||setObj.completed);return;}
 
             const isChecked = e.target.checked;
             const rowCard = workoutListContainer.querySelector(`.ex-card[data-ex="${exIdx}"], .exercise-card[data-ex="${exIdx}"]`);

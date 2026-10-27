@@ -1,8 +1,9 @@
+import {isExerciseSkipped} from '../js/sessionSkip.js';
 /** Rep guidance for the next exposure: advice, never performed data. */
 const number=v=>{const s=String(v??'').trim().replace(/^@/,'').replace(',','.');return /^\d+(?:\.\d+)?$/.test(s)?Number(s):null;};
 const range=ex=>{const m=String(ex?.reps??ex?.targetReps??'').trim().match(/^(\d+)\s*[-–]\s*(\d+)$/);return m?{min:Number(m[1]),max:Number(m[2])}:null;};
 const confirmed=s=>s?.isLocked===true||s?.completed===true;
-const special=ex=>Boolean(ex?.isDropset||ex?.groupType||ex?.topset||ex?.topsetKg||ex?.topsetKgMin||ex?.topsetKgMax||ex?.isWarmup||ex?.isExcluded||ex?.isDeload||ex?.isDeloadWeek||
+const special=ex=>Boolean(isExerciseSkipped(ex)||ex?.isDropset||ex?.groupType||ex?.topset||ex?.topsetKg||ex?.topsetKgMin||ex?.topsetKgMax||ex?.isWarmup||ex?.isExcluded||ex?.isDeload||ex?.isDeloadWeek||
     (ex?.sets||[]).some(s=>s?.intensityTechnique||s?.isTopset));
 /** Strict all-set gate. One extra repetition per entire exposure at most. */
 export function recommendNextSessionReps(previous,upcoming){

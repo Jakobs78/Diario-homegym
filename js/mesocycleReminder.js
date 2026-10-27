@@ -1,3 +1,4 @@
+import {isExerciseSkipped,sessionWorkCounts} from './sessionSkip.js';
 /**
  * Non-invasive completion reminder for the EXISTING guided closure button.
  * Starts when the last visible set of the last programmed day is confirmed,
@@ -23,6 +24,7 @@ function isEligible(mesocycle) {
     const exercises = Array.isArray(lastDay?.exercises) ? lastDay.exercises : [];
     const lastExerciseWithCheckbox = [...exercises].reverse().find(ex =>
         Array.isArray(ex?.loggedSets) && ex.loggedSets.length > 0);
+    if(lastExerciseWithCheckbox&&isExerciseSkipped(lastExerciseWithCheckbox)&&sessionWorkCounts(lastDay).finished)return true;
     const lastSet = lastExerciseWithCheckbox?.loggedSets.at(-1);
     return lastSet?.isLocked === true || lastSet?.completed === true;
 }

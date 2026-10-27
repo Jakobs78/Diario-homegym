@@ -1,3 +1,4 @@
+import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {specialSeries} from './seriesTechnique.js';
 // Presentation policy only. Never writes proposals, prescriptions or results.
 import {confirmed,warm} from './setPrescription.js';
@@ -47,7 +48,7 @@ function appliedChange(entry){
     let text;
     if(c.manual)text='Suggerisco '+target+' '+(entry.series.length===1?'per la serie ':'per le serie ')+entry.series.join(', ')+'.';
     else if(c.kind==='reps')text='Ho aggiunto '+(c.delta===1?'una ripetizione':c.delta+' ripetizioni')+' '+where+': '+target+'.';
-    else if(c.kind==='increase')text='Ho aumentato il carico '+where+': '+target+(c.today?'. La serie precedente è risultata più facile del target.':'. Tutte le serie hanno raggiunto il limite alto rispettando l’RPE.');
+    else if(c.kind==='increase')text='Ho aumentato il carico '+where+': '+target+(c.today?'. La serie precedente è risultata più facile del target.':c.basis==='mixed_reps'?'. Le serie oltre il range indicano margine; la stima considera anche la serie meno favorevole.':'. Tutte le serie hanno raggiunto il limite alto rispettando l’RPE.');
     else if(c.kind==='reduce')text='Ho ridotto il carico '+where+': '+target+'. La serie precedente è risultata più difficile del target.';
     else text='Ho adattato il carico '+where+': '+target+(c.today?' in base alla serie appena confermata.':' usando il massimale stimato dallo storico pertinente.');
     return {...entry,text:text+(c.warning?' '+c.warning:''),labelSeries:false};
@@ -68,7 +69,7 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
         groups.set(k,entry);
     };
     const references=new Map();
-    if(!readOnly && !ex.isWarmup && !ex.isExcluded && !ex.is_excluded){
+    if(!readOnly && !isExerciseSkipped(ex) && !ex.isWarmup && !ex.isExcluded && !ex.is_excluded){
         for(const i of indices){
             const p=ex.coachSetProposals?.[i];if(!p||specialSeries(ex,i))continue;
             const reference=p.basedOn?.[0];
@@ -90,7 +91,7 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
                 let change=null;
                 if(number(p.weight)!==null&&number(p.reps)!==null&&!loadProblem){
                     if(repsChanged&&number(p.reps)>reps&&!weightChanged)change={kind:'reps',delta:number(p.reps)-reps,weight:p.weight,reps:p.reps,manual};
-                    else if(['increase_load','increase_today'].includes(p.kind))change={kind:'increase',weight:p.weight,reps:p.reps,today,manual};
+                    else if(['increase_load','increase_today'].includes(p.kind))change={kind:'increase',weight:p.weight,reps:p.reps,today,manual,basis:p.progressionBasis};
                     else if(p.kind==='reduce_today')change={kind:'reduce',weight:p.weight,reps:p.reps,manual};
                     else if(update)change={kind:'estimate',weight:p.weight,reps:p.reps,today,manual};
                 }

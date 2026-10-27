@@ -1,3 +1,4 @@
+import {isExerciseSkipped} from './sessionSkip.js';
 import {specialSeries,hasDropPrescription} from '../mycoatch/seriesTechnique.js';
 import {recommendNextExposure} from '../mycoatch/nextExposure.js';
 import { recommendNextSessionReps } from '../mycoatch/nextSessionReps.js';
@@ -172,6 +173,7 @@ export function getSetPrefill(exercise, index, { previousExercise = null, crossE
         repsCompatible(repsFor(previous),exercise,index) &&
         (!specialSeries(exercise,previousIndex,previous)||specialSeries(exercise,index)));
 
+    if(isExerciseSkipped(previousExercise))previousExercise=null;
     const priorSet = previousExercise?.loggedSets?.[index];
     const priorPlan = previousExercise ? plannedFor(previousExercise, index) : null;
     // L'ultima prestazione e' una scorciatoia, mai un sostituto della
