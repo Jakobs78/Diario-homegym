@@ -1,3 +1,4 @@
+import {isBodyweightExercise} from './bodyweight.js';
 import {specialSeries} from './seriesTechnique.js';
 import {validPerformedSet} from '../js/workoutSemantics.js';
 import { canonicalExerciseKey,exerciseIdentity } from './exerciseIdentity.js';
@@ -25,7 +26,7 @@ function simpleValidSets(exercise) {
         if (!validPerformedSet(exercise,set) || !Number.isInteger(reps) || reps <= 0 || reps > 40) return [];
         const cleanRpe = rpe !== null && rpe >= 6 && rpe <= 10 ? rpe : null;
         const special=specialSeries(exercise,index,set);
-        const e1rm = cleanRpe !== null && !special ? estimateE1rm(kg, reps, cleanRpe) : null;
+        const e1rm = cleanRpe !== null && !special && !isBodyweightExercise(exercise) ? estimateE1rm(kg, reps, cleanRpe) : null;
         return [{ kg, reps, rpe: cleanRpe, e1rm }];
     });
 }

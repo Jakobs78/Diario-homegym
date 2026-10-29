@@ -1,6 +1,6 @@
 // mycoatch/exercisesDB.js
 const RAW_EXERCISES = [
-    { name: "Hamstring Walkout a Corpo Libero", category: "Femorali", pattern: "isolation", equipment: "bodyweight", cnsCost: 3, defaultReps: "6-10", defaultKg: "" },
+    { name: "Hamstring Walkout a Corpo Libero", externalLoadAllowed: false, category: "Femorali", pattern: "isolation", equipment: "bodyweight", cnsCost: 3, defaultReps: "6-10", defaultKg: "" },
     // --- PETTO / SPINTA ---
     { name: "Panca Piana con Bilanciere", category: "Petto", pattern: "horizontal_push", equipment: "barbell", cnsCost: 8, profile: "Curva bilanciata - Max tensione medio-range", defaultReps: "6-8", defaultKg: "" },
     { name: "Panca Inclinata con Manubri", category: "Petto", pattern: "horizontal_push", equipment: "dumbbell", cnsCost: 6, profile: "Enfasi fascio clavicolare - Ottimizzazione ROM", defaultReps: "8-10", defaultKg: "" },

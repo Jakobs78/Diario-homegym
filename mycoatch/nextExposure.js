@@ -1,3 +1,5 @@
+import {bodyweightMetadata} from './bodyweight.js';
+import {recommendNextSessionReps} from './nextSessionReps.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {exerciseIdentity} from './exerciseIdentity.js';
 import {isWarmupExercise,isWarmupSet,validPerformedSet,plannedWorkSetCount} from '../js/workoutSemantics.js';
@@ -15,13 +17,19 @@ export function recommendNextExposure(previous,upcoming,equipment={},readiness=n
     const station=equipment.stationConfigurations?.machine;
     if(equipmentCategory(upcoming)==='machine'&&station&&sets.some(s=>s.equipmentSnapshot?.station!==station))return null;
     const weights=sets.map(s=>Number(String(s.weight).replace(',','.')));
-    if(!weights.every(w=>w===weights[0]&&w>0))return null;
+    const body=bodyweightMetadata(upcoming);
+    if(!weights.every(w=>w===weights[0]&&(w>0||w===0&&body)))return null;
     const reps=sets.map(s=>Number(s.reps));
     const range=String(upcoming.reps).match(/^(\d+)(?:[-–](\d+))?$/);
     if(!range||reps.some(n=>!Number.isInteger(n)||n<Number(range[1])||n>Number(range[2]||range[1])+(Number(range[2]||range[1])>12?2:0)))return null;
     const priorRest=String(previous.restTime??previous.rest??previous.recupero??'');
     const nextRest=String(upcoming.restTime??upcoming.rest??upcoming.recupero??'');
     const restChanged=priorRest!==nextRest;
+    if(body){
+        if(readiness?.level==='stop')return {weight:null,suppressLoad:true,kind:'maintain',reason:'Dolore segnalato: rivaluta il movimento prima di proseguire.'};
+        const progression=readiness?.allowIncrease!==false&&!restChanged?recommendNextSessionReps(previous,upcoming):null;
+        return {weight:body.unloaded?0:weights[0],reps:progression?.reps??reps,kind:progression?.kind==='build_reps'?'build_reps':'maintain',reason:progression?.kind==='build_reps'?progression.reason:'Riferimento delle serie a corpo libero: carico esterno invariato.',restChanged};
+    }
     const decision=recommendNextSessionLoad(previous,{equipmentSettings:equipment,readiness});
     const result={weight:weights[0],reps:reps.map(r=>Math.min(r,Number(range[2]||range[1]))),kind:'maintain',previousWeight:weights[0],restChanged,
         reason:'Riferimento aggiornato dalle serie allenanti confermate della seduta precedente. Verifica oggi tecnica, recupero e RPE; non è un aumento obbligatorio.',

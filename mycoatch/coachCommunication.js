@@ -1,3 +1,4 @@
+import {isBodyweightExercise} from './bodyweight.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {specialSeries} from './seriesTechnique.js';
 // Presentation policy only. Never writes proposals, prescriptions or results.
@@ -44,7 +45,7 @@ const decimal = value => String(value).replace('.',',');
 function appliedChange(entry){
     const c=entry.change;if(!c)return entry;
     const where=entry.series.length===1?'alla serie '+entry.series[0]:'alle serie '+entry.series.join(', ');
-    const target=decimal(c.weight)+' kg × '+c.reps+' reps';
+    const target=c.bodyweight&&Number(c.weight)===0?c.reps+' reps a corpo libero (0 kg)':decimal(c.weight)+' kg × '+c.reps+' reps';
     let text;
     if(c.manual)text='Suggerisco '+target+' '+(entry.series.length===1?'per la serie ':'per le serie ')+entry.series.join(', ')+'.';
     else if(c.kind==='reps')text='Ho aggiunto '+(c.delta===1?'una ripetizione':c.delta+' ripetizioni')+' '+where+': '+target+'.';
@@ -61,6 +62,7 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
     const hasLoad=indices.length>0 && indices.every(i=>number(prefills[i]?.weight ?? ex.loggedSets?.[i]?.weight ?? ex.coachSetProposals?.[i]?.weight)!==null);
     const instructions=exerciseInstructionNotes(ex,{hasLoad:readOnly?true:hasLoad});
     const groups=new Map();
+    const bodyweight=isBodyweightExercise(ex);
     const add=(text,index=null,severity='info',change=null)=>{
         if(!clean(text))return;
         const k=key(text)+JSON.stringify(change),entry=groups.get(k)||{text,series:[],severity,...(change?{change}:{})};
@@ -77,27 +79,30 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
             const today=['today','increase_today','reduce_today','today_estimate','prescribed_step'].includes(p.kind);
             const origin=today?previous:reference;
             const kg=number(origin?.weight),reps=number(origin?.reps);
-            const weightChanged=kg!==null && number(p.weight)!==null && Math.abs(number(p.weight)-kg)>.001;
+            const weightChanged=!bodyweight&&kg!==null && number(p.weight)!==null && Math.abs(number(p.weight)-kg)>.001;
             const repsChanged=reps!==null && number(p.reps)!==null && number(p.reps)!==reps;
-            const loadProblem=/non componibile|non è componibile/i.test(p.reason||'');
+            const loadProblem=!bodyweight&&/non componibile|non è componibile/i.test(p.reason||'');
             const recoveryChanged=/recuper[oi] divers[oi]/i.test(p.reason||'');
-            const caution=p.kind==='pain_caution' || p.kind==='reduce_today';
+            const caution=p.kind==='pain_caution' || p.kind==='reduce_today'||p.kind==='bodyweight_reduce_reps';
             const update=(['increase_load','increase_today','build_reps','estimated_history','today_estimate'].includes(p.kind) || p.kind==='today'&&/Margine di sforzo/.test(p.reason||'')) && (weightChanged||repsChanged);
             const calibration=number(p.weight)===null && p.kind!=='pain_caution' && !hasLoad;
             if(caution||loadProblem||update||calibration||recoveryChanged){
                 const shown=prefills[i]??ex.loggedSets?.[i]??{};
                 const manual=['weight','reps','rpe'].some(field=>number(p[field])!==null&&number(shown[field])!==null&&number(shown[field])!==number(p[field]));
-                const warning=loadProblem?conciseReason(p.reason):'';
+                const warning=loadProblem?clean(p.reason).match(/Carico teorico non componibile[^.]*(?:\.|$)(?:\s*Alternativa[^.]*(?:\.|$))?/i)?.[0]||'Il carico proposto non risulta componibile con l’inventario dichiarato.':'';
                 let change=null;
-                if(number(p.weight)!==null&&number(p.reps)!==null&&!loadProblem){
+                if(number(p.weight)!==null&&number(p.reps)!==null){
                     if(repsChanged&&number(p.reps)>reps&&!weightChanged)change={kind:'reps',delta:number(p.reps)-reps,weight:p.weight,reps:p.reps,manual};
                     else if(['increase_load','increase_today'].includes(p.kind))change={kind:'increase',weight:p.weight,reps:p.reps,today,manual,basis:p.progressionBasis};
                     else if(p.kind==='reduce_today')change={kind:'reduce',weight:p.weight,reps:p.reps,manual};
-                    else if(update)change={kind:'estimate',weight:p.weight,reps:p.reps,today,manual};
+                    else if(update&&!bodyweight)change={kind:'estimate',weight:p.weight,reps:p.reps,today,manual};
                 }
+                if(change)change.bodyweight=bodyweight;
                 const target=number(p.weight)!==null
                     ? `${decimal(p.weight)} kg${number(p.reps)!==null?' × '+p.reps+' reps':''}. ` : '';
-                if(change||!recoveryChanged||caution||loadProblem||calibration)add(target+conciseReason(p.reason).replace(/Recuper[oi] divers[oi]:[^.]*(?:\.|$)/i,'').trim(),i,caution||loadProblem?'caution':'info',change);
+                const description=conciseReason(p.reason).replace(warning,'').replace(/Recuper[oi] divers[oi]:[^.]*(?:\.|$)/i,'').trim();
+                if(change||caution||calibration||!recoveryChanged&&!loadProblem)add(target+description,i,caution?'caution':'info',change);
+                if(loadProblem)add(warning,i,'caution');
                 if(recoveryChanged)add('Recupero diverso dalla seduta di riferimento: il carico è valutato per reps e RPE attuali, senza trasferire la precedente progressione.');
                 for(const item of p.basedOn||[])if(item?.source&&sourceKey(item.source)!==sourceKey(historySource))references.set(sourceKey(item.source),referenceLabel(item));
             }

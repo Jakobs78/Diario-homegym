@@ -1,3 +1,4 @@
+import {isBodyweightExercise} from './bodyweight.js';
 /**
  * Compatibilità dell'API MyCoatch di autoregolazione.
  *
@@ -87,7 +88,7 @@ function inspectLegacyExercise(exercise) {
             set?.is_warmup) return [];
         const weight = numeric(set?.weight ?? set?.actualKg);
         const reps = positiveReps(set?.reps ?? set?.actualReps);
-        if (weight === null || weight <= 0 || weight > 700 ||
+        if (weight === null || weight < 0 || weight === 0 && !isBodyweightExercise(exercise) || weight > 700 ||
             reps === null) return [];
         const rpe = measuredRpe(set?.rpe);
         return [{ weight, reps, rpe, special: special(exercise, set) }];
@@ -105,7 +106,7 @@ function inspectLegacyExercise(exercise) {
         exercise.targetRpe ?? exercise.rpeTarget ?? exercise.rpe);
     const allRpeMeasured = valid.every(s => s.rpe !== null);
     const validEstimates = valid.map(s =>
-        s.rpe === null || s.special ? null :
+        isBodyweightExercise(exercise) || s.rpe === null || s.special ? null :
             estimateE1rm(s.weight, s.reps, s.rpe)).filter(v => v !== null);
     const currentKg = Math.min(...valid.map(s => s.weight));
     const topKg = Math.max(...valid.map(s => s.weight));
@@ -114,6 +115,7 @@ function inspectLegacyExercise(exercise) {
         ? valid.reduce((sum, set) => sum + set.rpe, 0) / valid.length : null;
     const hasSpecial = valid.some(s => s.special);
     return {
+        bodyweight:isBodyweightExercise(exercise),
         currentKg,
         topKg,
         minTargetReps: range?.min ?? null,
@@ -196,7 +198,11 @@ export function analyzeUserHistory(exerciseHistory) {
         message: 'Mantieni il carico e registra prestazioni confrontabili in settimane diverse.'
     };
 
-    if (progression.readyForLoad && !progression.fatigueConcern) {
+    if(last.bodyweight){
+        result.progression={...progression,readyForLoad:false};
+        result.message='Esercizio a corpo libero: valuta reps e RPE senza stimare un massimale dal sovraccarico esterno.';
+        if(progression.readyForReps){result.action='BUILD_REPS';result.suggestedReps=progression.nextRepTarget;}
+    } else if (progression.readyForLoad && !progression.fatigueConcern) {
         const step = calculateSmartIncrement(
             progression.lastWeekWorkingKg, last.currentKg <= 12);
         if (step && step / progression.lastWeekWorkingKg <= 0.10) {

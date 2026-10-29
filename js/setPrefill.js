@@ -1,3 +1,4 @@
+import {bodyweightMetadata} from '../mycoatch/bodyweight.js';
 import {isExerciseSkipped} from './sessionSkip.js';
 import {specialSeries,hasDropPrescription} from '../mycoatch/seriesTechnique.js';
 import {recommendNextExposure} from '../mycoatch/nextExposure.js';
@@ -29,7 +30,7 @@ const targetRpe = value => {
     return n >= 5 && n <= 10 ? String(n) : '';
 };
 const confirmed = set => set?.isLocked === true || set?.completed === true;
-const weightFor = set => cleanDecimal(set?.weight ?? set?.actualKg);
+const weightFor = (set,exercise) => bodyweightMetadata(exercise)&&String(set?.weight??set?.actualKg).trim()==='0'?'0':cleanDecimal(set?.weight ?? set?.actualKg);
 const repsFor = set => {
     const s = String(set?.reps ?? set?.actualReps ?? '').trim();
     // Mantieni le tecniche speciali soltanto se confermate in precedenza.
@@ -147,7 +148,7 @@ export function getSetPrefill(exercise, index, { previousExercise = null, crossE
     let previousIndex = -1;
     for (let i = index - 1; i >= 0; i--) {
         if (confirmed(logs[i]) && !logs[i].isWarmup && !logs[i].warmup &&
-            !logs[i].is_warmup && weightFor(logs[i]) && repsFor(logs[i])) {
+            !logs[i].is_warmup && weightFor(logs[i],exercise) && repsFor(logs[i])) {
             previous = logs[i];
             previousIndex = i;
             break;
@@ -192,7 +193,7 @@ export function getSetPrefill(exercise, index, { previousExercise = null, crossE
     const fromLastWeek = !exercise?.coachWeeklyLoadReview && !sameSession && priorSet &&
         confirmed(priorSet) && !priorSet.isWarmup && !priorSet.warmup &&
         !priorSet.is_warmup && comparablePlan && priorComparable &&
-        weightFor(priorSet) && repsFor(priorSet) &&
+        weightFor(priorSet,exercise) && repsFor(priorSet) &&
         repsCompatible(repsFor(priorSet), exercise,index);
     const nextAdvice = nextExposureAdvice || recommendNextExposure(previousExercise,exercise);
     const currentWarm=Boolean(current.isWarmup||current.warmup||current.is_warmup);
@@ -210,10 +211,12 @@ export function getSetPrefill(exercise, index, { previousExercise = null, crossE
         coachedReps !== null ? 'mycoatch_next_reps' :
         nextAdvice ? 'mycoatch_next_exposure' : fromLastWeek ? 'confirmed_previous_week' :
         crossKg ? 'estimated_cross_exposure' : 'csv_target';
+    const body=bodyweightMetadata(exercise);
     return {
         weight: filled(current.weight) ? String(current.weight)
-            : !currentWarm && nextAdvice?.suppressLoad ? '' : sameSession ? weightFor(previous)
-                : advisedWeight ? String(advisedWeight) : fromLastWeek ? weightFor(priorSet) : plan.weight || crossKg,
+            : body?.unloaded ? '0' : body && !plan.weight && !fromLastWeek && !sameSession ? '0'
+            : !currentWarm && nextAdvice?.suppressLoad ? '' : sameSession ? weightFor(previous,exercise)
+                : advisedWeight ? String(advisedWeight) : fromLastWeek ? weightFor(priorSet,exercise) : plan.weight || crossKg,
         reps: filled(current.reps) ? String(current.reps)
             : sameSession ? repsFor(previous)
                 : advisedReps ? String(advisedReps) : coachedReps !== null ? coachedReps

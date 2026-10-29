@@ -1,9 +1,8 @@
+import {isBodyweightExercise} from './bodyweight.js';
 import {isExerciseSkipped,sessionWorkCounts} from '../js/sessionSkip.js';
 import {specialSeries} from './seriesTechnique.js';
 import {setPrescription} from './setPrescription.js';
 import {workingProposal} from './protocolLoad.js';
-import { EXERCISE_DATABASE } from './exercisesDB.js';
-import { canonicalExerciseKey } from './exerciseIdentity.js';
 import { estimateE1rm } from './historyAnalysis.js';
 import { previousExercisePerformance, historicalSessionPace } from './liveHistory.js';
 import { isWarmupExercise } from '../js/workoutSemantics.js';
@@ -100,10 +99,9 @@ function hasUnconfirmed(exercise, afterIndex = -1) {
  */
 export function validateCompletedSet(values, exercise = {}, set = {}) {
     const weight = decimal(values?.weight);
-    const bodyweight = EXERCISE_DATABASE.some(ex => ex.equipment === 'bodyweight' &&
-        canonicalExerciseKey(ex.name) === canonicalExerciseKey(exercise.catalogMapping?.confirmed?exercise.catalogMapping.name:exercise.name));
+    const bodyweight = isBodyweightExercise(exercise);
     if (weight === null || weight < 0 || (weight === 0 && !bodyweight) || weight > 700) {
-        return { ok: false, message: 'Inserisci il peso realmente usato in kg, maggiore di zero.' };
+        return { ok: false, message: bodyweight?'Inserisci il sovraccarico reale: 0 kg se esegui a corpo libero.':'Inserisci il peso realmente usato in kg, maggiore di zero.' };
     }
     const tech = specialSeries(exercise,Math.max(0,exercise?.loggedSets?.indexOf(set)??0),set);
     const repsInfo = repsValue(values?.reps, tech);
@@ -189,7 +187,7 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
     const plannedFailure = targetRpe === 10 && knownRpe && result.rpe >= 9.5;
     const completed = sets.map(set => normalizedConfirmedSet(set, exercise)).filter(Boolean);
     const paired = completed.filter(set => set.rpe !== null && !set.technique);
-    const actualE1rm = knownRpe && !result.technique
+    const actualE1rm = knownRpe && !result.technique && !isBodyweightExercise(exercise)
         ? estimateE1rm(result.weight, result.reps, result.rpe) : null;
 
     let code = 'on_track';
@@ -240,7 +238,7 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
         message = 'Limite alto delle ripetizioni raggiunto con margine. Mantieni il carico e cerca conferma nelle serie successive.';
     }
 
-    if (remainingIndex >= 0 && knownRpe && !result.technique && !plannedFailure &&
+    if (!isBodyweightExercise(exercise) && remainingIndex >= 0 && knownRpe && !result.technique && !plannedFailure &&
         (code === 'high_effort' || code === 'above_rpe' || code === 'below_reps')) {
         const multipleHard = paired.slice(-2).filter(set =>
             set.rpe >= 9 || (range && set.reps < range.min)).length >= 2;
@@ -256,7 +254,7 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
 
     // Non suggerire aumenti in seduta da una sola serie fortunata. Richiede
     // almeno due serie consecutive COMPLETE con RPE misurato e buffer evidente.
-    if (result.weight > 0 && remainingIndex >= 0 && code === 'strong_set' && paired.length >= 2 &&
+    if (!isBodyweightExercise(exercise) && result.weight > 0 && remainingIndex >= 0 && code === 'strong_set' && paired.length >= 2 &&
         paired.slice(-2).every(set =>
             range && range.max<=12 && set.reps >= range.max && set.rpe <= targetRpe - 1)) {
         const step = getAvailableLoadStep(exercise,equipmentSettings,result.weight).step;

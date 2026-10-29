@@ -1,3 +1,4 @@
+import {isBodyweightExercise} from './bodyweight.js';
 import {specialSeries} from './seriesTechnique.js';
 /** Original per-series targets. Never read performed or proposed values here. */
 export const number = value => {
@@ -43,6 +44,6 @@ export function observed(ex,index){
     const s=ex?.loggedSets?.[index];
     if(!confirmed(s)||warm(s)||ex?.isWarmup||ex?.isExcluded||ex?.is_excluded||s?.intensityTechnique||s?.dropSegments?.length)return null;
     const kg=number(s.weight??s.actualKg),reps=number(s.reps??s.actualReps),rpe=number(s.rpe);
-    if(kg===null||kg<=0||kg>700||!Number.isInteger(reps)||reps<1||reps>100)return null;
-    return {kg,reps,rpe:rpe!==null&&rpe>=5&&rpe<=10?rpe:null,index,performedAt:s.performedAt??s.completedAt??null,prescription:setPrescription(ex,index)};
+    if(kg===null||kg<0||kg===0&&!isBodyweightExercise(ex)||kg>700||!Number.isInteger(reps)||reps<1||reps>100)return null;
+    return {kg,bodyweight:isBodyweightExercise(ex),reps,rpe:rpe!==null&&rpe>=5&&rpe<=10?rpe:null,index,performedAt:s.performedAt??s.completedAt??null,prescription:setPrescription(ex,index)};
 }

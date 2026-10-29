@@ -21,7 +21,14 @@ export function renderExerciseCoachPanel(card,exercise,context={}) {
     for(const entry of model.updates){
         const p=document.createElement('p');
         if(entry.severity==='caution')p.className='coach-message-warning';
-        p.textContent=(entry.severity==='caution'?'⚠️ ':'')+(entry.labelSeries!==false&&entry.series.length?'Serie '+entry.series.join(', ')+': ':'')+entry.text;
+        if(entry.severity==='caution')p.append(document.createTextNode('⚠️ '));
+        if(entry.labelSeries!==false&&entry.series.length){const label=document.createElement('strong');label.textContent='Serie '+entry.series.join(', ')+': ';p.append(label);}
+        if(entry.change){
+            const label=document.createElement('strong');
+            const end=entry.text.indexOf(':');
+            if(end>=0){label.textContent=entry.text.slice(0,end+1);p.append(label,document.createTextNode(entry.text.slice(end+1)));}
+            else p.append(document.createTextNode(entry.text));
+        }else p.append(document.createTextNode(entry.text));
         updates.append(p);
     }
     for(const text of model.references){
