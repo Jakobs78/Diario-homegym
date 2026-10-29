@@ -12,6 +12,7 @@ export const state = {
 
     showArchivedHistory: false,
     activeView: 'workout',
+    mesocycleAnalysis: null,
     workoutData: {
         athlete: { email: null },
         history: {
@@ -40,6 +41,7 @@ export function resetState() {
     state.activeMesocycleIndex = 0;
     state.activeWeek = 1;
     state.activeView = 'workout';
+    state.mesocycleAnalysis = null;
     state.showArchivedHistory = false;
     state.workoutData = {
         athlete: { email: null },

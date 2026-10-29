@@ -7,9 +7,11 @@
 import { summarizeMesocycleClosure } from '../js/mesocycleClosure.js';
 import { buildMesocycleCoachPdfReport } from '../js/mesocyclePdfCoachReport.js';
 import { isWarmupExercise, isWarmupSet, plannedWorkSetCount } from '../js/workoutSemantics.js';
-import { validateCompletedSet } from './liveCoach.js';
+import {analysisExerciseRows,formatAnalysisLines} from './mesocycleAnalysis.js';
+import {setPrescription} from './setPrescription.js';
+import {contributionsForExercise} from './volumeAccounting.js';
+import {isExerciseSkipped} from '../js/sessionSkip.js';
 
-const isConfirmed = set => set?.isLocked === true || set?.completed === true;
 const asText = value => value === null || value === undefined || String(value).trim() === ''
     ? null : String(value);
 
@@ -27,26 +29,23 @@ function safeSettings(snapshot) {
 
 function summarizeExercise(exercise) {
     const plannedSets=plannedWorkSetCount(exercise);
-    const rows=Array.isArray(exercise.loggedSets) ? exercise.loggedSets :
-        Array.isArray(exercise.sets) ? exercise.sets : [];
-    const observed=[];
-    let invalidConfirmed=0;
-    for (const [index,set] of rows.entries()) {
-        if (isWarmupSet(set) || !isConfirmed(set)) continue;
-        const valid=validateCompletedSet(set,exercise,set);
-        if(!valid.ok){invalidConfirmed++;continue;}
-        if(observed.length>=plannedSets)continue;
-        observed.push({
-            setNumber: Number.isInteger(Number(set.setNumber)) && Number(set.setNumber)>0
-                ? Number(set.setNumber) : index+1,
-            weightKg:valid.weight,
-            repetitions:valid.numericReps,
-            rpeActual:valid.rpe ?? null,
-            technique:valid.technique ?? null
-        });
-    }
+    const rows=analysisExerciseRows(exercise);
+    const safeTarget=index=>{
+        const p=setPrescription(exercise,index);
+        return {setNumber:index+1,role:p.role,repetitions:p.reps,rpeTarget:p.rpe,weightKg:p.kg,special:Boolean(p.special),technique:asText(exercise.sets?.[index]?.intensityTechnique??(p.special?exercise.groupType:null))};
+    };
+    const observed=rows.valid.map(row=>({
+        setNumber:row.index+1,weightKg:row.weight,repetitions:row.numericReps,
+        repetitionsRecorded:asText(row.set.reps??row.set.actualReps),rpeActual:row.rpe??null,
+        technique:row.technique??null,prescription:safeTarget(row.index),
+        dropSkipped:row.set.dropSkipped===true,
+        dropSegments:(row.set.dropSegments||[]).map((drop,index)=>({segment:index+1,
+            weightKg:asText(drop.weight),repetitions:asText(drop.reps),rpeActual:asText(drop.rpe)}))
+    }));
+    const invalidConfirmed=rows.invalid.length;
     return {
         name:asText(exercise.name) || 'Esercizio senza nome',
+        muscleClassification:contributionsForExercise(exercise.catalogMapping?.confirmed?exercise.catalogMapping.name:exercise.name,1)?.category??null,
         prescription:{
             sets:plannedSets,
             repetitions:asText(exercise.reps ?? exercise.targetReps),
@@ -56,8 +55,11 @@ function summarizeExercise(exercise) {
             rest:asText(exercise.restTime ?? exercise.recupero ?? exercise.rest),
             topSet:asText(exercise.topset)
         },
+        prescribedSets:Array.from({length:Math.max(exercise.sets?.length||0,exercise.loggedSets?.length||0,parseInt(exercise.setsCount??exercise.set,10)||0)},(_,i)=>i)
+            .filter(i=>!isWarmupSet(exercise.sets?.[i])&&!isWarmupSet(exercise.loggedSets?.[i])).map(safeTarget),
+        skippedForSession:isExerciseSkipped(exercise),skippedSets:rows.skipped,
         observedSets:observed,
-        unconfirmedOrMissingSets:Math.max(0,plannedSets-observed.length),
+        unconfirmedOrMissingSets:rows.missing,
         invalidConfirmedSets:invalidConfirmed
     };
 }
@@ -83,7 +85,7 @@ export function buildMesocycleReviewDossier(mesocycle,{at=new Date()}={}) {
         })));
     return {
         format:'mycoatch-mesocycle-review-dossier',
-        schemaVersion:1,
+        schemaVersion:2,
         generatedAt:when.toISOString(),
         source:'HomeGym Diary · esportazione manuale in sola lettura',
         interpretation:'La progressione prestativa non misura direttamente ipertrofia, fatica o recupero. '+
@@ -111,6 +113,7 @@ export function buildMesocycleReviewDossier(mesocycle,{at=new Date()}={}) {
     };
 }
 
+const range=r=>r?r.min===r.max?String(r.min):r.min+'–'+r.max:'n.d.';
 const value=v=>v===null||v===undefined?'n.d.':String(v);
 
 export function formatMesocycleReviewDossierMarkdown(dossier) {
@@ -130,11 +133,12 @@ export function formatMesocycleReviewDossierMarkdown(dossier) {
         '## Quanti allenamenti e quante serie hai completato',
         '',
         '- Sedute complete: '+s.completedSessions+'/'+s.plannedSessions+
-            '; parziali: '+s.partialSessions+'; non iniziate: '+s.skippedSessions,
+            '; concluse con esclusioni: '+(s.sessionsWithSkips||0)+'; parziali: '+s.partialSessions+'; non iniziate: '+s.skippedSessions,
         '- Serie valide confermate: '+s.completedSets+'/'+s.plannedSets+
-            '; confermate invalide: '+s.invalidConfirmedSets,
+            '; saltate intenzionalmente: '+(s.skippedSets||0)+'; mancanti: '+Math.max(0,s.plannedSets-s.completedSets-(s.skippedSets||0)-s.invalidConfirmedSets)+'; confermate invalide: '+s.invalidConfirmedSets,
         '- RPE effettivi disponibili: '+s.measuredRpeSets+'/'+s.completedSets+
             '; media RPE effettivi: '+value(s.averageRpe),
+        '- Aderenza (sole sedute complete senza esclusioni): '+value(s.adherencePercent)+'%; completamento delle serie: '+value(s.setCompletionPercent)+'%.',
         '- Ripetizioni archiviate (escluse dalla copertura): '+s.archivedRepeats,
         '',
         '## Risultati per settimana',
@@ -144,6 +148,7 @@ export function formatMesocycleReviewDossierMarkdown(dossier) {
         '- Settimana '+week.weekNumber+': '+week.completedSets+'/'+week.plannedSets+
         ' serie confermate; RPE misurati '+week.rpeMeasured+'/'+week.completedSets+
         '; media '+value(week.averageRpe)+'.');
+    lines.push('',...formatAnalysisLines(s.analysis),'');
     lines.push('','## Lavoro registrato per gruppo muscolare (conteggio stimato, non crescita)','');
     for(const row of dossier.muscleVolume.rows) {
         if(!(row.planned||row.credited))continue;
@@ -159,11 +164,21 @@ export function formatMesocycleReviewDossierMarkdown(dossier) {
             lines.push('**'+ex.name+'** · prescritto: '+p.sets+' serie × '+
                 value(p.repetitions)+' rip.; RPE target '+value(p.rpeTarget)+
                 '; kg prescritti '+value(p.kgMin)+'–'+value(p.kgMax)+'.');
+            if(!ex.muscleClassification)lines.push('Classificazione muscolare non disponibile: queste serie non sono attribuite a un muscolo nei conteggi.');
+            lines.push('Recupero prescritto: '+value(p.rest)+(p.topSet?' · Top set: '+p.topSet:'')+'.');
+            for(const target of ex.prescribedSets||[])lines.push('- Obiettivo serie '+target.setNumber+' ('+target.role+'): '+
+                range(target.weightKg)+' kg × '+range(target.repetitions)+' reps @'+range(target.rpeTarget)+(target.technique?' · '+target.technique:'')+'.');
+            if(ex.skippedForSession)lines.push('- Esercizio saltato in questa seduta: '+ex.skippedSets+' serie escluse intenzionalmente; eventuali serie già eseguite restano conteggiate. Motivo nelle note personali del diario, escluso da questo export.');
             if(ex.observedSets.length){
                 for(const row of ex.observedSets)lines.push('- Serie '+row.setNumber+
                     ': '+row.weightKg+' kg × '+row.repetitions+
                     ' rip.; RPE effettivo '+value(row.rpeActual)+
                     (row.technique?' · tecnica '+row.technique:'')+'.');
+                for(const row of ex.observedSets){
+                    if(row.repetitionsRecorded!==String(row.repetitions))lines.push('  Reps registrate serie '+row.setNumber+': '+row.repetitionsRecorded+'.');
+                    for(const drop of row.dropSegments||[])lines.push('  Scarico '+drop.segment+' della serie '+row.setNumber+': '+value(drop.weightKg)+' kg × '+value(drop.repetitions)+' reps; RPE '+value(drop.rpeActual)+'.');
+                    if(row.dropSkipped)lines.push('  Scarichi non eseguiti nella serie '+row.setNumber+'.');
+                }
             }else lines.push('- Nessuna serie allenante valida confermata.');
             if(ex.unconfirmedOrMissingSets)lines.push('- Serie mancanti/non confermate: '+
                 ex.unconfirmedOrMissingSets+'.');
@@ -177,6 +192,7 @@ export function formatMesocycleReviewDossierMarkdown(dossier) {
         '- Le prestazioni sono soltanto quelle valide e confermate; i target non sono risultati.',
         '- Le sedute ripetute archiviate non sono incluse nei dettagli delle sedute programmate.',
         '- '+dossier.privacy,
+        '- Questo file non è un backup e non ripristina il diario.',
         '- Nessun caricamento automatico a ChatGPT o ad altri servizi.');
     return lines.join('\n');
 }

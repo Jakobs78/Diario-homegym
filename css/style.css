@@ -3206,18 +3206,6 @@ body.dark-mode .group-title-badge {
 }
 
 .unified-header-box .meso-guided-closure-trigger { display: inline-flex; align-items: center; justify-content: center; gap: .3rem; }
-@media(max-width:480px) {
-  .unified-header-box .meso-guided-closure-text { display: none; }
-  .unified-header-box .meso-guided-closure-trigger {
-    width: 38px;
-    min-width: 38px;
-    min-height: 38px;
-    padding: 4px;
-    font-size: 1rem;
-  }
-}
-
-
 /* MyCoatch: show the report reminder after the last checkbox in the
    last programmed day, even when the closure report has missing sets. */
 @keyframes mycoatch-closure-reminder {
@@ -3235,7 +3223,7 @@ body.dark-mode .group-title-badge {
   .unified-header-box #review-close-meso-btn.meso-closure-attention {
     width: auto;
     min-width: 92px;
-    max-width: 98px;
+    max-width: none;
     min-height: 38px;
     padding: 4px 5px;
     font-size: .72rem;
@@ -3616,3 +3604,37 @@ body.dark-mode .group-title-badge {
 .ex-card .exercise-session-skip:focus-visible {outline:2px solid #b45309;outline-offset:3px;}
 [data-theme="dark"] .ex-card .exercise-session-skip,body.dark-mode .ex-card .exercise-session-skip {background:#493021;color:#ffd6a8;border-color:#a96e3c;}
 .mycoatch-live-disclosure {scroll-margin-top:16px;}
+
+/* Dedicated mesocycle review. Keep its controls readable at 320px. */
+#workout-session-view[hidden] { display: none !important; }
+.unified-header-box .meso-guided-closure-text { display: inline; }
+.unified-header-box .meso-guided-closure-trigger { width: auto; min-width: 116px; min-height: 44px; white-space: normal; }
+.workout-quick-controls { flex-wrap: wrap; }
+.mesocycle-analysis-view { padding: .6rem 0 2rem; overflow-wrap: anywhere; }
+.mesocycle-analysis-view h1 { font-size: 1.45rem; margin: 1rem 0 .35rem; }
+.mesocycle-analysis-name { font-weight: 700; }
+.mesocycle-analysis-view button { min-height: 44px; white-space: normal; }
+.mesocycle-analysis-section { margin: 1rem 0; padding: .8rem; border: 1px solid var(--border-color); border-radius: 12px; background: var(--block-bg); }
+.mesocycle-analysis-section h2 { font-size: 1.05rem; margin: 0 0 .6rem; }
+.mesocycle-analysis-section ul { padding-left: 1.2rem; }
+.mesocycle-analysis-section li + li { margin-top: .6rem; }
+.mesocycle-analysis-section p { line-height: 1.5; }
+.mesocycle-volume-table-wrap { overflow-x: auto; }
+.mesocycle-volume-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.mesocycle-volume-table th, .mesocycle-volume-table td { padding: .5rem; border-bottom: 1px solid var(--border-color); text-align: left; }
+.mesocycle-export-advanced { width: 100%; }
+@media(max-width:480px) {
+  .unified-header-box #review-close-meso-btn, .unified-header-box #review-close-meso-btn.meso-closure-attention { min-width: 116px; max-width: none; font-size: .74rem; }
+  .mesocycle-analysis-view .mycoatch-meso-closure-actions > button { width: 100%; }
+}
+
+@media(max-width:480px) {
+  /* Read the volume comparison vertically, without splitting words into letters. */
+  .mesocycle-volume-table thead { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); }
+  .mesocycle-volume-table, .mesocycle-volume-table tbody, .mesocycle-volume-table tr { display: block; width: 100%; }
+  .mesocycle-volume-table tr { margin: .6rem 0; padding: .4rem; border: 1px solid var(--border-color); border-radius: 8px; }
+  .mesocycle-volume-table td { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: .4rem; padding: .4rem .2rem; overflow-wrap: normal; }
+  .mesocycle-volume-table td::before { content: attr(data-label); color: var(--text-muted); }
+  .mesocycle-volume-table td:first-child { display: block; font-weight: 750; }
+  .mesocycle-volume-table td:first-child::before { content: none; }
+}

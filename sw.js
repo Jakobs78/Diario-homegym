@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v79-high-reps-summary-20261029';
+const CACHE_NAME = 'workout-app-v80-mesocycle-analysis-20261029';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -104,6 +104,7 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/athleteProfile.js',
   '/mycoatch/profileJournal.js',
   '/mycoatch/reviewDossier.js',
+  '/mycoatch/mesocycleAnalysis.js',
   '/mycoatch/calibrationReview.js',
   '/mycoatch/weeklyCoverage.js',
   '/mycoatch/volumeAccounting.js',

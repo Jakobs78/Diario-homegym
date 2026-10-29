@@ -5,8 +5,10 @@ import {renderWorkoutList} from './ui.js';
  * Guided end-of-block review next to the existing lock controls.
  * No mutation happens during rendering, inspection or report download.
  */
-import { summarizeMesocycleClosure, formatMesocycleClosureForChat } from './mesocycleClosure.js';
-import { concludeCurrentMesocycle } from './mesocycle.js';
+import { summarizeMesocycleClosure } from './mesocycleClosure.js';
+import {ANALYSIS_LABELS,muscleLabel} from '../mycoatch/mesocycleAnalysis.js';
+import {TRACKED_MUSCLES} from '../mycoatch/volumeAccounting.js';
+import { concludeCurrentMesocycle,exportMesoToPDF } from './mesocycle.js';
 import { startCoachChatAndGenerate } from '../mycoatch/mycoatch-adapter.js';
 import { assessMesocycleProfileContinuity } from '../mycoatch/profileJournal.js';
 import { buildMesocycleReviewDossier, formatMesocycleReviewDossierMarkdown,
@@ -17,19 +19,6 @@ function node(tag, label, cls) {
     if (cls) el.className = cls;
     if (label !== undefined) el.textContent = label;
     return el;
-}
-
-function downloadText(text, name) {
-    const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = String(name || 'mesociclo')
-        .replace(/[^a-zA-Z0-9_-]/g, '_') + '_report_mycoatch.txt';
-    document.body.append(anchor);
-    anchor.click();
-    anchor.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
 function downloadReviewDossier(content,name,extension,mime) {
@@ -52,7 +41,7 @@ export function createMesocycleClosurePanel(mesocycle, athleteDiary = null) {
     detail.id = 'mesocycle-closure-panel';
     detail.append(node('summary', closed ?
         '✓ Mesociclo concluso · consulta il report' :
-        '🏁 Concludi questo mesociclo: verifica prima i risultati'));
+        'Risultati del mesociclo · in corso'));
     const body = node('div', undefined, 'mycoatch-meso-closure-content');
     const stats = [
         'Sedute complete: ' + review.completedSessions + '/' + review.plannedSessions +
@@ -60,10 +49,11 @@ export function createMesocycleClosurePanel(mesocycle, athleteDiary = null) {
         'Sedute parziali: ' + review.partialSessions +
             ' · non iniziate: ' + review.skippedSessions,
         'Serie completate con dati validi: ' + review.completedSets + '/' + review.plannedSets +
-            ' · RPE misurati: ' + review.measuredRpeSets + '/' + review.completedSets,
+            ' · mancanti: '+review.missingSets+' · RPE misurati: ' + review.measuredRpeSets + '/' + review.completedSets,
         'RPE medio percepito nelle serie registrate: ' + (review.averageRpe ?? 'dato insufficiente')
     ];
     for (const line of stats) body.append(node('p', line));
+    body.append(node('small','L’RPE medio descrive lo sforzo registrato: non identifica da solo fatica o recupero. I confronti sotto usano serie equivalenti.'));
     if(review.skippedSets)body.append(node('p','Sedute concluse con esclusioni: '+review.sessionsWithSkips+'. Serie saltate intenzionalmente: '+review.skippedSets+'. I motivi sono nelle note personali del diario e nella stampa completa. Le esclusioni consentono di concludere la seduta, senza contare queste serie come eseguite.'));
     // Snapshot provenance is informative: never change an active training
     // prescription merely because the athlete edited their saved profile.
@@ -100,52 +90,38 @@ export function createMesocycleClosurePanel(mesocycle, athleteDiary = null) {
         const exclude=node('button',mesocycle.excludedFromCoaching?'Riutilizza questo mesociclo nel coaching':'Escludi questo mesociclo dalle decisioni future','btn btn-secondary btn-sm');
         exclude.type='button';exclude.onclick=async()=>{try{await editJournal(candidate=>{
             candidate.history.years[state.currentYear].mesocycles[state.activeMesocycleIndex||0].excludedFromCoaching=!mesocycle.excludedFromCoaching;
-        },'TOGGLE_COACHING_EVIDENCE');renderWorkoutList();}catch(error){alert(error.message);}};body.append(exclude);
+        },'TOGGLE_COACHING_EVIDENCE');renderWorkoutList();}catch(error){alert(error.message);}};body.append(exclude,node('p','La scelta è reversibile: non elimina né nasconde il diario. Il mesociclo escluso non alimenta precompilazione, analisi per nuove proposte o calibrazione del coaching.'));
     }
-    if(review.exerciseCoverage?.length){
-        const coverage=node('ul');
-        for(const ex of review.exerciseCoverage)coverage.append(node('li',ex.name+' · '+ex.confirmedSets+' serie allenanti valide'+(ex.classificationStatus==='unmapped'?' · classificazione muscolare da associare':'')+' · '+(ex.comparisonStatus==='available'?'confronto disponibile':ex.comparisonStatus==='no_valid_working_sets'?'nessuna serie allenante valida':'dati datati e confrontabili insufficienti')));
-        body.append(node('strong','Tutti gli esercizi del mesociclo'),coverage);
-    }
-    if (review.exerciseChanges.length) {
-        const list = node('ul');
-        for (const exercise of review.exerciseChanges) {
-            list.append(node('li', exercise.name + ' · sett. ' + exercise.firstWeek +
-                ': ' + exercise.firstKg + ' kg × minimo ' + exercise.firstMinReps +
-                ' reps → sett. ' + exercise.lastWeek + ': ' + exercise.lastKg +
-                ' kg × minimo ' + exercise.lastMinReps + ' reps' +
-                (exercise.deltaReps === null ? ' (carichi non confrontabili)' :
-                    ' (Δ reps ' + (exercise.deltaReps > 0 ? '+' : '') +
-                    exercise.deltaReps + ')')));
-        }
-        body.append(node('strong', 'Confronto tra le prime e ultime settimane con dati disponibili (non prova da solo crescita muscolare):'), list);
-    }
+    appendAnalysisSections(body,review);
     body.append(node('small',
         'Questo riepilogo utilizza solo le serie confermate. Un aumento di peso o ripetizioni non misura direttamente la crescita muscolare. ' +
         'La consultazione e lo scaricamento del report non modificano il diario.'));
     const actions = node('div', undefined, 'mycoatch-meso-closure-actions');
-    const exportBtn = node('button', '📄 Scarica testo dei risultati da condividere volontariamente', 'btn btn-secondary btn-sm');
-    exportBtn.type = 'button';
-    exportBtn.addEventListener('click', () =>
-        downloadText(formatMesocycleClosureForChat(review), review.name));
-    actions.append(exportBtn);
-    // Two explicit downloads: browsers may block simultaneous file downloads.
-    // Never contact an AI service or write to the journal to build the dossier.
-    const markdownBtn=node('button','Scarica dossier dettagliato (.md)','btn btn-secondary btn-sm');
+    const pdfBtn=node('button','Scarica analisi in PDF','btn btn-secondary btn-sm');
+    pdfBtn.type='button';
+    pdfBtn.onclick=()=>{
+        if(!window.jspdf?.jsPDF){alert('Il lettore PDF non è disponibile. Riprova online oppure scarica il rapporto in testo.');return;}
+        exportMesoToPDF(mesocycle,{includeDiary:false});
+    };
+    const markdownBtn=node('button','Rapporto completo da condividere (.md)','btn btn-secondary btn-sm');
     markdownBtn.type='button';
     markdownBtn.addEventListener('click',()=>{
         const data=buildMesocycleReviewDossier(mesocycle);
         downloadReviewDossier(formatMesocycleReviewDossierMarkdown(data),
             data.mesocycle.name,'md','text/markdown');
     });
-    const jsonBtn=node('button','Dati dossier (.json)','btn btn-secondary btn-sm');
+    const advanced=node('details',undefined,'mesocycle-export-advanced');
+    advanced.append(node('summary','Esportazioni avanzate'));
+    advanced.append(node('p','Per strumenti compatibili; non è un backup e non ripristina il diario. Per conservare tutto usa il backup completo in Strumenti.'));
+    const jsonBtn=node('button','Esporta dati dell’analisi (.json)','btn btn-secondary btn-sm');
     jsonBtn.type='button';
     jsonBtn.addEventListener('click',()=>{
         const data=buildMesocycleReviewDossier(mesocycle);
         downloadReviewDossier(serializeMesocycleReviewDossierJson(data),
             data.mesocycle.name,'json','application/json');
     });
-    actions.append(markdownBtn,jsonBtn);
+    advanced.append(jsonBtn);
+    actions.append(pdfBtn,markdownBtn,node('p','PDF: analisi leggibile e stampabile. MD: analisi e dettaglio delle serie in testo. Questi export escludono note libere, date delle sedute e dati account; i nomi personalizzati possono essere riconoscibili. Il PDF completo del diario, disponibile in Strumenti, conserva anche note e archivio. Nessun invio automatico.'),advanced);
 
     if (!closed) {
         if (!review.plannedSessions) {
@@ -256,10 +232,58 @@ export function createMesocycleClosurePanel(mesocycle, athleteDiary = null) {
         const next = node('button', '🤖 Prepara il prossimo mesociclo',
             'btn btn-secondary btn-sm');
         next.type = 'button';
+        next.disabled=Boolean(mesocycle.excludedFromCoaching);
+        if(next.disabled)body.append(node('p','Riutilizza questo mesociclo nel coaching per preparare la sua prosecuzione.'));
         next.addEventListener('click', () => startCoachChatAndGenerate(mesocycle));
         actions.append(next);
     }
     body.append(actions);
     detail.append(body);
     return detail;
+}
+
+function appendAnalysisSections(body,review){
+    const analysis=review.analysis;if(!analysis)return;
+    const section=title=>{const el=node('section',undefined,'mesocycle-analysis-section');el.append(node('h2',title));body.append(el);return el;};
+    const performance=section('Andamento degli esercizi');
+    const list=node('ul');
+    for(const ex of analysis.exercises){
+        const li=node('li');li.append(node('strong',ex.name+' · '+ANALYSIS_LABELS[ex.status]));
+        if(ex.firstWeek!==undefined){
+            li.append(node('p','Confronto tra settimane '+ex.firstWeek+' e '+ex.lastWeek+':'));
+            for(const [i,row] of (ex.firstRows||[]).entries()){
+                const last=ex.lastRows[i];li.append(node('p','Serie '+row.setNumber+' ('+row.role+'): '+row.kg+' kg × '+row.reps+' @'+(row.rpe??'n.d.')+' → '+last.kg+' kg × '+last.reps+' @'+(last.rpe??'n.d.')+'.'));
+            }
+        }
+        li.append(node('p',ex.reason+(ex.contextNote?' '+ex.contextNote:'')));
+        const coverage=review.exerciseCoverage.find(item=>item.name===ex.name);
+        li.append(node('small',ex.confirmedSets+' serie valide'+(coverage?.classificationStatus==='unmapped'?' · Esercizio non classificato: escluso dal conteggio muscolare.':'')));
+        list.append(li);
+    }
+    if(!analysis.exercises.length)performance.append(node('p','Nessun esercizio allenante da analizzare.'));
+    performance.append(list);
+    const volume=section('Volume: previsto, eseguito e variazioni');
+    volume.append(node('p',analysis.notice));
+    volume.append(node('p','Medie eseguite: '+analysis.completeRegularWeeks+' settimane concluse non di scarico. '+(analysis.volumeComparison?'Variazione tra settimane '+analysis.volumeComparison.firstWeek+' e '+analysis.volumeComparison.lastWeek+'.':'Variazione non valutabile: servono due settimane concluse non di scarico.')));
+    const wrap=node('div',undefined,'mesocycle-volume-table-wrap');const table=node('table',undefined,'mesocycle-volume-table');
+    const head=node('thead'),tr=node('tr');
+    const columns=['Muscolo','Dirette previste / sett.¹','Dirette eseguite / sett.²','Crediti indiretti / sett.²','Δ dirette / crediti²','Δ dirette previste²'];
+    for(const title of columns){const th=node('th',title);th.scope='col';tr.append(th);}head.append(tr);table.append(head);
+    const tbody=node('tbody');
+    for(const m of analysis.muscles){
+        if(!m.averagePlannedDirect&&!m.averagePerformedDirect&&!m.averageIndirectCredits)continue;
+        const row=node('tr');for(const [i,v] of [m.title,m.averagePlannedDirect??'n.d.',m.averagePerformedDirect??'n.d.',m.averageIndirectCredits??'n.d.',m.directChange===null?'n.d.':(m.directChange>0?'+':'')+m.directChange+' / '+(m.indirectChange>0?'+':'')+m.indirectChange,m.plannedDirectChange===null?'n.d.':(m.plannedDirectChange>0?'+':'')+m.plannedDirectChange].entries()){const cell=node('td',String(v));cell.dataset.label=columns[i];row.append(cell);}tbody.append(row);
+    }
+    table.append(tbody);wrap.append(table);volume.append(wrap,node('small','¹ Tutte le settimane del piano. ² Solo settimane concluse non di scarico, incluse le esclusioni intenzionali. Crediti indiretti = 0,5 per coinvolgimento secondario riconosciuto.'));
+    const weekly=node('details');weekly.append(node('summary','Dettaglio per settimana e gruppo muscolare'));
+    for(const w of analysis.volumeWeeks){
+        weekly.append(node('h3','Settimana '+w.weekNumber+(w.isDeload?' · Scarico':'')));
+        weekly.append(node('p',w.performedSets+'/'+w.plannedSets+' serie eseguite · '+w.skippedSets+' saltate · '+w.missingSets+' mancanti.'+(w.complete?'':' Settimana incompleta: nessuna inferenza di calo del volume.')));
+        const ul=node('ul');for(const m of TRACKED_MUSCLES){const p=w.planned[m],v=w.performed[m];if(p.fractionalSets||v.fractionalSets)ul.append(node('li',muscleLabel(m)+': dirette '+v.directSets+'/'+p.directSets+' previste; crediti indiretti '+v.indirectSetCredits+'/'+p.indirectSetCredits+' previsti.'));}weekly.append(ul);
+        if(w.unclassifiedSets)weekly.append(node('p',w.unclassifiedSets+' serie previste non attribuibili a gruppi muscolari: esercizi non classificati.'));
+    }
+    volume.append(weekly);
+    const next=section('Indicazioni per il prossimo mesociclo');
+    for(const suggestion of analysis.suggestions)next.append(node('p',suggestion.name+': '+suggestion.text));
+    next.append(node('small','Check-in storici pertinenti: '+analysis.recovery.validCheckins+'; difficoltà riferite: '+analysis.recovery.reportedDifficulties+'. Le proposte non cambiano serie, esercizi o struttura del mesociclo attivo. Nessuno scarico obbligatorio a calendario.'));
 }

@@ -185,12 +185,12 @@ export function updateMesocycleUI() {
  * Complete mesocycle diary export. Strictly read-only: no sync or state writes.
  * Text is wrapped and paginated at the line level, so long notes are never cut.
  */
-export function exportMesoToPDF(mesoData) {
+export function exportMesoToPDF(mesoData,{includeDiary=true}={}) {
     if (!mesoData) { alert('Nessun mesociclo da esportare.'); return; }
     const {jsPDF} = window.jspdf;
     const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
     const coachReport = buildMesocycleCoachPdfReport(mesoData);
-    const rows = [...coachReport.rows, ...buildMesocyclePdfDetails(mesoData)];
+    const rows = [...coachReport.rows, ...(includeDiary?buildMesocyclePdfDetails(mesoData):[])];
     const left = 14, right = 196, width = right - left, bottom = 278;
     const dark = [15, 23, 42], muted = [71, 85, 105], blue = [3, 105, 161];
     let y = 18;
@@ -380,7 +380,7 @@ export function exportMesoToPDF(mesoData) {
     }
     const name = String(mesoData.name || 'mesociclo')
         .replace(/[^a-zA-Z0-9_-]/g,'_');
-    doc.save(name + '_diario_completo.pdf');
+    doc.save(name + (includeDiary?'_diario_completo.pdf':'_analisi_mesociclo.pdf'));
 }
 
 export async function restoreLastArchivedMesocycle(){

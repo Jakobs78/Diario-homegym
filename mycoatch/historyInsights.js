@@ -176,7 +176,7 @@ export function analyzeTrainingHistory(userHistory,{calendarWeeks=false}={}) {
         const mesocycles = years[year]?.mesocycles || [];
         for (let mi = 0; mi < mesocycles.length; mi++) {
             const meso = mesocycles[mi];
-            if (!Array.isArray(meso?.weeks)) continue;
+            if (meso?.excludedFromCoaching || !Array.isArray(meso?.weeks)) continue;
             inspectedMesocycles++;
             lastMesocycle = meso;
 
