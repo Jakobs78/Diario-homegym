@@ -36,6 +36,10 @@ function* previousDays(history, currentDay) {
     for (const year of orderedYears) {
         const mesocycles = years[year]?.mesocycles || [];
         for (const meso of mesocycles) {
+            if(meso.excludedFromCoaching){
+                if((meso.weeks||[]).some(w=>(w.days||[]).includes(currentDay)))return;
+                continue;
+            }
             const weeks = [...(meso.weeks || [])]
                 .sort((a, b) => Number(a.weekNumber) - Number(b.weekNumber));
             for (const week of weeks) {

@@ -30,7 +30,7 @@ export function prepareRecentEvidence(data,{now=new Date()}={}){
     for(const year of Object.values(history.years))for(const meso of year.mesocycles||[])
     for(const week of meso.weeks||[])for(const day of week.days||[]){
         for(const session of [...(day.sessionArchives||[]),day])for(const ex of session.exercises||[]){
-            if(meso.excludedFromCoaching){for(const set of ex.loggedSets||[]){set.isLocked=false;set.completed=false;}continue;}
+            if(meso.excludedFromCoaching){for(const set of ex.loggedSets||ex.sets||[]){set.isLocked=false;set.completed=false;}continue;}
             if(isWarmupExercise(ex))continue;
             for(const set of ex.loggedSets || ex.sets || []){
                 if(!confirmed(set) || isWarmupSet(set))continue;

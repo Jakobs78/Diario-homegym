@@ -69,7 +69,7 @@ test('no completed workout: never imply a trained muscle percentage or invented 
     assert.equal(report.muscles.find(r=>r.muscle==='Petto').planned,3);
     assert.ok(report.muscles.every(r=>r.share===null));
     assert.ok(report.muscles.some(r=>r.muscle==='Petto'&&r.execution===0));
-    assert.ok(report.rows.some(r=>r.kind==='coach-text'&&r.text.includes('dati insufficienti')));
+    assert.ok(report.rows.some(r=>r.kind==='coach-text'&&r.text.includes('Dati insufficienti')));
 });
 
 test('weight and RPE validation match MyCoatch closure, and warmups are excluded',()=>{

@@ -57,6 +57,7 @@ export function deriveDurationCalibration(userHistory,{now=new Date()}={}){
     const ratios=[];
     for(const year of Object.values(years)){
         for(const meso of year?.mesocycles||[]){
+            if(meso.excludedFromCoaching)continue;
             for(const week of meso?.weeks||[]){
                 if(week.isDeloadWeek||week.isDeload)continue;
                 for(const day of week.days||[]){

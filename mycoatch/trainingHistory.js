@@ -11,6 +11,7 @@ export function trainingExposures(data,{year,mesoIndex,weekNumber,dayIndex,exerc
     for(const [y,yd] of Object.entries(data?.history?.years||{})){
         if(!/^\d{4}$/.test(y)||Number(y)>end[0])continue;
         for(const [mi,meso] of (yd.mesocycles||[]).entries()){
+            if(meso.excludedFromCoaching)continue;
             if(sameMesoOnly&&(Number(y)!==end[0]||mi!==end[1]))continue;
             for(const w of meso.weeks||[])for(const [di,day] of (w.days||[]).entries()){
                 const position=[Number(y),mi,Number(w.weekNumber),di,0];

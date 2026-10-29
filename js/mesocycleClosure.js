@@ -1,47 +1,30 @@
-import {isExerciseSkipped,sessionWorkCounts} from './sessionSkip.js';
 import {EXERCISE_DATABASE} from '../mycoatch/exercisesDB.js';
 /**
  * Read-only end-of-mesocycle review. Uses only confirmed, validated working
  * sets; never changes the journal or treats an archived repeat as a scheduled
  * session completed. Outcomes are observations, not hypertrophy measurements.
  */
-import { isWarmupExercise, isWarmupSet, plannedWorkSetCount } from './workoutSemantics.js';
-import { validateCompletedSet } from '../mycoatch/liveCoach.js';
+import { isWarmupExercise, plannedWorkSetCount } from './workoutSemantics.js';
+import {buildMesocycleAnalysis,formatAnalysisLines,analysisExerciseRows} from '../mycoatch/mesocycleAnalysis.js';
 import { canonicalExerciseKey } from '../mycoatch/exerciseIdentity.js';
 
 const rounded = (n, digits = 1) => Number(n.toFixed(digits));
-const confirmed = set => set?.isLocked === true || set?.completed === true;
-
-function performance(ex, set) {
-    if (!confirmed(set) || isWarmupSet(set)) return null;
-    const record = validateCompletedSet(set, ex, set);
-    return record.ok ? {...record, performedAt: set.performedAt ?? set.completedAt ?? null} : null;
-}
-
 const rpeSumFor = rows => rows.reduce((sum, row) => sum + row.rpe, 0);
 
 function inspectDay(day, weekNumber) {
     let plannedSets = 0, confirmedSets = 0, invalidConfirmedSets = 0;
     let measuredRpe = 0, rpeSum = 0;
-    const samples = [];
+    let skippedSets=0;
     const exerciseResults = [];
     const exercises = (day?.exercises || []).filter(ex => !isWarmupExercise(ex));
     for (const ex of exercises) {
         const expected = plannedWorkSetCount(ex);
         plannedSets += expected;
         if (!expected) continue;
-        const sets = Array.isArray(ex.loggedSets) ? ex.loggedSets :
-            Array.isArray(ex.sets) ? ex.sets : [];
-        let valid = 0;
-        const rows = [];
-        for (const set of sets) {
-            if (isWarmupSet(set)) continue;
-            const result = performance(ex, set);
-            if (confirmed(set) && !result) invalidConfirmedSets++;
-            if (!result) continue;
-            valid++;
-            rows.push(result);
-        }
+        const assessed=analysisExerciseRows(ex);
+        const rows=assessed.valid;
+        invalidConfirmedSets+=assessed.invalid.length;
+        skippedSets+=assessed.skipped;
         // Use the same expected work-set count for completion and RPE
         // coverage (including legacy imports whose log rows are the only
         // available prescription).
@@ -60,30 +43,7 @@ function inspectDay(day, weekNumber) {
             rpeMeasured: realRpe.length,
             averageRpe: realRpe.length ? rounded(rpeSumFor(realRpe) / realRpe.length) : null
         });
-        if (!isExerciseSkipped(ex)&&valid >= expected && rows.length) {
-            const dates = rows.map(row => row.performedAt ||
-                day?.sessionCompletedAt || day?.date || null).map(value => {
-                if (!value) return null;
-                const d = new Date(value);
-                if (!Number.isFinite(d.getTime())) return null;
-                const monday = new Date(Date.UTC(d.getUTCFullYear(),
-                    d.getUTCMonth(), d.getUTCDate()));
-                monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
-                return monday.toISOString().slice(0, 10);
-            });
-            const calendarWeek = dates.every(w => w && w === dates[0]) ? dates[0] : null;
-            samples.push({
-                key: canonicalExerciseKey(ex.name),
-                name: ex.name, kg: Math.min(...rows.map(row => row.weight)),
-                minReps: Math.min(...rows.map(row => row.numericReps)),
-                comparable: Boolean(calendarWeek) && rows.every(row => !row.technique) &&
-                    rows.every(row => row.weight === rows[0].weight),
-                calendarWeek,
-                weekNumber
-            });
-        }
     }
-    const skippedSets=sessionWorkCounts(day).skipped;
     const status = plannedSets === 0 ? 'no_plan' :
         confirmedSets+skippedSets === plannedSets && invalidConfirmedSets === 0
             ? 'complete' : confirmedSets ? 'partial' : 'not_started';
@@ -91,38 +51,9 @@ function inspectDay(day, weekNumber) {
         weekNumber, dayNumber: day?.dayNumber ?? null,
         dayName: day?.dayName || 'Giorno ' + (day?.dayNumber ?? '?'),
         status, plannedSets, confirmedSets, invalidConfirmedSets,skippedSets,
-        measuredRpe, rpeSum, samples, exerciseResults,
+        measuredRpe, rpeSum, exerciseResults,
         archivedRepeats: Array.isArray(day?.sessionArchives) ? day.sessionArchives.length : 0
     };
-}
-
-function observedChanges(days) {
-    const byExercise = new Map();
-    for (const day of days) {
-        for (const item of day.samples) {
-            if (!item.key || !item.comparable) continue;
-            if (!byExercise.has(item.key)) byExercise.set(item.key, new Map());
-            const weeks = byExercise.get(item.key);
-            const old = weeks.get(item.calendarWeek);
-            if (!old || item.minReps < old.minReps) weeks.set(item.calendarWeek, item);
-        }
-    }
-    const changes = [];
-    for (const weeks of byExercise.values()) {
-        const values = [...weeks.values()].sort((a, b) =>
-            a.calendarWeek.localeCompare(b.calendarWeek));
-        if (values.length < 2) continue;
-        const first = values[0], last = values.at(-1);
-        const sameKg = Math.abs(first.kg - last.kg) < 0.01;
-        changes.push({
-            name: last.name, firstWeek: first.weekNumber, lastWeek: last.weekNumber,
-            firstKg: first.kg, lastKg: last.kg,
-            firstMinReps: first.minReps, lastMinReps: last.minReps,
-            metric: sameKg ? 'repetitions_at_same_load' : 'different_loads',
-            deltaReps: sameKg ? last.minReps - first.minReps : null
-        });
-    }
-    return changes.sort((a, b) => a.name.localeCompare(b.name, 'it'));
 }
 
 export function summarizeMesocycleClosure(mesocycle) {
@@ -142,11 +73,13 @@ export function summarizeMesocycleClosure(mesocycle) {
     const invalidConfirmedSets = sessions.reduce((n, day) => n + day.invalidConfirmedSets, 0);
     const measuredRpeSets = sessions.reduce((n, day) => n + day.measuredRpe, 0);
     const rpeSum = sessions.reduce((n, day) => n + day.rpeSum, 0);
+    const analysis=buildMesocycleAnalysis(mesocycle);
     const review = {
         version: 1, name: mesocycle?.name || 'Mesociclo',
         weeks: weeks.length, plannedSessions, completedSessions,sessionsWithSkips,
         partialSessions, skippedSessions, plannedSets, completedSets,
         invalidConfirmedSets, measuredRpeSets,
+        missingSets:Math.max(0,plannedSets-completedSets-sessions.reduce((n,d)=>n+d.skippedSets,0)-invalidConfirmedSets),
         skippedSets:sessions.reduce((n,day)=>n+day.skippedSets,0),
         averageRpe: measuredRpeSets ? rounded(rpeSum / measuredRpeSets) : null,
         adherencePercent: plannedSessions ?
@@ -161,14 +94,12 @@ export function summarizeMesocycleClosure(mesocycle) {
             weekNumber: day.weekNumber, dayNumber: day.dayNumber, dayName: day.dayName,
             status: day.status, confirmedSets: day.confirmedSets, plannedSets: day.plannedSets
         })),
-        exerciseChanges: observedChanges(sessions),
-        exerciseCoverage: [...new Set(weeks.flatMap(w=>(w.days||[]).flatMap(d=>(d.exercises||[]).map(ex=>ex.name))))].map(name=>{
-            const recorded=days.flatMap(d=>d.exerciseResults).filter(ex=>ex.name===name);
-            const comparable=observedChanges(sessions).some(ex=>ex.name===name);
-            const mapped=weeks.flatMap(w=>(w.days||[]).flatMap(d=>d.exercises||[])).find(ex=>ex.name===name&&ex.catalogMapping?.confirmed)?.catalogMapping.name;
-            const classified=EXERCISE_DATABASE.some(ex=>canonicalExerciseKey(ex.name)===canonicalExerciseKey(mapped||name));
-            return {name,classificationStatus:classified?'catalog':'unmapped',confirmedSets:recorded.reduce((n,ex)=>n+ex.validSets,0),comparisonStatus:comparable?'available':recorded.length?'insufficient_comparable_dated_weeks':'no_valid_working_sets'};
-        }),
+        analysis,
+        exerciseChanges: analysis.exercises.filter(ex=>ex.metric).map(ex=>({...ex})),
+        exerciseCoverage: analysis.exercises.map(ex=>({name:ex.name,
+            classificationStatus:EXERCISE_DATABASE.some(meta=>canonicalExerciseKey(meta.name)===ex.key)?'catalog':'unmapped',
+            confirmedSets:ex.confirmedSets,comparisonStatus:ex.status!=='insufficient_data'?'available':
+                ex.confirmedSets?'insufficient_comparable_dated_weeks':'no_valid_working_sets'})),
         // Programmed weeks are not calendar weeks; show recorded coverage,
         // never substitute empty sessions with zero-RPE observations.
         weeklyResults: weeks.map(week => {
@@ -180,6 +111,8 @@ export function summarizeMesocycleClosure(mesocycle) {
                 weekNumber: week.weekNumber,
                 plannedSets: scheduled.reduce((n, day) => n + day.plannedSets, 0),
                 completedSets: scheduled.reduce((n, day) => n + day.confirmedSets, 0),
+                skippedSets: scheduled.reduce((n, day) => n + day.skippedSets, 0),
+                missingSets: scheduled.reduce((n, day) => n + Math.max(0,day.plannedSets-day.confirmedSets-day.skippedSets-day.invalidConfirmedSets), 0),
                 rpeMeasured: withRpe,
                 averageRpe: withRpe ? rounded(rpeTotal / withRpe) : null
             };
@@ -237,6 +170,7 @@ export function formatMesocycleClosureForChat(review) {
         'Mesociclo: ' + review.name,
         'Settimane programmate: ' + review.weeks,
         'Sedute completate: ' + review.completedSessions + '/' + review.plannedSessions,
+        'Sedute concluse con esclusioni: ' + (review.sessionsWithSkips||0),
         'Sedute parziali: ' + review.partialSessions,
         'Sedute non iniziate: ' + review.skippedSessions,
         'Serie valide confermate: ' + review.completedSets + '/' + review.plannedSets,
@@ -246,7 +180,7 @@ export function formatMesocycleClosureForChat(review) {
         'RPE medio dei valori realmente misurati: ' + (review.averageRpe ?? 'non disponibile'),
         'Aderenza (sedute complete): ' + (review.adherencePercent ?? '-') + '%',
         'Sedute ripetute archiviate (non conteggiate nell’aderenza): ' + review.archivedRepeats,
-        'ESERCIZI — confronto descrittivo fra settimane con giornate complete:'
+        'ESERCIZI — confronto descrittivo delle serie complete in settimane reali distinte:'
     ];
     if (!review.exerciseChanges.length) lines.push('Nessun confronto affidabile tra settimane disponibile.');
     for (const ex of review.exerciseChanges) {
@@ -279,6 +213,7 @@ export function formatMesocycleClosureForChat(review) {
             lines.push('Sett. ' + d.weekNumber + ', ' + d.dayName + ': ' +
                 d.confirmedSets + '/' + d.plannedSets + ' serie.');
     }
+    lines.push(...formatAnalysisLines(review.analysis));
     lines.push('Nota: questo report non misura ipertrofia e non stabilisce la causa dei cambiamenti.');
     lines.push('Il report esclude i campi identificativi dell’account; controlla eventuali nomi personalizzati prima di condividerlo.');
     return lines.join('\n');

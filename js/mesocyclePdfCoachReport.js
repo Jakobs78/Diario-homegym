@@ -5,13 +5,12 @@
  * These are training-volume credits, NOT estimates of measured hypertrophy,
  * muscle activation, recovery or physiological adaptation.
  */
+import {formatAnalysisLines,analysisExerciseRows} from '../mycoatch/mesocycleAnalysis.js';
 import { summarizeMesocycleClosure } from './mesocycleClosure.js';
-import { isWarmupExercise, isWarmupSet, plannedWorkSetCount } from './workoutSemantics.js';
-import { validateCompletedSet } from '../mycoatch/liveCoach.js';
+import { isWarmupExercise, plannedWorkSetCount } from './workoutSemantics.js';
 import { contributionsForExercise, TRACKED_MUSCLES, VOLUME_ACCOUNTING_METHOD } from '../mycoatch/volumeAccounting.js';
 
 const round = (n, decimals = 1) => Number(n.toFixed(decimals));
-const isConfirmed = set => set?.isLocked === true || set?.completed === true;
 const volume = () => Object.fromEntries(TRACKED_MUSCLES.map(m => [m, {
     direct: 0, indirect: 0, total: 0
 }]));
@@ -22,13 +21,7 @@ const pretty = n => String(round(n, 2));
 
 /** Same confirmed-set validation used by the existing closure review. */
 function validatedWorkSets(exercise) {
-    const logs = Array.isArray(exercise.loggedSets) ? exercise.loggedSets :
-        Array.isArray(exercise.sets) ? exercise.sets : [];
-    const expected = plannedWorkSetCount(exercise);
-    return logs.filter(set => {
-        if (!isConfirmed(set) || isWarmupSet(set)) return false;
-        return validateCompletedSet(set, exercise, set).ok;
-    }).slice(0, expected).map(set => validateCompletedSet(set, exercise, set));
+    return analysisExerciseRows(exercise).valid;
 }
 
 function addCredits(target, contribution) {
@@ -117,10 +110,10 @@ export function buildMesocycleCoachPdfReport(mesocycle) {
                 'fotografia dei dati registrati finora (anche se incompleti)')),
         text('SEDUTE: ' + closure.completedSessions + '/' + closure.plannedSessions +
             ' complete (' + (closure.adherencePercent ?? 'n.d.') + '%), ' +
-            closure.partialSessions + ' parziali, ' + closure.skippedSessions + ' non iniziate.'),
+            (closure.sessionsWithSkips||0)+' concluse con esclusioni, '+closure.partialSessions + ' parziali, ' + closure.skippedSessions + ' non iniziate.'),
         text('SERIE ALLENANTI: ' + closure.completedSets + '/' + closure.plannedSets +
             ' confermate e valide (' + (closure.setCompletionPercent ?? 'n.d.') + '%). ' +
-            'Serie spuntate con dati non validi: ' + closure.invalidConfirmedSets + '.'),
+            'Saltate intenzionalmente: '+(closure.skippedSets||0)+'. Mancanti: '+Math.max(0,closure.plannedSets-closure.completedSets-(closure.skippedSets||0)-closure.invalidConfirmedSets)+'. Serie spuntate con dati non validi: ' + closure.invalidConfirmedSets + '.'),
         text('RPE (sforzo percepito) registrati: ' + closure.measuredRpeSets + '/' + closure.completedSets +
             ' serie completate; media dello sforzo registrato ' + noValue(closure.averageRpe) + '.'),
         text('Sedute ripetute conservate nello storico: ' + closure.archivedRepeats +
@@ -156,18 +149,7 @@ export function buildMesocycleCoachPdfReport(mesocycle) {
             'non devi sommare i crediti come se fossero serie separate realmente eseguite.'),
         section('EVIDENZE PER PROGRAMMARE IL PROSSIMO MESOCICLO')
     );
-    if (closure.exerciseChanges.length) {
-        rows.push(text('RISULTATI CONFRONTABILI TRA SETTIMANE COMPLETE (carichi e ripetizioni):'));
-        for (const ex of closure.exerciseChanges) {
-            rows.push(text(ex.name + ': sett. ' + ex.firstWeek + ' ' +
-                ex.firstKg + ' kg x ' + ex.firstMinReps + ' rip. min. / sett. ' +
-                ex.lastWeek + ' ' + ex.lastKg + ' kg x ' + ex.lastMinReps + ' rip. min.' +
-                (ex.deltaReps === null ? ' · carichi diversi: confronto ripetizioni non valido.' :
-                    ' · differenza di ripetizioni con lo stesso peso: ' + (ex.deltaReps > 0 ? '+' : '') +
-                    ex.deltaReps + '.')));
-        }
-    } else rows.push(text('Confronti di forza/progressione: dati insufficienti ' +
-        'tra sedute complete con carichi confrontabili.'));
+    for(const line of formatAnalysisLines(closure.analysis))rows.push(text(line));
     if (closure.incompleteDays.length) {
         rows.push(text('SEDUTE DA COMPLETARE O VERIFICARE (le serie non confermate non contano):'));
         for (const day of closure.incompleteDays) rows.push(text(
@@ -189,7 +171,7 @@ export function buildMesocycleCoachPdfReport(mesocycle) {
         'Non misurano ipertrofia, recupero o la causa di eventuali cali. ' +
         'Prima di scegliere i carichi e gli esercizi delle prossime settimane, serve una ' +
         'valutazione del coach, dei sintomi e del recupero non registrati qui.'),
-        section('DIARIO COMPLETO · PROGRAMMA E PRESTAZIONI'));
+        text('Questo riepilogo non include note libere, dati account, date delle sedute o dettagli delle ripetizioni archiviate. I nomi personalizzati possono essere riconoscibili.'));
     return {
         rows, closure, muscles: muscleRows, weekly: weeks,
         volumeMethod: VOLUME_ACCOUNTING_METHOD,

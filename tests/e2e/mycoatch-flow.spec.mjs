@@ -2453,7 +2453,7 @@ test('chiusura guidata integrata: blocca il ciclo, conserva i dati, esporta repo
   page.on('dialog', dialog=>dialog.accept());
   await finish.click();
   await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Sblocca');
-  await expect(page.locator('#review-close-meso-btn')).toContainText('Report fine mesociclo');
+  await expect(page.locator('#review-close-meso-btn')).toContainText('Analisi mesociclo');
   const closed=await page.evaluate(async()=>{
     const {state}=await import('/js/state.js');
     const m=state.workoutData.history.years['2026'].mesocycles[0];
@@ -2467,7 +2467,7 @@ test('chiusura guidata integrata: blocca il ciclo, conserva i dati, esporta repo
   expect(closed.closure.status).toBe('closed');
   expect(closed.storedClosure.status).toBe('closed');
   const d=page.waitForEvent('download');
-  await page.getByRole('button',{name:/Scarica dossier dettagliato/}).click();
+  await page.getByRole('button',{name:/Rapporto completo da condividere/}).click();
   const file=await d;const text=await readFile(await file.path(),'utf8');
   expect(file.suggestedFilename()).toMatch(/dossier_mycoatch\.md$/);
   expect(text).toMatch(/Sedute complete: 3\/3/);
@@ -2498,6 +2498,7 @@ test('chiusura guidata integrata: blocca il ciclo, conserva i dati, esporta repo
   expect(handoff.confirmed).toBeGreaterThan(0);
   expect(handoff.intact).toBe(true);
   await page.locator('#close-mycoatch-config').click();
+  await page.locator('#back-to-workout').click();
   await page.locator('#toggle-lock-meso-btn').click();
   await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Blocca');
   const reopened=await page.evaluate(async()=>{
@@ -2628,18 +2629,18 @@ test('smartphone: l’ultima spunta dell’ultimo giorno evidenzia MyCoatch anch
   });
   const button=page.locator('#review-close-meso-btn');
   await expect(button).not.toHaveClass(/meso-closure-attention/);
-  await expect(button.locator('.meso-guided-closure-text')).not.toBeVisible();
+  await expect(button.locator('.meso-guided-closure-text')).toBeVisible();
   await page.locator('.set-lock-check[data-ex="1"][data-set="0"]').check();
   await expect(button).toHaveClass(/meso-closure-attention/);
   await expect(button.locator('.meso-guided-closure-text')).toBeVisible();
-  await expect(button).toContainText('MyCoatch');
+  await expect(button).toContainText('Analisi mesociclo');
   await expect(button).toHaveAttribute('aria-label',/serie non confermate/);
   const accent=await button.evaluate(el=>({
     animation:getComputedStyle(el).animationName,
     width:el.getBoundingClientRect().width
   }));
   assert.notEqual(accent.animation,'none');
-  assert.ok(accent.width>=92 && accent.width<=105,JSON.stringify(accent));
+  assert.ok(accent.width>=116 && accent.width<=375,JSON.stringify(accent));
   await button.click();
   await expect(button).not.toHaveClass(/meso-closure-attention/);
   await expect(page.locator('#mesocycle-closure-panel')).toHaveAttribute('open','');
@@ -2697,6 +2698,7 @@ test('last real checkbox starts closure pulse; review click dismisses without lo
   expect(untouched.confirmed).toBe(true);
   // Changing a checked set makes the reminder eligible again only after
   // it is checked for real a second time.
+  await page.locator('#back-to-workout').click();
   await page.locator('.set-lock-check').uncheck();
   await expect(nudge).not.toHaveClass(/meso-closure-attention/);
   await page.locator('.set-lock-check').check();
@@ -2748,11 +2750,11 @@ test('import next mesocycle leaves closed predecessor locked and new active meso
   await expect(page.locator('#review-close-meso-btn')).not.toHaveClass(/meso-closure-attention/);
   await page.locator('#prev-meso-btn').click();
   await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Sblocca');
-  await expect(page.locator('#review-close-meso-btn')).toHaveAttribute('aria-label','Report fine mesociclo');
+  await expect(page.locator('#review-close-meso-btn')).toHaveAttribute('aria-label','Analisi mesociclo');
   await expect(page.locator('#review-close-meso-btn')).not.toHaveClass(/meso-closure-attention/);
   await page.locator('#next-meso-btn').click();
   await expect(page.locator('#toggle-lock-meso-btn')).toContainText('Blocca');
-  await expect(page.locator('#review-close-meso-btn')).toHaveAttribute('aria-label','Concludi mesociclo');
+  await expect(page.locator('#review-close-meso-btn')).toHaveAttribute('aria-label','Analisi mesociclo');
 });
 
 
@@ -2831,6 +2833,15 @@ test('PDF mesociclo: esportazione completa con pagine, note, risultati, archivio
      'Confermata','Non confermata','Pagina 1'])expect(lines).toContain(text);
   for(const pageLines of report.result.pages)for(const line of pageLines)
     expect(line.y).toBeLessThanOrEqual(290);
+  const analysisOnly=await page.evaluate(async()=>{
+    const {state}=await import('/js/state.js');const {exportMesoToPDF}=await import('/js/mesocycle.js');
+    const m=state.workoutData.history.years['2026'].mesocycles[0];exportMesoToPDF(m,{includeDiary:false});
+    return {after:JSON.stringify(m),result:window.__pdfCapture};
+  });
+  expect(analysisOnly.after).toBe(before);expect(analysisOnly.result.filename).toMatch(/_analisi_mesociclo\.pdf$/);
+  const safeLines=analysisOnly.result.pages.flat().map(x=>x.line).join(' ');
+  expect(safeLines).toContain('VOLUME PER SETTIMANA');expect(safeLines).not.toContain('PERSONAL-MARKER');expect(safeLines).not.toContain('COACH-MARKER');expect(safeLines).not.toContain('Squat archivio');
+
 });
 
 
@@ -3333,4 +3344,53 @@ test('report finale collega soltanto la proposta successiva ai risultati conferm
   await expect(page.locator('#mycoatch-live-disclosure')).not.toHaveClass(/is-session-complete/);
   await expect(page.locator('.set-reps').first()).toHaveValue('12');
   assert.deepEqual(monitor.remoteRequests,[]);assert.deepEqual(monitor.pageErrors,[]);
+});
+
+test('analisi separata a 320px: testo leggibile, ritorno alla stessa seduta senza perdere campi e timer',async({page})=>{
+ await page.setViewportSize({width:320,height:700});const monitor=await openIsolatedApp(page);
+ await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');
+  state.activeWeek=2;state.activeDay=1;
+  const m=state.workoutData.history.years[state.currentYear].mesocycles[0],day=m.weeks[1].days[0];
+  m.locked=false;delete m.coachClosure;day.completed=false;day.sessionStart=Date.now()-45000;
+  day.exercises[0].loggedSets[0]={weight:'',reps:'',rpe:'',isLocked:false,completed:false};
+  renderWorkoutList();
+ });
+ await page.locator('.set-kg').first().fill('73.5');await page.locator('.set-reps').first().fill('9');
+ await page.locator('.set-rpe').first().fill('7.5');
+ const before=await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');window.__pendingInput=document.querySelector('.set-kg');
+  window.scrollTo(0,180);return {scrollY:window.scrollY,year:state.currentYear,week:state.activeWeek,day:state.activeDay,start:state.workoutData.history.years[state.currentYear].mesocycles[0].weeks[1].days[0].sessionStart};
+ });
+ await expect(page.locator('#review-close-meso-btn .meso-guided-closure-text')).toBeVisible();
+ await expect(page.locator('#review-close-meso-btn')).toContainText('Analisi mesociclo');
+ await page.locator('#review-close-meso-btn').click();
+ await expect(page.locator('#mesocycle-analysis-view')).toBeVisible();await expect(page.locator('.ex-card').first()).not.toBeVisible();
+ await expect(page.locator('#mesocycle-analysis-view')).toContainText('Indicazioni per il prossimo mesociclo');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(322);
+ await page.screenshot({path:'test-results/mesocycle-analysis-320.png',fullPage:true});
+ const openingScroll=await page.evaluate(async()=>(await import('/js/state.js')).state.mesocycleAnalysis.scrollY);
+ await page.locator('#back-to-workout').click();
+ await expect(page.locator('.set-kg').first()).toHaveValue('73.5');await expect(page.locator('.set-reps').first()).toHaveValue('9');await expect(page.locator('.set-rpe').first()).toHaveValue('7.5');
+ const after=await page.evaluate(async()=>{const {state}=await import('/js/state.js');const m=state.workoutData.history.years[state.currentYear].mesocycles[0];return {sameInput:window.__pendingInput===document.querySelector('.set-kg'),scrollY:window.scrollY,week:state.activeWeek,day:state.activeDay,start:m.weeks[1].days[0].sessionStart,closed:m.coachClosure,locked:m.locked};});
+ expect(after.sameInput).toBe(true);expect(after.week).toBe(before.week);expect(after.day).toBe(before.day);expect(after.start).toBe(before.start);expect(after.closed).toBeUndefined();expect(after.locked).toBe(false);
+ // Clicking the header can scroll the viewport to make it visible. Return uses the position at opening.
+ expect(Math.abs(after.scrollY-openingScroll)).toBeLessThanOrEqual(2);
+ expect(monitor.pageErrors).toEqual([]);expect(monitor.remoteRequests).toEqual([]);
+});
+
+test('analisi export unificato: MD e JSON distinguono serie saltate e target per serie senza note private',async({page})=>{
+ await openIsolatedApp(page);
+ await page.evaluate(async()=>{const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');
+ const e=state.workoutData.history.years[state.currentYear].mesocycles[0].weeks[0].days[0].exercises[0];
+ e.setsCount=2;e.sets=[{targetReps:'3',targetRpe:8,role:'top'},{targetReps:'6-8',targetRpe:7,role:'backoff'}];
+ e.loggedSets=[{weight:100,reps:3,rpe:8,isLocked:true,completed:true},{weight:'',reps:'',rpe:'',isLocked:false,completed:false}];e.sessionSkip={active:true};e.userNotes='PRIVATE_SKIP_REASON';renderWorkoutList();});
+ await page.locator('#review-close-meso-btn').click();
+ await expect(page.getByRole('button',{name:/Scarica dossier dettagliato|Dati dossier|Scarica testo dei risultati/})).toHaveCount(0);
+ const mdDownload=page.waitForEvent('download');await page.getByRole('button',{name:/Rapporto completo da condividere/}).click();
+ const md=await readFile(await (await mdDownload).path(),'utf8');expect(md).toContain('Esercizio saltato in questa seduta: 1');expect(md).toContain('Obiettivo serie 1 (top)');expect(md).not.toContain('PRIVATE_SKIP_REASON');
+ await page.getByText('Esportazioni avanzate',{exact:true}).click();await expect(page.locator('#mesocycle-analysis-view')).toContainText('non è un backup');
+ const jsonDownload=page.waitForEvent('download');await page.getByRole('button',{name:/Esporta dati dell’analisi/}).click();
+ const data=JSON.parse(await readFile(await (await jsonDownload).path(),'utf8'));expect(data.schemaVersion).toBe(2);expect(data.sessions[0].exercises[0].skippedSets).toBe(1);expect(data.sessions[0].exercises[0].unconfirmedOrMissingSets).toBe(0);
+ expect(data.summary.analysis.volumeWeeks[0].skippedSets).toBe(1);
 });

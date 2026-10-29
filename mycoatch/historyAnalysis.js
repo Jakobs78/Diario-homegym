@@ -42,7 +42,7 @@ export function analyzeCompletedMesocycle(mesocycle) {
         byExercise: {},
         recommendation: 'insufficient_data'
     };
-    if (!Array.isArray(mesocycle?.weeks)) return result;
+    if (mesocycle?.excludedFromCoaching || !Array.isArray(mesocycle?.weeks)) return result;
 
     const weeks = [...mesocycle.weeks].sort((a, b) => Number(a.weekNumber) - Number(b.weekNumber));
     for (const week of weeks) {

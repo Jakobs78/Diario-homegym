@@ -33,7 +33,7 @@ function evidenceMatches(reference,exercise){
 // Describe only proposals already present in the next pending exposure.
 // Never infer an increase from a good performance or edit the plan here.
 function nextProposal(exercise,exerciseIndex,context){
-    if(!context||context.meso.locked||context.meso.coachClosure?.status==='closed')return null;
+    if(!context||context.meso.excludedFromCoaching||context.meso.locked||context.meso.coachClosure?.status==='closed')return null;
     for(const week of [...(context.meso.weeks||[])].sort((a,b)=>Number(a.weekNumber)-Number(b.weekNumber)))
         for(const [dayIndex,day] of (week.days||[]).entries()){
             if(Number(week.weekNumber)<context.weekNumber||Number(week.weekNumber)===context.weekNumber&&dayIndex<=context.dayIndex||day.completed)continue;

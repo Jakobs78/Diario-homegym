@@ -123,6 +123,7 @@ export function calibrationContextForDay(workoutData, currentDay) {
     if (!currentDay) return null;
     for (const year of Object.values(workoutData?.history?.years || {})) {
         for (const meso of year?.mesocycles || []) {
+            if(meso?.excludedFromCoaching)continue;
             const weeks = meso?.weeks || [];
             if (!weeks.some(week => (week.days || []).includes(currentDay))) continue;
             const firstWeek = weeks.find(week => Number(week.weekNumber) === 1) || weeks[0];
@@ -140,7 +141,7 @@ export function calibrationContextForDay(workoutData, currentDay) {
  * Non ritorna valori kg/RPE individuali, soltanto qualita' del campione.
  */
 export function calibrationHandoffForMesocycle(mesocycle) {
-    if (!Array.isArray(mesocycle?.weeks) || !mesocycle.weeks.length) return null;
+    if (mesocycle?.excludedFromCoaching || !Array.isArray(mesocycle?.weeks) || !mesocycle.weeks.length) return null;
     const firstWeek = mesocycle.weeks.find(week => Number(week.weekNumber) === 1) ||
         mesocycle.weeks[0];
     const reviewed = reviewCalibrationWeek(firstWeek);

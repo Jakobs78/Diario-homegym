@@ -122,12 +122,8 @@ document.addEventListener('click', (e) => {
         const { meso } = getActiveYearAndMeso();
         acknowledgeMesocycleClosurePrompt(meso);
         clickedBtn.classList.remove('meso-closure-attention');
-        const panel = document.getElementById('mesocycle-closure-panel');
-        if (panel) {
-            panel.hidden = false;
-            panel.open = true;
-            panel.scrollIntoView({behavior:'smooth',block:'nearest'});
-        }
+        openMesocycleAnalysis(meso);
+
     }
 });
 
@@ -140,7 +136,6 @@ export function renderWorkoutList() {
     if (!DOM.workoutListContainer) return;
     const coachWasOpen = Boolean(document.getElementById('mycoatch-live-disclosure')?.open);
     const reviewWasOpen = Boolean(document.getElementById('mycoatch-weekly-review')?.open);
-    const closureWasOpen = Boolean(document.getElementById('mesocycle-closure-panel')?.open);
     DOM.workoutListContainer.innerHTML = '';
 
     if (!state.activeView) state.activeView = 'workout';
@@ -295,16 +290,11 @@ export function renderWorkoutList() {
     closureButton.type = 'button';
     closureButton.id = 'review-close-meso-btn';
     closureButton.className = 'btn btn-secondary btn-sm meso-guided-closure-trigger';
-    const closedMeso = meso.coachClosure?.status === 'closed';
-    const closureIcon = document.createElement('span');
-    closureIcon.textContent = closedMeso ? '📄' : '🤖';
-    closureIcon.setAttribute('aria-hidden', 'true');
     const closureText = document.createElement('span');
     closureText.className = 'meso-guided-closure-text';
     const highlightClosure = shouldHighlightMesocycleClosure(meso);
-    closureText.textContent = closedMeso ? 'Report fine mesociclo'
-        : highlightClosure ? 'MyCoatch' : 'Concludi mesociclo';
-    closureButton.append(closureIcon, closureText);
+    closureText.textContent = 'Analisi mesociclo';
+    closureButton.append(closureText);
     if (highlightClosure) closureButton.classList.add('meso-closure-attention');
     closureButton.setAttribute('aria-label', highlightClosure
         ? 'Apri il report MyCoatch: controlla anche le serie non confermate'
@@ -335,11 +325,6 @@ export function renderWorkoutList() {
     });
     unifiedHeaderBox.appendChild(dayTabsContainer);
     DOM.workoutListContainer.appendChild(unifiedHeaderBox);
-    const closurePanel = createMesocycleClosurePanel(meso, state.workoutData);
-    closurePanel.open = closureWasOpen;
-    closurePanel.hidden = !closureWasOpen;
-    DOM.workoutListContainer.appendChild(closurePanel);
-
     // Il pannello mantiene ogni dato e comando ma e' ripiegato di default.
     const coachDisclosure = document.createElement('details');
     coachDisclosure.className = 'mycoatch-live-disclosure';
@@ -427,6 +412,37 @@ export function renderWorkoutList() {
     // Ora le input delle schede esistono: eventuali pulsanti di suggerimento
     // possono riferirsi solo a set futuri realmente modificabili.
     updateLiveCoachPanel(currentDay, { readOnly: isPastMeso });
+    const sessionView=document.createElement('div');sessionView.id='workout-session-view';
+    sessionView.append(...DOM.workoutListContainer.childNodes);
+    DOM.workoutListContainer.append(sessionView);
+    if(state.mesocycleAnalysis?.locator===analysisLocator())openMesocycleAnalysis(meso,{restore:true});
+    else state.mesocycleAnalysis=null;
 }
 
 
+
+// Keep the workout DOM mounted while inspecting the report: pending inputs,
+// disclosure state and running timers survive a round-trip without a save.
+const analysisLocator=()=>[state.currentYear,state.activeMesocycleIndex||0,state.activeWeek,state.activeDay].join(':');
+function openMesocycleAnalysis(meso,{restore=false}={}){
+    const workout=document.getElementById('workout-session-view');
+    if(!meso||!workout)return;
+    dismissLiveCoachToast();
+    if(!restore)state.mesocycleAnalysis={locator:analysisLocator(),scrollY:window.scrollY};
+    document.getElementById('mesocycle-analysis-view')?.remove();
+    const view=document.createElement('section');view.id='mesocycle-analysis-view';view.className='mesocycle-analysis-view';
+    view.setAttribute('aria-label','Analisi mesociclo');
+    const back=document.createElement('button');back.type='button';back.id='back-to-workout';back.className='btn btn-secondary';
+    back.textContent='← Torna all’allenamento';
+    back.onclick=()=>{
+        const saved=state.mesocycleAnalysis;state.mesocycleAnalysis=null;
+        view.remove();workout.hidden=false;
+        requestAnimationFrame(()=>{window.scrollTo({top:saved?.scrollY||0,behavior:'instant'});
+            document.getElementById('review-close-meso-btn')?.focus({preventScroll:true});});
+    };
+    const title=document.createElement('h1');title.textContent='Analisi mesociclo';title.tabIndex=-1;
+    const name=document.createElement('p');name.className='mesocycle-analysis-name';name.textContent=meso.name||'Mesociclo';
+    const report=createMesocycleClosurePanel(meso,state.workoutData);report.open=true;
+    view.append(back,title,name,report);DOM.workoutListContainer.append(view);workout.hidden=true;
+    if(!restore){window.scrollTo({top:0,behavior:'instant'});title.focus({preventScroll:true});}
+}

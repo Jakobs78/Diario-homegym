@@ -28,6 +28,7 @@ export function resolveClosedMesocycle(data, locator) {
         mesocycle.coachClosure.closedAt !== closedAt) {
         throw Error('Il mesociclo di origine non risulta più concluso e bloccato: riapri il report prima di generare.');
     }
+    if(mesocycle.excludedFromCoaching)throw Error('Questo mesociclo è escluso dal coaching: riattivalo nel report per usarlo come origine.');
     // Never save the report into history. All figures are recalculated from
     // confirmed, validated working sets, including an explicitly early closure.
     const review = summarizeMesocycleClosure(mesocycle);

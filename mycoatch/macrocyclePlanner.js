@@ -99,7 +99,7 @@ function verifiedPreviousBlocks(userHistory) {
     for (const year of Object.keys(years).sort((a, b) =>
         Number(a) - Number(b))) {
         for (const mesocycle of years[year]?.mesocycles || []) {
-            if (!Array.isArray(mesocycle?.weeks)) continue;
+            if (mesocycle?.excludedFromCoaching || !Array.isArray(mesocycle?.weeks)) continue;
             checked++;
             if (auditLatestBlock(mesocycle).completed) verified++;
         }
