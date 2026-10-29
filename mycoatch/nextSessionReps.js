@@ -1,3 +1,4 @@
+import {isBodyweightExercise} from './bodyweight.js';
 import {highRepProgression} from './highRepProgression.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 /** Rep guidance for the next exposure: advice, never performed data. */
@@ -21,7 +22,7 @@ export function recommendNextSessionReps(previous,upcoming){
         const kg=number(s.weight),rep=number(s.reps),rpe=number(s.rpe);
         if(!confirmed(s)||s.isWarmup||s.warmup||s.is_warmup||s.intensityTechnique||
             s.dropSegments?.length||String(s.reps??'').includes('+')||
-            kg===null||kg<=0||!Number.isInteger(rep)||rep<a.min||rep>a.max+(a.max>12?2:0)||
+            kg===null||kg<0||kg===0&&!isBodyweightExercise(previous)||!Number.isInteger(rep)||rep<a.min||rep>a.max+(a.max>12?2:0)||
             rpe===null||rpe<6||rpe>target)return null;
         weights.push(kg);reps.push(rep);
     }
@@ -34,6 +35,7 @@ export function recommendNextSessionReps(previous,upcoming){
         return {kind:'build_reps',reps:reps.map((r,i)=>Math.min(a.max,r+(i===decision.nextSetIndex?1:0))),reason:decision.reason};
     }
     const index=reps.findIndex(r=>r<a.max);
+    if(index<0&&isBodyweightExercise(previous))return {kind:'maintain',reps,reason:'Range completato: mantieni il carico esterno e verifica tecnica e RPE.'};
     if(index<0)return {kind:'upper_range_complete',reps,reason:'Tutte le serie al limite alto: MyCoatch valuterà l’incremento minimo disponibile.'};
     const suggested=[...reps];suggested[index]++;
     return {kind:'build_reps',reps:suggested,reason:'Obiettivo prossima seduta: +1 ripetizione in una sola serie, stesso carico e RPE previsto.'};

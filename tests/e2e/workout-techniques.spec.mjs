@@ -679,3 +679,31 @@ test('riepilogo automatico considera esercizi saltati e warmup senza spuntare se
  });
  expect(result).toEqual({completed:true,skip:false,warm:false});await expect(page.locator('#floating-timer')).not.toHaveClass(/active/);expect(monitor.pageErrors).toEqual([]);
 });
+
+test('walkout a corpo libero: storico 1kg preservato, proposte 0kg e consigli ordinati su piccolo schermo',async({page})=>{
+ await page.setViewportSize({width:320,height:800});const monitor=await openIsolatedApp(page);
+ const original=await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');
+  const old={name:'Hamstring Walkout a Corpo Libero',setsCount:2,reps:'6-10',rpe:8.5,restTime:'90s',notes:'Dal ponte glutei cammina sui talloni avanti e indietro, bacino stabile, registra 0 kg.',loggedSets:[6,8].map(reps=>({weight:'1',reps:String(reps),rpe:'8',isLocked:true,completed:true}))};
+  const next={...structuredClone(old),loggedSets:[{weight:'',reps:'',rpe:'',isLocked:false,completed:false},{weight:'',reps:'',rpe:'',isLocked:false,completed:false}]};
+  const meso={name:'Walkout',weeks:[
+   {weekNumber:1,days:[{dayNumber:1,exercises:[old]}]},
+   {weekNumber:2,days:[{dayNumber:1,exercises:[next]}]}
+  ]};
+  state.workoutData={athlete:{availableLoads:{barbell:[20,25]}},history:{years:{2026:{mesocycles:[meso]}}}};
+  state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=2;state.activeDay=1;renderWorkoutList();return JSON.stringify(old);
+ });
+ const notes=page.locator('.coach-adaptive-notes');
+ await expect(page.locator('.set-kg').nth(0)).toHaveValue('0');await expect(page.locator('.set-kg').nth(1)).toHaveValue('0');
+ await expect(page.locator('.set-reps').nth(0)).toHaveValue('7');await expect(page.locator('.set-reps').nth(1)).toHaveValue('8');
+ await expect(notes.locator('p')).toHaveCount(1);await expect(notes).toContainText('7 reps a corpo libero (0 kg)');await expect(notes).not.toContainText('⚠');await expect(notes).not.toContainText('inventario');
+ expect(await notes.locator('p').evaluate(el=>getComputedStyle(el).fontWeight)).toBe('400');
+ expect(await notes.locator('p strong').evaluate(el=>getComputedStyle(el).fontWeight)).toBe('700');
+ await page.locator('.ex-card').screenshot({path:'test-results/walkout-coach-320.png'});
+ await page.locator('.set-lock-check').nth(0).check();
+ // The second series keeps its own 8-rep historical target after a regular first series.
+ await expect(page.locator('.set-reps').nth(1)).toHaveValue('8');await page.locator('.set-lock-check').nth(1).check();
+ const result=await page.evaluate(async()=>{const {state}=await import('/js/state.js');const m=state.workoutData.history.years[2026].mesocycles[0];return {old:JSON.stringify(m.weeks[0].days[0].exercises[0]),day:m.weeks[1].days[0]};});
+ expect(result.old).toBe(original);expect(result.day.completed).toBe(true);expect(result.day.exercises[0].loggedSets.map(s=>Number(s.weight))).toEqual([0,0]);
+ expect(monitor.pageErrors).toEqual([]);expect(monitor.remoteRequests).toEqual([]);
+});

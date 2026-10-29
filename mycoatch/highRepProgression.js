@@ -1,3 +1,4 @@
+import {isBodyweightExercise} from './bodyweight.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {setPrescription,observed,blockKey,warm} from './setPrescription.js';
 
@@ -21,6 +22,7 @@ export function highRepProgression(ex,index,{readiness=null,increment=null}={}){
     const next=sets.find(s=>s.reps<p.reps.max);
     if(next)return {kind:'build_reps',weight:matched.kg,reps:Math.min(p.reps.max,reps+(next.index===index?1:0)),nextSetIndex:next.index,
         reason:'Mantengo i kg: propongo una ripetizione in più soltanto alla serie '+(next.index+1)+', entro il range e l’RPE previsti.'};
+    if(isBodyweightExercise(ex))return maintain;
     const cap=matched.kg*HIGH_REP_POLICY.maxIncrease;
     const increase=Number.isFinite(increment)&&increment>0&&increment<=cap+.000001?increment:matched.kg*HIGH_REP_POLICY.defaultIncrease;
     const weight=Math.min(700,Math.floor((matched.kg+increase)*100+1e-7)/100);

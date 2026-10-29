@@ -1,3 +1,4 @@
+import {isBodyweightExercise} from './bodyweight.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {specialSeries} from './seriesTechnique.js';
 import { HIGH_REP_EXERCISES } from './prescriptionPolicy.js';
@@ -40,14 +41,14 @@ function inspectExercise(exercise, context) {
         // Per dropset/triset registrati come "10+8+6" conta solo la prima
         // porzione ai fini del volume; l'e1RM rimane deliberatamente ignoto.
         const reps = numericValue(repsText.includes('+') ? repsText.split('+')[0] : repsText);
-        const bodyweight = catalog.get(canonicalExerciseKey(exercise.name))?.equipment === 'bodyweight';
+        const bodyweight = isBodyweightExercise(exercise);
         if (kg === null || kg < 0 || (kg === 0 && !bodyweight) || reps === null ||
             !Number.isInteger(reps) || reps <= 0 || reps > 100) return [];
         const rpe = parseRpe(set.rpe);
         const special = specialSeries(exercise,index,set);
         return [{
             kg, reps, rpe, special,completedAt:set.performedAt||set.completedAt,
-            e1rm: !HIGH_REP_EXERCISES[catalog.get(canonicalExerciseKey(exercise.name))?.name] && rpe !== null && !special ? estimateE1rm(kg, reps, rpe) : null
+            e1rm: !bodyweight && !HIGH_REP_EXERCISES[catalog.get(canonicalExerciseKey(exercise.name))?.name] && rpe !== null && !special ? estimateE1rm(kg, reps, rpe) : null
         }];
     });
     if (!valid.length) return null;

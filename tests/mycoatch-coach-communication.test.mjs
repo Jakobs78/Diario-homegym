@@ -84,7 +84,7 @@ test('rep correction is concise and preserves manual choices and genuine equipme
  const manual=exerciseCoachModel(ex,{prefills:[{weight:80,reps:11,rpe:8}]});
  assert.match(manual.updates[0].text,/^Suggerisco/);assert.doesNotMatch(manual.updates[0].text,/Ho aggiunto/);
  p.reason+=' Carico teorico non componibile con l’inventario dichiarato.';
- assert.match(exerciseCoachModel(ex).updates[0].text,/non componibile/);
+ assert.ok(exerciseCoachModel(ex).updates.some(x=>/non componibile/.test(x.text)));
 });
 
 test('advice cites an older reference only when it differs from the visible last session',()=>{

@@ -1,3 +1,4 @@
+import {isBodyweightExercise} from './bodyweight.js';
 import {setPrescription,blockKey} from './setPrescription.js';
 import {highRepProgression,HIGH_REP_POLICY} from './highRepProgression.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
@@ -32,6 +33,7 @@ export const DEFAULT_LOADING_STEPS=Object.freeze({
     barbell:2.5,dumbbell:1,machine:2.5
 });
 export function equipmentCategory(ex={}) {
+    if(isBodyweightExercise(ex))return 'bodyweight';
     const s=String(ex.catalogMapping?.confirmed?ex.catalogMapping.equipment||ex.equipment:ex.equipment||'').toLowerCase()+' '+String(ex.name||'').toLowerCase();
     if(/dumbbell|manubrio|manubri/.test(s))return 'dumbbell';
     if(/cable|cavi|lat.machine|macchina|machine|seated|leg press/.test(s))return 'machine';
@@ -40,6 +42,7 @@ export function equipmentCategory(ex={}) {
 export function getAvailableLoadStep(ex, settings={},weight=null) {
     settings={...settings,...(settings.loadingSteps || {})};
     const type=equipmentCategory(ex);
+    if(type==='bodyweight')return {type,step:null,configured:false};
     const custom=number(settings?.[type]);
     const standard=type==='dumbbell'&&weight!==null&&weight<12.5?0.5:
         type==='machine'&&weight!==null&&weight<12.5?0.5:
@@ -54,6 +57,7 @@ const roundLoad=value=>Math.round(value*100)/100;
 
 /** Finite, exact inventory search. A step alone never proves ownership. */
 export function resolveNearbyLoad(ex, requested, settings={}, {min=0.01,max=700,origin=0}={}) {
+    if(isBodyweightExercise(ex))return {weight:null,verified:false,reason:'bodyweight_no_inventory'};
     const raw=number(requested);
     if(raw===null || raw<=0 || raw>700)return {weight:null,verified:false,reason:'invalid_load'};
     const {type,step,configured}=getAvailableLoadStep(ex,settings,raw);
@@ -96,6 +100,7 @@ export function resolveNearbyLoad(ex, requested, settings={}, {min=0.01,max=700,
 export function recommendNextSessionLoad(ex,{
     readiness=null,equipmentSettings=null
 }={}) {
+    if(isBodyweightExercise(ex))return null;
     if(!ex || ex.isWarmup || ex.isExcluded || ex.is_excluded ||
         ex.isDeload || ex.isDeloadWeek || readiness?.allowIncrease===false ||
         readiness?.level==='stop')return null;

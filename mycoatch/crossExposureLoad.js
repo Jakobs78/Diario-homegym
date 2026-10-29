@@ -1,3 +1,4 @@
+import {isBodyweightExercise} from './bodyweight.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 /**
  * Conservative, read-only INITIAL working-load suggestion when the SAME
@@ -36,7 +37,7 @@ const plannedKg=ex=>number(ex?.kgMin??ex?.kgMax)??number(ex?.kgMax);
 const count=ex=>Number(ex?.setsCount??ex?.sets?.length??ex?.loggedSets?.length);
 
 function estimateFromSource(source,upcoming){
-  if(special(source)||special(upcoming))return null;
+  if(isBodyweightExercise(source)||isBodyweightExercise(upcoming)||special(source)||special(upcoming))return null;
   if(exerciseIdentity(source)!==exerciseIdentity(upcoming)||
      equipmentCategory(source)!==equipmentCategory(upcoming))return null;
   const range=repsRange(source),next=repsRange(upcoming);

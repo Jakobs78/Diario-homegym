@@ -1,10 +1,12 @@
+import {isBodyweightExercise} from './bodyweight.js';
+import {bodyweightWorkingProposal} from './bodyweightProposal.js';
 import {highRepProgression,HIGH_REP_POLICY} from './highRepProgression.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
-/** Deterministic protocol 1.5. Numeric tolerances are engineering defaults, not physiological laws. */
+/** Deterministic protocol 1.6. Numeric tolerances are engineering defaults, not physiological laws. */
 import {setPrescription,observed,blockKey,warm} from './setPrescription.js';
 import {estimateE1rm} from './historyAnalysis.js';
 import {resolveNearbyLoad,equipmentCategory,getAvailableLoadStep} from './loadProposal.js';
-export const PROTOCOL_POLICY=Object.freeze({version:'1.5',historyExposures:3,rpeTolerance:0.5,stableSpread:0.10,rangeHalfWidth:0.025,maxIncrease:0.05,maxDumbbellIncrease:0.10,maxReduction:0.10});
+export const PROTOCOL_POLICY=Object.freeze({version:'1.6',historyExposures:3,rpeTolerance:0.5,stableSpread:0.10,rangeHalfWidth:0.025,maxIncrease:0.05,maxDumbbellIncrease:0.10,maxReduction:0.10});
 const round=x=>Math.round(x*100)/100;
 const median=values=>{const a=[...values].sort((x,y)=>x-y);return a.length?(a[Math.floor((a.length-1)/2)]+a[Math.ceil((a.length-1)/2)])/2:null;};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
@@ -33,7 +35,7 @@ export function selectEvidence(ex,index,exposures=[]){
     }
     return [...comparable,...adaptable].slice(0,PROTOCOL_POLICY.historyExposures);
 }
-function estimate(set){return set?.prescription.special||set?.prescription.reps?.max>12||set?.rpe===null?null:estimateE1rm(set.kg,set.reps,set.rpe);}
+function estimate(set){return set?.bodyweight||set?.prescription.special||set?.prescription.reps?.max>12||set?.rpe===null?null:estimateE1rm(set.kg,set.reps,set.rpe);}
 function desiredWeight(capacity,p,reps){return capacity&&p.rpe?capacity/(1+(reps+Math.max(0,10-p.rpe.max))/30):null;}
 function resolve(ex,raw,equipment,{increasing=false,base=raw,maxIncrease=null}={}){
     if(!Number.isFinite(raw)||!(raw>0)||raw>700)return {weight:null,verified:false};
@@ -49,6 +51,7 @@ function resolve(ex,raw,equipment,{increasing=false,base=raw,maxIncrease=null}={
         reason:resolved.verified?'theoretical_unavailable':'indicative_load'};
 }
 export function nextBlockDecision(ex,index,equipment={},readiness=null){
+    if(isBodyweightExercise(ex))return null;
     const p=setPrescription(ex,index);
     const count=Math.max(ex?.sets?.length||0,ex?.loggedSets?.length||0,parseInt(ex?.setsCount??ex?.set,10)||0);
     const indices=Array.from({length:count},(_,i)=>i).filter(i=>!warm(ex?.loggedSets?.[i])&&!warm(ex?.sets?.[i])&&blockKey(setPrescription(ex,i))===blockKey(p));
@@ -102,6 +105,7 @@ export function workingProposal(ex,index,{exposures=[],equipment={},readiness=nu
     }):exposures;
     const evidence=selectEvidence(ex,index,usable),recent=evidence[0];
     const reference=recent?.match;
+    if(isBodyweightExercise(ex))return bodyweightWorkingProposal(ex,index,{evidence,readiness,allowProgression:allowProgression&&recent?.checkin?.pain!=='present',contextUnchanged:!recent||recoveryKey(recent.exercise)===recoveryKey(ex)});
     let progressionBasis=null;
     let reps=p.reps?.min??null,kg=p.kg?.min??null,kind='prescription',range=null,verified=false,alternativeWeight=null;
     let reason=kg?'Carico iniziale della scheda; verifica la risposta durante l’avvicinamento.':'Manca uno storico pertinente: carico da calibrare.';

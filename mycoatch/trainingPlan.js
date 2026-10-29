@@ -1,3 +1,4 @@
+import {isBodyweightExercise} from './bodyweight.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {trainingExposures} from './trainingHistory.js';
 import {workingProposal,PROTOCOL_POLICY,selectEvidence,relatedSets} from './protocolLoad.js';
@@ -46,9 +47,9 @@ export function reconcileTrainingPlan(data,{year,mesoIndex,now=new Date().toISOS
                 const sourceKey=source?JSON.stringify([source.source,exerciseIdentity(ex),blockKey(source.match.prescription)]):null;
                 const held=sourceKey&&reservations.get(sourceKey);
                 const eligible=!started(day)&&!week.isDeloadWeek&&!week.isDeload&&(!held||held===targetKey);
-                const keepStarted=started(day)&&transferred&&unchangedSource&&
+                const keepStarted=!isBodyweightExercise(ex)&&started(day)&&transferred&&unchangedSource&&
                     !(ex.loggedSets||[]).some(confirmed)&&readiness.level!=='stop'&&readiness.allowIncrease!==false;
-                const proposal=keepStarted?clone(previous):workingProposal(ex,index,{exposures,equipment,readiness,allowProgression:eligible});
+                const proposal=keepStarted?clone(previous):workingProposal(ex,index,{exposures,equipment,readiness,allowProgression:eligible||isBodyweightExercise(ex)&&started(day)&&transferred&&unchangedSource});
                 if(proposal&&sourceKey&&eligible)reservations.set(sourceKey,targetKey);
                 if(proposal){
                     proposal.destination={...context,setIndex:index};

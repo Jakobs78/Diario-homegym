@@ -3242,7 +3242,7 @@ test('11 reps confermate: proposta 12-11-11 nelle celle, un solo storico e note 
     state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=2;renderWorkoutList();
   });
   const card=page.locator('.ex-card').first(),panel=card.locator('.exercise-coach-notes');
-  await expect(panel).toBeVisible();await expect(panel.locator('strong')).toHaveText(['Note della scheda','Consigli di MyCoatch']);
+  await expect(panel).toBeVisible();await expect(panel.locator('.exercise-plan-notes > strong, .exercise-coach-updates > strong')).toHaveText(['Note della scheda','Consigli di MyCoatch']);
   await expect(panel).toContainText('Ho aggiunto una ripetizione alla serie 1: 15 kg × 12 reps.');
   await expect(panel).not.toContainText('Disponibilità del peso');await expect(panel).not.toContainText('precompilati');
   await expect(card.locator('.set-reps').nth(0)).toHaveValue('12');

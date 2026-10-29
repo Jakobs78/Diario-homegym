@@ -1,3 +1,4 @@
+import {isBodyweightExercise} from '../mycoatch/bodyweight.js';
 /**
  * An exercise flagged "excluded from maxes" in legacy diaries is a warm-up.
  * Never count warm-up work as effective training volume/fatigue, but preserve
@@ -41,7 +42,7 @@ export function validPerformedSet(exercise,set) {
     const reps=String(set.reps??set.actualReps??'').trim();
     return Number.isFinite(kg)&&kg>=0&&kg<=700&&
         /^[1-9]\d{0,2}(?:\+[1-9]\d{0,2})*$/.test(reps)&&
-        (kg>0 || /bodyweight|corpo libero|walkout|plank|push.?up|dead bug|bird dog/i.test(String(exercise?.catalogMapping?.equipment||exercise?.equipment||'')+' '+String(exercise?.name||'')));
+        (kg>0 || isBodyweightExercise(exercise));
 }
 export function localCalendarDay(at=new Date()) {
     return [at.getFullYear(),String(at.getMonth()+1).padStart(2,'0'),String(at.getDate()).padStart(2,'0')].join('-');

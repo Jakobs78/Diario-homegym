@@ -1,3 +1,4 @@
+import {isBodyweightExercise} from './bodyweight.js';
 /**
  * Decisioni conservative e spiegabili. Nessuna diagnosi di crescita muscolare:
  * kg, reps, volume e RPE descrivono prestazione, stimolo e tolleranza al lavoro.
@@ -22,7 +23,9 @@ export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
             ? 'Storico confermato insufficiente: nessuna progressione automatica del carico.'
             : 'Mantieni il carico precedente e monitora la prossima esposizione.';
 
-        if (exercise.fatigueConcern && kg !== null) {
+        if (isBodyweightExercise(exercise)) {
+            reason='Esercizio a corpo libero: valuta ripetizioni e RPE, senza stimare un massimale dal sovraccarico esterno o applicare incrementi dei pesi.';
+        } else if (exercise.fatigueConcern && kg !== null) {
             action = 'reduce_load';
             // Use the athlete's actual loading increment, and never suggest
             // a reduction whose physical load is unavailable. A fatigue
