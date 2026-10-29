@@ -597,3 +597,85 @@ test('importazione: PDF rifiutato e CSV letto senza libreria Excel o rete',async
  await page.evaluate(()=>window.__fileImport);
  expect(monitor.pageErrors).toEqual([]);
 });
+
+test('alte reps: carichi e reps aggiornati nella successiva esposizione, senza massimale o crescita ripetuta',async({page})=>{
+ const monitor=await openIsolatedApp(page);page.on('dialog',d=>d.accept());
+ await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');
+  const ex=()=>({name:'Alzate Laterali con Manubri',equipment:'dumbbell',reps:'15-20',rpe:8,targetRpe:8,recupero:'90s',kgMin:'10',kgMax:'10',sets:[{},{},{}],loggedSets:[{},{},{}]});
+  const source=ex();source.loggedSets=[20,20,20].map(reps=>({weight:10,reps,rpe:8,isLocked:true,completed:true}));
+  state.workoutData={athlete:{},history:{years:{2026:{mesocycles:[{weeks:[{weekNumber:1,days:[{dayNumber:1,completed:true,exercises:[source]}]},{weekNumber:2,days:[{dayNumber:1,exercises:[ex()]}]}]}]}}}};
+  state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=2;state.activeDay=1;renderWorkoutList();
+ });
+ for(let i=0;i<3;i++){
+  await expect(page.locator('.set-kg').nth(i)).toHaveValue('10.5');await expect(page.locator('.set-reps').nth(i)).toHaveValue('15');
+ }
+ await expect(page.locator('.coach-adaptive-notes')).toContainText('Ho aumentato il carico');
+ await expect(page.locator('.coach-adaptive-notes')).not.toContainText('usando il massimale');
+ const result=await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');renderWorkoutList();renderWorkoutList();
+  const m=state.workoutData.history.years[2026].mesocycles[0];return {logs:m.weeks[1].days[0].exercises[0].loggedSets,e1rm:m.weeks[1].days[0].exercises[0].coachSetProposals.map(p=>p.stableE1rm),old:m.weeks[0].days[0].exercises[0].loggedSets.map(s=>s.weight)};
+ });
+ expect(result.logs.every(s=>!s.isLocked&&!s.completed&&!s.weight&&!s.reps)).toBe(true);expect(result.e1rm).toEqual([null,null,null]);expect(result.old).toEqual([10,10,10]);
+ await page.locator('.set-kg').first().fill('9');await page.evaluate(async()=>{(await import('/js/ui.js')).renderWorkoutList();});
+ await expect(page.locator('.set-kg').first()).toHaveValue('9');expect(monitor.pageErrors).toEqual([]);
+});
+
+test('tasto salta sotto il nome, arancione e leggibile su 320 px; nota resta obbligatoria',async({page},testInfo)=>{
+ await page.setViewportSize({width:320,height:740});const monitor=await openIsolatedApp(page);await setupPlan(page,'drop');
+ const card=page.locator('.ex-card').first(),button=card.locator('.exercise-session-skip');
+ await expect(button).toHaveText("Salta solo quest'allenamento se hai problemi");
+ const bounds=await card.evaluate(el=>{
+  const title=el.querySelector('.ex-name'),actions=el.querySelector('.exercise-skip-actions'),button=actions.querySelector('button');
+  return {immediatelyAfter:title.nextElementSibling===actions,wrapped:button.getBoundingClientRect().width<=el.getBoundingClientRect().width,color:getComputedStyle(button).backgroundColor};
+ });
+ expect(bounds.immediatelyAfter).toBe(true);expect(bounds.wrapped).toBe(true);expect(bounds.color).toBe('rgb(255, 241, 223)');
+ await button.click();await expect(card).not.toHaveClass(/is-session-skipped/);await expect(card.locator('.ex-user-notes')).toBeFocused();
+ await page.evaluate(()=>document.documentElement.setAttribute('data-theme','dark'));
+ await expect(button).toHaveCSS('background-color','rgb(73, 48, 33)');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ await button.scrollIntoViewIfNeeded();await page.screenshot({path:testInfo.outputPath('skip-320-dark.png')});expect(monitor.pageErrors).toEqual([]);
+});
+
+test('ultimo check reale apre e raggiunge il riepilogo una volta; nessun salto su render o consultazione',async({page})=>{
+ const monitor=await openIsolatedApp(page);page.on('dialog',d=>d.accept());await page.setViewportSize({width:390,height:844});await page.emulateMedia({reducedMotion:'reduce'});
+ await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');
+  const ex=name=>({name,reps:'10-12',rpe:8,targetRpe:8,sets:[{}],loggedSets:[{}]});
+  state.workoutData={athlete:{},history:{years:{2026:{mesocycles:[{weeks:[{weekNumber:1,days:[{dayNumber:1,exercises:[ex('Curl ai Cavi Bassi'),ex('Calf Raise')]}]}]}]}}}};
+  state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=1;renderWorkoutList();
+  window.__reportScrolls=[];const original=Element.prototype.scrollIntoView;
+  Element.prototype.scrollIntoView=function(options){if(this.id==='mycoatch-live-disclosure')window.__reportScrolls.push(options);return original.call(this,options);};
+ });
+ // Check the physically last row first: another unchecked exercise still prevents completion.
+ await confirmSet(page,1);await expect(page.locator('#mycoatch-live-disclosure')).not.toHaveAttribute('open','');
+ expect(await page.evaluate(()=>window.__reportScrolls.length)).toBe(0);
+ await confirmSet(page,0);
+ const menu=page.locator('#mycoatch-live-disclosure');await expect(menu).toHaveAttribute('open','');await expect(page.locator('.mycoatch-session-summary')).toBeVisible();
+ await expect.poll(()=>page.evaluate(()=>window.__reportScrolls.length)).toBe(1);
+ expect(await menu.evaluate(el=>Math.abs(el.getBoundingClientRect().top-16)<5)).toBe(true);
+ expect(await page.evaluate(()=>window.__reportScrolls[0].behavior)).toBe('auto');await expect(page.locator('#floating-timer')).not.toHaveClass(/active/);
+ await menu.locator('summary').first().click();await page.evaluate(async()=>{(await import('/js/ui.js')).renderWorkoutList();});
+ await expect(menu).not.toHaveAttribute('open','');expect(await page.evaluate(()=>window.__reportScrolls.length)).toBe(1);
+ expect(monitor.pageErrors).toEqual([]);expect(monitor.remoteRequests).toEqual([]);
+});
+
+test('riepilogo automatico considera esercizi saltati e warmup senza spuntare serie inventate',async({page})=>{
+ const monitor=await openIsolatedApp(page);page.on('dialog',d=>d.accept());await page.emulateMedia({reducedMotion:'reduce'});
+ await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');
+  const base={reps:'10-12',rpe:8,targetRpe:8,sets:[{},{}],loggedSets:[{},{}]};
+  const warm={...structuredClone(base),name:'Avvicinamento',isWarmup:true};
+  const skip={...structuredClone(base),name:'Curl manubri',sessionSkip:{active:true},userNotes:'Esercizio saltato per oggi'};
+  const work={...structuredClone(base),name:'Calf Raise',loggedSets:[{weight:10,reps:12,rpe:8,isLocked:true,completed:true},{}]};
+  state.workoutData={athlete:{},history:{years:{2026:{mesocycles:[{weeks:[{weekNumber:1,days:[{dayNumber:1,exercises:[warm,skip,work]}]}]}]}}}};
+  state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=1;renderWorkoutList();
+ });
+ await confirmSet(page,2,1);await expect(page.locator('#mycoatch-live-disclosure')).toHaveAttribute('open','');
+ await expect(page.locator('.mycoatch-session-summary')).toContainText('Esercizio saltato per oggi');
+ const result=await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');const day=state.workoutData.history.years[2026].mesocycles[0].weeks[0].days[0];
+  return {completed:day.completed,skip:day.exercises[1].loggedSets.some(s=>s.completed||s.isLocked),warm:day.exercises[0].loggedSets.some(s=>s.completed||s.isLocked)};
+ });
+ expect(result).toEqual({completed:true,skip:false,warm:false});await expect(page.locator('#floating-timer')).not.toHaveClass(/active/);expect(monitor.pageErrors).toEqual([]);
+});

@@ -1,3 +1,4 @@
+import {highRepProgression} from './highRepProgression.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 /** Rep guidance for the next exposure: advice, never performed data. */
 const number=v=>{const s=String(v??'').trim().replace(/^@/,'').replace(',','.');return /^\d+(?:\.\d+)?$/.test(s)?Number(s):null;};
@@ -20,11 +21,18 @@ export function recommendNextSessionReps(previous,upcoming){
         const kg=number(s.weight),rep=number(s.reps),rpe=number(s.rpe);
         if(!confirmed(s)||s.isWarmup||s.warmup||s.is_warmup||s.intensityTechnique||
             s.dropSegments?.length||String(s.reps??'').includes('+')||
-            kg===null||kg<=0||!Number.isInteger(rep)||rep<a.min||rep>a.max||
+            kg===null||kg<=0||!Number.isInteger(rep)||rep<a.min||rep>a.max+(a.max>12?2:0)||
             rpe===null||rpe<6||rpe>target)return null;
         weights.push(kg);reps.push(rep);
     }
     if(!weights.every(v=>v===weights[0]))return null;
+    if(a.max>12){
+        if(String(previous.restTime??previous.rest??previous.recupero??'').trim()!==String(upcoming.restTime??upcoming.rest??upcoming.recupero??'').trim())return null;
+        const decision=highRepProgression(previous,0);
+        if(!decision||decision.kind==='maintain')return null;
+        if(decision.kind==='increase_load')return {kind:'upper_range_complete',reps,reason:decision.reason};
+        return {kind:'build_reps',reps:reps.map((r,i)=>Math.min(a.max,r+(i===decision.nextSetIndex?1:0))),reason:decision.reason};
+    }
     const index=reps.findIndex(r=>r<a.max);
     if(index<0)return {kind:'upper_range_complete',reps,reason:'Tutte le serie al limite alto: MyCoatch valuterà l’incremento minimo disponibile.'};
     const suggested=[...reps];suggested[index]++;

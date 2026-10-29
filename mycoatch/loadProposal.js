@@ -1,3 +1,5 @@
+import {setPrescription,blockKey} from './setPrescription.js';
+import {highRepProgression,HIGH_REP_POLICY} from './highRepProgression.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {compatiblePlates,PLATE_SIZES} from './barbellInventory.js';
 /**
@@ -114,6 +116,24 @@ export function recommendNextSessionLoad(ex,{
     // Mixed loads can reflect top sets/backoffs: never use one suggestion
     // for a different prescribed intensity.
     if(!values.every(v=>v.kg===kg&&v.reps>=range.min&&v.rpe<=target))return null;
+    if(range.max>12){
+        const index=(ex.loggedSets||[]).findIndex(s=>!warmup(s));
+        const block=blockKey(setPrescription(ex,index));
+        if((ex.loggedSets||[]).some((s,i)=>!warmup(s)&&blockKey(setPrescription(ex,i))!==block))return null;
+        const step=getAvailableLoadStep(ex,equipmentSettings||{},kg);
+        const inventory=equipmentSettings?.availableLoads?.[step.type]||step.type==='barbell'&&(equipmentSettings?.plateInventories||equipmentSettings?.platePairs);
+        const increment=step.configured||inventory?step.step:kg*(step.type==='dumbbell'?.05:.025);
+        const decision=highRepProgression(ex,index,{readiness,increment});
+        if(!decision||decision.kind==='maintain')return null;
+        if(decision.kind==='build_reps')return {eligible:true,suggestedWeight:null,previousWeight:kg,
+            nextReps:(ex.loggedSets||[]).map((s,i)=>({s,i})).filter(({s})=>!warmup(s)).map(({s,i})=>Math.min(range.max,Number(s.reps)+(i===decision.nextSetIndex?1:0))),
+            reason:decision.reason,evidence:'build_reps',configured:step.configured,type:step.type};
+        const resolved=resolveNearbyLoad(ex,decision.weight,equipmentSettings||{},{min:kg+.001,max:Math.min(decision.weight*1.025,kg*(1+HIGH_REP_POLICY.maxIncrease)),origin:kg});
+        const theoretical=resolved.weight===null;
+        return {eligible:true,suggestedWeight:resolved.weight??decision.weight,previousWeight:kg,repGoal:range.min,
+            reason:decision.reason+(theoretical?' Carico indicativo: l’inventario dichiarato non conferma questo piccolo incremento.':''),
+            evidence:'high_reps',configured:step.configured,type:step.type,verified:!theoretical&&resolved.verified};
+    }
     const extraReps=values.every(v=>v.reps>=range.max&&v.reps<=range.max+2&&v.rpe<=target);
     // First build repetitions. Even easy working sets below the top of the
     // range never authorize a load increase from one training session.

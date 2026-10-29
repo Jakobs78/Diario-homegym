@@ -95,8 +95,9 @@ test('rep progression survives limited loading and does not extend the range sil
     assert.deepEqual(advice.nextReps,[7,7,6]);
     const high=lift({equipment:'dumbbell',reps:'15-25',loggedSets:[set(5,25),set(5,25),set(5,25)]});
     const hold=recommendNextSessionLoad(high,{equipmentSettings:{dumbbell:5}});
-    assert.equal(hold.suggestedWeight,null);
-    assert.match(hold.reason,/revisione esplicita/);
+    assert.ok(hold.suggestedWeight>5&&hold.suggestedWeight<=5.25);
+    assert.equal(hold.repGoal,15);assert.equal(hold.verified,false);
+    assert.match(hold.reason,/indicativo/);
 });
 
 test('live load changes respect configured equipment and low RPE is stored without e1RM',()=>{

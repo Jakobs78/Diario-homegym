@@ -93,14 +93,21 @@ function displayLiveCoachToast({ title, message, severity = 'info', advice = nul
  * Aggiorna le indicazioni inline dopo una conferma. I popup restano
  * riservati agli errori che impediscono la registrazione.
  */
-export function showLiveCoachToast(day) {
+export function showLiveCoachToast(day,{revealSummary=false}={}) {
     // Compatibility entry point: useful advice now persists in its exercise
     // card. A successful ordinary check no longer creates a second popup.
     if(!day)return null;
     const snapshot=updateLiveCoachPanel(day);
     if(snapshot?.finished){
         const overview=document.getElementById('mycoatch-live-disclosure');
-        if(overview)overview.open=true;
+        if(overview){
+            overview.open=true;
+            if(revealSummary)requestAnimationFrame(()=>{
+                if(!overview.isConnected||document.getElementById('mycoatch-live-disclosure')!==overview)return;
+                const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+                overview.scrollIntoView({behavior:reduced?'auto':'smooth',block:'start'});
+            });
+        }
     }
     return null;
 }

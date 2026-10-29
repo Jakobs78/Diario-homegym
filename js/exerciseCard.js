@@ -71,6 +71,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         
         <!-- Nome Esercizio in primo piano -->
         <h3 class="ex-name mb-md">${exIdx + 1}. ${escapeHtml(ex.name)}</h3>
+        ${!isExExcluded?`<div class="exercise-skip-actions"><button type="button" class="btn btn-sm exercise-session-skip" data-ex="${exIdx}" ${isPastMeso||!skipped&&!logs.some(s=>!s.isLocked&&!s.completed&&!s.isWarmup)?'disabled':''}>${skipped?'Ripristina esercizio':"Salta solo quest'allenamento se hai problemi"}</button><span class="exercise-skip-status" role="status">${skipped?'Saltato oggi · Motivo obbligatorio nelle note personali. Le serie già eseguite restano registrate.':''}</span></div>`:''}
         
     `;
 
@@ -92,7 +93,6 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
             <input type="text" id="ex-user-notes-${exIdx}" placeholder="Aggiungi una nota all'esercizio..."
                 value="${escapeHtml(ex.userNotes || '')}" class="ex-user-notes w-100"
                 data-ex="${exIdx}" ${isPastMeso&&!skipped ? 'disabled' : ''} ${skipped?'required':''}>
-            ${!isExExcluded?`<div class="exercise-skip-actions"><button type="button" class="btn btn-secondary btn-sm exercise-session-skip" data-ex="${exIdx}" ${isPastMeso||!skipped&&!logs.some(s=>!s.isLocked&&!s.completed&&!s.isWarmup)?'disabled':''}>${skipped?'Ripristina esercizio':'Salta per questa seduta'}</button><span class="exercise-skip-status" role="status">${skipped?'Saltato oggi · Motivo obbligatorio nelle note personali. Le serie già eseguite restano registrate.':''}</span></div>`:''}
         </div>`;
 
     cardHtml += `
