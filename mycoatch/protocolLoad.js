@@ -154,7 +154,7 @@ export function workingProposal(ex,index,{exposures=[],equipment={},readiness=nu
     if(readiness?.level==='stop')return {weight:null,reps,rpe:p.rpe?.max??null,kind:'pain_caution',reason:'Dolore segnalato: rivaluta il movimento prima di usare una proposta di carico.',basedOn:[]};
     if(kg!==null){
         const resolved=resolve(ex,kg,equipment,{increasing:kind.startsWith('increase'),base:kind==='increase_today'?last.kg:reference?.kg??last?.kg??kg,maxIncrease:p.reps?.max>12?HIGH_REP_POLICY.maxIncrease:null});
-        const preserve=['history','today'].includes(kind);
+        const preserve=['history','today'].includes(kind)||(p.reps?.max>12&&['maintain','build_reps'].includes(kind));
         kg=preserve?round(kg):resolved.weight;verified=verified||resolved.verified&&Math.abs(resolved.weight-kg)<.001;
         if(!verified)reason+=' Disponibilità del peso da verificare.';
         if(resolved.reason==='theoretical_unavailable'){

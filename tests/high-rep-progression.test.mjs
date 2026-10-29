@@ -82,3 +82,13 @@ test('primary and fallback agree when the nearest owned increase exceeds the sma
  const primary=nextBlockDecision(source,0,equipment),fallback=recommendNextSessionLoad(source,{equipmentSettings:equipment});
  assert.equal(primary.weight,101);assert.equal(fallback.suggestedWeight,primary.weight);assert.equal(primary.verified,false);assert.equal(fallback.verified,false);
 });
+
+test('fallback cannot merge high-rep blocks with different RPE prescriptions',()=>{
+ const source=ex(undefined,{sets:[{targetRpe:8},{targetRpe:7},{targetRpe:7}]});
+ assert.equal(recommendNextSessionLoad(source),null);
+});
+test('building high reps never silently replaces historical kg with a nearby owned weight',()=>{
+ const source=ex([set(18),set(17),set(16)]),future=ex([{},{},{}]);
+ const p=workingProposal(future,0,{exposures:[source],equipment:{availableLoads:{dumbbell:[9.9]}}});
+ assert.equal(p.kind,'build_reps');assert.equal(p.weight,10);assert.equal(p.verified,false);
+});

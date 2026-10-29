@@ -1,3 +1,4 @@
+import {setPrescription,blockKey} from './setPrescription.js';
 import {highRepProgression,HIGH_REP_POLICY} from './highRepProgression.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {compatiblePlates,PLATE_SIZES} from './barbellInventory.js';
@@ -117,6 +118,8 @@ export function recommendNextSessionLoad(ex,{
     if(!values.every(v=>v.kg===kg&&v.reps>=range.min&&v.rpe<=target))return null;
     if(range.max>12){
         const index=(ex.loggedSets||[]).findIndex(s=>!warmup(s));
+        const block=blockKey(setPrescription(ex,index));
+        if((ex.loggedSets||[]).some((s,i)=>!warmup(s)&&blockKey(setPrescription(ex,i))!==block))return null;
         const step=getAvailableLoadStep(ex,equipmentSettings||{},kg);
         const inventory=equipmentSettings?.availableLoads?.[step.type]||step.type==='barbell'&&(equipmentSettings?.plateInventories||equipmentSettings?.platePairs);
         const increment=step.configured||inventory?step.step:kg*(step.type==='dumbbell'?.05:.025);
