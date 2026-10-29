@@ -63,15 +63,15 @@ test('different RPE cannot fall back to an obsolete CSV load',()=>{
  const data=fixture(ex([done(79,6,6.5),done(79,6,6.5),done(79,6,7)],{reps:'5-6',targetRpe:'7'}),ex([{},{},{}],{reps:'5-6',targetRpe:'7.5'}));
  refresh(data);assert.ok(Number(prefill(data,2).weight)>70);
 });
-test('high reps reuse each set load across RPE changes without increases',()=>{
+test('high reps preserve distinct historical loads across RPE changes and progress when all qualify',()=>{
  const source=ex([done(10,20),done(9,18),done(8,16)],{reps:'15-20',kgMin:'',kgMax:''});
  const data=fixture(source,ex([{},{},{}],{reps:'15-20',targetRpe:'8.5',kgMin:'',kgMax:''}));refresh(data);
  assert.deepEqual([0,1,2].map(i=>prefill(data,2,i).weight),['10','9','8']);
- assert.equal(nextBlockDecision(ex([done(10,20),done(10,20),done(10,20)],{reps:'15-20'}),0).kind,'maintain');
+ assert.equal(nextBlockDecision(ex([done(10,20),done(10,20),done(10,20)],{reps:'15-20'}),0).kind,'increase_load');
 });
 test('10-15 is treated as above twelve even when actual reps are ten',()=>{
  const p=workingProposal(ex([{},{},{}],{reps:'10-15',targetRpe:'9'}),0,{exposures:[ex([done(10,10,8),done(10,10,8),done(10,10,8)],{reps:'10-15'})]});
- assert.equal(p.weight,10);assert.equal(p.kind,'maintain');
+ assert.equal(p.weight,10);assert.equal(p.kind,'history');
 });
 test('above-range reps are valid progress evidence instead of creating blank kg',()=>{
  const data=fixture(ex([done(80,13),done(80,13),done(80,13)]));refresh(data);

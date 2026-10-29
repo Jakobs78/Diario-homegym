@@ -18,18 +18,18 @@ export function recommendNextExposure(previous,upcoming,equipment={},readiness=n
     if(!weights.every(w=>w===weights[0]&&w>0))return null;
     const reps=sets.map(s=>Number(s.reps));
     const range=String(upcoming.reps).match(/^(\d+)(?:[-–](\d+))?$/);
-    if(!range||reps.some(n=>!Number.isInteger(n)||n<Number(range[1])||n>Number(range[2]||range[1])))return null;
+    if(!range||reps.some(n=>!Number.isInteger(n)||n<Number(range[1])||n>Number(range[2]||range[1])+(Number(range[2]||range[1])>12?2:0)))return null;
     const priorRest=String(previous.restTime??previous.rest??previous.recupero??'');
     const nextRest=String(upcoming.restTime??upcoming.rest??upcoming.recupero??'');
     const restChanged=priorRest!==nextRest;
     const decision=recommendNextSessionLoad(previous,{equipmentSettings:equipment,readiness});
-    const result={weight:weights[0],reps,kind:'maintain',previousWeight:weights[0],restChanged,
+    const result={weight:weights[0],reps:reps.map(r=>Math.min(r,Number(range[2]||range[1]))),kind:'maintain',previousWeight:weights[0],restChanged,
         reason:'Riferimento aggiornato dalle serie allenanti confermate della seduta precedente. Verifica oggi tecnica, recupero e RPE; non è un aumento obbligatorio.',
         basedOn:sets.map(s=>({weight:s.weight,reps:s.reps,rpe:s.rpe??null,performedAt:s.performedAt||s.completedAt||null})),confidence:'provisional'};
     if(readiness?.level==='stop')return {...result,weight:null,suppressLoad:true,reason:'Dolore segnalato: rivaluta il movimento prima di proporre un carico.'};
     if(restChanged)result.reason+=' Recuperi diversi: nessun incremento trasferito automaticamente.';
     if(!restChanged&&decision?.nextReps)return {...result,reps:decision.nextReps,kind:'build_reps',reason:decision.reason};
-    if(!restChanged&&decision?.suggestedWeight&&decision.verified){result.weight=decision.suggestedWeight;result.kind='increase_load';result.reason=decision.reason;result.reps=reps.map(()=>decision.repGoal||Number(range[1]));}
+    if(!restChanged&&decision?.suggestedWeight&&(decision.verified||decision.evidence==='high_reps')){result.weight=decision.suggestedWeight;result.kind='increase_load';result.reason=decision.reason;result.reps=reps.map(()=>decision.repGoal||Number(range[1]));}
     const available=resolveNearbyLoad(upcoming,result.weight,equipment,{min:result.weight,max:result.weight});
     if(available.verified&&available.weight===null)return {...result,weight:null,suppressLoad:true,reason:'La prestazione precedente resta visibile, ma il suo carico non è componibile con l’attrezzatura attuale: calibra il nuovo carico.'};
     return result;

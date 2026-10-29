@@ -3608,3 +3608,11 @@ body.dark-mode .group-title-badge {
 .import-identity{grid-column:1 / -1;display:grid;gap:8px;padding:12px;border:1px solid var(--accent-color,#0284c7);border-radius:8px;}
 .import-identity select,.import-identity input{width:100%;min-width:0;font:inherit;}
 .import-identity p{margin:0;}
+
+/* Session-only skip is visible below the exercise title on small screens. */
+.ex-card .exercise-skip-actions {margin:0 0 12px;}
+.ex-card .exercise-session-skip {background:#fff1df;color:#873d10;border:1px solid #e5ad73;white-space:normal;text-align:left;line-height:1.35;max-width:100%;min-height:44px;}
+.ex-card .exercise-session-skip:hover:not(:disabled) {background:#ffe3bf;}
+.ex-card .exercise-session-skip:focus-visible {outline:2px solid #b45309;outline-offset:3px;}
+[data-theme="dark"] .ex-card .exercise-session-skip,body.dark-mode .ex-card .exercise-session-skip {background:#493021;color:#ffd6a8;border-color:#a96e3c;}
+.mycoatch-live-disclosure {scroll-margin-top:16px;}

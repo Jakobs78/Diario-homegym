@@ -1,4 +1,4 @@
-import {isExerciseSkipped} from './sessionSkip.js';
+import {isExerciseSkipped,sessionWorkCounts} from './sessionSkip.js';
 import {bindSessionSkip} from './sessionSkipUI.js';
 import {setPrescription} from '../mycoatch/setPrescription.js';
 import {advanceExercise} from './activeExercise.js';
@@ -227,6 +227,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             if(isExerciseSkipped(ex)){e.target.checked=Boolean(setObj.isLocked||setObj.completed);return;}
 
             const isChecked = e.target.checked;
+            const wasSessionFinished=sessionWorkCounts(currentDay).finished;
             const rowCard = workoutListContainer.querySelector(`.ex-card[data-ex="${exIdx}"], .exercise-card[data-ex="${exIdx}"]`);
             const kgInput = rowCard?.querySelector(`.set-kg[data-set="${setIdx}"]`);
             const repsInput = rowCard?.querySelector(`.set-reps[data-set="${setIdx}"]`);
@@ -372,7 +373,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             // Dopo il render aggiorna i consigli inline; a fine seduta apre il report.
             // I popup restano riservati agli errori di registrazione.
             if (isChecked && !isPastMeso) {
-                showLiveCoachToast(currentDay, { exerciseIndex: exIdx, setIndex: setIdx });
+                showLiveCoachToast(currentDay, { revealSummary:!wasSessionFinished&&currentDay.completed });
             }
         });
     });

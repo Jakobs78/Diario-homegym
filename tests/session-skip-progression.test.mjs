@@ -68,7 +68,7 @@ test('mixed progression respects missing/high RPE, mixed weights, fixed reps, >1
  e=ex([done(5,8),done(7),done(7)]);assert.equal(nextBlockDecision(e,0),null);
  e=ex([done(5),done(7),done(7)]);e.loggedSets[1].weight=70;assert.equal(nextBlockDecision(e,0),null);
  e=ex([done(5),done(7),done(7)],{reps:'6'});assert.equal(nextBlockDecision(e,0),null);
- e=ex([done(15),done(21),done(21)],{reps:'15-20'});assert.equal(nextBlockDecision(e,0).kind,'maintain');
+ e=ex([done(15),done(21),done(21)],{reps:'15-20'});assert.equal(nextBlockDecision(e,0).kind,'build_reps');assert.equal(nextBlockDecision(e,0).weight,80);
  e=ex([done(5),done(7),done(7)]);assert.equal(nextBlockDecision(e,0,{}, {allowIncrease:false}),null);
 });
 test('rounded mixed increments cannot exceed the weakest-set estimate and communication never claims all sets reached the upper bound',()=>{

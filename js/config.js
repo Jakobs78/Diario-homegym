@@ -14,5 +14,5 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 export const CONFIG = {
     STORAGE_KEY: 'workoutApp_data',
-    APP_VERSION: '1.2.6-20261027'
+    APP_VERSION: '1.2.7-20261029'
 };

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v78-import-review-20261027';
+const CACHE_NAME = 'workout-app-v79-high-reps-summary-20261029';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
@@ -27,6 +27,7 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/setPrescription.js',
   '/mycoatch/trainingHistory.js',
   '/mycoatch/protocolLoad.js',
+  '/mycoatch/highRepProgression.js',
   '/mycoatch/trainingPlan.js',
   '/mycoatch/limitationsReview.js',
   '/js/analytics.js',

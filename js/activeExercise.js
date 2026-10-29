@@ -37,7 +37,8 @@ export function bindActiveExercisePanels(container,day){
     });
     if(value.scroll){
         value.scroll=false;
-        const target=value.index<0?container.querySelector('#mycoatch-live-panel'):container.querySelector('[data-ex="'+value.index+'"].ex-card');
+        // Final-session scrolling happens after opening the report in liveCoachUI.
+        const target=value.index<0?null:container.querySelector('[data-ex="'+value.index+'"].ex-card');
         target?.scrollIntoView?.({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
         if(value.index<0){const status=document.createElement('p');status.className='session-finished-summary';status.setAttribute('role','status');status.textContent='Seduta completata. Puoi riaprire gli esercizi per controllare o correggere le serie.';container.append(status);}
     }
