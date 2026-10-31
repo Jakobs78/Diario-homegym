@@ -525,7 +525,7 @@ test('progressione 5-7-7: celle successive aggiornate e spiegazione senza falsa 
  });
  const card=page.locator('.ex-card[data-ex="0"]');
  await expect(card.locator('.set-kg').first()).toHaveValue('81');await expect(card.locator('.set-reps').first()).toHaveValue('5');
- await expect(card.locator('.coach-adaptive-notes')).toContainText('meno favorevole');
+ await expect(card.locator('.coach-adaptive-notes')).toContainText('Più serie hanno superato il range');
  await expect(card.locator('.coach-adaptive-notes')).not.toContainText('Tutte le serie hanno raggiunto');
  await expect(card.locator('.set-lock-check').first()).not.toBeChecked();
 });

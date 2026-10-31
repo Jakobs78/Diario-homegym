@@ -60,7 +60,10 @@ export function reconcileTrainingPlan(data,{year,mesoIndex,now=new Date().toISOS
             // Frozen completed rows are never touched, even their past proposal metadata.
             const retained=proposals.map((p,i)=>confirmed(ex.loggedSets?.[i])?ex.coachSetProposals?.[i]??null:p);
             if(!Array.isArray(ex.coachSetProposals)||!same(ex.coachSetProposals,retained)){
-                updates.push({destination:context,before:clone(ex.coachSetProposals??[]),after:clone(retained)});
+                const fields=p=>p?{weight:p.weight,reps:p.reps,rpe:p.rpe,kind:p.kind}:null;
+                const differences=retained.flatMap((p,index)=>same(fields(ex.coachSetProposals?.[index]),fields(p))?[]:
+                    [{setIndex:index,before:fields(ex.coachSetProposals?.[index]),after:fields(p)}]);
+                if(differences.length)updates.push({destination:context,series:differences});
                 ex.coachSetProposals=retained;changed=true;
             }
             const notes=[...new Set(retained.filter((p,i)=>p&&!confirmed(ex.loggedSets?.[i])).flatMap(p=>[p.reason,...(p.monitoring?[p.monitoring]:[])]))];
@@ -70,7 +73,7 @@ export function reconcileTrainingPlan(data,{year,mesoIndex,now=new Date().toISOS
     if(meso.coachProtocol?.version!==PROTOCOL_POLICY.version){meso.coachProtocol={version:PROTOCOL_POLICY.version,activatedAt:now};changed=true;}
     if(updates.length){
         meso.coachAdjustments ||= [];
-        meso.coachAdjustments.push({at:now,policy:PROTOCOL_POLICY.version,changes:updates});
+        meso.coachAdjustments.push({format:2,at:now,policy:PROTOCOL_POLICY.version,changes:updates});
     }
     return changed;
 }

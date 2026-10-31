@@ -184,10 +184,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             }
 
             updateLiveCoachPanel(currentDay, { readOnly: isPastMeso });
-            clearTimeout(window._syncTimeout);
-            window._syncTimeout = setTimeout(() => {
-                saveAndSync(state.workoutData);
-            }, 2000);
+            saveAndSync(state.workoutData); // persist locally now; only network upload is debounced
         });
     });
 

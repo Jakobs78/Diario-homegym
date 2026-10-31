@@ -88,11 +88,21 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 // ==========================================
 async function initApp() {
     console.log(`Avvio Advanced Workout Tracker v${CONFIG.APP_VERSION}`);
+    const release=document.getElementById('app-release');
+    if(release){
+        release.textContent='v '+CONFIG.APP_VERSION;
+        release.title='Versione in uso su questo dispositivo. Riferimento GitHub: js/config.js → APP_VERSION. Il numero identifica il codice caricato, non lo stato del sync cloud.';
+    }
     const version=document.createElement('small');version.className='app-version';version.textContent='Versione '+CONFIG.APP_VERSION+' · Importazione Excel può richiedere rete';
     document.getElementById('app-container')?.append(version);
     navigator.serviceWorker?.getRegistration?.().then(registration=>{
         if(!registration)return;
-        const notify=()=>{if(registration.waiting)version.textContent+=' · Aggiornamento disponibile: salva la seduta e chiudi tutte le finestre dell’app per applicarlo.';};
+        const notify=()=>{
+            if(!registration.waiting || version.dataset.updateAvailable)return;
+            version.dataset.updateAvailable='true';
+            version.textContent+=' · Aggiornamento disponibile: salva la seduta e chiudi tutte le finestre dell’app per applicarlo.';
+            if(release){release.textContent='v '+CONFIG.APP_VERSION+' · Aggiornamento disponibile';release.classList.add('app-release-update');}
+        };
         notify();registration.addEventListener('updatefound',()=>registration.installing?.addEventListener('statechange',notify));
     }).catch(()=>{});
     applyUserToUI(null);

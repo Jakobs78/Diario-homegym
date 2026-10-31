@@ -1,7 +1,9 @@
-const CACHE_NAME = 'workout-app-v81-bodyweight-coach-20261029';
+const CACHE_NAME = 'workout-app-v82-reliable-sync-20261031';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
+  '/js/syncPrimitives.js',
+  '/js/coachArchive.js',
   '/js/sessionSkip.js',
   '/js/sessionSkipUI.js',
   '/mycoatch/seriesTechnique.js',

@@ -20,7 +20,7 @@ async function open(page){
 }
 test('automatic next-exposure proposal persists offline and reload never adds a second increase',async({page,context})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));await open(page);
- await expect(page.locator('.coach-adaptive-notes')).toContainText('Tutte le serie');
+ await expect(page.locator('.coach-adaptive-notes')).toContainText('limite alto');
  await expect(page.locator('.set-reps').first()).toHaveValue('8');
  await expect(page.locator('.set-lock-check').first()).not.toBeChecked();
  await context.setOffline(true);

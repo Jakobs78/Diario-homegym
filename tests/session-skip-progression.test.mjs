@@ -76,7 +76,7 @@ test('rounded mixed increments cannot exceed the weakest-set estimate and commun
  assert.equal(nextBlockDecision(e,0,{barbell:1}).kind,'build_reps');
  const target=ex();const p=workingProposal(target,0,{exposures:[ex([done(5),done(7),done(7)])],equipment:{barbell:1}});
  assert.equal(p.progressionBasis,'mixed_reps');target.coachSetProposals=[p];const text=exerciseCoachModel(target).updates.map(u=>u.text).join(' ');
- assert.match(text,/meno favorevole/);assert.doesNotMatch(text,/Tutte le serie hanno raggiunto/);
+ assert.match(text,/superato il range/);assert.doesNotMatch(text,/Tutte le serie hanno raggiunto/);
 });
 
 test('skip exclusions do not leak to an identical exercise in the next session',()=>{

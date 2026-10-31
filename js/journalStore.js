@@ -93,6 +93,7 @@ function schedule() {
 }
 
 export const journalStorage={
+    keys(){return [...values.keys()];},
     getItem(key){
         if(values.has(key))return values.get(key);
         if(db || localStorage.getItem(MARKER))return null;
