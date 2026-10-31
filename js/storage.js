@@ -1,3 +1,4 @@
+import {separateCoachArchives} from './coachArchive.js';
 import {reconcileTrainingPlan} from '../mycoatch/trainingPlan.js';
 // ==========================================
 // MODULI: storage.js - Persistenza locale, gestione coda offline (Sync Queue), sincronizzazione cloud e UI badge
@@ -27,6 +28,12 @@ export function setCloudRevision(user,revision){
     if(revision===null||revision===undefined)journalStorage.removeItem(revisionKey(user));
     else journalStorage.setItem(revisionKey(user),String(revision));
 }
+const attemptKey=user=>`${CONFIG.STORAGE_KEY}_attempt_${accountId(user)}`;
+const ackKey=user=>`${CONFIG.STORAGE_KEY}_ack_${accountId(user)}`;
+export function getSyncAttempt(user){try{return JSON.parse(journalStorage.getItem(attemptKey(user))||'null');}catch{return null;}}
+export function setSyncAttempt(user,value){if(value)journalStorage.setItem(attemptKey(user),JSON.stringify(value));else journalStorage.removeItem(attemptKey(user));}
+export function clearSyncConflict(user){journalStorage.removeItem(conflictKey(user));}
+export function markCloudAcknowledged(user){journalStorage.setItem(ackKey(user),new Date().toISOString());}
 export function getSyncConflict(user=state.currentUser){
     if(!user || !accountId(user))return null;
     try {return JSON.parse(journalStorage.getItem(conflictKey(user))||'null');}
@@ -125,6 +132,7 @@ const DEFAULT_WORKOUT_DATA = {
 const anonymousQueueSession = crypto.randomUUID();
 let syncDebounceTimer = null;
 let isSyncing = false;
+let retryTimer=null,retryDelay=2000,lastSyncError=null;
 let storageFailure = false;
 let queueUnreadable = false;
 let uploadingActionId=null;
@@ -144,9 +152,12 @@ export async function removeAccountLocalData(user){
     // The global marker may have changed since the offline action was made.
     const queue=getQueue({forWrite:true}).filter(action=>
         !action.ownerId || String(action.ownerId)!==id);
+    for(const key of journalStorage.keys())if(key.startsWith(`${CONFIG.STORAGE_KEY}_coach_archive_${id}_`))journalStorage.removeItem(key);
     journalStorage.removeItem(scopedKey(id));
     journalStorage.removeItem(revisionKey(user));
     journalStorage.removeItem(conflictKey(user));
+    journalStorage.removeItem(attemptKey(user));
+    journalStorage.removeItem(ackKey(user));
     if(queue.length)journalStorage.setItem(QUEUE_KEY,JSON.stringify(queue));else clearQueue();
     if(owner===id){
         journalStorage.removeItem(CONFIG.STORAGE_KEY);
@@ -305,11 +316,14 @@ export async function saveAndSync(data = state.workoutData, actionType = 'UPDATE
     }
     reconcileTrainingPlan(data,{year:state.currentYear,mesoIndex:state.activeMesocycleIndex||0});
     const before=state.workoutData;
+    let undoArchive;
     try{stageJournalUpdates(()=>{
+        undoArchive=separateCoachArchives(data,state.currentUser);
         if(!saveToLocalStorage(data))throw Error('Scrittura del diario non completata.');
         enqueueAction({id:crypto.randomUUID(),type:actionType,payload:data,timestamp:Date.now(),ownerId,
             ...(ownerId?{}:{anonymousSession:anonymousQueueSession})});
     });}catch(error){
+        undoArchive?.();
         state.workoutData=before;storageFailure=true;
         console.error('Salvataggio locale non confermato:',error);updateSyncStatusUI();return false;
     }
@@ -335,63 +349,39 @@ export async function saveAndSync(data = state.workoutData, actionType = 'UPDATE
 export async function processSyncQueue() {
     try {await initializeJournalStorage();await flushJournalStorage();}
     catch {storageFailure=true;updateSyncStatusUI();return;}
-    if (deletingAccount || getSyncConflict() || isSyncing || !state.currentUser || !navigator.onLine) {
-        updateSyncStatusUI();
-        return;
-    }
-
-    let queue;
-    try {queue=getQueue({forWrite:true});}
-    catch {updateSyncStatusUI();return;}
-    if (queue.length === 0) {
-        updateSyncStatusUI();
-        return;
-    }
-
-    try {
-        isSyncing = true;
-        updateSyncStatusUI();
-        
-        queue.sort((a, b) => a.timestamp - b.timestamp);
-
-        for (const action of queue) {
-            // A local journal snapshot belongs only to its original account.
-            // Leave another account's pending edits in the queue for later.
-            const currentId=String(state.currentUser?.id || '');
-            const expectedId=String(action.ownerId ?? '');
-            // An unowned legacy queue entry could belong to any athlete who
-            // previously used this browser. The global local-owner marker may
-            // have been overwritten since it was enqueued. Never attribute
-            // the snapshot to the currently signed-in account by guessing.
-            if(!expectedId){
-                storageFailure=true;
-                console.warn('Coda offline senza proprietario verificabile: invio bloccato, dati conservati.');
-                updateSyncStatusUI();
-                continue;
-            }
-            if(currentId!==expectedId)continue;
+    if(deletingAccount || isSyncing || !state.currentUser || !navigator.onLine){updateSyncStatusUI();return;}
+    const user=state.currentUser;
+    clearTimeout(retryTimer);retryTimer=null;
+    isSyncing=true;lastSyncError=null;updateSyncStatusUI();
+    let failed=false;
+    try{
+        while(navigator.onLine && String(state.currentUser?.id)===String(user.id)){
+            const queue=getQueue({forWrite:true}).sort((a,b)=>a.timestamp-b.timestamp);
+            if(queue.some(a=>!a.ownerId))storageFailure=true;
+            const action=queue.find(a=>String(a.ownerId||'')===String(user.id));
+            if(!action)break;
             uploadingActionId=action.id;
-            const result = await pushDataToSupabase(state.currentUser, action.payload, action.timestamp);
-            if (!result?.ok) {
-                if(result?.conflict){
-                    updateSyncStatusUI();
-                    break; // keep all unacknowledged snapshots for the athlete
-                }
-                throw new Error(`Sincronizzazione fallita per l'azione ${action.id}`);
+            const result=await pushDataToSupabase(user,action.payload,action.timestamp);
+            if(!result?.ok){
+                if(result?.conflict)break;
+                lastSyncError=result?.error||Error('Invio non confermato.');failed=true;break;
             }
-            // Keep edits enqueued during the network request; only delete
-            // entries that were actually acknowledged by the cloud.
             const remaining=getQueue({forWrite:true}).filter(item=>item.id!==action.id);
-            if(remaining.length)journalStorage.setItem(QUEUE_KEY,JSON.stringify(remaining));
-            else clearQueue();
+            if(remaining.length)journalStorage.setItem(QUEUE_KEY,JSON.stringify(remaining));else clearQueue();
+            // Acknowledge before starting another request. A crash always leaves a retryable snapshot.
+            await flushJournalStorage();
+            retryDelay=2000;
         }
-    } catch (error) {
-        console.error("❌ Errore durante la sincronizzazione cloud (i dati restano in coda):", error);
-    } finally {
-        try {await flushJournalStorage();}catch {storageFailure=true;}
-        uploadingActionId=null;
-        isSyncing = false;
-        updateSyncStatusUI(); 
+    }catch(error){lastSyncError=error;failed=true;}
+    finally{
+        try{await flushJournalStorage();}catch{storageFailure=true;}
+        uploadingActionId=null;isSyncing=false;updateSyncStatusUI();
+        if(failed && !storageFailure && !getSyncConflict() && navigator.onLine && String(state.currentUser?.id)===String(user.id)){
+            retryTimer=setTimeout(()=>{
+                if(String(state.currentUser?.id)===String(user.id))processSyncQueue();
+            },retryDelay);
+            retryDelay=Math.min(60000,retryDelay*2);
+        }
     }
 }
 
@@ -411,23 +401,37 @@ export function updateSyncStatusUI() {
     const detail = storageFailure
         ? 'ATTENZIONE: impossibile conservare tutti i dati locali. Scarica subito un backup JSON e verifica lo spazio disponibile.'
         : conflict
-        ? 'Conflitto tra dispositivi: i dati locali sono protetti. Scegli la versione da conservare.'
+        ? 'Versioni del diario da verificare: dati locali conservati, invio sospeso.'
         : offline
         ? 'Offline: dati salvati sul dispositivo in attesa di rete.'
         : pending
             ? 'Modifiche non sincronizzate: non cambiare dispositivo prima della sincronizzazione.'
             : 'Sincronizzato: tutti i dati sono allineati con il cloud.';
     const unverified=!state.currentUser || !getCloudRevision(state.currentUser);
+    const authError=lastSyncError && (lastSyncError.status===401 || /JWT|token.*expir|PGRST30/i.test(lastSyncError.message||lastSyncError.code||''));
+    const ack=state.currentUser && journalStorage.getItem(ackKey(state.currentUser));
+    const statusDetail=authError?'Accesso da verificare: modifiche conservate sul dispositivo. Accedi di nuovo per sincronizzare.':
+        isSyncing?'Dati salvati sul dispositivo. Invio al cloud in corso.':
+        lastSyncError?'Dati salvati sul dispositivo. Invio non confermato: nuovo tentativo automatico.':
+        unverified&&!pending&&!offline?'Dati locali disponibili; conferma cloud non ancora verificata.':detail;
+    const fullDetail=statusDetail+(ack?' Ultima conferma cloud: '+new Date(ack).toLocaleString('it-IT')+'.':'');
     syncBadge.textContent = storageFailure ? '⚠ Salvataggio'
-        : conflict ? '⚠ Conflitto' : offline ? '● Offline'
+        : conflict ? '⚠ Conflitto' : offline ? '● Offline' : authError ? '⚠ Accesso' : isSyncing ? '↻ Invio'
         : pending ? '⚠ In coda' : unverified ? '○ Cloud?' : '✓ Cloud';
-    syncBadge.title = detail;
-    syncBadge.setAttribute('aria-label', detail);
+    syncBadge.title = fullDetail;
+    syncBadge.setAttribute('aria-label', fullDetail);
+    let syncDetail=document.getElementById('sync-status-detail');
+    if(!syncDetail){syncDetail=document.createElement('p');syncDetail.id='sync-status-detail';syncDetail.className='sync-status-detail';syncDetail.setAttribute('role','status');document.querySelector('.app-header-container')?.append(syncDetail);}
+    syncDetail.textContent=fullDetail;
+    syncDetail.hidden=syncBadge.dataset.expanded!=='true'&&!authError&&!lastSyncError;
+    syncBadge.setAttribute('aria-expanded',String(!syncDetail.hidden));
+    syncBadge.setAttribute('aria-controls','sync-status-detail');
+    syncBadge.tabIndex=0;syncBadge.setAttribute('role','button');
     syncBadge.classList.toggle('is-offline', offline);
     syncBadge.classList.toggle('is-pending', pending || Boolean(conflict) || storageFailure);
     renderSyncConflictControls(conflict);
     renderLegacyRecoveryNotice();
-    syncBadge.style.cursor = pending || conflict || storageFailure ? 'pointer' : 'default';
+    syncBadge.style.cursor = 'pointer';
     syncBadge.style.background = '';
     syncBadge.style.color = '';
     syncBadge.style.padding = '';
@@ -449,9 +453,9 @@ function renderSyncConflictControls(conflict) {
     panel.id='sync-conflict-panel';
     panel.className='sync-conflict-panel';
     panel.setAttribute('role','alert');
-    panel.setAttribute('aria-label','Conflitto di sincronizzazione tra dispositivi');
+    panel.setAttribute('aria-label','Versioni del diario da verificare');
     const heading=document.createElement('h3');
-    heading.textContent='⚠️ Diario diverso su due dispositivi';
+    heading.textContent='⚠️ Versioni del diario da verificare';
     const warning=document.createElement('p');
     warning.textContent='La sincronizzazione è sospesa per evitare perdite. Scarica un backup JSON di entrambe le versioni, poi scegli quale conservare. Nessun dato viene unito automaticamente.';
     const actions=document.createElement('div');
@@ -464,7 +468,7 @@ function renderSyncConflictControls(conflict) {
     button('💾 Backup di questo dispositivo',()=>{
         downloadFullBackup(getFromLocalStorageForUser(state.currentUser),{suffix:'locale'});
     });
-    const remoteDownload=button('☁️ Backup della versione cloud',()=>{
+    const remoteDownload=button('☁️ Backup della versione cloud (al rilevamento)',()=>{
         const record=getSyncConflict();
         if(record?.remote)downloadFullBackup(record.remote,{suffix:'cloud'});
     });
@@ -480,7 +484,7 @@ function renderSyncConflictControls(conflict) {
             ? 'Mantenere questo dispositivo sostituendo la versione cloud? Scarica prima entrambi i backup JSON.'
             : 'Usare i dati del cloud sostituendo quelli locali? Prima di continuare verrà scaricato il backup JSON locale.';
         if(!confirm(message))return;
-        if(choice==='cloud')downloadFullBackup(getFromLocalStorageForUser(user),{suffix:'locale'});
+        if(choice==='cloud' && await downloadFullBackup(getFromLocalStorageForUser(user),{suffix:'locale'})===false)return;
         for(const btn of actions.querySelectorAll('button'))btn.disabled=true;
         status.textContent='Verifica versione cloud e sincronizzazione…';
         try{
@@ -536,6 +540,7 @@ function renderWorkoutListAfterConflict(){
 
 // Listener per forzatura manuale sincronizzazione via badge UI
 document.addEventListener('click', (e) => {
+    if(e.target?.id==='sync-status'){e.target.dataset.expanded=String(e.target.dataset.expanded!=='true');updateSyncStatusUI();}
     if (e.target && e.target.id === 'sync-status' && getSyncConflict()) {
         document.getElementById('sync-conflict-panel')?.scrollIntoView({block:'center',behavior:'smooth'});
         return;
@@ -546,13 +551,15 @@ document.addEventListener('click', (e) => {
     }
 });
 
+document.addEventListener('keydown',event=>{if(event.target?.id==='sync-status'&&['Enter',' '].includes(event.key)){event.preventDefault();event.target.click();}});
+
 // Listener di rete
 window.addEventListener('online', () => {
     updateSyncStatusUI();
     if (hasPendingSync()) processSyncQueue();
 });
 
-window.addEventListener('offline', updateSyncStatusUI);
+window.addEventListener('offline',()=>{clearTimeout(retryTimer);retryTimer=null;updateSyncStatusUI();});
 window.addEventListener('homegym-storage-error',()=>{storageFailure=true;updateSyncStatusUI();});
 document.addEventListener('DOMContentLoaded', updateSyncStatusUI);
 

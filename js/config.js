@@ -1,3 +1,4 @@
+import {deadlineFetch} from './syncPrimitives.js';
 // ==========================================
 // MODULI: config.js - Configurazione del client Supabase e costanti globali dell'applicazione
 // ==========================================
@@ -10,9 +11,9 @@ if(typeof createClient!=='function')
 const SUPABASE_URL = 'https://ircdhfsojwqyuqjsmmen.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_i4dAZknYu0hXZYJ_peerpg_JT7bxvYg';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {global:{fetch:deadlineFetch}});
 
 export const CONFIG = {
     STORAGE_KEY: 'workoutApp_data',
-    APP_VERSION: '1.2.9-20261029'
+    APP_VERSION: '1.3.0-20261031'
 };

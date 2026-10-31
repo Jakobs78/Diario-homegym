@@ -3395,6 +3395,10 @@ body.dark-mode .group-title-badge {
 
 
 .app-version{display:block;text-align:center;color:var(--text-muted,#64748b);font-size:.75rem;margin:12px;}
+.app-brand-caption{display:flex;flex-direction:column;min-width:0;}
+.app-release{font-size:.65rem;font-weight:400;line-height:1.35;color:#cbd5e1;-webkit-text-fill-color:#cbd5e1;white-space:normal;max-width:170px;}
+.app-release:empty{display:none;}
+.app-release-update{color:#fde68a;-webkit-text-fill-color:#fde68a;}
 .mycoatch-base-equipment,.equipment-extra-inventory{display:grid;gap:8px;}
 .mycoatch-base-equipment label,.equipment-extra-inventory label{display:flex;gap:8px;flex-wrap:wrap;}
 
@@ -3652,3 +3656,7 @@ body.dark-mode .group-title-badge {
   font-family: inherit; font-size: .88rem; font-weight: 400; line-height: 1.5;
 }
 .ex-card .coach-adaptive-notes strong { font-weight: 700; }
+
+/* Explicit local/cloud state; long status text wraps on small screens. */
+.sync-status-detail{margin:5px 2px 0;font-size:.75rem;line-height:1.4;font-weight:400;overflow-wrap:anywhere;color:var(--text-muted,#64748b);}
+.ex-card .coach-adaptive-notes,.ex-card .coach-adaptive-notes p{font-family:inherit;font-weight:400;}

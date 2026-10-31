@@ -64,23 +64,35 @@ export function readFullBackup(text) {
     }
     return JSON.parse(JSON.stringify(data));
 }
-export function downloadFullBackup(data,{suffix=''}={}) {
+export async function downloadFullBackup(data,{suffix=''}={}) {
     const backup=buildFullBackup(data);
+    try{
+        const mesos=Object.values(backup.data.history.years).flatMap(y=>y.mesocycles||[]).concat((backup.data.archivedMesocycles||[]).map(e=>e.mesocycle));
+        if(mesos.some(m=>m?.coachArchiveRefs?.length)){
+            const {loadCoachArchives}=await import('./coachArchive.js');
+            const {state}=await import('./state.js');
+            backup.coachDiagnostics=await loadCoachArchives(backup.data,state.currentUser);
+        }
+    }catch(error){alert('Backup non completato: '+error.message);return false;}
     const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;a.download='homegym-backup-'+(suffix ? String(suffix).replace(/[^a-z0-9_-]/gi,'')+'-' : '')+backup.exportedAt.slice(0,10)+'.json';
     document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),2000);
+    return true;
 }
 export async function restoreFullBackupFile(file,{state,saveAndSync,renderWorkoutList}){
     if(file.size>25*1024*1024)throw Error('Backup troppo grande (limite 25 MB).');
-    const candidate=readFullBackup(await file.text()); // validate BEFORE touching state
+    const rawBackup=await file.text();
+    const candidate=readFullBackup(rawBackup); // validate BEFORE touching state
     const count=Object.values(candidate.history.years)
         .reduce((s,y)=>s+y.mesocycles.length,0);
     if(!confirm('Ripristinare '+count+' mesocicli dal backup? Il diario attuale sarà sostituito. Scarica una copia di sicurezza prima di proseguire.'))return false;
     // Preserve the prior journal as a recovery download.
-    downloadFullBackup(state.workoutData);
+    if(await downloadFullBackup(state.workoutData)===false)throw Error('Ripristino sospeso: backup precedente non completato.');
+    const diagnostics=JSON.parse(rawBackup).coachDiagnostics;
+    if(diagnostics?.length){const {restoreCoachArchives}=await import('./coachArchive.js');restoreCoachArchives(diagnostics,state.currentUser);}
     const saved=await saveAndSync(candidate,'RESTORE_FULL_BACKUP');
     if(saved===false)throw Error('Ripristino non completato: salvataggio locale o coda di sincronizzazione non riusciti. Conserva entrambi i backup e verifica lo spazio disponibile.');
     state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=1;

@@ -49,9 +49,9 @@ function appliedChange(entry){
     let text;
     if(c.manual)text='Suggerisco '+target+' '+(entry.series.length===1?'per la serie ':'per le serie ')+entry.series.join(', ')+'.';
     else if(c.kind==='reps')text='Ho aggiunto '+(c.delta===1?'una ripetizione':c.delta+' ripetizioni')+' '+where+': '+target+'.';
-    else if(c.kind==='increase')text='Ho aumentato il carico '+where+': '+target+(c.today?'. La serie precedente è risultata più facile del target.':c.basis==='mixed_reps'?'. Le serie oltre il range indicano margine; la stima considera anche la serie meno favorevole.':'. Tutte le serie hanno raggiunto il limite alto rispettando l’RPE.');
+    else if(c.kind==='increase')text='Ho aumentato il carico '+where+': '+target+(c.today?'. La serie precedente indica margine.':c.basis==='mixed_reps'?'. Più serie hanno superato il range rispettando l’RPE.':'. Raggiunto il limite alto in tutte le serie, entro l’RPE previsto.');
     else if(c.kind==='reduce')text='Ho ridotto il carico '+where+': '+target+'. La serie precedente è risultata più difficile del target.';
-    else text='Ho adattato il carico '+where+': '+target+(c.today?' in base alla serie appena confermata.':' usando il massimale stimato dallo storico pertinente.');
+    else text='Ho adattato il carico '+where+': '+target+(c.today?' in base alla serie appena confermata.':' in base al massimale stimato.');
     return {...entry,text:text+(c.warning?' '+c.warning:''),labelSeries:false};
 }
 
@@ -65,7 +65,7 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
     const bodyweight=isBodyweightExercise(ex);
     const add=(text,index=null,severity='info',change=null)=>{
         if(!clean(text))return;
-        const k=key(text)+JSON.stringify(change),entry=groups.get(k)||{text,series:[],severity,...(change?{change}:{})};
+        const k=(change?'':key(text))+JSON.stringify(change),entry=groups.get(k)||{text,series:[],severity,...(change?{change}:{})};
         if(severity==='caution')entry.severity=severity;
         if(index!==null)entry.series.push(index+1);
         groups.set(k,entry);
@@ -103,7 +103,7 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
                 const description=conciseReason(p.reason).replace(warning,'').replace(/Recuper[oi] divers[oi]:[^.]*(?:\.|$)/i,'').trim();
                 if(change||caution||calibration||!recoveryChanged&&!loadProblem)add(target+description,i,caution?'caution':'info',change);
                 if(loadProblem)add(warning,i,'caution');
-                if(recoveryChanged)add('Recupero diverso dalla seduta di riferimento: il carico è valutato per reps e RPE attuali, senza trasferire la precedente progressione.');
+                if(recoveryChanged)add('Recupero diverso: la precedente progressione non viene trasferita automaticamente.');
                 for(const item of p.basedOn||[])if(item?.source&&sourceKey(item.source)!==sourceKey(historySource))references.set(sourceKey(item.source),referenceLabel(item));
             }
             if(p.monitoring && /in calo/i.test(p.monitoring))add(p.monitoring,null,'caution');
