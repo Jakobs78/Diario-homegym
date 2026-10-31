@@ -56,3 +56,9 @@ test('an explicitly intentional weight variation is preserved without another ca
  const next={...source,loggedSets:[{},{}]};const proposals=[0,1].map(i=>workingProposal(next,i,{exposures:[source]}));
  assert.deepEqual(proposals.map(p=>p.weight),[80,95]);assert.ok(proposals.every(p=>p.kind!=='increase_load'));assert.equal(needsSeriesClarification(source),false);
 });
+test('legacy prefill never copies an excluded row into the next series or next exposure',async()=>{
+ const {getSetPrefill}=await import('../js/setPrefill.js');
+ const source={...ex([done(80,8),done(80,4)]),sets:[{},{}],set:'2 set',reps:'6-8'};setReview(source.loggedSets[1],'distraction');
+ const next={...source,loggedSets:[{},{}]};assert.equal(getSetPrefill(next,1,{previousExercise:source}).weight,'70');
+ const current={...source,loggedSets:[source.loggedSets[1],{}]};assert.equal(getSetPrefill(current,1).weight,'70');
+});
