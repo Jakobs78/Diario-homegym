@@ -1,3 +1,4 @@
+import {excludedFromCoaching,painReported} from './setReview.js';
 import {bodyweightMetadata} from './bodyweight.js';
 import {recommendNextSessionReps} from './nextSessionReps.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
@@ -12,6 +13,7 @@ export function recommendNextExposure(previous,upcoming,equipment={},readiness=n
     const planned=ex=>Number(String(ex.kgMin??ex.kgMax??'').replace(',','.'));
     if(planned(previous)>0&&planned(upcoming)>0&&planned(previous)!==planned(upcoming))return null;
     if([previous,upcoming].some(ex=>ex.topset||ex.topsetKg||ex.isDropset||ex.groupType||(ex.sets||[]).some(s=>s.intensityTechnique) || new Set((ex.sets||[]).map(s=>s.targetKg).filter(v=>v!==undefined&&v!=='')).size>1))return null;
+    if(painReported(previous)||(previous.loggedSets||[]).some(excludedFromCoaching))return null;
     const sets=(previous.loggedSets||[]).filter(s=>!isWarmupSet(s));
     if(sets.length<plannedWorkSetCount(previous)||!sets.length||sets.some(s=>!validPerformedSet(previous,s)||s.intensityTechnique||s.dropSegments?.length))return null;
     const station=equipment.stationConfigurations?.machine;

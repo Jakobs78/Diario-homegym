@@ -1,3 +1,4 @@
+import {excludedFromCoaching,painReported} from './setReview.js';
 import {isBodyweightExercise} from './bodyweight.js';
 import {isExerciseSkipped,sessionWorkCounts} from '../js/sessionSkip.js';
 import {specialSeries} from './seriesTechnique.js';
@@ -133,7 +134,7 @@ export function validateCompletedSet(values, exercise = {}, set = {}) {
 }
 
 function normalizedConfirmedSet(set, exercise) {
-    if (!isConfirmed(set) || isWarmup(set)) return null;
+    if (!isConfirmed(set) || isWarmup(set)||excludedFromCoaching(set)) return null;
     const parsed = validateCompletedSet(set, exercise, set);
     if (!parsed.ok) return null;
     return {
@@ -149,7 +150,7 @@ function lastCompletedIndex(exercise) {
     const sets = exercise?.loggedSets || [];
     const confirmed = sets.map((s, i) => ({
         s, i, timestamp: Date.parse(s?.completedAt ?? '') || 0
-    })).filter(({ s }) => isConfirmed(s) && !isWarmup(s));
+    })).filter(({ s }) => isConfirmed(s) && !isWarmup(s)&&!excludedFromCoaching(s));
     if (!confirmed.length) return -1;
     confirmed.sort((a, b) => a.timestamp - b.timestamp || a.i - b.i);
     return confirmed.at(-1).i;
@@ -161,6 +162,7 @@ function lastCompletedIndex(exercise) {
  */
 export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = null,equipmentSettings={} } = {}) {
     if(isWarmupExercise(exercise)||isExerciseSkipped(exercise))return null;
+    if(painReported(exercise))readiness={...readiness,allowIncrease:false,reasons:[...(readiness?.reasons||[]),'una serie è stata segnalata per dolore']};
     const sets = Array.isArray(exercise?.loggedSets) ? exercise.loggedSets : [];
     const lastIndex = lastCompletedIndex(exercise);
     if (lastIndex < 0) return null;
@@ -440,6 +442,7 @@ export function buildLiveSessionSnapshot(day, { now = Date.now(), history = null
             total++;
             if (!isConfirmed(set)) return;
             checked++;
+            if(excludedFromCoaching(set)){const performed=validateCompletedSet(set,exercise,set);if(performed.ok){valid++;if(!performed.technique)tonnage+=performed.weight*performed.numericReps;}return;}
             const result = normalizedConfirmedSet(set, exercise);
             if (!result) {
                 warnedInvalid = true;

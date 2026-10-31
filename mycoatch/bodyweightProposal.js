@@ -1,3 +1,4 @@
+import {coachingReviewSignature} from './setReview.js';
 import {bodyweightMetadata} from './bodyweight.js';
 import {setPrescription,observed,blockKey,warm} from './setPrescription.js';
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
@@ -32,5 +33,5 @@ export function bodyweightWorkingProposal(ex,index,{evidence=[],readiness=null,a
     }
     if(readiness?.level==='stop')return {weight:null,reps,rpe:p.rpe?.max??null,kind:'pain_caution',reason:'Dolore segnalato: rivaluta il movimento prima di proseguire.',loadMode:'bodyweight',basedOn:[]};
     return {weight:kg,reps,rpe:p.rpe?.max??null,kind,reason,loadMode:'bodyweight',range:null,verified:true,stableE1rm:null,monitoring:null,
-        basedOn:evidence.map(item=>({source:item.source??null,date:item.date??null,series:item.match.index,weight:item.match.kg,reps:item.match.reps,rpe:item.match.rpe,seriesEvidence:item.sets.map(s=>({index:s.index,kg:s.kg,reps:s.reps,rpe:s.rpe}))}))};
+        basedOn:evidence.map(item=>({reviewSignature:coachingReviewSignature(item.exercise),source:item.source??null,date:item.date??null,series:item.match.index,weight:item.match.kg,reps:item.match.reps,rpe:item.match.rpe,seriesEvidence:item.sets.map(s=>({index:s.index,kg:s.kg,reps:s.reps,rpe:s.rpe}))}))};
 }

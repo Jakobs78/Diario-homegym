@@ -1,3 +1,4 @@
+import {excludedFromCoaching,painReported} from './setReview.js';
 import {isBodyweightExercise} from './bodyweight.js';
 import {highRepProgression} from './highRepProgression.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
@@ -9,7 +10,7 @@ const special=ex=>Boolean(isExerciseSkipped(ex)||ex?.isDropset||ex?.groupType||e
     (ex?.sets||[]).some(s=>s?.intensityTechnique||s?.isTopset));
 /** Strict all-set gate. One extra repetition per entire exposure at most. */
 export function recommendNextSessionReps(previous,upcoming){
-    if(!previous||!upcoming||previous.name!==upcoming.name||special(previous)||special(upcoming))return null;
+    if(painReported(previous)||(previous?.loggedSets||[]).some(excludedFromCoaching)||!previous||!upcoming||previous.name!==upcoming.name||special(previous)||special(upcoming))return null;
     const a=range(previous),b=range(upcoming),target=number(previous.targetRpe??previous.rpeTarget??previous.rpe);
     if(!a||!b||a.min!==b.min||a.max!==b.max||target===null||target<6||target>10||
         number(upcoming.targetRpe??upcoming.rpeTarget??upcoming.rpe)!==target)return null;

@@ -1,3 +1,4 @@
+import {excludedFromCoaching} from './setReview.js';
 import {isBodyweightExercise} from './bodyweight.js';
 import { HIGH_REP_EXERCISES } from './prescriptionPolicy.js';
 import { isWarmupExercise, isWarmupSet } from '../js/workoutSemantics.js';
@@ -19,7 +20,7 @@ function actualSets(exercise) {
     const source = Array.isArray(exercise?.loggedSets) ? exercise.loggedSets :
         (Array.isArray(exercise?.sets) ? exercise.sets : []);
     return source.flatMap(set => {
-        if ((set?.isLocked !== true && set?.completed !== true) || isWarmupSet(set)) return [];
+        if ((set?.isLocked !== true && set?.completed !== true) || isWarmupSet(set)||excludedFromCoaching(set)) return [];
         const weight = numericValue(set.weight ?? set.actualKg);
         const reps = numericValue(set.reps ?? set.actualReps);
         const bodyweight = isBodyweightExercise(exercise);

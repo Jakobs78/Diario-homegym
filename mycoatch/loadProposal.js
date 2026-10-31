@@ -1,3 +1,4 @@
+import {excludedFromCoaching,painReported} from './setReview.js';
 import {isBodyweightExercise} from './bodyweight.js';
 import {setPrescription,blockKey} from './setPrescription.js';
 import {highRepProgression,HIGH_REP_POLICY} from './highRepProgression.js';
@@ -100,7 +101,7 @@ export function resolveNearbyLoad(ex, requested, settings={}, {min=0.01,max=700,
 export function recommendNextSessionLoad(ex,{
     readiness=null,equipmentSettings=null
 }={}) {
-    if(isBodyweightExercise(ex))return null;
+    if(isBodyweightExercise(ex)||painReported(ex)||(ex?.loggedSets||[]).some(excludedFromCoaching))return null;
     if(!ex || ex.isWarmup || ex.isExcluded || ex.is_excluded ||
         ex.isDeload || ex.isDeloadWeek || readiness?.allowIncrease===false ||
         readiness?.level==='stop')return null;

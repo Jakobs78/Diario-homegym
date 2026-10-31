@@ -1,9 +1,12 @@
-const CACHE_NAME = 'workout-app-v82-reliable-sync-20261031';
+const CACHE_NAME = 'workout-app-v83-series-review-20261031';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
   '/js/syncPrimitives.js',
   '/js/coachArchive.js',
+  '/mycoatch/setReview.js',
+  '/mycoatch/seriesClarification.js',
+  '/js/seriesReviewUI.js',
   '/js/sessionSkip.js',
   '/js/sessionSkipUI.js',
   '/mycoatch/seriesTechnique.js',

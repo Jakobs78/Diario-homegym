@@ -1,3 +1,4 @@
+import {excludedFromCoaching} from './setReview.js';
 import {isBodyweightExercise} from './bodyweight.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {specialSeries} from './seriesTechnique.js';
@@ -44,10 +45,10 @@ function inspectExercise(exercise, context) {
         const bodyweight = isBodyweightExercise(exercise);
         if (kg === null || kg < 0 || (kg === 0 && !bodyweight) || reps === null ||
             !Number.isInteger(reps) || reps <= 0 || reps > 100) return [];
-        const rpe = parseRpe(set.rpe);
+        const rpe = excludedFromCoaching(set)?null:parseRpe(set.rpe);
         const special = specialSeries(exercise,index,set);
         return [{
-            kg, reps, rpe, special,completedAt:set.performedAt||set.completedAt,
+            kg, reps, rpe, special,coachingExcluded:excludedFromCoaching(set),completedAt:set.performedAt||set.completedAt,
             e1rm: !bodyweight && !HIGH_REP_EXERCISES[catalog.get(canonicalExerciseKey(exercise.name))?.name] && rpe !== null && !special ? estimateE1rm(kg, reps, rpe) : null
         }];
     });
@@ -79,7 +80,7 @@ function inspectExercise(exercise, context) {
     return {
         ...context,
         exposureRole:exercise.exposureRole||exercise.repIntent||null,
-        workingReps:valid.map(set=>set.reps),
+        workingReps:valid.filter(set=>!set.coachingExcluded).map(set=>set.reps),
         weekId:context.calendarWeeks && calendarComparable ? calendarIds[0] : context.weekId,
         key,
         name: canonicalExerciseName(exercise.name),
@@ -101,7 +102,7 @@ function inspectExercise(exercise, context) {
         // The top set is NOT a safe default for all back-off sets.
         workingKg: Math.min(...valid.map(set => set.kg)),
         uniformWeight: valid.every(set => set.kg === valid[0].kg),
-        allStraightSets: valid.every(set => !set.special),
+        allStraightSets: valid.every(set => !set.special&&!set.coachingExcluded),
         minWorkingReps: Math.min(...valid.map(set => set.reps)),
         allRepsInRange: min !== undefined && max !== undefined &&
             valid.length === plannedSets &&

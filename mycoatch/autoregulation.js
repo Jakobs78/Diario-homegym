@@ -1,3 +1,4 @@
+import {excludedFromCoaching} from './setReview.js';
 import {isBodyweightExercise} from './bodyweight.js';
 /**
  * Compatibilità dell'API MyCoatch di autoregolazione.
@@ -84,7 +85,7 @@ function inspectLegacyExercise(exercise) {
         ? exercise.loggedSets : (Array.isArray(exercise.sets) ? exercise.sets : []);
     if (!records.length) return null;
     const valid = records.flatMap(set => {
-        if (!confirmed(set) || set?.isWarmup || set?.warmup ||
+        if (excludedFromCoaching(set)||!confirmed(set) || set?.isWarmup || set?.warmup ||
             set?.is_warmup) return [];
         const weight = numeric(set?.weight ?? set?.actualKg);
         const reps = positiveReps(set?.reps ?? set?.actualReps);
