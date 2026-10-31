@@ -1,3 +1,4 @@
+import {reviewSummary} from '../mycoatch/setReview.js';
 import {isExerciseSkipped} from './sessionSkip.js';
 /* global QRCode */
 /**
@@ -566,7 +567,7 @@ if (ex.notes || prevSessionLines.length > 0) {
 
 
         // 7. Box Note Atleta
-        const athleteNotes = (isExerciseSkipped(ex)?'SALTATO IN QUESTA SEDUTA · ':'')+(ex.userNotes || '');
+        const athleteNotes = (isExerciseSkipped(ex)?'SALTATO IN QUESTA SEDUTA · ':'')+[ex.userNotes||'',...reviewSummary(ex)].filter(Boolean).join(' | ');
         if (cursorY + 10 > 270) {
             doc.addPage();
             cursorY = 14;

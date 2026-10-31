@@ -3660,3 +3660,12 @@ body.dark-mode .group-title-badge {
 /* Explicit local/cloud state; long status text wraps on small screens. */
 .sync-status-detail{margin:5px 2px 0;font-size:.75rem;line-height:1.4;font-weight:400;overflow-wrap:anywhere;color:var(--text-muted,#64748b);}
 .ex-card .coach-adaptive-notes,.ex-card .coach-adaptive-notes p{font-family:inherit;font-weight:400;}
+
+.series-review,.series-review-followup{margin-top:12px;padding:10px;border:1px solid var(--workout-card-border,#9aaec4);border-radius:10px;font-size:.85rem;font-weight:400;background:var(--workout-neutral-bg,#f7f9fc);}
+.series-review summary{cursor:pointer;font-weight:600;}
+.series-review label,.series-review-followup label{display:grid;gap:5px;margin-top:10px;}
+.series-review select,.series-review input,.series-review-followup select{width:100%;min-width:0;max-width:100%;font:inherit;margin-top:4px;}
+.series-review-question{border-left:3px solid #d97706;padding-left:8px;}
+.history-series-review{display:block;font-size:.75em;font-weight:400;}
+
+.series-review button,.series-review-followup button{min-height:36px;padding:6px 9px;margin:8px 4px 0 0;border:1px solid var(--workout-card-border,#9aaec4);border-radius:7px;font:inherit;white-space:normal;}

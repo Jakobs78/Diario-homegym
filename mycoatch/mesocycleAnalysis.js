@@ -1,3 +1,4 @@
+import {excludedFromCoaching} from './setReview.js';
 /** Read-only block review. Tolerances are software rules, not biological cutoffs. */
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {isWarmupExercise,isWarmupSet,plannedWorkSetCount} from '../js/workoutSemantics.js';
@@ -48,6 +49,7 @@ function monday(stamp){
 function sample(ex,day,week,rows){
     if(isExerciseSkipped(ex)||week.isDeloadWeek||week.isDeload||!rows.planned||rows.valid.length!==rows.planned||rows.invalid.length)return null;
     const valid=rows.valid;
+    if(valid.some(r=>excludedFromCoaching(r.set)))return null;
     if(valid.some(r=>r.technique||specialSeries(ex,r.index,r.set)))return null;
     const dates=valid.map(r=>performanceTimestamp(r.set,day));
     const calendar=dates.map(monday);

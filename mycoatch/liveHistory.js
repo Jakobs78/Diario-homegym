@@ -1,3 +1,4 @@
+import {excludedFromCoaching} from './setReview.js';
 import {isBodyweightExercise} from './bodyweight.js';
 import {specialSeries} from './seriesTechnique.js';
 import {validPerformedSet} from '../js/workoutSemantics.js';
@@ -19,7 +20,7 @@ function confirmed(set) {
 
 function simpleValidSets(exercise) {
     return (exercise?.loggedSets || []).flatMap((set,index) => {
-        if (!confirmed(set)) return [];
+        if (!confirmed(set)||excludedFromCoaching(set)) return [];
         const kg = numberOrNull(set.weight);
         const reps = numberOrNull(set.reps);
         const rpe = numberOrNull(set.rpe);

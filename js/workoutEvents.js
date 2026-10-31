@@ -1,3 +1,5 @@
+import {needsSeriesClarification} from '../mycoatch/seriesClarification.js';
+import {bindSeriesReviews} from './seriesReviewUI.js';
 import {isExerciseSkipped,sessionWorkCounts} from './sessionSkip.js';
 import {bindSessionSkip} from './sessionSkipUI.js';
 import {setPrescription} from '../mycoatch/setPrescription.js';
@@ -37,6 +39,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
     const workoutListContainer = document.getElementById('workout-list-container');
     if (!workoutListContainer) return;
     bindSessionSkip(workoutListContainer,currentDay,isPastMeso,renderCallback);
+    bindSeriesReviews(workoutListContainer,currentDay,isPastMeso,renderCallback);
     bindDropFields(workoutListContainer,currentDay,{readOnly:isPastMeso,save:()=>saveAndSync(state.workoutData),render:renderCallback});
 
     // Only the editable perceived RPE changes. Keep MyCoatch's prescription unchanged.
@@ -365,12 +368,13 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             updateSessionHeaderUI(currentDay, renderCallback, isPastMeso);
             updateLiveCoachPanel(currentDay, { readOnly: isPastMeso });
             saveAndSync(state.workoutData);
-            if(isChecked)advanceExercise(currentDay,exIdx);
+            if(isChecked&&!needsSeriesClarification(ex))advanceExercise(currentDay,exIdx);
             if (typeof renderCallback === 'function') renderCallback();
+            if(isChecked&&needsSeriesClarification(ex))workoutListContainer.querySelector('.ex-card[data-ex="'+exIdx+'"] .series-review')?.scrollIntoView?.({block:'center',behavior:'smooth'});
             // Dopo il render aggiorna i consigli inline; a fine seduta apre il report.
             // I popup restano riservati agli errori di registrazione.
             if (isChecked && !isPastMeso) {
-                showLiveCoachToast(currentDay, { revealSummary:!wasSessionFinished&&currentDay.completed });
+                showLiveCoachToast(currentDay, { revealSummary:!wasSessionFinished&&currentDay.completed&&!needsSeriesClarification(ex) });
             }
         });
     });

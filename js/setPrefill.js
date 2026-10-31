@@ -1,3 +1,4 @@
+import {excludedFromCoaching} from '../mycoatch/setReview.js';
 import {bodyweightMetadata} from '../mycoatch/bodyweight.js';
 import {isExerciseSkipped} from './sessionSkip.js';
 import {specialSeries,hasDropPrescription} from '../mycoatch/seriesTechnique.js';
@@ -147,7 +148,7 @@ export function getSetPrefill(exercise, index, { previousExercise = null, crossE
     let previous = null;
     let previousIndex = -1;
     for (let i = index - 1; i >= 0; i--) {
-        if (confirmed(logs[i]) && !logs[i].isWarmup && !logs[i].warmup &&
+        if (confirmed(logs[i]) && !excludedFromCoaching(logs[i]) && !logs[i].isWarmup && !logs[i].warmup &&
             !logs[i].is_warmup && weightFor(logs[i],exercise) && repsFor(logs[i])) {
             previous = logs[i];
             previousIndex = i;
@@ -191,7 +192,7 @@ export function getSetPrefill(exercise, index, { previousExercise = null, crossE
         String(exercise?.reps??exercise?.targetReps??'').trim()===
             String(previousExercise?.reps??previousExercise?.targetReps??'').trim();
     const fromLastWeek = !exercise?.coachWeeklyLoadReview && !sameSession && priorSet &&
-        confirmed(priorSet) && !priorSet.isWarmup && !priorSet.warmup &&
+        confirmed(priorSet) && !excludedFromCoaching(priorSet) && !priorSet.isWarmup && !priorSet.warmup &&
         !priorSet.is_warmup && comparablePlan && priorComparable &&
         weightFor(priorSet,exercise) && repsFor(priorSet) &&
         repsCompatible(repsFor(priorSet), exercise,index);

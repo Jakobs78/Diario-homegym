@@ -88,7 +88,9 @@ export function repeatCompletedSessionPreservingHistory(day, { capturedAt = new 
 
     for (const ex of day.exercises) {
         delete ex.sessionSkip;
+        delete ex.coachClarification;delete ex._reviewDeferred;delete ex._reviewOpen;
         for (const [index, set] of (ex.loggedSets || []).entries()) {
+            delete set.coachReview;
             set.isLocked = false;
             set.completed = false;
             set.weight = '';
@@ -110,7 +112,7 @@ export function repeatCompletedSessionPreservingHistory(day, { capturedAt = new 
                 legacy.weight='';
                 legacy.reps='';
                 legacy.rpe='';
-                delete legacy.completedAt;
+                delete legacy.completedAt;delete legacy.coachReview;
                 delete legacy.dropSegments;delete legacy.dropSkipped;
             }
         }

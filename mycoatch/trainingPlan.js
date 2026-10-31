@@ -1,3 +1,4 @@
+import {coachingReviewSignature} from './setReview.js';
 import {isBodyweightExercise} from './bodyweight.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {trainingExposures} from './trainingHistory.js';
@@ -35,7 +36,7 @@ export function reconcileTrainingPlan(data,{year,mesoIndex,now=new Date().toISOS
                 const previous=ex.coachSetProposals?.[index];
                 const previousOrigin=previous?.basedOn?.[0];
                 const previousSource=previousOrigin&&exposures.find(item=>same(item.source,previousOrigin.source));
-                const unchangedSource=previousSource&&same(previousOrigin.seriesEvidence,
+                const unchangedSource=previousSource&&previousOrigin.reviewSignature===coachingReviewSignature(previousSource.exercise)&&same(previousOrigin.seriesEvidence,
                     relatedSets(previousSource.exercise,setPrescription(ex,index),index).map(s=>({index:s.index,kg:s.kg,reps:s.reps,rpe:s.rpe})));
                 const transferred=previous?.kind==='increase_load'||previous?.kind==='build_reps';
                 if(started(day)&&transferred&&unchangedSource){
@@ -50,7 +51,7 @@ export function reconcileTrainingPlan(data,{year,mesoIndex,now=new Date().toISOS
                 const keepStarted=!isBodyweightExercise(ex)&&started(day)&&transferred&&unchangedSource&&
                     !(ex.loggedSets||[]).some(confirmed)&&readiness.level!=='stop'&&readiness.allowIncrease!==false;
                 const proposal=keepStarted?clone(previous):workingProposal(ex,index,{exposures,equipment,readiness,allowProgression:eligible||isBodyweightExercise(ex)&&started(day)&&transferred&&unchangedSource});
-                if(proposal&&sourceKey&&eligible)reservations.set(sourceKey,targetKey);
+                if(proposal&&sourceKey&&eligible&&['increase_load','build_reps'].includes(proposal.kind))reservations.set(sourceKey,targetKey);
                 if(proposal){
                     proposal.destination={...context,setIndex:index};
                     proposal.manualFields=['weight','reps','rpe'].filter(field=>fieldHasValue(log?.[field]));
