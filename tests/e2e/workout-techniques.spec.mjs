@@ -608,7 +608,7 @@ test('alte reps: carichi e reps aggiornati nella successiva esposizione, senza m
   state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=2;state.activeDay=1;renderWorkoutList();
  });
  for(let i=0;i<3;i++){
-  await expect(page.locator('.set-kg').nth(i)).toHaveValue('10.5');await expect(page.locator('.set-reps').nth(i)).toHaveValue('15');
+  await expect(page.locator('.set-kg').nth(i)).toHaveValue('11');await expect(page.locator('.set-reps').nth(i)).toHaveValue('15');
  }
  await expect(page.locator('.coach-adaptive-notes')).toContainText('Ho aumentato il carico');
  await expect(page.locator('.coach-adaptive-notes')).not.toContainText('usando il massimale');
@@ -706,4 +706,62 @@ test('walkout a corpo libero: storico 1kg preservato, proposte 0kg e consigli or
  const result=await page.evaluate(async()=>{const {state}=await import('/js/state.js');const m=state.workoutData.history.years[2026].mesocycles[0];return {old:JSON.stringify(m.weeks[0].days[0].exercises[0]),day:m.weeks[1].days[0]};});
  expect(result.old).toBe(original);expect(result.day.completed).toBe(true);expect(result.day.exercises[0].loggedSets.map(s=>Number(s.weight))).toEqual([0,0]);
  expect(monitor.pageErrors).toEqual([]);expect(monitor.remoteRequests).toEqual([]);
+});
+
+for(const type of ['superset','triset'])test('passaggio '+type+': popup 3 secondi, primo esercizio e timer sempre visibile',async({page})=>{
+ const monitor=await openIsolatedApp(page);page.on('dialog',d=>d.accept());
+ await page.setViewportSize({width:390,height:844});await page.emulateMedia({reducedMotion:'reduce'});
+ await page.evaluate(async type=>{
+  const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');
+  const count=type==='triset'?3:2;
+  const names=['Curl ai Cavi Bassi','Pushdown ai Cavi','Alzate Laterali con Manubri'];
+  const exercises=names.slice(0,count).map(name=>({name,groupType:type,groupBase:'A',reps:'10-12',rpe:8,targetRpe:8,recupero:'90s',sets:[{},{}],loggedSets:[{},{}]}));
+  state.workoutData={athlete:{},history:{years:{2026:{mesocycles:[{weeks:[{weekNumber:1,days:[{dayNumber:1,exercises}]}]}]}}}};
+  state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=1;renderWorkoutList();
+  window.__roundScrolls=[];const original=Element.prototype.scrollIntoView;
+  Element.prototype.scrollIntoView=function(options){if(this.matches('.ex-card'))window.__roundScrolls.push(this.dataset.ex);return original.call(this,options);};
+ },type);
+ await page.clock.install({time:new Date('2026-11-02T12:00:00Z')});await page.clock.pauseAt(new Date('2026-11-02T12:01:00Z'));
+ const count=type==='triset'?3:2;
+ // Completing a partial round never announces another round.
+ for(let i=0;i<count-1;i++){await confirmSet(page,i);await expect(page.locator('.circuit-round-popup')).toHaveCount(0);}
+ await confirmSet(page,count-1);
+ await expect(page.locator('.circuit-round-popup')).toHaveText('Si riparte col giro 2');
+ await expect(page.locator('#floating-timer')).toHaveClass(/active/);
+ await page.clock.runFor(2999);
+ await expect(page.locator('.circuit-round-popup')).toBeVisible();
+ expect(await page.evaluate(()=>window.__roundScrolls)).toEqual([]);
+ const layers=await page.evaluate(()=>({timer:+getComputedStyle(document.querySelector('#floating-timer')).zIndex,popup:+getComputedStyle(document.querySelector('.circuit-round-popup')).zIndex}));
+ expect(layers.timer).toBeGreaterThan(layers.popup);
+ await page.clock.runFor(1);await expect(page.locator('.circuit-round-popup')).toHaveCount(0);
+ expect(await page.evaluate(()=>window.__roundScrolls)).toEqual(['0']);
+ await expect(page.locator('#floating-timer')).toBeInViewport();
+ expect(await page.locator('#timer-display').textContent()).toContain('1:27');
+ for(let i=0;i<count;i++)await confirmSet(page,i,1);
+ await expect(page.locator('.circuit-round-popup')).toHaveCount(0);
+ await expect(page.locator('#mycoatch-live-disclosure')).toHaveAttribute('open','');
+ await expect(page.locator('.mycoatch-session-summary')).toBeVisible();
+ expect(await page.locator('#mycoatch-live-disclosure').evaluate(el=>getComputedStyle(el).backgroundColor)).not.toBe(await page.locator('.mycoatch-session-exercise').first().evaluate(el=>getComputedStyle(el).backgroundColor));
+ await page.screenshot({path:'../../outputs/mycoatch-feedback-'+type+'-light.png',fullPage:true});
+ await page.evaluate(()=>document.documentElement.setAttribute('data-theme','dark'));
+ await page.screenshot({path:'../../outputs/mycoatch-feedback-'+type+'-dark.png',fullPage:true});
+ expect(monitor.pageErrors).toEqual([]);expect(monitor.remoteRequests).toEqual([]);
+});
+
+test('passaggio giro annullato se si riapre una serie o si cambia seduta',async({page})=>{
+ await setupPlan(page,'group');await page.clock.install({time:new Date('2026-11-02T12:00:00Z')});await page.clock.pauseAt(new Date('2026-11-02T12:01:00Z'));
+ for(let i=0;i<3;i++)await confirmSet(page,i);
+ await expect(page.locator('.circuit-round-popup')).toHaveCount(1);
+ await page.locator('.circuit-rounds button').first().click();
+ await expect(page.locator('.circuit-round-popup')).toHaveCount(0);
+ await page.locator('.set-lock-check[data-ex="2"][data-set="0"]').uncheck();
+ await page.clock.runFor(3000);await expect(page.locator('.circuit-round-popup')).toHaveCount(0);
+ await confirmSet(page,2);await expect(page.locator('.circuit-round-popup')).toHaveCount(1);
+ await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');const {renderWorkoutList}=await import('/js/ui.js');
+  state.workoutData.history.years[state.currentYear].mesocycles[0].weeks[0].days.push({dayNumber:2,exercises:[{name:'Calf Raise',reps:'10-12',sets:[{}],loggedSets:[{}]}]});
+  state.activeDay=2;renderWorkoutList();
+ });
+ await expect(page.locator('.circuit-round-popup')).toHaveCount(0);
+ await page.clock.runFor(3000);await expect(page.locator('.ex-name').first()).toContainText('Calf Raise');
 });

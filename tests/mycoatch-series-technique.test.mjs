@@ -74,7 +74,7 @@ test('equivalent recovery units allow progression; actual changes explain adapta
  assert.equal(recoveryKey({recupero:'2,5 minuti'}),'150');assert.notEqual(recoveryKey({}),recoveryKey({recupero:'0s'}));
  const old=lift({recupero:'120s',loggedSets:[done({reps:12}),done({reps:12}),done({reps:12})]});
  let p=workingProposal(lift({recupero:'2 min'}),0,{exposures:[old]});assert.equal(p.kind,'increase_load');assert.doesNotMatch(p.reason,/Recupero diverso/);
- p=workingProposal(lift({recupero:'90s',targetRpe:9}),0,{exposures:[old]});assert.equal(p.kind,'estimated_history');assert.match(p.reason,/target attuali/);
+ p=workingProposal(lift({recupero:'90s',targetRpe:9}),0,{exposures:[old]});assert.equal(p.kind,'estimated_history');assert.match(p.reason,/Recupero precedente 120 s, attuale 90 s/);
 });
 test('all historical exposures used in the estimate are visible, without duplicating the already shown one',()=>{
  const source=n=>({year:2026,mesoIndex:0,weekNumber:n,dayIndex:0,exerciseIndex:0});

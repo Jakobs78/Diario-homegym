@@ -198,7 +198,6 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                 <td class="td-input td-kg-container">
                     <div class="kg-input-wrapper flex-column flex-center">
                         <input type="text" inputmode="decimal" autocomplete="off" class="set-input set-kg ios-no-zoom ${kgClass} ${isUnsavedKg ? 'text-placeholder-active' : ''}" data-ex="${exIdx}" data-set="${setIdx}" value="${escapeHtml(displayWeight)}" placeholder="${escapeHtml(targetWeightDefault)}" ${isDisabled ? 'disabled' : ''}>
-                        ${suggested.range?`<small class="coach-load-range" title="Intervallo operativo stimato, da verificare durante la seduta">${escapeHtml(suggested.range.min)}–${escapeHtml(suggested.range.max)} kg</small>`:''}
                         ${trendHtml}
                     </div>
                 </td>

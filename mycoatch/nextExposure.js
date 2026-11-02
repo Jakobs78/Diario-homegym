@@ -1,3 +1,4 @@
+import {recoveryContext,recoveryKey} from './recoveryContext.js';
 import {excludedFromCoaching,painReported} from './setReview.js';
 import {bodyweightMetadata} from './bodyweight.js';
 import {recommendNextSessionReps} from './nextSessionReps.js';
@@ -24,12 +25,11 @@ export function recommendNextExposure(previous,upcoming,equipment={},readiness=n
     const reps=sets.map(s=>Number(s.reps));
     const range=String(upcoming.reps).match(/^(\d+)(?:[-–](\d+))?$/);
     if(!range||reps.some(n=>!Number.isInteger(n)||n<Number(range[1])||n>Number(range[2]||range[1])+(Number(range[2]||range[1])>12?2:0)))return null;
-    const priorRest=String(previous.restTime??previous.rest??previous.recupero??'');
-    const nextRest=String(upcoming.restTime??upcoming.rest??upcoming.recupero??'');
-    const restChanged=priorRest!==nextRest;
+    const restContext=recoveryContext(previous,upcoming);
+    const restChanged=recoveryKey(previous)!==recoveryKey(upcoming);
     if(body){
         if(readiness?.level==='stop')return {weight:null,suppressLoad:true,kind:'maintain',reason:'Dolore segnalato: rivaluta il movimento prima di proseguire.'};
-        const progression=readiness?.allowIncrease!==false&&!restChanged?recommendNextSessionReps(previous,upcoming):null;
+        const progression=readiness?.allowIncrease!==false&&restContext.allowProgression?recommendNextSessionReps(previous,upcoming):null;
         return {weight:body.unloaded?0:weights[0],reps:progression?.reps??reps,kind:progression?.kind==='build_reps'?'build_reps':'maintain',reason:progression?.kind==='build_reps'?progression.reason:'Riferimento delle serie a corpo libero: carico esterno invariato.',restChanged};
     }
     const decision=recommendNextSessionLoad(previous,{equipmentSettings:equipment,readiness});
@@ -37,9 +37,9 @@ export function recommendNextExposure(previous,upcoming,equipment={},readiness=n
         reason:'Riferimento aggiornato dalle serie allenanti confermate della seduta precedente. Verifica oggi tecnica, recupero e RPE; non è un aumento obbligatorio.',
         basedOn:sets.map(s=>({weight:s.weight,reps:s.reps,rpe:s.rpe??null,performedAt:s.performedAt||s.completedAt||null})),confidence:'provisional'};
     if(readiness?.level==='stop')return {...result,weight:null,suppressLoad:true,reason:'Dolore segnalato: rivaluta il movimento prima di proporre un carico.'};
-    if(restChanged)result.reason+=' Recuperi diversi: nessun incremento trasferito automaticamente.';
-    if(!restChanged&&decision?.nextReps)return {...result,reps:decision.nextReps,kind:'build_reps',reason:decision.reason};
-    if(!restChanged&&decision?.suggestedWeight&&(decision.verified||decision.evidence==='high_reps')){result.weight=decision.suggestedWeight;result.kind='increase_load';result.reason=decision.reason;result.reps=reps.map(()=>decision.repGoal||Number(range[1]));}
+    if(restContext.message)result.reason+=' '+restContext.message;
+    if(restContext.allowProgression&&decision?.nextReps)return {...result,reps:decision.nextReps,kind:'build_reps',reason:decision.reason+(restContext.message?' '+restContext.message:'')};
+    if(restContext.allowProgression&&decision?.suggestedWeight&&(decision.verified||decision.evidence==='high_reps')){result.weight=decision.suggestedWeight;result.kind='increase_load';result.reason=decision.reason+(restContext.message?' '+restContext.message:'');result.reps=reps.map(()=>decision.repGoal||Number(range[1]));}
     const available=resolveNearbyLoad(upcoming,result.weight,equipment,{min:result.weight,max:result.weight});
     if(available.verified&&available.weight===null)return {...result,weight:null,suppressLoad:true,reason:'La prestazione precedente resta visibile, ma il suo carico non è componibile con l’attrezzatura attuale: calibra il nuovo carico.'};
     return result;

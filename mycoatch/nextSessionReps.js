@@ -1,3 +1,5 @@
+import {nextRepTargets} from './repProgression.js';
+import {recoveryContext} from './recoveryContext.js';
 import {excludedFromCoaching,painReported} from './setReview.js';
 import {isBodyweightExercise} from './bodyweight.js';
 import {highRepProgression} from './highRepProgression.js';
@@ -8,7 +10,7 @@ const range=ex=>{const m=String(ex?.reps??ex?.targetReps??'').trim().match(/^(\d
 const confirmed=s=>s?.isLocked===true||s?.completed===true;
 const special=ex=>Boolean(isExerciseSkipped(ex)||ex?.isDropset||ex?.groupType||ex?.topset||ex?.topsetKg||ex?.topsetKgMin||ex?.topsetKgMax||ex?.isWarmup||ex?.isExcluded||ex?.isDeload||ex?.isDeloadWeek||
     (ex?.sets||[]).some(s=>s?.intensityTechnique||s?.isTopset));
-/** Strict all-set gate. One extra repetition per entire exposure at most. */
+/** All-set completion and RPE gate; near-top sets share a completion objective. */
 export function recommendNextSessionReps(previous,upcoming){
     if(painReported(previous)||(previous?.loggedSets||[]).some(excludedFromCoaching)||!previous||!upcoming||previous.name!==upcoming.name||special(previous)||special(upcoming))return null;
     const a=range(previous),b=range(upcoming),target=number(previous.targetRpe??previous.rpeTarget??previous.rpe);
@@ -28,16 +30,16 @@ export function recommendNextSessionReps(previous,upcoming){
         weights.push(kg);reps.push(rep);
     }
     if(!weights.every(v=>v===weights[0]))return null;
+    if(!recoveryContext(previous,upcoming).allowProgression)return null;
     if(a.max>12){
-        if(String(previous.restTime??previous.rest??previous.recupero??'').trim()!==String(upcoming.restTime??upcoming.rest??upcoming.recupero??'').trim())return null;
         const decision=highRepProgression(previous,0);
         if(!decision||decision.kind==='maintain')return null;
         if(decision.kind==='increase_load')return {kind:'upper_range_complete',reps,reason:decision.reason};
-        return {kind:'build_reps',reps:reps.map((r,i)=>Math.min(a.max,r+(i===decision.nextSetIndex?1:0))),reason:decision.reason};
+        return {kind:'build_reps',reps:decision.nextReps,reason:decision.reason};
     }
     const index=reps.findIndex(r=>r<a.max);
     if(index<0&&isBodyweightExercise(previous))return {kind:'maintain',reps,reason:'Range completato: mantieni il carico esterno e verifica tecnica e RPE.'};
     if(index<0)return {kind:'upper_range_complete',reps,reason:'Tutte le serie al limite alto: MyCoatch valuterà l’incremento minimo disponibile.'};
-    const suggested=[...reps];suggested[index]++;
-    return {kind:'build_reps',reps:suggested,reason:'Obiettivo prossima seduta: +1 ripetizione in una sola serie, stesso carico e RPE previsto.'};
+    const targets=nextRepTargets(reps,a.max);
+    return {kind:'build_reps',reps:targets.reps,reason:targets.reason};
 }

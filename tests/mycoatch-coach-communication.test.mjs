@@ -79,7 +79,7 @@ test('rep correction is concise and preserves manual choices and genuine equipme
  const p=proposal({kind:'build_reps',reps:12,reason:'Mantieni il carico: propongo una ripetizione in più in una sola serie, entro il range e l’RPE previsti. Disponibilità del peso da verificare.',basedOn:[{...origin,reps:11}]});
  const ex=exercise({coachSetProposals:[p,null]});
  const m=exerciseCoachModel(ex,{prefills:[{weight:80,reps:12,rpe:8}]});
- assert.equal(m.updates[0].text,'Ho aggiunto una ripetizione alla serie 1: 80 kg × 12 reps.');
+ assert.equal(m.updates[0].text,'Ho aggiunto una ripetizione alla serie 1: 80 kg × 12 reps. Rispetta l’RPE 8.');
  assert.doesNotMatch(m.updates[0].text,/precompilat|Disponibilità/);
  const manual=exerciseCoachModel(ex,{prefills:[{weight:80,reps:11,rpe:8}]});
  assert.match(manual.updates[0].text,/^Suggerisco/);assert.doesNotMatch(manual.updates[0].text,/Ho aggiunto/);

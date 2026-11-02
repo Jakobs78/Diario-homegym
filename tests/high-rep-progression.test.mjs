@@ -17,26 +17,26 @@ test('high reps build exactly one repetition in the whole block, never above tar
  const legacy=recommendNextSessionLoad(source);assert.deepEqual(legacy.nextReps,p.map(x=>x.reps));
  assert.deepEqual(recommendNextSessionReps(source,ex()).reps,p.map(x=>x.reps));
 });
-test('all top reps allow a small increase and reset to lower range without e1RM',()=>{
+test('all top reps allow a practical provisional increase without e1RM',()=>{
  const source=ex(),p=nextBlockDecision(source,0);
- assert.equal(p.kind,'increase_load');assert.equal(p.progressionBasis,'high_reps');assert.equal(p.weight,10.5);assert.equal(p.reps,15);assert.equal(p.verified,false);
+ assert.equal(p.kind,'increase_load');assert.equal(p.progressionBasis,'high_reps');assert.equal(p.weight,11);assert.equal(p.reps,15);assert.equal(p.verified,false);
  const proposal=workingProposal(ex([{},{},{}]),0,{exposures:[source]});
- assert.equal(proposal.weight,10.5);assert.equal(proposal.stableE1rm,null);assert.equal(proposal.range,null);assert.match(proposal.reason,/non uso il massimale/);
- const legacy=recommendNextSessionLoad(source);assert.equal(legacy.suggestedWeight,10.5);assert.equal(legacy.repGoal,15);
- const exposure=recommendNextExposure(source,ex([{},{},{}]));assert.equal(exposure.weight,10.5);assert.deepEqual(exposure.reps,[15,15,15]);
+ assert.equal(proposal.weight,11);assert.equal(proposal.stableE1rm,null);assert.equal(proposal.range,null);assert.match(proposal.reason,/non uso il massimale/);
+ const legacy=recommendNextSessionLoad(source);assert.equal(legacy.suggestedWeight,11);assert.equal(legacy.repGoal,15);
+ const exposure=recommendNextExposure(source,ex([{},{},{}]));assert.equal(exposure.weight,11);assert.deepEqual(exposure.reps,[15,15,15]);
 });
 test('10-15 is also a high-rep range; low actual reps never enable e1RM extrapolation',()=>{
  const source=ex([set(10),set(10),set(10)],{reps:'10-15'});
  const p=workingProposal(ex([{},{},{}],{reps:'10-15'}),0,{exposures:[source]});
  assert.equal(p.weight,10);assert.equal(p.reps,11);assert.equal(p.stableE1rm,null);
 });
-test('known microsteps are honored; large jumps keep a theoretical small suggestion',()=>{
+test('known microsteps are honored; available larger jumps are explicit trials',()=>{
  const source=ex();
  const known=nextBlockDecision(source,0,{availableLoads:{dumbbell:[10,10.25]}});assert.equal(known.weight,10.25);assert.equal(known.verified,true);
  const large=workingProposal(ex([{},{},{}]),0,{exposures:[source],equipment:{dumbbell:2.5,availableLoads:{dumbbell:[10,12.5]}}});
- assert.ok(large.weight>10&&large.weight<=10.5);assert.equal(large.verified,false);assert.match(large.reason,/non componibile/);
+ assert.equal(large.weight,12.5);assert.equal(large.verified,true);assert.match(large.reason,/salto di carico/);
  const legacy=recommendNextSessionLoad(source,{equipmentSettings:{dumbbell:2.5,availableLoads:{dumbbell:[10,12.5]}}});
- assert.ok(legacy.suggestedWeight>10&&legacy.suggestedWeight<=10.5);assert.equal(legacy.verified,false);
+ assert.equal(legacy.suggestedWeight,12.5);assert.equal(legacy.verified,true);
 });
 test('missing/high RPE, incomplete rows, readiness and special techniques prevent high-rep progression',()=>{
  for(const source of [ex([set(),set(),set(20,9)]),ex([set(),set(),set(20,'')]),ex([set(),set(),{}]),ex(undefined,{isDropset:true}),ex(undefined,{groupType:'restpause'}),ex(undefined,{isDeload:true}),ex(undefined,{isWarmup:true}),ex(undefined,{sessionSkip:{active:true}})]){
@@ -59,14 +59,14 @@ test('fixed high reps and different weights are preserved instead of inventing a
 });
 test('changed rest/RPE does not transfer the progression; manual fields and history remain intact',()=>{
  const source=ex(),before=structuredClone(source);
- for(const target of [ex([{},{},{}],{recupero:'120s'}),ex([{},{},{}],{targetRpe:9})]){
+ for(const target of [ex([{},{},{}],{recupero:'30s'}),ex([{},{},{}],{targetRpe:9})]){
   const p=workingProposal(target,0,{exposures:[source]});assert.equal(p.weight,10);assert.equal(p.kind,'history');
   assert.equal(recommendNextSessionReps(source,target),null);
  }
  const future=ex([{weight:'9',reps:'18'},{},{}],{notes:'Nota scheda',userNotes:'Nota utente'});
  const data={athlete:{},history:{years:{2026:{mesocycles:[{weeks:[{weekNumber:1,days:[{dayNumber:1,exercises:[source]}]},{weekNumber:2,days:[{dayNumber:1,exercises:[future]}]}]}]}}}};
  reconcileTrainingPlan(data,{year:2026,mesoIndex:0});assert.equal(getSetPrefill(future,0).weight,'9');assert.equal(getSetPrefill(future,0).reps,'18');
- assert.equal(future.coachSetProposals[1].weight,10.5);const saved=JSON.stringify(data);
+ assert.equal(future.coachSetProposals[1].weight,11);const saved=JSON.stringify(data);
  assert.equal(reconcileTrainingPlan(data,{year:2026,mesoIndex:0}),false);assert.equal(JSON.stringify(data),saved);
  assert.deepEqual(source.loggedSets,before.loggedSets);assert.deepEqual(source.sets,before.sets);assert.equal(future.notes,'Nota scheda');assert.equal(future.userNotes,'Nota utente');
 });
@@ -80,7 +80,7 @@ test('primary and fallback agree when the nearest owned increase exceeds the sma
  const source=ex([set(20,8,100),set(20,8,100),set(20,8,100)],{name:'Leg press',equipment:'machine'});
  const equipment={machine:1,availableLoads:{machine:[100,104]}};
  const primary=nextBlockDecision(source,0,equipment),fallback=recommendNextSessionLoad(source,{equipmentSettings:equipment});
- assert.equal(primary.weight,101);assert.equal(fallback.suggestedWeight,primary.weight);assert.equal(primary.verified,false);assert.equal(fallback.verified,false);
+ assert.equal(primary.weight,104);assert.equal(fallback.suggestedWeight,primary.weight);assert.equal(primary.verified,true);assert.equal(fallback.verified,true);
 });
 
 test('fallback cannot merge high-rep blocks with different RPE prescriptions',()=>{
