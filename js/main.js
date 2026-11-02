@@ -180,23 +180,19 @@ window.addEventListener('homegym-sync-conflict-resolved',()=>renderWorkoutList()
 // ==========================================
 // 4. LISTENER EVENTI GLOBALI & INTERFACCIA
 // ==========================================
+function setManualButtonLabel(open){
+    const label=document.querySelector('#btn-user-manual [data-manual-label]');
+    if(label)label.textContent=open?'✖️ Chiudi manuale':'📖 Manuale d’uso';
+}
 function setupEventListeners() {
-    const utilityMenu = document.getElementById('app-utility-menu');
-    document.getElementById('theme-toggle-btn')?.addEventListener('click', () => {
-        toggleTheme();
-        if (utilityMenu) utilityMenu.open = false;
-    });
-    // Chiudi il menu quando si torna alla scheda; Escape evita pannelli pendenti.
-    document.addEventListener('click', event => {
-        if (utilityMenu?.open && !utilityMenu.contains(event.target)) utilityMenu.open = false;
-    });
-    document.addEventListener('keydown', event => {
-        if (event.key === 'Escape' && utilityMenu?.open) {
-            utilityMenu.open = false;
-            utilityMenu.querySelector('summary')?.focus();
+    document.getElementById('theme-toggle-btn')?.addEventListener('click', toggleTheme);
+    document.addEventListener('keydown',event=>{
+        const tools=document.getElementById('tools-modal');
+        if(event.key==='Escape'&&tools&&!tools.classList.contains('hidden')){
+            tools.classList.add('hidden');document.getElementById('open-tools-btn')?.focus();
         }
     });
-    document.getElementById('user-info-bar')?.addEventListener('click', window.logoutUser);
+    document.getElementById('user-info-bar')?.addEventListener('click',()=>window.logoutUser());
     document.getElementById('trial-logout-btn')?.addEventListener('click', () => window.logoutUser());
 
     document.addEventListener('focusin', (e) => {
@@ -207,28 +203,30 @@ function setupEventListeners() {
         }
     });
 
-    document.getElementById('btn-user-manual')?.addEventListener('click', (e) => {
-        if (utilityMenu) utilityMenu.open = false;
-        const btnManual = e.currentTarget;
-        const manualView = document.getElementById('manual');
-        const workoutContainer = document.getElementById('workout-list-container');
-        const isOpen = manualView && !manualView.classList.contains('d-none');
-
-        if (isOpen) {
-            if (manualView) manualView.classList.add('d-none');
-            if (workoutContainer) workoutContainer.classList.remove('d-none');
-            btnManual.textContent = "📖 Manuale d'uso";
-        } else {
-            if (workoutContainer) workoutContainer.classList.add('d-none');
-            document.querySelectorAll('.day-view').forEach(el => el.classList.add('d-none'));
-            
-            if (manualView) {
-                manualView.classList.remove('d-none');
-                renderManualView();
-            }
-            btnManual.textContent = "✖️ Chiudi Manuale";
+    let manualReturnScroll=0;
+    const toggleManualView=()=>{
+        const manualView=document.getElementById('manual');
+        const workoutContainer=document.getElementById('workout-list-container');
+        const isOpen=manualView&&!manualView.classList.contains('d-none');
+        document.getElementById('tools-modal')?.classList.add('hidden');
+        if(isOpen){
+            manualView.classList.add('d-none');state.activeView='workout';
+            workoutContainer?.classList.remove('d-none');
+            renderWorkoutList();
+            setManualButtonLabel(false);
+            requestAnimationFrame(()=>window.scrollTo({top:manualReturnScroll,behavior:'instant'}));
+        }else{
+            manualReturnScroll=window.scrollY;state.activeView='manual';
+            workoutContainer?.classList.add('d-none');
+            document.querySelectorAll('.day-view').forEach(el=>el.classList.add('d-none'));
+            if(manualView){manualView.classList.remove('d-none');renderManualView();}
+            setManualButtonLabel(true);
+            window.scrollTo({top:0,behavior:'instant'});
+            document.getElementById('manual-back-btn')?.focus({preventScroll:true});
         }
-    });
+    };
+    document.getElementById('btn-user-manual')?.addEventListener('click',toggleManualView);
+    document.getElementById('manual-back-btn')?.addEventListener('click',toggleManualView);
 
     document.getElementById('prev-meso-btn')?.addEventListener('click', () => { 
         changeMesocycle(-1);
@@ -435,7 +433,7 @@ function setupEventListeners() {
         timeoutMs: 6000,
         onSelect: (targetId) => {
             const btnManual = document.getElementById('btn-user-manual');
-            if (btnManual) btnManual.textContent = "📖 Manuale d'uso";
+            if (btnManual) setManualButtonLabel(false);
             const workoutContainer = document.getElementById('workout-list-container');
             const analyticsView = document.getElementById('analytics');
 
@@ -464,8 +462,6 @@ function setupEventListeners() {
         closeBtnId: 'close-tools-btn',
         timeoutMs: 6000,
         onSelect: (action) => {
-            const btnManual = document.getElementById('btn-user-manual');
-            if (btnManual) btnManual.textContent = "📖 Manuale d'uso";
             
             switch (action) {
                 case 'generate-mycoatch-csv': {

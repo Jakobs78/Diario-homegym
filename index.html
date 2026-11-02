@@ -55,7 +55,7 @@
     </div>
 
     <div class="container">
-        <!-- Barra mobile-first: poche azioni essenziali, il resto nel menu Altro. -->
+        <!-- Barra mobile-first: Analisi e Strumenti e gestione. -->
         <header class="app-header-container">
             <div class="top-nav-bar">
                 <div class="app-brand" aria-label="HomeGym Diary">
@@ -76,18 +76,7 @@
                         type="button" title="Strumenti e gestione" aria-label="Strumenti e gestione">
                         <span aria-hidden="true">⚙️</span><span class="app-action-text">Strumenti</span>
                     </button>
-                    <details class="app-utility-menu" id="app-utility-menu">
-                        <summary title="Altre opzioni" aria-label="Altre opzioni: manuale, tema e account">☰</summary>
-                        <div class="app-utility-content">
-                            <button type="button" class="app-menu-action" id="btn-user-manual">📖 Manuale</button>
-                            <button type="button" class="app-menu-action" id="theme-toggle-btn">🌙 Dark</button>
-                            <button id="user-info-bar" class="app-menu-account" type="button"
-                                title="Esci dall'account">
-                                <span id="user-email-display"></span>
-                                <span class="user-logout-btn">Esci ↗</span>
-                            </button>
-                        </div>
-                    </details>
+
                 </div>
             </div>
         </header>
@@ -218,7 +207,7 @@
         <!-- MANUALE DI ISTRUZIONI -->
         <div class="day-view d-none" id="manual">
             <div class="day-card">
-                <div class="day-title"><span>Manuale di Istruzioni</span></div>
+                <div class="day-title manual-heading"><span>Manuale d’uso</span><button type="button" id="manual-back-btn" class="btn btn-secondary">← Torna alla seduta</button></div>
                 <div id="manual-content"></div>
             </div>
         </div>
@@ -247,6 +236,11 @@
                     <button id="close-tools-btn" class="close-sheet">&times;</button>
                 </div>
                 <div class="bottom-sheet-menu">
+                    <span class="sheet-section-title">Guida, aspetto e account</span>
+                    <button type="button" class="sheet-item" id="btn-user-manual"><span data-manual-label>📖 Manuale d’uso</span><small class="sheet-item-help">Tutte le funzioni del diario e di MyCoatch nella stessa pagina.</small></button>
+                    <button type="button" class="sheet-item" id="theme-toggle-btn"><span class="theme-label">☀️ Tema chiaro</span><small class="sheet-item-help theme-help">Passa al tema scuro.</small></button>
+                    <button id="user-info-bar" class="sheet-item tools-account" type="button" title="Esci dall’account"><span class="user-logout-btn">Esci dall’account ↗</span><small id="user-email-display" class="sheet-item-help"></small></button>
+                    <span class="sheet-section-title">Schede, file e attrezzatura</span>
                     <button class="sheet-item" data-action="export-pdf">🖨️ Scarica la scheda del giorno (PDF)<small class="sheet-item-help">Documento da consultare o stampare. Non cambia i risultati.</small></button>
                     <button class="sheet-item" data-action="export-meso-pdf">📑 Scarica programma e report completi (PDF)<small class="sheet-item-help">Tutte le settimane, le note e i risultati. Non è un backup ripristinabile.</small></button>
                     <button class="sheet-item mycoatch-btn" data-action="generate-mycoatch-csv">🤖 Progetta una nuova scheda con MyCoatch<small class="sheet-item-help">Imposta obiettivo, giorni, tempo e attrezzatura. Puoi scaricare il CSV senza importarlo.</small></button>
@@ -308,7 +302,7 @@
                     <span class="sheet-section-title">Operazioni di eliminazione: controlla prima il backup</span>
                     <p class="mycoatch-form-hint">Queste funzioni possono eliminare dati o account. Non servono per correggere una singola serie: usa invece la scheda e togli la spunta ✓ della serie da modificare. Prima di procedere esporta il backup integrale JSON.</p>
 
-                    <button type="button" class="btn btn-secondary" data-action="restore-archived">Recupera ultimo mesociclo archiviato</button>
+                    <button type="button" class="sheet-item" data-action="restore-archived">Recupera ultimo mesociclo archiviato</button>
 <button class="sheet-item sheet-item-danger" data-action="reset-meso">Archivia il mesociclo selezionato<small class="sheet-item-help">Conserva il programma e le prestazioni in un archivio recuperabile.</small></button>
                     <button class="sheet-item sheet-item-danger-critical" data-action="clear-data">⚠️ Elimina tutto lo storico<small class="sheet-item-help">Operazione distruttiva: scarica prima un backup completo.</small></button>
                     <button class="sheet-item sheet-item-danger" data-action="delete-account">🗑️ Elimina definitivamente l’account<small class="sheet-item-help">Rimuove l’account e i dati associati, non solo una scheda.</small></button>

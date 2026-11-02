@@ -1,4 +1,4 @@
-const CACHE_NAME = 'workout-app-v84-coaching-rounds-20261102';
+const CACHE_NAME = 'workout-app-v85-manual-tools-20261102';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
