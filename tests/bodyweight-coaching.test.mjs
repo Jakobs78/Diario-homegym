@@ -41,7 +41,7 @@ test('confirmed zero supplies historical exposures, prefills and live validation
 test('bodyweight at top of range never automatically adds load; missing RPE and changed recovery veto rep increases',()=>{
  for(const r of [[10,10],[20,20]]){const old=exercise(0,r),next=upcoming();if(r[0]===20){old.reps=next.reps='15-20';}assert.equal(workingProposal(next,0,{exposures:source(old)}).weight,0);assert.notEqual(workingProposal(next,0,{exposures:source(old)}).kind,'increase_load');}
  const old=exercise();old.loggedSets[1].rpe='';assert.equal(workingProposal(upcoming(),0,{exposures:source(old)}).reps,6);
- old.loggedSets[1].rpe='8';const changed=upcoming();changed.restTime='180s';assert.equal(workingProposal(changed,0,{exposures:source(old)}).reps,6);
+ old.loggedSets[1].rpe='8';const changed=upcoming();changed.restTime='30s';assert.equal(workingProposal(changed,0,{exposures:source(old)}).reps,6);
  assert.equal(workingProposal(upcoming(),0,{exposures:source(old),readiness:{allowIncrease:false}}).reps,6);
 });
 test('manual entries, confirmed history and explicit weighted prescriptions remain intact',()=>{

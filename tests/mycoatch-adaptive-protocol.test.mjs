@@ -37,7 +37,7 @@ test('repeated renders, serialization and a second device do not compound load i
 test('editing or unchecking source recalculates untouched proposals and notes',()=>{
  const data=fixture();refresh(data);lift(data,1).loggedSets[2].reps='10';refresh(data);
  assert.equal(prefill(data,2).weight,'80');assert.equal(prefill(data,2).reps,'12');
- assert.equal(lift(data,2).coachSetProposals[2].reps,11);
+ assert.equal(lift(data,2).coachSetProposals[2].reps,12);
  assert.ok(!lift(data,2).coachAdaptiveNotes.some(n=>n.includes('Aumento il carico')));
  lift(data,1).loggedSets[2].isLocked=false;lift(data,1).loggedSets[2].completed=false;refresh(data);
  assert.equal(lift(data,2).coachSetProposals[0].kind,'history');

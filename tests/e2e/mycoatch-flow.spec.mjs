@@ -3044,9 +3044,10 @@ test('protocollo: squat 70→79 kg fra giorni diversi e warmup escluso dalla pro
     state.workoutData={athlete:{},history:{years:{2026:{mesocycles:[{id:'photo-case',name:'Verifica squat',weeks:[{weekNumber:1,days:[{dayNumber:1,completed:true,exercises:[source]},{dayNumber:2,exercises:[next]}]}]}]}}}};
     state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=2;renderWorkoutList();
   });
-  await expect(page.locator('.set-kg').first()).toHaveValue('79');
+  await expect(page.locator('.set-kg').first()).toHaveValue('80.97');
   await expect(page.locator('.exercise-history-box')).toContainText('6,5');
-  await expect(page.locator('.coach-adaptive-notes')).toContainText('Recupero diverso:');
+  await expect(page.locator('.coach-adaptive-notes')).toContainText('Ho aumentato il carico');
+  await expect(page.locator('.coach-adaptive-notes')).not.toContainText('Recupero diverso:');
   await page.evaluate(async()=>{const {stopTimer}=await import('/js/timer.js');stopTimer();});
   await page.locator('.ex-name').scrollIntoViewIfNeeded();
   await page.screenshot({path:testInfo.outputPath('squat-proposta-mobile.png'),fullPage:true});
@@ -3230,7 +3231,7 @@ test('superserie: istruzioni sempre fuori dai menu dello storico su schermo picc
   assert.deepEqual(monitor.pageErrors,[]);assert.deepEqual(monitor.remoteRequests,[]);
 });
 
-test('11 reps confermate: proposta 12-11-11 nelle celle, un solo storico e note unite',async({page},testInfo)=>{
+test('11 reps confermate: obiettivo 12 in tutte le serie nelle celle, un solo storico e note unite',async({page},testInfo)=>{
   await page.setViewportSize({width:390,height:844});
   const monitor=await openIsolatedApp(page);
   await page.evaluate(async()=>{
@@ -3246,8 +3247,8 @@ test('11 reps confermate: proposta 12-11-11 nelle celle, un solo storico e note 
   await expect(panel).toContainText('Ho aggiunto una ripetizione alla serie 1: 15 kg × 12 reps.');
   await expect(panel).not.toContainText('Disponibilità del peso');await expect(panel).not.toContainText('precompilati');
   await expect(card.locator('.set-reps').nth(0)).toHaveValue('12');
-  await expect(card.locator('.set-reps').nth(1)).toHaveValue('11');
-  await expect(card.locator('.set-reps').nth(2)).toHaveValue('11');
+  await expect(card.locator('.set-reps').nth(1)).toHaveValue('12');
+  await expect(card.locator('.set-reps').nth(2)).toHaveValue('12');
   await expect(card.locator('.set-kg').nth(0)).toHaveValue('15');
   await expect(card.locator('.set-kg').nth(1)).toHaveValue('12.5');
   await expect(card.locator('.exercise-history-box')).toHaveCount(1);
@@ -3271,7 +3272,7 @@ test('11 reps confermate: proposta 12-11-11 nelle celle, un solo storico e note 
   await page.evaluate(async()=>{const {renderWorkoutList}=await import('/js/ui.js');renderWorkoutList();});
   await expect(card.locator('.set-reps').nth(0)).toHaveValue('11');
   await expect(card.locator('.coach-adaptive-notes')).toContainText('Suggerisco 15 kg × 12 reps');
-  await expect(card.locator('.coach-adaptive-notes')).not.toContainText('Ho aggiunto');
+  await expect(card.locator('.coach-adaptive-notes')).toContainText('Cerca di chiudere tutte le serie');
   assert.deepEqual(monitor.pageErrors,[]);assert.deepEqual(monitor.remoteRequests,[]);
 });
 
@@ -3332,14 +3333,14 @@ test('report finale collega soltanto la proposta successiva ai risultati conferm
   await expect(report).toContainText('Reps entro l’obiettivo in 3/3 serie.');
   await expect(report).toContainText('RPE entro l’obiettivo in 3/3 serie.');
   await expect(report).toContainText('Proposta per la prossima esposizione · settimana 1, giorno 2');
-  await expect(report.locator('.mycoatch-session-next')).toHaveText('Serie 1: 15 kg × 12 reps (+1 ripetizione).');
+  await expect(report.locator('.mycoatch-session-next')).toHaveText('Serie 1: 15 kg × 12 reps (+1 ripetizione).Serie 2: 15 kg × 12 reps (+1 ripetizione).Serie 3: 15 kg × 12 reps (+1 ripetizione).');
   const result=await page.evaluate(async()=>{
     const {state}=await import('/js/state.js');const days=state.workoutData.history.years[2026].mesocycles[0].weeks[0].days;
     return {actual:days[0].exercises[0].loggedSets.map(s=>[s.weight,String(s.reps),s.isLocked]),
       next:days[1].exercises[0].coachSetProposals.map(p=>p.reps),logs:days[1].exercises[0].loggedSets};
   });
   expect(result.actual.every(s=>s[0]===15&&s[1]==='11'&&s[2])).toBe(true);
-  expect(result.next).toEqual([12,11,11]);expect(result.logs.every(s=>!s.completed&&!s.isLocked)).toBe(true);
+  expect(result.next).toEqual([12,12,12]);expect(result.logs.every(s=>!s.completed&&!s.isLocked)).toBe(true);
   await page.locator('.day-tabs button').nth(1).click();
   await expect(page.locator('#mycoatch-live-disclosure')).not.toHaveClass(/is-session-complete/);
   await expect(page.locator('.set-reps').first()).toHaveValue('12');

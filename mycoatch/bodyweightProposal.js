@@ -1,3 +1,4 @@
+import {nextRepTargets} from './repProgression.js';
 import {coachingReviewSignature} from './setReview.js';
 import {bodyweightMetadata} from './bodyweight.js';
 import {setPrescription,observed,blockKey,warm} from './setPrescription.js';
@@ -20,8 +21,9 @@ export function bodyweightWorkingProposal(ex,index,{evidence=[],readiness=null,a
         const ready=readiness?.allowIncrease!==false&&readiness?.level!=='stop';
         if(allowProgression&&contextUnchanged&&equivalent&&ready&&!ex.isDeload&&!ex.isDeloadWeek&&
             p.reps.min<p.reps.max&&sets.length&&sets.every(s=>s&&!s.prescription.special&&s.rpe!==null&&s.rpe<=p.rpe.max&&s.reps>=p.reps.min&&s.reps<=p.reps.max)){
-            const next=sets.find(s=>s.reps<p.reps.max);
-            if(next?.index===reference.index){reps=Math.min(p.reps.max,reps+1);kind='build_reps';reason='Propongo una ripetizione in più in questa serie, entro il range e l’RPE previsti. Il carico esterno resta invariato.';}
+            const targets=nextRepTargets(sets.map(s=>s.reps),p.reps.max);
+            const proposed=targets.reps[sets.findIndex(s=>s.index===reference.index)];
+            if(proposed>reps){reps=proposed;kind='build_reps';reason=targets.reason+' Il carico esterno resta invariato.';}
         }
     }
     const today=(ex.loggedSets||[]).slice(0,index).map((_,i)=>observed(ex,i)).filter(Boolean).at(-1);

@@ -2,20 +2,18 @@ import {painReported,coachingReviewSignature} from './setReview.js';
 import {isBodyweightExercise} from './bodyweight.js';
 import {bodyweightWorkingProposal} from './bodyweightProposal.js';
 import {highRepProgression,HIGH_REP_POLICY} from './highRepProgression.js';
+import {recoveryContext} from './recoveryContext.js';
+export {recoveryKey} from './recoveryContext.js';
+import {nextRepTargets} from './repProgression.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
-/** Deterministic protocol 1.7. Numeric tolerances are engineering defaults, not physiological laws. */
+/** Deterministic protocol 1.8. Numeric tolerances are engineering defaults, not physiological laws. */
 import {setPrescription,observed,blockKey,warm} from './setPrescription.js';
 import {estimateE1rm} from './historyAnalysis.js';
-import {resolveNearbyLoad,equipmentCategory,getAvailableLoadStep} from './loadProposal.js';
-export const PROTOCOL_POLICY=Object.freeze({version:'1.7',historyExposures:3,rpeTolerance:0.5,stableSpread:0.10,rangeHalfWidth:0.025,maxIncrease:0.05,maxDumbbellIncrease:0.10,maxReduction:0.10});
+import {resolveNearbyLoad,equipmentCategory,getAvailableLoadStep,getHighRepIncrement} from './loadProposal.js';
+export const PROTOCOL_POLICY=Object.freeze({version:'1.8',historyExposures:3,rpeTolerance:0.5,stableSpread:0.10,rangeHalfWidth:0.025,maxIncrease:0.05,maxDumbbellIncrease:0.10,maxReduction:0.10});
 const round=x=>Math.round(x*100)/100;
 const median=values=>{const a=[...values].sort((x,y)=>x-y);return a.length?(a[Math.floor((a.length-1)/2)]+a[Math.ceil((a.length-1)/2)])/2:null;};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
-export function recoveryKey(ex){
-    const raw=String(ex?.restTime??ex?.rest??ex?.recupero??'').trim().toLowerCase().replace(/,/g,'.');
-    const match=raw.match(/^(\d+(?:\.\d+)?)\s*(s|sec|secondi|secondo|seconds|min|minuti|minuto|minutes|m|['’]|["”])?$/);
-    return match?String(Number(match[1])*(/^(min|minuti|minuto|minutes|m|['’])$/.test(match[2]||'')?60:1)):raw.replace(/\s+/g,' ');
-}
 export function relatedSets(ex,p,index){
     if(isExerciseSkipped(ex))return [];
     const rows=(ex?.loggedSets||[]).map((_,i)=>observed(ex,i)).filter(s=>s&&!s.prescription.special);
@@ -35,6 +33,10 @@ export function selectEvidence(ex,index,exposures=[]){
         const entry={...item,sets,match};
         (p.role===q.role&&same(p.reps,q.reps)&&same(p.rpe,q.rpe)?comparable:adaptable).push(entry);
     }
+    // Keep chronological priority: a similar rest must never hide a newer hard session.
+    // Recovery breaks ties only for references from the same dated session.
+    comparable.sort((a,b)=>a.date&&b.date&&String(a.date).slice(0,10)===String(b.date).slice(0,10)
+        ?recoveryContext(a.exercise,ex).rank-recoveryContext(b.exercise,ex).rank:0);
     return [...comparable,...adaptable].slice(0,PROTOCOL_POLICY.historyExposures);
 }
 function estimate(set){return set?.bodyweight||set?.prescription.special||set?.prescription.reps?.max>12||set?.rpe===null?null:estimateE1rm(set.kg,set.reps,set.rpe);}
@@ -62,12 +64,10 @@ export function nextBlockDecision(ex,index,equipment={},readiness=null){
     if(sets.some(s=>s.rpe===null||s.rpe>p.rpe.max||s.reps<p.reps.min))return null;
     const matched=sets.find(s=>s.index===index)||sets[0];
     if(p.reps.max>12){
-        const step=getAvailableLoadStep(ex,equipment,matched.kg);
-        const known=equipment.availableLoads?.[step.type]||step.type==='barbell'&&(equipment.plateInventories||equipment.platePairs);
-        const increment=step.configured||known?step.step:matched.kg*(step.type==='dumbbell'?.05:.025);
+        const increment=getHighRepIncrement(ex,equipment,matched.kg);
         const decision=highRepProgression(ex,index,{readiness,increment});
         if(decision?.kind!=='increase_load')return decision;
-        const resolved=resolve(ex,decision.weight,equipment,{increasing:true,base:matched.kg,maxIncrease:HIGH_REP_POLICY.maxIncrease});
+        const resolved=resolve(ex,decision.weight,equipment,{increasing:true,base:matched.kg,maxIncrease:Math.max(HIGH_REP_POLICY.maxIncrease,decision.weight/matched.kg-1)});
         return {...decision,weight:resolved.weight,verified:resolved.verified,theoretical:resolved.theoretical};
     }
     if(readiness?.allowIncrease===false||readiness?.level==='stop')return null;
@@ -75,8 +75,8 @@ export function nextBlockDecision(ex,index,equipment={},readiness=null){
     if(p.reps.min===p.reps.max)return null;
     const mixed=!sets.every(s=>s.reps>=p.reps.max);
     const buildReps=()=>{
-        const next=sets.find(s=>s.reps<p.reps.max);
-        return {kind:'build_reps',weight:matched.kg,reps:Math.min(p.reps.max,matched.reps+(next?.index===index?1:0)),reason:'Mantengo i kg: prima porto la serie meno favorevole verso il limite alto delle reps, rispettando l’RPE.'};
+        const targets=nextRepTargets(sets.map(s=>s.reps),p.reps.max);
+        return {kind:'build_reps',weight:matched.kg,reps:targets.reps[sets.indexOf(matched)],reason:targets.reason};
     };
     // Mixed progression is a conservative application rule, not a certainty
     // inferred from average repetitions. Every measured set must support it.
@@ -114,7 +114,7 @@ export function workingProposal(ex,index,{exposures=[],equipment={},readiness=nu
     const reference=recent?.match;
     const sourcePain=Boolean(usable[0]&&painReported(usable[0].exercise)||recent&&painReported(recent.exercise));
     if(sourcePain)readiness={...readiness,allowIncrease:false};
-    if(isBodyweightExercise(ex))return bodyweightWorkingProposal(ex,index,{evidence,readiness,allowProgression:allowProgression&&recent?.checkin?.pain!=='present',contextUnchanged:!recent||recoveryKey(recent.exercise)===recoveryKey(ex)});
+    if(isBodyweightExercise(ex))return bodyweightWorkingProposal(ex,index,{evidence,readiness,allowProgression:allowProgression&&recent?.checkin?.pain!=='present',contextUnchanged:!recent||recoveryContext(recent.exercise,ex).allowProgression});
     let progressionBasis=null,progressionRange=null;
     let reps=p.reps?.min??null,kg=p.kg?.min??null,kind='prescription',range=null,verified=false,alternativeWeight=null;
     let reason=kg?'Carico iniziale della scheda; verifica la risposta durante l’avvicinamento.':'Manca uno storico pertinente: carico da calibrare.';
@@ -129,9 +129,10 @@ export function workingProposal(ex,index,{exposures=[],equipment={},readiness=nu
             kg=desiredWeight(capacity,p,reps);kind='estimated_history';
             reason='Carico adattato alle reps e all’RPE di questa serie usando il massimale stimato dallo storico pertinente.';
         }
-        const contextUnchanged=recoveryKey(recent.exercise)===recoveryKey(ex);
+        const restContext=recoveryContext(recent.exercise,ex);
+        const contextUnchanged=restContext.allowProgression;
         const progressCompatible=same(reference.prescription.reps,p.reps)&&reference.prescription.role===p.role&&p.rpe?.max>=reference.prescription.rpe?.max&&(p.reps.max<=12||same(p.rpe,reference.prescription.rpe));
-        if(!contextUnchanged)reason+=' Recupero diverso: la progressione della seduta precedente non viene trasferita; il carico è valutato per i target attuali.';
+
         if(allowProgression&&!sourcePain&&!ex.isDeload&&!ex.isDeloadWeek&&progressCompatible&&contextUnchanged&&recent.checkin?.pain!=='present'){
             const sameBlock=relatedSets(recent.exercise,p,index).filter(s=>blockKey(s.prescription)===blockKey(reference.prescription));
             const differing=sameBlock.some(s=>s.kg!==sameBlock[0]?.kg);
@@ -142,6 +143,7 @@ export function workingProposal(ex,index,{exposures=[],equipment={},readiness=nu
             if(differing&&!decision){kind=intentional&&!calibrated?'history':'calibration_reference';reason=calibrated?'Uso il carico indicato come riferimento valido; verifica la risposta nelle serie successive.':intentional?'Mantengo la variazione di carico indicata come intenzionale.':'Carichi precedenti diversi: riferimento provvisorio, in attesa del chiarimento.';}
             if(decision){progressionRange=decision.range??null;progressionBasis=decision.progressionBasis??null;({weight:kg,reps,kind}=decision);reason=decision.reason;verified=Boolean(decision.verified);}
         }
+        if(restContext.message)reason+=' '+restContext.message;
     }
     // Only confirmed rows BEFORE this series inform today's proposal. Fatigue does not rewrite stable capacity.
     const today=(ex.loggedSets||[]).slice(0,index).map((_,i)=>observed(ex,i)).filter(s=>s&&!s.prescription.special);
@@ -173,7 +175,7 @@ export function workingProposal(ex,index,{exposures=[],equipment={},readiness=nu
     if(readiness?.level==='stop')return {weight:null,reps,rpe:p.rpe?.max??null,kind:'pain_caution',reason:'Dolore segnalato: rivaluta il movimento prima di usare una proposta di carico.',basedOn:[]};
     if((sourcePain||currentPain)&&reference&&kg>reference.kg){kg=reference.kg;kind='history';}
     if(kg!==null){
-        const resolved=resolve(ex,kg,equipment,{increasing:kind.startsWith('increase'),base:kind==='increase_today'?last.kg:reference?.kg??last?.kg??kg,maxIncrease:p.reps?.max>12?HIGH_REP_POLICY.maxIncrease:null});
+        const resolved=resolve(ex,kg,equipment,{increasing:kind.startsWith('increase'),base:kind==='increase_today'?last.kg:reference?.kg??last?.kg??kg,maxIncrease:p.reps?.max>12?Math.max(HIGH_REP_POLICY.maxIncrease,kg/(reference?.kg??kg)-1):null});
         const preserve=['history','today'].includes(kind)||(p.reps?.max>12&&['maintain','build_reps'].includes(kind));
         kg=preserve?round(kg):resolved.weight;verified=verified||resolved.verified&&Math.abs(resolved.weight-kg)<.001;
         if(!verified)reason+=' Disponibilità del peso da verificare.';

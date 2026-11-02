@@ -3669,3 +3669,31 @@ body.dark-mode .group-title-badge {
 .history-series-review{display:block;font-size:.75em;font-weight:400;}
 
 .series-review button,.series-review-followup button{min-height:36px;padding:6px 9px;margin:8px 4px 0 0;border:1px solid var(--workout-card-border,#9aaec4);border-radius:7px;font:inherit;white-space:normal;}
+
+/* Session feedback is one distinct area, with readable cards in both themes. */
+.mycoatch-live-disclosure.is-session-complete {
+    background:color-mix(in srgb,#0284c7 9%,var(--card-bg));
+    border:2px solid color-mix(in srgb,#0284c7 48%,var(--border-color));
+    box-shadow:0 5px 18px #0284c714;
+}
+.mycoatch-live-disclosure.is-session-complete .mycoatch-live-panel {background:transparent;}
+.mycoatch-live-disclosure.is-session-complete .mycoatch-session-summary {
+    background:color-mix(in srgb,#0284c7 5%,var(--card-bg));
+    border-color:color-mix(in srgb,#0284c7 30%,var(--border-color));
+}
+.mycoatch-live-disclosure.is-session-complete .mycoatch-session-exercise {background:var(--card-bg);}
+.mycoatch-live-disclosure.is-session-complete .mycoatch-session-next {
+    border-left:3px solid #0284c7;padding:8px 8px 8px 25px;
+    background:color-mix(in srgb,#0284c7 8%,var(--card-bg));
+}
+.mycoatch-session-warning {background:color-mix(in srgb,#d97706 10%,var(--card-bg));}
+.circuit-round-popup {
+    position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);
+    z-index:1100;max-width:calc(100vw - 32px);box-sizing:border-box;
+    padding:18px 24px;border:2px solid var(--accent-color);border-radius:16px;
+    background:var(--card-bg);color:var(--text-color);font-size:1.1rem;font-weight:700;
+    text-align:center;box-shadow:0 8px 35px #0003;pointer-events:none;
+}
+/* Recovery remains above the transition message and ordinary feedback. */
+#floating-timer {z-index:1200;}
+.ex-card {scroll-margin-top:16px;}

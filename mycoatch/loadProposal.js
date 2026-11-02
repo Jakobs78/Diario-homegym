@@ -1,3 +1,4 @@
+import {nextRepTargets} from './repProgression.js';
 import {excludedFromCoaching,painReported} from './setReview.js';
 import {isBodyweightExercise} from './bodyweight.js';
 import {setPrescription,blockKey} from './setPrescription.js';
@@ -53,6 +54,17 @@ export function getAvailableLoadStep(ex, settings={},weight=null) {
         step:custom!==null&&custom>=0.25&&custom<=25?custom:standard,
         configured:custom!==null&&custom>=0.25&&custom<=25
     };
+}
+/** Declared steps/inventory first; unknown loads are explicitly provisional. */
+export function getHighRepIncrement(ex,settings={},weight){
+    const step=getAvailableLoadStep(ex,settings,weight);
+    const owned=settings.availableLoads?.[step.type];
+    if(Array.isArray(owned)){
+        const next=owned.map(number).filter(x=>x!==null&&x>weight+.001).sort((a,b)=>a-b)[0];
+        return next===undefined?step.step:next-weight;
+    }
+    if(step.configured||step.type==='barbell'&&(settings.plateInventories||settings.platePairs))return step.step;
+    return Math.max(1,Math.round(weight*(step.type==='dumbbell'?.05:.025)*2)/2);
 }
 const roundLoad=value=>Math.round(value*100)/100;
 
@@ -127,16 +139,16 @@ export function recommendNextSessionLoad(ex,{
         const block=blockKey(setPrescription(ex,index));
         if((ex.loggedSets||[]).some((s,i)=>!warmup(s)&&blockKey(setPrescription(ex,i))!==block))return null;
         const step=getAvailableLoadStep(ex,equipmentSettings||{},kg);
-        const inventory=equipmentSettings?.availableLoads?.[step.type]||step.type==='barbell'&&(equipmentSettings?.plateInventories||equipmentSettings?.platePairs);
-        const increment=step.configured||inventory?step.step:kg*(step.type==='dumbbell'?.05:.025);
+        const increment=getHighRepIncrement(ex,equipmentSettings||{},kg);
         const decision=highRepProgression(ex,index,{readiness,increment});
-        if(!decision||decision.kind==='maintain')return null;
+        if(!decision)return null;
+        if(decision.kind==='maintain')return {eligible:true,suggestedWeight:null,previousWeight:kg,reason:decision.reason,evidence:'equipment_hold',configured:step.configured,type:step.type};
         if(decision.kind==='build_reps')return {eligible:true,suggestedWeight:null,previousWeight:kg,
-            nextReps:(ex.loggedSets||[]).map((s,i)=>({s,i})).filter(({s})=>!warmup(s)).map(({s,i})=>Math.min(range.max,Number(s.reps)+(i===decision.nextSetIndex?1:0))),
+            nextReps:(ex.loggedSets||[]).map((s,i)=>({s,i})).filter(({s})=>!warmup(s)).map((_,i)=>decision.nextReps[i]),
             reason:decision.reason,evidence:'build_reps',configured:step.configured,type:step.type};
-        const resolved=resolveNearbyLoad(ex,decision.weight,equipmentSettings||{},{min:kg+.001,max:Math.min(decision.weight*1.025,kg*(1+HIGH_REP_POLICY.maxIncrease)),origin:kg});
+        const resolved=resolveNearbyLoad(ex,decision.weight,equipmentSettings||{},{min:kg+.001,max:Math.min(decision.weight*1.025,Math.max(kg*(1+HIGH_REP_POLICY.maxIncrease),decision.weight)),origin:kg});
         const theoretical=resolved.weight===null;
-        return {eligible:true,suggestedWeight:resolved.weight??decision.weight,previousWeight:kg,repGoal:range.min,
+        return {eligible:true,suggestedWeight:resolved.weight??decision.weight,previousWeight:kg,repGoal:decision.reps,
             reason:decision.reason+(theoretical?' Carico indicativo: l’inventario dichiarato non conferma questo piccolo incremento.':''),
             evidence:'high_reps',configured:step.configured,type:step.type,verified:!theoretical&&resolved.verified};
     }
@@ -145,12 +157,11 @@ export function recommendNextSessionLoad(ex,{
     // range never authorize a load increase from one training session.
     if(!extraReps){
         if(!values.every(v=>v.reps<=range.max&&v.rpe<=target))return null;
-        const nextReps=values.map(v=>v.reps);
-        const index=nextReps.findIndex(reps=>reps<range.max);
-        if(index<0)return null;
-        nextReps[index]++;
+        const targets=nextRepTargets(values.map(v=>v.reps),range.max);
+        const nextReps=targets.reps;
+        if(nextReps.every((r,i)=>r===values[i].reps))return null;
         return {eligible:true,suggestedWeight:null,previousWeight:kg,nextReps,
-            reason:'Mantieni '+kg+' kg: prova +1 ripetizione in una sola serie ('+nextReps.join('/')+'), entro il range e l’RPE previsti.',
+            reason:targets.reason,
             evidence:'build_reps',configured:false,type:equipmentCategory(ex)};
     }
     const {step,type,configured}=getAvailableLoadStep(ex,equipmentSettings||{},kg);

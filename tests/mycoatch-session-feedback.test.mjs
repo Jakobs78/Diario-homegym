@@ -57,7 +57,7 @@ function actualPlan(){
 test('next exposure reports only actual protocol proposals with matching source evidence',()=>{
  const {day,data}=actualPlan();const before=JSON.stringify(data);
  const m=buildSessionExerciseFeedback(day,data)[0];
- assert.equal(m.next.dayNumber,2);assert.deepEqual(m.next.changes.map(c=>[c.index,c.weight,c.reps,c.repsDelta]),[[0,15,12,1]]);
+ assert.equal(m.next.dayNumber,2);assert.deepEqual(m.next.changes.map(c=>[c.index,c.weight,c.reps,c.repsDelta]),[[0,15,12,1],[1,12.5,12,1],[2,12.5,12,1]]);
  assert.equal(JSON.stringify(data),before);
 });
 

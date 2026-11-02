@@ -4,12 +4,12 @@ import {recommendNextSessionReps} from '../mycoatch/nextSessionReps.js';
 import {getSetPrefill} from '../js/setPrefill.js';
 const set=(rep,rpe=8)=>({weight:'55',reps:String(rep),rpe:String(rpe),isLocked:true});
 const ex=(loggedSets)=>({name:'Panca Piana con Bilanciere',reps:'6-8',targetRpe:'8',kgMin:'55',kgMax:'55',sets:[{},{},{}],loggedSets});
-test('one additional rep per entire next workout only after all valid working sets',()=>{
+test('near-top working sets share the upper-range goal only after all valid sets',()=>{
  const prior=ex([set(8),set(7),set(7)]),future=ex([{},{},{}]);
  const p=recommendNextSessionReps(prior,future);
- assert.deepEqual(p.reps,[8,8,7]);
+ assert.deepEqual(p.reps,[8,8,8]);
  assert.equal(getSetPrefill(future,1,{previousExercise:prior}).reps,'8');
- assert.equal(getSetPrefill(future,2,{previousExercise:prior}).reps,'7');
+ assert.equal(getSetPrefill(future,2,{previousExercise:prior}).reps,'8');
  assert.equal(future.loggedSets[1].reps,undefined,'prefill only');
 });
 test('one failed set, absent RPE, mixed loads or special technique vetoes rep advancement',()=>{

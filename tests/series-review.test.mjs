@@ -10,10 +10,10 @@ import {analyzeCompletedMesocycle} from '../mycoatch/historyAnalysis.js';
 const done=(weight,reps,rpe=7.5)=>({weight,reps,rpe,isLocked:true,completed:true});
 const ex=(logs,rest='150s')=>({name:'Squat Con Bilanciere',sets:[{},{},{}],set:'3 set',reps:'5-6',rpe:7.5,targetRpe:7.5,kgMin:70,kgMax:70,rest,loggedSets:logs});
 const fixture=()=>{const source=ex([done(82,7),done(82,7),done(82,7)]),a=ex([{},{},{}],'180s'),b=ex([{},{},{}]);const day={completed:true,dayNumber:4,exercises:[source]};const meso={weeks:[{weekNumber:2,days:[day]},{weekNumber:3,days:[{dayNumber:2,exercises:[a]},{dayNumber:4,exercises:[b]}]}]};return {source,a,b,day,data:{athlete:{loadingSteps:{barbell:2.5}},history:{years:{2026:{mesocycles:[meso]}}}}};};
-test('an incompatible earlier squat does not consume the next eligible Lower B increase; summary finds it',()=>{
+test('150 and 180 second squats share progression, transferred only to the next exposure',()=>{
  const {a,b,day,data}=fixture();reconcileTrainingPlan(data,{year:2026,mesoIndex:0});
- assert.equal(a.coachSetProposals[0].weight,82);assert.ok(b.coachSetProposals.every(p=>p.weight>82&&p.reps===5));
- const report=buildSessionExerciseFeedback(day,data)[0];assert.equal(report.next.dayNumber,4);assert.equal(report.next.weekNumber,3);
+ assert.ok(a.coachSetProposals.every(p=>p.weight>82&&p.reps===5));assert.ok(b.coachSetProposals.every(p=>p.weight===82));
+ const report=buildSessionExerciseFeedback(day,data)[0];assert.equal(report.next.dayNumber,2);assert.equal(report.next.weekNumber,3);
  const once=JSON.stringify(data);reconcileTrainingPlan(data,{year:2026,mesoIndex:0});assert.equal(JSON.stringify(data),once);
 });
 test('all high-rep series at the upper bound still progress without e1RM',()=>{

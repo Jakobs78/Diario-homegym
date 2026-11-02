@@ -1,3 +1,4 @@
+import {setPrescription} from './setPrescription.js';
 import {isBodyweightExercise} from './bodyweight.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {specialSeries} from './seriesTechnique.js';
@@ -53,6 +54,13 @@ function appliedChange(entry){
     else if(c.kind==='increase')text='Ho aumentato il carico '+where+': '+target+(c.today?'. La serie precedente indica margine.':c.basis==='mixed_reps'?'. Più serie hanno superato il range rispettando l’RPE.':'. Raggiunto il limite alto in tutte le serie, entro l’RPE previsto.');
     else if(c.kind==='reduce')text='Ho ridotto il carico '+where+': '+target+'. La serie precedente è risultata più difficile del target.';
     else text='Ho adattato il carico '+where+': '+target+(c.today?' in base alla serie appena confermata.':' in base al massimale stimato.');
+    if(['increase','reduce','estimate','reps'].includes(c.kind)){
+        const effort=c.rpe!==null&&c.rpe!==undefined?' Rispetta l’RPE '+decimal(c.rpe)+'.':' Rispetta l’RPE previsto.';
+        text+=effort;
+        if(c.kind==='increase')text+=' Lavora nel range '+(c.minReps===c.maxReps?c.minReps:c.minReps+'–'+c.maxReps)+' reps: non fermarti automaticamente al minimo se hai ancora margine. Se raggiungi lo sforzo previsto prima del minimo, riduci il carico nella serie successiva.';
+        if(c.kind==='reps'&&c.close)text+=' Cerca di chiudere tutte le serie al limite alto; fermati prima se raggiungi l’RPE previsto.';
+        if(c.kind==='increase'&&c.largeJump)text+=' Il salto di peso è consistente: la riuscita va verificata durante la seduta.';
+    }
     return {...entry,text:text+(c.warning?' '+c.warning:''),labelSeries:false};
 }
 
@@ -83,7 +91,8 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
             const weightChanged=!bodyweight&&kg!==null && number(p.weight)!==null && Math.abs(number(p.weight)-kg)>.001;
             const repsChanged=reps!==null && number(p.reps)!==null && number(p.reps)!==reps;
             const loadProblem=!bodyweight&&/non componibile|non è componibile/i.test(p.reason||'');
-            const recoveryChanged=/recuper[oi] divers[oi]/i.test(p.reason||'');
+            const recoveryMessage=conciseReason(p.reason).match(/(?:Recupero precedente|Tecnica diversa:)[\s\S]*$/)?.[0]||(/recuper[oi] divers[oi]/i.test(p.reason||'')?'Recupero diverso: verifica il riferimento prima di trasferire la progressione.':'');
+            const recoveryChanged=Boolean(recoveryMessage);
             const caution=p.kind==='pain_caution' || p.kind==='reduce_today'||p.kind==='bodyweight_reduce_reps';
             const update=(['increase_load','increase_today','build_reps','estimated_history','today_estimate','calibration_reference'].includes(p.kind) || p.kind==='today'&&/Margine di sforzo/.test(p.reason||'')) && (weightChanged||repsChanged);
             const calibration=number(p.weight)===null && p.kind!=='pain_caution' && !hasLoad;
@@ -99,13 +108,19 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
                     else if(p.kind==='calibration_reference')change={kind:'calibration',weight:p.weight,reps:p.reps,manual,pending:/provvisorio/.test(p.reason||'')};
                     else if(update&&!bodyweight)change={kind:'estimate',weight:p.weight,reps:p.reps,today,manual};
                 }
-                if(change)change.bodyweight=bodyweight;
+                if(change){
+                    const targetPrescription=setPrescription(ex,i);
+                    change.bodyweight=bodyweight;change.rpe=p.rpe??targetPrescription.rpe?.max??null;
+                    change.minReps=targetPrescription.reps?.min??p.reps;change.maxReps=targetPrescription.reps?.max??p.reps;
+                    change.close=/chiudere tutte le serie/.test(p.reason||'');
+                    change.largeJump=kg>0&&Number(p.weight)/kg>1.10;
+                }
                 const target=number(p.weight)!==null
                     ? `${decimal(p.weight)} kg${number(p.reps)!==null?' × '+p.reps+' reps':''}. ` : '';
-                const description=conciseReason(p.reason).replace(warning,'').replace(/Recuper[oi] divers[oi]:[^.]*(?:\.|$)/i,'').trim();
+                const description=conciseReason(p.reason).replace(warning,'').replace(recoveryMessage,'').replace(/Recuper[oi] divers[oi]:[^.]*(?:\.|$)/i,'').trim();
                 if(change||caution||calibration||!recoveryChanged&&!loadProblem)add(target+description,i,caution?'caution':'info',change);
                 if(loadProblem)add(warning,i,'caution');
-                if(recoveryChanged)add('Recupero diverso: la precedente progressione non viene trasferita automaticamente.');
+                if(recoveryChanged)add(recoveryMessage);
                 for(const item of p.basedOn||[])if(item?.source&&sourceKey(item.source)!==sourceKey(historySource))references.set(sourceKey(item.source),referenceLabel(item));
             }
             if(p.monitoring && /in calo/i.test(p.monitoring))add(p.monitoring,null,'caution');

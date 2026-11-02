@@ -1,3 +1,4 @@
+import {bindCircuitTransitionDay,showCircuitTransition} from './circuitTransition.js';
 import {needsSeriesClarification} from '../mycoatch/seriesClarification.js';
 import {bindSeriesReviews} from './seriesReviewUI.js';
 import {isExerciseSkipped,sessionWorkCounts} from './sessionSkip.js';
@@ -38,6 +39,7 @@ function updateInputStatusClasses(element, isOut, isImprovedOrExceeding) {
 export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
     const workoutListContainer = document.getElementById('workout-list-container');
     if (!workoutListContainer) return;
+    bindCircuitTransitionDay(currentDay,workoutListContainer);
     bindSessionSkip(workoutListContainer,currentDay,isPastMeso,renderCallback);
     bindSeriesReviews(workoutListContainer,currentDay,isPastMeso,renderCallback);
     bindDropFields(workoutListContainer,currentDay,{readOnly:isPastMeso,save:()=>saveAndSync(state.workoutData),render:renderCallback});
@@ -371,8 +373,9 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
             if(isChecked&&!needsSeriesClarification(ex))advanceExercise(currentDay,exIdx);
             if (typeof renderCallback === 'function') renderCallback();
             if(isChecked&&needsSeriesClarification(ex))workoutListContainer.querySelector('.ex-card[data-ex="'+exIdx+'"] .series-review')?.scrollIntoView?.({block:'center',behavior:'smooth'});
+            if(isChecked&&!needsSeriesClarification(ex))showCircuitTransition(currentDay,ex,setIdx,workoutListContainer);
             // Dopo il render aggiorna i consigli inline; a fine seduta apre il report.
-            // I popup restano riservati agli errori di registrazione.
+            // Il passaggio di giro ha un avviso temporaneo; gli altri consigli restano inline.
             if (isChecked && !isPastMeso) {
                 showLiveCoachToast(currentDay, { revealSummary:!wasSessionFinished&&currentDay.completed&&!needsSeriesClarification(ex) });
             }
