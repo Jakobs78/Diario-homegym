@@ -10,7 +10,7 @@ const diary = [
  ['Percorso consigliato','Configura l’attrezzatura, importa una scheda o crea una proposta MyCoatch, scegli il giorno, avvia la seduta e conferma solo le serie realmente eseguite.']
 ]],
 ['navigazione','Anni, mesocicli, settimane e giorni',[
- ['Selettori del diario','Anno → mesociclo → settimana → giorno individuano la seduta. Le frecce cambiano mesociclo; i pulsanti dei giorni aprono esercizi e note della giornata.'],
+ ['Selettori del diario','Anno → mesociclo → settimana → giorno individuano la seduta. Le frecce cambiano mesociclo; i pulsanti dei giorni aprono esercizi e note della giornata. «Consulta anche gli anni precedenti», quando presente, estende il selettore agli anni archiviati; «Torna allo storico…» ripristina la finestra recente.'],
  ['Blocca / sblocca mesociclo','Il lucchetto protegge il singolo programma dalle modifiche, lasciandolo consultabile. Lo sblocco di un mesociclo concluso richiede conferma e annulla la chiusura, senza cancellarne i risultati.'],
  ['Nuovo programma','L’importazione aggiunge un mesociclo separato e conserva i precedenti. Non conclude automaticamente una vecchia scheda: usa la chiusura guidata o il lucchetto.'],
  ['Archivia il mesociclo selezionato','In Strumenti e gestione sposta il programma e le sue prestazioni nell’archivio recuperabile. Non equivale a eliminare tutto lo storico.'],
