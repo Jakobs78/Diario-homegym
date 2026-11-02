@@ -1382,20 +1382,20 @@ test('shell compatto mobile: navigazione rapida, menu utility e MyCoatch apribil
   await expect(page.locator('#mycoatch-live-disclosure')).not.toHaveAttribute('open', '');
   await expect(page.locator('.mycoatch-live-count')).toContainText('0/3');
 
-  // Manuale, tema e account sono in Altro, mantenendo le scorciatoie principali.
-  await page.locator('#app-utility-menu > summary').click();
+  // Manuale, tema e account sono tutti in Strumenti e gestione.
+  await page.locator('#open-tools-btn').click();
   await expect(page.locator('#btn-user-manual')).toBeVisible();
   await expect(page.locator('#theme-toggle-btn')).toBeVisible();
   await expect(page.locator('#user-info-bar')).toBeVisible();
   await page.locator('#theme-toggle-btn').click();
-  await expect(page.locator('#app-utility-menu')).not.toHaveAttribute('open', '');
+  await expect(page.locator('#tools-modal')).toHaveClass(/hidden/);
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 
-  await page.locator('#app-utility-menu > summary').click();
+  await page.locator('#open-tools-btn').click();
   await page.locator('#btn-user-manual').click();
   await expect(page.locator('#manual')).toBeVisible();
-  await expect(page.locator('#app-utility-menu')).not.toHaveAttribute('open', '');
-  await page.locator('#app-utility-menu > summary').click();
+  await expect(page.locator('#tools-modal')).toHaveClass(/hidden/);
+  await page.locator('#open-tools-btn').click();
   await page.locator('#btn-user-manual').click();
   await expect(page.locator('#workout-list-container')).toBeVisible();
 

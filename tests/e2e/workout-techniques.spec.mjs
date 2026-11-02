@@ -252,11 +252,11 @@ test('diametro memorizzato: i dischi da 29 mm non completano il bilanciere da 50
 
 for(const [device,width,height] of [['telefono',390,844],['tablet',768,1024],['pc',1440,1000]])test('manuale aggiornato navigabile su '+device,async({page})=>{
  await page.setViewportSize({width,height});await openIsolatedApp(page);
- await page.locator('#app-utility-menu summary').click();
+ await page.locator('#open-tools-btn').click();
  await page.locator('#btn-user-manual').click();
  const manual=page.locator('#manual-content');
  await expect(manual).toBeVisible();
- await expect(manual.locator('.manual-section')).toHaveCount(20);
+ await expect(manual.locator('.manual-section')).toHaveCount(19);
  for(const link of await manual.locator('[data-manual-target]').all()){
   const id=await link.getAttribute('data-manual-target');
   await link.click();await expect(page.locator('#'+id)).toHaveAttribute('open','');
@@ -265,7 +265,7 @@ for(const [device,width,height] of [['telefono',390,844],['tablet',768,1024],['p
  await expect(page.locator('#manual-attrezzatura')).toContainText('25, 20, 15, 10, 5, 2,5, 2, 1,25, 1 e 0,5 kg');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:'../../outputs/manuale-'+device+'.png'});
- await page.locator('#app-utility-menu summary').click();
+ await page.locator('#open-tools-btn').click();
  await page.locator('#btn-user-manual').click();
  await expect(page.locator('#manual')).toHaveClass(/d-none/);
 });
@@ -764,4 +764,55 @@ test('passaggio giro annullato se si riapre una serie o si cambia seduta',async(
  });
  await expect(page.locator('.circuit-round-popup')).toHaveCount(0);
  await page.clock.runFor(3000);await expect(page.locator('.ex-name').first()).toContainText('Calf Raise');
+});
+
+test('Strumenti riunisce manuale tema ed esci; la guida conserva campi e timer nella stessa schermata',async({page})=>{
+ const monitor=await openIsolatedApp(page);await setupPlan(page,'group');await page.setViewportSize({width:320,height:740});
+ await page.locator('.set-kg').first().fill('73');
+ await page.evaluate(async()=>{const {startTimer,handleTick,handleComplete}=await import('/js/timer.js');startTimer(90,handleTick,handleComplete);window.__logoutCalls=0;window.logoutUser=()=>{window.__logoutCalls++;};});
+ await page.locator('#open-tools-btn').click();
+ await expect(page.locator('#app-utility-menu')).toHaveCount(0);
+ for(const id of ['btn-user-manual','theme-toggle-btn','user-info-bar'])await expect(page.locator('#tools-modal #'+id)).toHaveCount(1);
+ await expect(page.locator('#theme-toggle-btn .sheet-item-help')).toContainText('scuro');
+ await page.screenshot({path:'../../outputs/strumenti-menu.png'});
+ await page.locator('#theme-toggle-btn').click();
+ await expect(page.locator('#tools-modal')).toHaveClass(/hidden/);
+ await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+ await page.locator('#open-tools-btn').click();await page.locator('#btn-user-manual').click();
+ await expect(page.locator('#tools-modal')).toHaveClass(/hidden/);
+ await expect(page.locator('#manual')).toBeVisible();
+ await expect(page.locator('#manual-chapter-mycoatch')).toContainText('MyCoatch: tutte le funzioni');
+ await page.locator('[data-manual-target="manual-coach-progressione"]').click();
+ await expect(page.locator('#manual-coach-progressione')).toHaveAttribute('open','');
+ await expect(page.locator('#manual-coach-progressione')).toContainText('150 e 180');
+ await page.locator('#manual-chapter-mycoatch').screenshot({path:'../../outputs/manuale-mycoatch.png'});
+ await page.locator('[data-manual-target="manual-tecniche"]').click();
+ await expect(page.locator('#manual-tecniche')).toContainText('3 secondi');
+ await expect(page.locator('#floating-timer')).toHaveClass(/active/);
+ await page.locator('#manual-back-btn').click();
+ await expect(page.locator('.set-kg').first()).toHaveValue('73');
+ await expect(page.locator('#floating-timer')).toHaveClass(/active/);
+ await page.locator('#open-tools-btn').click();
+ await expect(page.locator('#theme-toggle-btn .sheet-item-help')).toBeVisible();
+ await expect(page.locator('#btn-user-manual .sheet-item-help')).toBeVisible();
+ await page.keyboard.press('Escape');await expect(page.locator('#tools-modal')).toHaveClass(/hidden/);
+ await expect(page.locator('#open-tools-btn')).toBeFocused();
+ await page.locator('#open-tools-btn').click();await page.locator('#user-info-bar').click();
+ expect(await page.evaluate(()=>window.__logoutCalls)).toBe(1);
+ expect(monitor.remoteRequests).toEqual([]);expect(monitor.pageErrors).toEqual([]);
+});
+
+test('Strumenti recupera l’ultimo mesociclo archiviato senza duplicarlo',async({page})=>{
+ const monitor=await openIsolatedApp(page);
+ await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');
+  const meso=structuredClone(state.workoutData.history.years[2026].mesocycles[0]);
+  meso.id='manual-archive-fixture';meso.name='Mesociclo da recuperare';
+  state.workoutData.archivedMesocycles=[{year:'2026',mesocycle:meso}];
+ });
+ await page.locator('#open-tools-btn').click();await page.locator('[data-action="restore-archived"]').click();
+ await expect.poll(()=>page.evaluate(async()=>{const {state}=await import('/js/state.js');return state.workoutData.archivedMesocycles.length;})).toBe(0);
+ const count=await page.evaluate(async()=>{const {state}=await import('/js/state.js');return state.workoutData.history.years[2026].mesocycles.filter(m=>m.id==='manual-archive-fixture').length;});
+ expect(count).toBe(1);await expect(page.locator('#tools-modal')).toHaveClass(/hidden/);
+ expect(monitor.pageErrors).toEqual([]);expect(monitor.remoteRequests).toEqual([]);
 });

@@ -84,8 +84,8 @@ test('report explicitly distinguishes estimated credits, recorded RPE and CSV do
 test('manual provides practical navigation, terminology and protected operations',async()=>{
   const manual=await read('js/manual.js');
   const css=await read('css/style.css');
-  assert.match(manual,/Quale menu usare e che cosa succede dopo/);
-  assert.match(manual,/Come leggere i termini del programma e del CSV/);
+  assert.match(manual,/Primi passi e menu/);
+  assert.match(manual,/Termini essenziali/);
   assert.match(manual,/L’impugnatura triangolare è un accessorio separato/);
   assert.match(manual,/non unisce|non combina/i);
   assert.match(css,/\.sheet-item-help/);

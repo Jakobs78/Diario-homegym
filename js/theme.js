@@ -24,6 +24,10 @@ function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     const themeBtn = document.getElementById('theme-toggle-btn');
     if (themeBtn) {
-        themeBtn.textContent = theme === 'dark' ? '🌙 Dark' : '☀️ Light';
+        const label=themeBtn.querySelector('.theme-label');
+        const help=themeBtn.querySelector('.theme-help');
+        if(label)label.textContent=theme==='dark'?'🌙 Tema scuro':'☀️ Tema chiaro';
+        if(help)help.textContent=theme==='dark'?'Passa al tema chiaro.':'Passa al tema scuro.';
+        themeBtn.setAttribute('aria-label',theme==='dark'?'Attiva tema chiaro':'Attiva tema scuro');
     }
 }
