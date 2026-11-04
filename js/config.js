@@ -15,5 +15,5 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {global:{fetch:
 
 export const CONFIG = {
     STORAGE_KEY: 'workoutApp_data',
-    APP_VERSION: '1.3.5-20261104'
+    APP_VERSION: '1.3.6-20261104'
 };

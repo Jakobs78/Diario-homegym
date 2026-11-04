@@ -12,6 +12,10 @@ let boundVisibilityHandler = null;
 let lastBeepSecond = null;
 const REST_TIMER_KEY='homegym_rest_timer_deadline_v1';
 const PERSISTENT_REST_KEY='homegym_rest_timer_v2';
+export function getRestTimerSnapshot(){
+ return {deadline:endTime,remainingSeconds:endTime?Math.max(0,Math.ceil((endTime-Date.now())/1000)):0};
+}
+function publishRestTick(){document.dispatchEvent(new CustomEvent('homegym-rest-tick'));}
 function restContext(){
  const year=state.workoutData?.history?.years?.[state.currentYear],meso=year?.mesocycles?.[state.activeMesocycleIndex||0];
  const day=meso?.weeks?.find(w=>Number(w.weekNumber)===Number(state.activeWeek||1))?.days?.[(state.activeDay||1)-1];
@@ -162,6 +166,7 @@ export function adjustTimer(secondsToAdd, onTick, onComplete) {
  * Aggiorna il testo dell'interfaccia utente ad ogni tick del timer
  */
 export function handleTick(remainingSeconds) {
+    publishRestTick();
     const timerContainer = document.getElementById('floating-timer');
     const timerDisplay = document.getElementById('timer-display');
 
@@ -238,6 +243,7 @@ export function stopTimer() {
         timerInterval = null;
     }
     endTime = null;activeContext=null;
+    publishRestTick();
     try{sessionStorage.removeItem(REST_TIMER_KEY);localStorage.removeItem(PERSISTENT_REST_KEY);}catch{}
     lastBeepSecond = null; // Reset dello stato del beep
 

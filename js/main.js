@@ -1,3 +1,4 @@
+import {setupIphoneRestTimer} from './iphoneRestTimer.js';
 import {normalizeOwnedDumbbells} from '../mycoatch/dumbbellInventory.js';
 import {setupAppUpdates} from './appUpdates.js';
 import {EXERCISE_DATABASE,DEFAULT_HOME_GYM_EQUIPMENT} from '../mycoatch/exercisesDB.js';
@@ -162,6 +163,7 @@ async function initApp() {
     const day=week?.days?.[Math.max(0,(state.activeDay||1)-1)]||week?.days?.[0];
     restoreActiveRestTimer({legacyAllowed:Boolean(day && !day.completed && !meso?.locked)});
     setupEventListeners();
+    setupIphoneRestTimer();
     setupAuthListeners();
     initAudioUnlock();
     updateSyncStatusUI();
