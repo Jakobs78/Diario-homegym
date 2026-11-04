@@ -160,7 +160,7 @@ async function initApp() {
     const week=meso?.weeks?.find(w=>Number(w.weekNumber)===Number(state.activeWeek||1)) ||
         meso?.weeks?.[0];
     const day=week?.days?.[Math.max(0,(state.activeDay||1)-1)]||week?.days?.[0];
-    restoreActiveRestTimer({allowRestore:Boolean(day && !day.completed && !meso?.locked)});
+    restoreActiveRestTimer({legacyAllowed:Boolean(day && !day.completed && !meso?.locked)});
     setupEventListeners();
     setupAuthListeners();
     initAudioUnlock();

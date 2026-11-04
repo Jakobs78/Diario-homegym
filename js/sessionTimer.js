@@ -6,7 +6,7 @@ import {sessionWorkCounts,isExerciseSkipped} from './sessionSkip.js';
 import { saveAndSync } from './storage.js';
 import { state } from './state.js';
 import { localCalendarDay } from './workoutSemantics.js';
-import { refreshLiveCoachClock } from './liveCoachUI.js';
+import { promptSessionCheckin, refreshLiveCoachClock } from './liveCoachUI.js';
 import { repeatCompletedSessionPreservingHistory, safeArchiveCount } from './historySafety.js';
 
 /**
@@ -88,7 +88,7 @@ export function updateSessionHeaderUI(currentDay, renderCallback, readOnly = fal
     if(!start&&timerWrapper){start=document.createElement('button');start.id='start-workout-session';start.type='button';start.className='btn btn-secondary btn-sm';start.textContent='Inizia seduta';timerWrapper.append(start);}
     if(start){start.hidden=readOnly||Boolean(currentDay.sessionStart)||Boolean(currentDay.accumulatedSeconds)||Boolean(currentDay.completed);
         start.onclick=async()=>{if(readOnly||currentDay.completed)return;currentDay.sessionStart=Date.now();currentDay.timerMeasurement='full_session';currentDay.date ||= localCalendarDay();
-            if(await saveAndSync(state.workoutData)===false){alert('Avvio non salvato: conserva un backup e verifica lo spazio.');return;}renderCallback?.();};}
+            if(await saveAndSync(state.workoutData)===false){alert('Avvio non salvato: conserva un backup e verifica lo spazio.');return;}renderCallback?.();promptSessionCheckin(currentDay);};}
     const actionBtn = document.getElementById('reset-session-timer-btn');
     const pauseBtn = document.getElementById('pause-session-timer-btn');
 

@@ -85,9 +85,11 @@ export function repeatCompletedSessionPreservingHistory(day, { capturedAt = new 
     delete day.sessionCompletedAt;
     delete day.date;
     delete day.coachCheckin;
+    delete day.coachCheckinSkippedAt;
 
     for (const ex of day.exercises) {
         delete ex.sessionSkip;
+        delete ex.warmupSets;delete ex.warmupSkipped;
         delete ex.coachClarification;delete ex._reviewDeferred;delete ex._reviewOpen;
         for (const [index, set] of (ex.loggedSets || []).entries()) {
             delete set.coachReview;

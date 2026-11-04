@@ -1,3 +1,4 @@
+import {createWarmupPanel} from './warmupUI.js';
 import {isExerciseSkipped} from './sessionSkip.js';
 import {setPrescription} from '../mycoatch/setPrescription.js';
 import {trainingExposures} from '../mycoatch/trainingHistory.js';
@@ -316,6 +317,13 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         disclosure.querySelector('summary').addEventListener('click',()=>{disclosure.dataset.manual='true';});
     }
     selectSet(selected);
+    let warmups=createWarmupPanel(ex,currentDay,{workWeight:prefillFor(0).weight,readOnly:isPastMeso||skipped});
+    if(warmups)exCard.querySelector('.set-table')?.before(warmups);
+    exCard.querySelector('.set-kg[data-set="0"]')?.addEventListener('change',event=>{
+        if(ex.warmupSets||isPastMeso||skipped)return;
+        const next=createWarmupPanel(ex,currentDay,{workWeight:event.target.value,readOnly:false});
+        if(next&&warmups){warmups.replaceWith(next);warmups=next;}
+    });
     return exCard;
 }
 

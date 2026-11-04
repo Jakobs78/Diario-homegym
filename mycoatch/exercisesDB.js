@@ -12,6 +12,7 @@ const RAW_EXERCISES = [
     { name: "Trazioni alla Sbarra (Pull-up)", category: "Back_Lats", pattern: "vertical_pull", equipment: "bodyweight", cnsCost: 7, profile: "Catena cinetica chiusa - Gran dorsale e teres major", defaultReps: "6-8", defaultKg: "" },
     { name: "Lat Machine con Triangolo", category: "Back_Lats", pattern: "vertical_pull", equipment: "lat_machine", cnsCost: 5, profile: "Vettore adduzione/estensione - Curva stabile", defaultReps: "8-10", defaultKg: "" },
     { name: "Rematore con Bilanciere", category: "Back_Thickness", pattern: "horizontal_pull", equipment: "barbell", cnsCost: 8, profile: "Spessore mid-traps e romboidi - Carico alto", defaultReps: "6-8", defaultKg: "" },
+    { name: "Rematore Unilaterale al Cavo Basso", category: "Back_Thickness", pattern: "horizontal_pull", equipment: "cable", cnsCost: 5, defaultReps: "8-12", defaultKg: "" },
     { name: "Pulley Basso a T", category: "Back_Thickness", pattern: "horizontal_pull", equipment: "cable", cnsCost: 5, profile: "Massimo allungamento scapolare in scarico", defaultReps: "10-12", defaultKg: "" },
 
     // --- GAMBE / LOWER BODY ---
@@ -105,6 +106,7 @@ const STABLE_IDS = new Map([
     ["Trazioni alla Sbarra (Pull-up)", "trazioni_alla_sbarra_pull_up"],
     ["Lat Machine con Triangolo", "lat_machine_con_triangolo"],
     ["Rematore con Bilanciere", "rematore_con_bilanciere"],
+    ["Rematore Unilaterale al Cavo Basso", "rematore_unilaterale_al_cavo_basso"],
     ["Pulley Basso a T", "pulley_basso_a_t"],
     ["Squat con Bilanciere", "squat_con_bilanciere"],
     ["Front Squat", "front_squat"],
@@ -164,6 +166,7 @@ const CATEGORY_SECONDARIES = {
     Core: []
 };
 const REQUIRES = {
+    'Rematore Unilaterale al Cavo Basso': ['single_handle'],
     'Panca Piana con Manubri': ['flat_bench'],
     'Panca Stretta con Bilanciere': ['rack','flat_bench'],
     'Spinte con Manubri da Seduto': ['flat_bench'],
@@ -214,7 +217,7 @@ const SHOULDER_HEAD = Object.freeze({
     'Reverse Fly ai Cavi': 'posteriore'
 });
 
-const UNILATERAL_EXERCISES=new Set(['Alzate Laterali ai Cavi','Rematore con Manubrio a Un Braccio','Bulgarian Split Squat con Manubri','Affondi con Manubri','Step-up con Manubri','Calf Raise Monopodalico','Pallof Press ai Cavi','Leg Curl ai Cavi (cavigliera)']);
+const UNILATERAL_EXERCISES=new Set(['Rematore Unilaterale al Cavo Basso','Alzate Laterali ai Cavi','Rematore con Manubrio a Un Braccio','Bulgarian Split Squat con Manubri','Affondi con Manubri','Step-up con Manubri','Calf Raise Monopodalico','Pallof Press ai Cavi','Leg Curl ai Cavi (cavigliera)']);
 
 export const EXERCISE_DATABASE = Object.freeze(RAW_EXERCISES.map(exercise => {
     const id = STABLE_IDS.get(exercise.name);

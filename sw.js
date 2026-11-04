@@ -4,6 +4,9 @@ const META_CACHE = 'workout-app-update-state';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
+  '/mycoatch/warmupPlan.js',
+  '/mycoatch/equipmentSubstitution.js',
+  '/js/warmupUI.js',
   '/mycoatch/dumbbellInventory.js',
   '/js/appUpdates.js',
   '/js/circuitTransition.js',

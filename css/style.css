@@ -3728,3 +3728,9 @@ body.dark-mode .group-title-badge {
 .equipment-dumbbell-row label {min-width:0;}
 .equipment-dumbbell-row input {width:100%;min-width:0;box-sizing:border-box;}
 .equipment-dumbbell-row button {min-width:44px;min-height:44px;}
+
+.exercise-warmups {margin:12px 0;padding:10px;border:1px solid var(--border-color);border-radius:10px;background:var(--block-bg);}
+.exercise-warmups p {font-size:.85rem;line-height:1.4;}
+.warmup-row {display:flex;gap:6px;align-items:center;margin:8px 0;}
+.warmup-row input[type=number] {width:64px;min-width:0;min-height:44px;}
+.warmup-row input[type=checkbox] {width:24px;height:24px;}

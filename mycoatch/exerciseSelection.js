@@ -23,6 +23,7 @@ export const FUNDAMENTAL_CHOICES = Object.freeze({
 });
 
 export const OPTIONAL_ACCESSORIES = Object.freeze([
+    Object.freeze({ id: 'single_handle', label: 'Maniglia singola per cavo' }),
     Object.freeze({ id: 'incline_bench', label: 'Panca inclinabile' }),
     Object.freeze({ id: 'pullup_bar', label: 'Barra per trazioni' }),
     Object.freeze({ id: 'ankle_strap', label: 'Cavigliera per cavi' }),
@@ -45,6 +46,7 @@ const HIGH_CABLE_EXERCISES = new Set([
     'Crunch ai Cavi', 'Face Pull ai Cavi'
 ]);
 const LOW_CABLE_EXERCISES = new Set([
+    'Rematore Unilaterale al Cavo Basso',
     'Pulley Basso a T', 'Curl ai Cavi Bassi', 'Leg Curl ai Cavi (cavigliera)',
     'Alzate Laterali ai Cavi', 'Pull-through ai Cavi'
 ]);
