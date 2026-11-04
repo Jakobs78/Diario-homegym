@@ -1,7 +1,10 @@
-const CACHE_NAME = 'workout-app-v85-manual-tools-20261102';
+const CACHE_NAME = 'workout-app-v86-reliable-updates-20261104';
+const APP_VERSION = '1.3.4-20261104';
+const META_CACHE = 'workout-app-update-state';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
+  '/js/appUpdates.js',
   '/js/circuitTransition.js',
   '/mycoatch/recoveryContext.js',
   '/mycoatch/repProgression.js',
@@ -140,57 +143,101 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/timeEstimator.js'
 ];
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
-  // Wait for existing app sessions to close; never replace code mid-workout.
-});
-
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          // Only remove old HomeGym caches; never touch other origin caches.
-          if (key.startsWith('workout-app-') && key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    })
-  );
-  self.clients.claim();
-});
-
-self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-
-  // 1. Authentication, database and storage APIs must behave like real
-  // network requests, including real network failures while offline.
-  // Do NOT synthesize an HTTP 200 JSON {"error":"offline"} response:
-  // that disguises a failed request as a transport success to Supabase SDK.
-  if (url.hostname === 'supabase.co' || url.hostname.endsWith('.supabase.co')) {
-    return; // No respondWith: the browser propagates the network error.
+// Keep each open document on its own static bundle. This also supports old
+// clients whose cache-first worker had no update button or message listener.
+const isVersionCache=key=>key.startsWith('workout-app-')&&key!==META_CACHE;
+const versionCaches=async()=> (await caches.keys()).filter(isVersionCache);
+const generation=name=>Number(name.match(/^workout-app-v(\d+)-/)?.[1]||0);
+const olderCaches=async()=> (await versionCaches()).filter(name=>generation(name)<generation(CACHE_NAME));
+const clientKey=id=>new URL('/__homegym_updates__/client/'+encodeURIComponent(id),self.location.origin).href;
+async function pinClient(id,names){
+  if(!id)return;
+  const meta=await caches.open(META_CACHE);
+  await meta.put(clientKey(id),new Response(JSON.stringify({names,at:Date.now()}),{headers:{'Content-Type':'application/json'}}));
+}
+async function clientCaches(id){
+  if(id){
+    const record=await (await caches.open(META_CACHE)).match(clientKey(id));
+    if(record)return (await record.json()).names;
   }
-
-  // 2. Strategia Cache First per tutte le risorse statiche dell'app
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then((networkResponse) => {
-        // Opzionale: memorizza dinamicamente nuove risorse fetchate
-        return networkResponse;
-      }).catch(() => {
-        // Fallback generico offline (es. pagina di fallback o index.html per SPA)
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
-        }
-      });
-    })
-  );
+  // The legacy worker used caches.match across caches in creation order.
+  const older=await olderCaches();
+  return older.length?older:[CACHE_NAME];
+}
+async function pruneCaches(){
+  const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+  const live=new Set(windows.map(client=>client.id)),keep=new Set([CACHE_NAME]);
+  const meta=await caches.open(META_CACHE);
+  for(const request of await meta.keys()){
+    const id=decodeURIComponent(new URL(request.url).pathname.split('/').at(-1));
+    const record=await meta.match(request);
+    if(!record)continue; // Another worker may have removed a stale pin.
+    const data=await record.json();
+    // A navigation can have a resultingClientId before clients.matchAll sees it.
+    if(live.has(id)||Date.now()-data.at<60000)data.names.forEach(name=>keep.add(name));
+    else await meta.delete(request);
+  }
+  // An older worker can still be finishing an event while a newer one installs.
+  // It must never delete a cache belonging to a newer release.
+  for(const name of await olderCaches())if(!keep.has(name))await caches.delete(name);
+}
+self.addEventListener('install',event=>{
+  event.waitUntil((async()=>{
+    const cache=await caches.open(CACHE_NAME);
+    // Bypass HTTP caches too, so a new bundle cannot contain old JS files.
+    await cache.addAll(ASSETS_TO_CACHE.map(path=>new Request(path,{cache:'reload'})));
+    // Activation installs the router; it never reloads an open workout.
+    await self.skipWaiting();
+  })());
+});
+self.addEventListener('activate',event=>{
+  event.waitUntil((async()=>{
+    const older=await olderCaches();
+    for(const client of await self.clients.matchAll({type:'window',includeUncontrolled:true})){
+      const existing=await (await caches.open(META_CACHE)).match(clientKey(client.id));
+      if(!existing)await pinClient(client.id,older.length?older:[CACHE_NAME]);
+    }
+    await self.clients.claim();
+    for(const client of await self.clients.matchAll({type:'window'}))
+      client.postMessage({type:'APP_UPDATE_READY',version:APP_VERSION});
+    await pruneCaches();
+  })());
+});
+self.addEventListener('message',event=>{
+  const reply=data=>event.ports?.[0]?.postMessage(data);
+  if(event.data?.type==='GET_APP_VERSION')reply({version:APP_VERSION});
+  if(event.data?.type==='ACTIVATE_UPDATE')event.waitUntil(self.skipWaiting().then(()=>reply({activating:true})));
+  if(event.data?.type==='PIN_APP_VERSION')event.waitUntil((async()=>{
+    const names=[];
+    for(const name of await versionCaches()){
+      const config=await (await caches.open(name)).match('/js/config.js');
+      const version=config&&(await config.text()).match(/APP_VERSION\s*:\s*['"]([^'"]+)['"]/)?.[1];
+      if(version===event.data.version)names.push(name);
+    }
+    if(names.length&&event.source?.id)await pinClient(event.source.id,names);
+    reply({pinned:names.length>0});
+    await pruneCaches();
+  })());
+});
+self.addEventListener('fetch',event=>{
+  const url=new URL(event.request.url);
+  // Network APIs, auth and external origins retain real network semantics.
+  if(event.request.method!=='GET'||url.origin!==self.location.origin)return;
+  const navigation=event.request.mode==='navigate'&&(url.pathname==='/'||url.pathname==='/index.html');
+  if(navigation){
+    event.respondWith((async()=>{
+      // Do not change the old document's pin until this navigation commits.
+      await pinClient(event.resultingClientId,[CACHE_NAME]);
+      const shell=await (await caches.open(CACHE_NAME)).match('/index.html');
+      return shell||fetch(event.request);
+    })());return;
+  }
+  if(!ASSETS_TO_CACHE.includes(url.pathname))return;
+  event.respondWith((async()=>{
+    for(const name of await clientCaches(event.clientId)){
+      const cached=await (await caches.open(name)).match(event.request);
+      if(cached)return cached;
+    }
+    return fetch(event.request);
+  })());
 });

@@ -11,6 +11,7 @@ on:
       - 'js/**'
       - 'index.html'
       - 'sw.js'
+      - 'vercel.json'
       - 'manifest.webmanifest'
       - 'tests/e2e/**'
       - '.github/workflows/mycoatch-e2e.yml'
@@ -29,10 +30,12 @@ jobs:
           node-version: '22'
       - name: Install isolated Playwright runner
         run: npm install --no-save --no-package-lock --ignore-scripts @playwright/test@1.55.0
-      - name: Install Chromium runtime
-        run: npx playwright install --with-deps chromium
+      - name: Install Chromium and WebKit runtimes
+        run: npx playwright install --with-deps chromium webkit
       - name: Run real-webapp tests without network access to Supabase
         run: npx playwright test --config tests/e2e/playwright.config.mjs
+      - name: Verify PWA updates on WebKit
+        run: npx playwright test --config tests/e2e/pwa-webkit.config.mjs
       - name: Upload browser failure traces
         if: failure()
         uses: actions/upload-artifact@v4

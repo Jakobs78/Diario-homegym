@@ -64,7 +64,7 @@ test('iPhone startup metadata and safe area styles do not change workout logic',
     assert.match(html,/<link rel="apple-touch-icon" sizes="180x180" href="\/icons\/apple-touch-icon\.png">/);
     assert.match(html,/apple-mobile-web-app-capable" content="yes"/);
     assert.match(html,/viewport-fit=cover/);
-    assert.match(html,/updateViaCache: 'none'/);
+    assert.match(await readText('js/appUpdates.js'),/updateViaCache: 'none'/);
     assert.match(css,/safe-area-inset-top/);
     assert.match(css,/safe-area-inset-bottom/);
     assert.ok(css.includes('bottom: calc(20px + env(safe-area-inset-bottom, 0px))'));
@@ -74,4 +74,6 @@ test('iPhone startup metadata and safe area styles do not change workout logic',
     assert.match(sw,/key\.startsWith\('workout-app-'\)/,
         'cleanup must only remove app-specific caches');
     assert.match(sw,/const CACHE_NAME = 'workout-app-v\d+-/);
+    const version=(await readText('js/config.js')).match(/APP_VERSION:\s*'([^']+)'/)[1];
+    assert.ok(sw.includes("const APP_VERSION = '"+version+"'"),'worker and UI must describe the same release');
 });

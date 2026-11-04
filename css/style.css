@@ -3718,3 +3718,8 @@ body.dark-mode .group-title-badge {
 #tools-modal .tools-account {flex-direction:column;align-items:flex-start;gap:4px;}
 #tools-modal #user-email-display {white-space:normal;overflow-wrap:anywhere;}
 @media(max-width:420px){.manual-chapter-coach{padding:10px;}.manual-index{grid-template-columns:1fr;}}
+
+.app-update-banner {margin:10px 0;padding:12px;border:2px solid var(--accent-color);border-radius:12px;background:var(--card-bg);color:var(--text-color);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.app-update-banner p {margin:0;flex:1 1 220px;font-size:.9rem;line-height:1.45;}
+.app-update-banner button {min-height:44px;white-space:normal;}
+.app-update-banner[hidden],.app-update-banner button[hidden] {display:none!important;}
