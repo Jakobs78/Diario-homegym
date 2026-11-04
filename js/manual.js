@@ -85,7 +85,7 @@ const diary = [
  ['Diario diverso su due dispositivi','Il conflitto sospende la sincronizzazione: scarica le copie di entrambe le versioni, confrontale e scegli quale conservare. Non avviene una fusione automatica.'],
  ['Archivi tecnici MyCoatch','Restano separati dal diario operativo, per non ritrasferire continuamente i vecchi dettagli. Consultare la guida o un consiglio invariato non crea nuovi allenamenti.'],
  ['Installa app / Aggiungi alla schermata Home','Usa il menu del browser o la condivisione sui dispositivi compatibili. L’app funziona anche dal browser.'],
- ['Aggiornamenti e versione','La versione è sotto al nome HomeGym Diary. Dopo una pubblicazione chiudi e riapri l’app online; le finestre già aperte possono trattenere la vecchia versione. Prima controlla il Cloud. Non cancellare i dati del browser per aggiornare: potresti perdere modifiche non inviate.'],
+ ['Aggiornamenti e versione','La versione è sotto al nome HomeGym Diary. L’app controlla la disponibilità all’apertura e quando ritorni in primo piano. Puoi usare Strumenti e gestione → Controlla aggiornamenti. Quando compare una nuova versione, «Aggiorna ora» completa il salvataggio sul dispositivo e riavvia la schermata; i dati in coda restano disponibili per il successivo invio Cloud. Il controllo non interrompe da solo una seduta. Non cancellare i dati del browser per aggiornare: potresti perdere modifiche non inviate.'],
  ['Hai bisogno d’aiuto?','Apre il supporto. Indica dispositivo, funzione e messaggio riscontrato, senza inviare password.']
 ]]
 ];

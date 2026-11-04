@@ -240,6 +240,7 @@
                     <button type="button" class="sheet-item" id="btn-user-manual"><span data-manual-label>📖 Manuale d’uso</span><small class="sheet-item-help">Tutte le funzioni del diario e di MyCoatch nella stessa pagina.</small></button>
                     <button type="button" class="sheet-item" id="theme-toggle-btn"><span class="theme-label">☀️ Tema chiaro</span><small class="sheet-item-help theme-help">Passa al tema scuro.</small></button>
                     <button id="user-info-bar" class="sheet-item tools-account" type="button" title="Esci dall’account"><span class="user-logout-btn">Esci dall’account ↗</span><small id="user-email-display" class="sheet-item-help"></small></button>
+                    <button type="button" class="sheet-item" id="check-app-update-btn">🔄 Controlla aggiornamenti<small class="sheet-item-help">Verifica la nuova versione e applicala quando sei pronto.</small></button>
                     <span class="sheet-section-title">Schede, file e attrezzatura</span>
                     <button class="sheet-item" data-action="export-pdf">🖨️ Scarica la scheda del giorno (PDF)<small class="sheet-item-help">Documento da consultare o stampare. Non cambia i risultati.</small></button>
                     <button class="sheet-item" data-action="export-meso-pdf">📑 Scarica programma e report completi (PDF)<small class="sheet-item-help">Tutte le settimane, le note e i risultati. Non è un backup ripristinabile.</small></button>
@@ -573,15 +574,7 @@
     </div>
 
     <script type="module" src="js/main.js"></script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
-            .then(() => console.log('✅ Service Worker attivo'))
-            .catch(err => console.error('❌ Errore Service Worker:', err));
-        });
-      }
-    </script>
+
     
     <!-- POPUP NOTIFICA TRIAL -->
     <div id="trial-toast" class="toast-trial">⏳ Ti restano 45 giorni di prova gratuita</div>

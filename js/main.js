@@ -1,3 +1,4 @@
+import {setupAppUpdates} from './appUpdates.js';
 import {EXERCISE_DATABASE,DEFAULT_HOME_GYM_EQUIPMENT} from '../mycoatch/exercisesDB.js';
 import {FUNDAMENTAL_CHOICES} from '../mycoatch/exerciseSelection.js';
 import {editJournal} from './journalTransaction.js';
@@ -95,20 +96,11 @@ async function initApp() {
     }
     const version=document.createElement('small');version.className='app-version';version.textContent='Versione '+CONFIG.APP_VERSION+' · Importazione Excel può richiedere rete';
     document.getElementById('app-container')?.append(version);
-    navigator.serviceWorker?.getRegistration?.().then(registration=>{
-        if(!registration)return;
-        const notify=()=>{
-            if(!registration.waiting || version.dataset.updateAvailable)return;
-            version.dataset.updateAvailable='true';
-            version.textContent+=' · Aggiornamento disponibile: salva la seduta e chiudi tutte le finestre dell’app per applicarlo.';
-            if(release){release.textContent='v '+CONFIG.APP_VERSION+' · Aggiornamento disponibile';release.classList.add('app-release-update');}
-        };
-        notify();registration.addEventListener('updatefound',()=>registration.installing?.addEventListener('statechange',notify));
-    }).catch(()=>{});
     applyUserToUI(null);
 
     try {await initializeJournalStorage();}
     catch(error){alert('Archivio non disponibile. I dati precedenti restano conservati. '+error.message);return;}
+    setupAppUpdates({version:CONFIG.APP_VERSION,beforeReload:flushJournalStorage});
     initTheme();
     initDevBanner();
     initBackgroundSync(state);
