@@ -17,7 +17,7 @@ const plan = (config = {}, previous = null) =>
     generateSmartMesocycle({ ...base, ...config }, noHistory, previous);
 
 test('catalogo esteso con ID stabili, categorie e dotazioni esplicite', () => {
-    assert.equal(EXERCISE_DATABASE.length, 66);
+    assert.equal(EXERCISE_DATABASE.length, 67);
     assert.equal(new Set(EXERCISE_DATABASE.map(e => e.id)).size, EXERCISE_DATABASE.length);
     assert.equal(new Set(EXERCISE_DATABASE.map(e => e.name)).size, EXERCISE_DATABASE.length);
     assert.ok(EXERCISE_DATABASE.every(ex =>

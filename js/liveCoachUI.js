@@ -3,7 +3,7 @@ import { buildLiveSessionSnapshot, assessExerciseLive } from '../mycoatch/liveCo
 import { calibrationContextForDay } from '../mycoatch/calibrationReview.js';
 import { state } from './state.js';
 import { saveAndSync } from './storage.js';
-import { createSessionCheckin } from '../mycoatch/sessionReadiness.js';
+import { assessSessionReadiness, createSessionCheckin } from '../mycoatch/sessionReadiness.js';
 import {refreshExerciseCoachPanel} from './exerciseCoachUI.js';
 import {actionableLiveAdvice} from '../mycoatch/coachCommunication.js';
 
@@ -98,7 +98,7 @@ export function showLiveCoachToast(day,{revealSummary=false}={}) {
     // card. A successful ordinary check no longer creates a second popup.
     if(!day)return null;
     const snapshot=updateLiveCoachPanel(day);
-    if(snapshot?.finished){
+    if(snapshot?.finished&&revealSummary){
         const overview=document.getElementById('mycoatch-live-disclosure');
         if(overview){
             overview.open=true;
@@ -123,9 +123,10 @@ const CHECKIN_FIELDS = [
 function createSessionCheckinPanel(day, readiness, locked, panel) {
     const section = element('details', 'mycoatch-session-checkin');
     section.id = 'mycoatch-session-checkin';
-    section.open = !locked && (readiness.level === 'unknown' ||
+    const skipped=day.coachCheckinSkippedAt&&new Date(day.coachCheckinSkippedAt).toDateString()===new Date().toDateString();
+    section.open = !locked && (readiness.level === 'unknown'&&!skipped ||
         readiness.level === 'stop' || readiness.level === 'caution');
-    const status = readiness.level === 'unknown' ? 'da compilare' :
+    const status = readiness.level === 'unknown' ? skipped?'saltato oggi · condizione non valutata':'facoltativo' :
         readiness.level === 'normal' ? 'regolare' :
         readiness.level === 'stop' ? 'dolore segnalato' : 'prudenza';
     section.append(element('summary', '',
@@ -168,15 +169,25 @@ function createSessionCheckinPanel(day, readiness, locked, panel) {
             readiness.level === 'unknown' ? 'Salva check-in' : 'Aggiorna check-in');
         submit.type = 'submit';
         form.append(submit);
+        if(readiness.level==='unknown'){
+            const skip=element('button','btn btn-secondary btn-sm','Salta per oggi');skip.type='button';
+            skip.onclick=async()=>{
+                const previous=day.coachCheckinSkippedAt;day.coachCheckinSkippedAt=new Date().toISOString();
+                try{if(await saveAndSync(state.workoutData)===false)throw Error('Scelta non salvata: riprova.');updateLiveCoachPanel(day,{readOnly:false},panel);}
+                catch(error){if(previous===undefined)delete day.coachCheckinSkippedAt;else day.coachCheckinSkippedAt=previous;info.textContent=error.message;}
+            };form.append(skip);
+        }
         form.addEventListener('submit', async event => {
             event.preventDefault();
             if (locked || day.completed) return;
             const values = Object.fromEntries(new FormData(form));
             try {
-                const previous=day.coachCheckin;
-                day.coachCheckin = {...createSessionCheckin(values),movement:String(values.movement||'').trim(),location:String(values.location||'').trim()};
+                const updated={...createSessionCheckin(values),movement:String(values.movement||'').trim(),location:String(values.location||'').trim()};
+                const previous=day.coachCheckin,previousSkip=day.coachCheckinSkippedAt;
+                delete day.coachCheckinSkippedAt;day.coachCheckin=updated;
                 try{if(await saveAndSync(state.workoutData)===false)throw Error('Check-in non salvato: riprova.');}
-                catch(error){day.coachCheckin=previous;throw error;}
+                catch(error){day.coachCheckin=previous;if(previousSkip!==undefined)day.coachCheckinSkippedAt=previousSkip;throw error;}
+                delete day.coachCheckinSkippedAt;
                 updateLiveCoachPanel(day, { readOnly: false }, panel);
             } catch (error) {
                 info.textContent = error.message || 'Controlla i dati del check-in.';
@@ -336,3 +347,11 @@ export function showLiveCoachInputError(message) {
     });
 }
 
+
+export function promptSessionCheckin(day){
+    const readiness=assessSessionReadiness(day?.coachCheckin);
+    if(readiness.level!=='unknown'||day?.coachCheckinSkippedAt&&new Date(day.coachCheckinSkippedAt).toDateString()===new Date().toDateString())return;
+    const overview=document.getElementById('mycoatch-live-disclosure'),checkin=document.getElementById('mycoatch-session-checkin');
+    if(overview){overview.open=true;try{if(overview.dataset.sessionKey)localStorage.setItem(overview.dataset.sessionKey,'1');}catch{}}
+    if(checkin){checkin.open=true;checkin.scrollIntoView({block:'center',behavior:'smooth'});checkin.querySelector('select')?.focus({preventScroll:true});}
+}

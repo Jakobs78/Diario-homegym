@@ -56,7 +56,7 @@ test('generated powerbuilding CSV still contains twelve columns, clear notes, no
   assert.equal(plan.weeks.length,4);
   const rows=MyCoatch.exportAsCSV().trim().split('\n');
   assert.equal(rows[0],'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset');
-  assert.ok(rows.length>=81,'must have a complete 4-week plan');
+  assert.ok(plan.weeks.every(week=>week.days.length===4&&week.days.every(day=>day.exercises.length>=3)),'must have four complete training weeks within the time budget, including warmups');
   for(const row of rows.slice(1)){
     assert.equal(row.split(';').length,12,'CSV column count is preserved');
   }

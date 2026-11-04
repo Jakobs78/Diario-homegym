@@ -1,3 +1,4 @@
+import {normalizeOwnedDumbbells} from '../mycoatch/dumbbellInventory.js';
 import {setupAppUpdates} from './appUpdates.js';
 import {EXERCISE_DATABASE,DEFAULT_HOME_GYM_EQUIPMENT} from '../mycoatch/exercisesDB.js';
 import {FUNDAMENTAL_CHOICES} from '../mycoatch/exerciseSelection.js';
@@ -159,7 +160,7 @@ async function initApp() {
     const week=meso?.weeks?.find(w=>Number(w.weekNumber)===Number(state.activeWeek||1)) ||
         meso?.weeks?.[0];
     const day=week?.days?.[Math.max(0,(state.activeDay||1)-1)]||week?.days?.[0];
-    restoreActiveRestTimer({allowRestore:Boolean(day && !day.completed && !meso?.locked)});
+    restoreActiveRestTimer({legacyAllowed:Boolean(day && !day.completed && !meso?.locked)});
     setupEventListeners();
     setupAuthListeners();
     initAudioUnlock();
@@ -514,10 +515,22 @@ function setupEventListeners() {
     // in normal backup/sync. Never present default inventory as owned stock.
     const equipmentForm=document.getElementById('homegym-equipment-form');
     const barsList=document.getElementById('equipment-barbells-list');
+    const dumbbellsList=document.getElementById('equipment-dumbbells-list');
+    const dumbbellsKnown=document.getElementById('equipment-dumbbells-known');
+    const addDumbbellRow=(item={})=>{
+        const row=document.createElement('div');row.className='equipment-dumbbell-row';
+        row.innerHTML=`<label>Peso singolo (kg)<input class="equipment-dumbbell-weight" type="number" min="0.25" max="700" step="0.25" inputmode="decimal" placeholder="Es. 30"></label><label>Quantità (pezzi)<input class="equipment-dumbbell-quantity" type="number" min="0" max="24" step="1" inputmode="numeric" placeholder="Es. 2"></label><button type="button" aria-label="Rimuovi manubrio">✕</button>`;
+        row.querySelector('.equipment-dumbbell-weight').value=item.weight??'';
+        row.querySelector('.equipment-dumbbell-quantity').value=item.quantity??'';
+        row.querySelector('button').onclick=()=>row.remove();
+        row.addEventListener('input',()=>{dumbbellsKnown.checked=true;});
+        dumbbellsList?.append(row);
+    };
+    document.getElementById('equipment-add-dumbbell')?.addEventListener('click',()=>{dumbbellsKnown.checked=true;addDumbbellRow();});
     if(equipmentForm){
         const inventory=document.createElement('fieldset');inventory.className='equipment-extra-inventory';
         const legend=document.createElement('legend');legend.textContent='Pesi realmente disponibili e configurazione';inventory.append(legend);
-        for(const [id,label] of [['dumbbell','Manubri: kg disponibili per singolo manubrio'],['machine','Cavi/macchina: kg selezionabili (scala indicata sulla tua macchina)']]){
+        for(const [id,label] of [['machine','Cavi/macchina: kg selezionabili (scala indicata sulla tua macchina)']]){
             const row=document.createElement('label');row.textContent=label;
             const field=document.createElement('input');field.type='text';field.id='equipment-owned-'+id;field.placeholder='Es. 4; 6; 8; 10; 12';row.append(field);inventory.append(row);
         }
@@ -560,6 +573,13 @@ function setupEventListeners() {
     document.getElementById('equipment-add-barbell')?.addEventListener('click',()=>addBarRow());
     const readEquipment=()=>{
         const athlete=state.workoutData?.athlete||{};
+        if(dumbbellsList){
+            dumbbellsList.replaceChildren();
+            dumbbellsKnown.checked=Array.isArray(athlete.ownedDumbbells);
+            const rows=dumbbellsKnown.checked?normalizeOwnedDumbbells(athlete.ownedDumbbells):
+                (athlete.availableLoads?.dumbbell||[]).map(weight=>({weight}));
+            rows.forEach(addDumbbellRow);
+        }
         if(barsList){
             barsList.replaceChildren();
             const owned=normalizeOwnedBarbells(athlete.ownedBarbells);
@@ -575,7 +595,7 @@ function setupEventListeners() {
                 barbell:2.5,dumbbell:1,machine:2.5
             })[name];
         }
-        for(const key of ['dumbbell','machine']){const field=document.getElementById('equipment-owned-'+key);if(field)field.value=(athlete.availableLoads?.[key]||[]).join('; ');}
+        for(const key of ['machine']){const field=document.getElementById('equipment-owned-'+key);if(field)field.value=(athlete.availableLoads?.[key]||[]).join('; ');}
         const station=document.getElementById('equipment-station-id');if(station)station.value=athlete.stationConfigurations?.machine||'';
         const legacy=document.getElementById('equipment-legacy-stock');
         if(legacy)legacy.textContent=athlete.platePairs && !athlete.plateInventories
@@ -641,8 +661,19 @@ function setupEventListeners() {
             diameter:defaultRow.querySelector('.equipment-bar-diameter').value
         } : ownedBarbells[0]||null;
         try {
-            const availableLoads={};
-            for(const key of ['dumbbell','machine']){
+            const availableLoads={...(state.workoutData.athlete?.availableLoads||{})};
+            let ownedDumbbells;
+            if(dumbbellsKnown?.checked){
+                const rows=[...dumbbellsList.querySelectorAll('.equipment-dumbbell-row')].map(row=>({
+                    weight:row.querySelector('.equipment-dumbbell-weight').value,
+                    quantity:row.querySelector('.equipment-dumbbell-quantity').value
+                }));
+                ownedDumbbells=normalizeOwnedDumbbells(rows);
+                if(ownedDumbbells.length!==rows.length)throw Error('Controlla i manubri: peso positivo a scatti di 0,25 kg, quantità da 0 a 24 e una sola riga per peso.');
+                availableLoads.dumbbell=ownedDumbbells.filter(row=>row.quantity>0).map(row=>row.weight);
+            }else if(Array.isArray(state.workoutData.athlete?.ownedDumbbells))delete availableLoads.dumbbell;
+            delete availableLoads.machine;
+            for(const key of ['machine']){
                 const raw=document.getElementById('equipment-owned-'+key)?.value.trim();
                 if(!raw)continue;
                 const values=raw.split(';').map(v=>Number(v.trim().replace(',','.')));
@@ -651,6 +682,8 @@ function setupEventListeners() {
             }
             await editJournal(candidate=>{
                 candidate.athlete ||= {};
+                if(ownedDumbbells!==undefined)candidate.athlete.ownedDumbbells=ownedDumbbells;
+                else delete candidate.athlete.ownedDumbbells;
                 Object.assign(candidate.athlete,{barbellWeight:barWeight,ownedBarbells,defaultBarbell,loadingSteps,plateInventories,availableLoads,
                     stationConfigurations:{machine:document.getElementById('equipment-station-id')?.value.trim()||''}});
             },'SET_EQUIPMENT');

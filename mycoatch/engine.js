@@ -1,3 +1,5 @@
+import {buildWarmupPlan} from './warmupPlan.js';
+import {replacementCatalogExercise} from './equipmentSubstitution.js';
 // mycoatch/engine.js
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { resolvePlannedLoad,resolveNearbyLoad } from './loadProposal.js';
@@ -7,7 +9,7 @@ import { analyzeCompletedMesocycle } from './historyAnalysis.js';
 import { canonicalExerciseKey } from './exerciseIdentity.js';
 import { rebalanceWeeklyAccessories,weeklyTotals } from './weeklyVolumeBalancer.js';
 import {repairEssentialCoverage} from './essentialCoverage.js';
-import { normalizeSelectionPreferences, selectExerciseForSlot, defaultFundamentalName } from './exerciseSelection.js';
+import { isExerciseAvailable, normalizeSelectionPreferences, selectExerciseForSlot, defaultFundamentalName } from './exerciseSelection.js';
 import { auditWeeklyCoverage } from './weeklyCoverage.js';
 import { normalizeAthleteProfile, onboardingPlan, eligibleReferenceLoad, profileSummary } from './athleteProfile.js';
 import { deriveMesocyclePolicy } from './periodizationPolicy.js';
@@ -217,6 +219,10 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 selectionReason: 'Esercizio mantenuto dalla settimana precedente per lo scarico.'
             }));
 
+            const change=config.equipmentSubstitution;
+            const target=change&&EXERCISE_DATABASE.find(item=>item.name===change.to);
+            if(target&&isExerciseAvailable(target,selectionPreferences))rawExercises=rawExercises.map(ex=>replacementCatalogExercise(ex,change));
+
             // Integrazione della funzione di specializzazione originale
             rawExercises = applySpecializationFocus(rawExercises, safeHistory);
 
@@ -228,8 +234,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 const generalPrior = analysis.byExercise?.[canonicalKey];
                 const generalDecision = analysis.decisions?.byExercise?.[canonicalKey];
                 const matchingRole=Object.keys(generalPrior?.byExposureRole||{}).find(role=>ex.repIntent&&role.startsWith(ex.repIntent+'|'));
-                const prior = matchingRole?generalPrior.byExposureRole[matchingRole]:generalPrior;
-                const loadDecision = matchingRole?generalDecision?.byExposureRole?.[matchingRole]:generalDecision;
+                const prior = ex.equipmentSubstitution?null:(matchingRole?generalPrior.byExposureRole[matchingRole]:generalPrior);
+                const loadDecision = ex.equipmentSubstitution?null:(matchingRole?generalDecision?.byExposureRole?.[matchingRole]:generalDecision);
                 let baseKg = Number.isFinite(loadDecision?.plannedKg) && loadDecision.plannedKg > 0
                     ? loadDecision.plannedKg : (
                         Number.isFinite(prior?.lastWorkingKg) && prior.lastWorkingKg > 0
@@ -237,6 +243,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                             : (Number.isFinite(prior?.lastKg) && prior.lastKg > 0
                                 ? prior.lastKg : null)
                     );
+                if(ex.equipmentSubstitution)baseKg=null;
                 const reps = prescribeExerciseReps(ex, {
                     focus, index, experience: onboarding.experience,
                     calibrationWeek: onboarding.calibrationWeek && w === 1,
@@ -259,7 +266,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     calibrationWeek: onboarding.calibrationWeek && w === 1,
                     fatigueConcern: prior?.fatigueConcern === true || fatiguedRegion || guardrails.recoveryRequired
                 }).toFixed(1);
-                const historicalEstimate=!isDeloadWeek && !onboarding.calibrationWeek
+                const historicalEstimate=!ex.equipmentSubstitution && !isDeloadWeek && !onboarding.calibrationWeek
                     ? estimatePrescribedLoad(prior,reps,exerciseRpeString) : null;
                 const preserveRepDecision=loadDecision?.action==='build_reps' && Number(prior?.lastTargetRpe)===Number(exerciseRpeString) && Number(prior?.lastReps?.min)===Number(reps.split('-')[0]) && Number(prior?.lastReps?.max)===Number(reps.split('-')[1]||reps.split('-')[0]);
                 if(historicalEstimate && !preserveRepDecision){
@@ -283,7 +290,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     ex.name === expectedVariant
                     ? eligibleReferenceLoad(athleteProfile, ex.anchorKey, reps) : null;
                 const usingReference = baseKg === null && referenceKg !== null;
-                if (usingReference) baseKg = referenceKg;
+                if (usingReference&&!ex.equipmentSubstitution) baseKg = referenceKg;
 
                 // Auto-Deload Preventivo per Inattività
                 let autoNote = requiresHighRepRecalibration
@@ -400,25 +407,11 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     noteFinal += ' | [VOLUME INIZIALE] Massimo 2 serie per esercizio nella proposta iniziale.';
                 }
 
-                const isFirstCompound = index === 0 && ["squat", "hinge", "horizontal_push", "vertical_push", "vertical_pull"].includes(ex.pattern);
-                
-                if (isFirstCompound) {
-                    if (targetKgMin && !usingReference) {
-                        const warmupReferenceKg = Number(targetKgMin);
-                        const warmups=[0.5,0.7,0.85].map(ratio=>resolvedLoad.verified
-                            ? resolvePlannedLoad(ex,warmupReferenceKg*ratio,equipmentSettings).weight
-                            : Math.round(warmupReferenceKg*ratio));
-                        noteFinal = warmups.every(kg=>kg!==null && kg>0)
-                            ? `🔥 [WARM-UP AUTO]: 8x${warmups[0]}kg, 4x${warmups[1]}kg, 2x${warmups[2]}kg. | ` + noteFinal
-                            : '[WARM-UP] Avvicinati gradualmente al carico di lavoro con pesi realmente disponibili, senza affaticarti. | ' + noteFinal;
-                    } else {
-                        // When no verified training load is available (or the
-                        // reference is provisional), still prescribe gradual
-                        // warm-up sets without inventing a kilogram target.
-                        // The time estimator already budgets this warm-up.
-                        noteFinal = '[WARM-UP] Esegui serie di avvicinamento progressive con un peso leggero e disponibile, senza affaticarti, prima delle serie di lavoro. | ' + noteFinal;
-                    }
-                }
+                const warmupPlan=buildWarmupPlan(ex,equipmentSettings,{workWeight:targetKgMin,previousExercises:rawExercises.slice(0,index)});
+                if(warmupPlan.length)noteFinal=warmupPlan.every(set=>set.targetKg)
+                    ? '[WARM-UP AUTO]: '+warmupPlan.map(set=>set.targetReps+'x'+set.targetKg+'kg').join(', ')+'. Riscaldamento W, escluso dal lavoro allenante. | '+noteFinal
+                    : '[WARM-UP] Serie di avvicinamento W progressive: scegli kg interi realmente disponibili, senza affaticarti. | '+noteFinal;
+                if(ex.equipmentSubstitution)noteFinal+=' | [LIMITE ATTREZZATURA] '+ex.equipmentSubstitution.reason;
 
                 // Mai inventare un top set più pesante dei carichi verificati.
                 // Quando richiesto, la prima serie è solo una serie di riferimento
@@ -462,6 +455,8 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 if(preserveRepDecision&&loadDecision?.plannedReps?.length===setsCount)noteFinal+=' | [OBIETTIVO REPS PER SERIE] '+loadDecision.plannedReps.join('/')+' | Stesso carico, una ripetizione aggiuntiva in una sola serie.';
                 return {
                     name: ex.name,
+                    warmupPlan,
+                    equipmentSubstitution:ex.equipmentSubstitution||null,
                     // Priorita' mantenuta fino all'ottimizzatore del tempo: lo
                     // squat puo' essere il terzo esercizio ma resta un anchor.
                     anchorKey: ex.anchorKey || null,

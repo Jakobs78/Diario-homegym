@@ -816,3 +816,108 @@ test('Strumenti recupera l’ultimo mesociclo archiviato senza duplicarlo',async
  expect(count).toBe(1);await expect(page.locator('#tools-modal')).toHaveClass(/hidden/);
  expect(monitor.pageErrors).toEqual([]);expect(monitor.remoteRequests).toEqual([]);
 });
+
+test('inventario manubri: peso e quantità persistono, distinguono singolo e coppia e mantengono bilancieri',async({page})=>{
+ const monitor=await openIsolatedApp(page);await page.setViewportSize({width:320,height:812});
+ await page.evaluate(async()=>{const {state}=await import('/js/state.js');state.workoutData.athlete={...state.workoutData.athlete,ownedBarbells:[{weight:20,diameter:'50'}],availableLoads:{dumbbell:[20,30]}};});
+ await page.locator('#open-tools-btn').click();await page.locator('.equipment-settings summary').click();
+ const rows=page.locator('.equipment-dumbbell-row');await expect(rows).toHaveCount(2);
+ await expect(page.locator('#equipment-dumbbells-known')).not.toBeChecked();
+ await expect(rows.first().locator('.equipment-dumbbell-quantity')).toHaveValue('');
+ await rows.nth(0).locator('.equipment-dumbbell-quantity').fill('2');
+ await rows.nth(1).locator('.equipment-dumbbell-quantity').fill('1');
+ await page.locator('.equipment-plate-pairs').evaluateAll(inputs=>inputs.forEach(el=>el.value='0'));
+ await page.locator('#homegym-equipment-form button[type="submit"]').click();
+ await expect(page.locator('#homegym-equipment-status')).toContainText('Attrezzatura salvata');
+ const result=await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');const {flushJournalStorage}=await import('/js/journalStore.js');await flushJournalStorage();
+  const {resolvePlannedLoad}=await import('/mycoatch/loadProposal.js');
+  return {owned:state.workoutData.athlete.ownedDumbbells,bars:state.workoutData.athlete.ownedBarbells,
+   row:resolvePlannedLoad({name:'Rematore con Manubrio a Un Braccio'},30,state.workoutData.athlete).weight,
+   press:resolvePlannedLoad({name:'Panca Inclinata con Manubri'},30,state.workoutData.athlete).weight};
+ });
+ expect(result).toEqual({owned:[{weight:20,quantity:2},{weight:30,quantity:1}],bars:[{weight:20,diameter:'50'}],row:30,press:20});
+ expect(await rows.evaluateAll(rows=>rows.every(row=>row.getBoundingClientRect().right<=innerWidth))).toBe(true);
+ await page.locator('.equipment-owned-dumbbells').screenshot({path:'../../outputs/inventario-manubri.png'});
+ await page.reload();await page.evaluate(()=>{document.getElementById('auth-overlay').style.display='none';});await expect(page.locator('#open-tools-btn')).toBeVisible();
+ await page.locator('#open-tools-btn').click();await page.locator('.equipment-settings summary').click();
+ await expect(page.locator('#equipment-dumbbells-known')).toBeChecked();
+ await expect(rows.nth(1).locator('.equipment-dumbbell-quantity')).toHaveValue('1');
+ // A duplicate weight must not silently inflate quantities or replace saved stock.
+ await page.locator('#equipment-add-dumbbell').click();
+ await rows.nth(2).locator('.equipment-dumbbell-weight').fill('30');await rows.nth(2).locator('.equipment-dumbbell-quantity').fill('2');
+ await page.locator('#homegym-equipment-form button[type="submit"]').click();
+ await expect(page.locator('#homegym-equipment-status')).toContainText('una sola riga per peso');
+ expect(await page.evaluate(async()=>{const {state}=await import('/js/state.js');return state.workoutData.athlete.ownedDumbbells;})).toEqual(result.owned);
+ expect(monitor.pageErrors).toEqual([]);expect(monitor.remoteRequests).toEqual([]);
+});
+
+test('riepilogo indipendente per giorno e settimana; check-in iniziale facoltativo e ricordato',async({page})=>{
+ const monitor=await openIsolatedApp(page);await setupPlan(page,'group');
+ await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js'),{renderWorkoutList}=await import('/js/ui.js');
+  const meso=state.workoutData.history.years[state.currentYear].mesocycles[0];
+  const second=structuredClone(meso.weeks[0].days[0]);second.dayName='Giorno indipendente';second.dayNumber=2;
+  meso.weeks[0].days.push(second);const week=structuredClone(meso.weeks[0]);week.weekNumber=2;meso.weeks.push(week);renderWorkoutList();
+ });
+ const summary=page.locator('#mycoatch-live-disclosure');
+ await summary.locator(':scope > summary').click();await expect(summary).toHaveAttribute('open','');
+ await page.getByRole('button',{name:'Giorno indipendente',exact:true}).click();await expect(summary).not.toHaveAttribute('open','');
+ await page.locator('[aria-label="Giorni di allenamento"] button').first().click();await expect(summary).toHaveAttribute('open','');
+ await page.locator('#week-selector').selectOption('2');await expect(summary).not.toHaveAttribute('open','');
+ await page.locator('#start-workout-session').click();await expect(page.locator('#mycoatch-session-checkin')).toHaveAttribute('open','');
+ await expect(summary).toHaveAttribute('open','');
+
+ await page.getByRole('button',{name:'Salta per oggi',exact:true}).click({timeout:5000});
+ await expect(page.locator('#mycoatch-session-checkin summary')).toContainText('condizione non valutata');
+ await expect(page.locator('#mycoatch-session-checkin')).not.toHaveAttribute('open','');
+ const readiness=await page.evaluate(async()=>{const {state}=await import('/js/state.js'),{assessSessionReadiness}=await import('/mycoatch/sessionReadiness.js');const d=state.workoutData.history.years[state.currentYear].mesocycles[0].weeks[1].days[0];return {started:Boolean(d.sessionStart),level:assessSessionReadiness(d.coachCheckin).level};});
+ expect(readiness).toEqual({started:true,level:'unknown'});
+ expect(monitor.pageErrors).toEqual([]);
+});
+
+test('recupero ripristinato dopo chiusura della finestra, senza sessionStorage e senza estendere la scadenza',async({page,context})=>{
+ await openIsolatedApp(page);await setupPlan(page,'group');
+ const deadline=await page.evaluate(async()=>{
+  const {flushJournalStorage}=await import('/js/journalStore.js');await flushJournalStorage();
+  const {startTimer}=await import('/js/timer.js');startTimer('180s');
+  // Changing the displayed day must not orphan the original recovery.
+  const {state}=await import('/js/state.js');const meso=state.workoutData.history.years[state.currentYear].mesocycles[0];
+  meso.weeks[0].days.push({...structuredClone(meso.weeks[0].days[0]),dayNumber:2});
+  state.activeDay=2;localStorage.setItem('ui_active_day','2');
+  await (await import('/js/storage.js')).saveAndSync(state.workoutData);await flushJournalStorage();
+  return JSON.parse(localStorage.getItem('homegym_rest_timer_v2')).deadline;
+ });
+ await page.close();const reopened=await context.newPage();
+ // The mocked config has no account; network remains confined to the local app.
+ await reopened.route('**/js/config.js',route=>route.fulfill({status:200,contentType:'application/javascript',body:offlineConfig}));
+ await reopened.goto(ORIGIN+'/index.html');await reopened.evaluate(()=>{document.getElementById('auth-overlay').style.display='none';});await expect(reopened.locator('#floating-timer')).toHaveClass(/active/);
+ const saved=await reopened.evaluate(()=>JSON.parse(localStorage.getItem('homegym_rest_timer_v2')).deadline);expect(saved).toBe(deadline);
+ const remaining=await reopened.locator('#timer-display').textContent();expect(remaining).toMatch(/^0[123]:\d\d$/);
+ await reopened.locator('#stop-timer-btn').click();expect(await reopened.evaluate(()=>localStorage.getItem('homegym_rest_timer_v2'))).toBeNull();
+});
+
+test('avvicinamenti automatici W separati dalle serie allenanti, kg interi e salvataggio',async({page})=>{
+ const monitor=await openIsolatedApp(page);
+ await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js'),{importWorkoutPlan}=await import('/js/csvHandler.js'),{renderWorkoutList}=await import('/js/ui.js');
+  state.workoutData={athlete:{},history:{years:{}}};state.currentYear=String(new Date().getFullYear());
+  const header='Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset';
+  await importWorkoutPlan(header+'\n1;1;1;Squat con Bilanciere;2;8-10;100;100;8;180s;;');renderWorkoutList();
+ });
+ const card=page.locator('.ex-card').first();await expect(card.locator('.warmup-row')).toHaveCount(2);
+ await expect(card.locator('.warmup-weight').first()).toHaveValue('50');
+ await expect(card.locator('.warmup-weight').nth(1)).toHaveValue('75');
+ await card.locator('.warmup-check').first().check();
+ const counts=await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js'),{sessionWorkCounts}=await import('/js/sessionSkip.js');
+  const day=state.workoutData.history.years[state.currentYear].mesocycles[0].weeks[0].days[0];
+  return {work:sessionWorkCounts(day),warm:day.exercises[0].warmupSets};
+ });
+ expect(counts.work.confirmed).toBe(0);expect(counts.work.planned).toBe(2);expect(counts.warm[0]).toMatchObject({isWarmup:true,completed:true,weight:'50'});
+ await card.locator('.warmup-weight').nth(1).fill('70');await card.locator('.warmup-weight').nth(1).press('Tab');
+ await page.setViewportSize({width:390,height:844});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await card.locator('.exercise-warmups').screenshot({path:'../../outputs/avvicinamento-automatico.png'});
+ expect(monitor.pageErrors).toEqual([]);
+});

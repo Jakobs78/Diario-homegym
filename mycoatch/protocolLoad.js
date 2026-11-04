@@ -1,3 +1,4 @@
+import {availableDumbbellLoads} from './dumbbellInventory.js';
 import {painReported,coachingReviewSignature} from './setReview.js';
 import {isBodyweightExercise} from './bodyweight.js';
 import {bodyweightWorkingProposal} from './bodyweightProposal.js';
@@ -45,7 +46,7 @@ function resolve(ex,raw,equipment,{increasing=false,base=raw,maxIncrease=null}={
     if(!Number.isFinite(raw)||!(raw>0)||raw>700)return {weight:null,verified:false};
     const type=equipmentCategory(ex);
     const configured=getAvailableLoadStep(ex,equipment,raw).configured;
-    const known=Array.isArray(equipment.availableLoads?.[type])||type==='barbell'&&(equipment.plateInventories||equipment.platePairs);
+    const known=Array.isArray(type==='dumbbell'?availableDumbbellLoads(ex,equipment):equipment.availableLoads?.[type])||type==='barbell'&&(equipment.plateInventories||equipment.platePairs);
     if(!known&&!configured)return {weight:round(raw),theoretical:round(raw),verified:false,reason:'indicative_load'};
     const resolved=resolveNearbyLoad(ex,raw,equipment,{min:increasing?base+.001:Math.max(.01,raw*.975),max:Math.min(raw*1.025,increasing?base*(1+(maxIncrease??(type==='dumbbell'?PROTOCOL_POLICY.maxDumbbellIncrease:PROTOCOL_POLICY.maxIncrease))):700),origin:base});
     // Missing or explicitly unavailable stock never erases the theoretical recommendation.
@@ -86,7 +87,7 @@ export function nextBlockDecision(ex,index,equipment={},readiness=null){
     if(mixed&&!mixedEligible)return sets.some(s=>s.reps>p.reps.max)?null:buildReps();
     const cap=equipmentCategory(ex)==='dumbbell'?PROTOCOL_POLICY.maxDumbbellIncrease:PROTOCOL_POLICY.maxIncrease;
     const step=getAvailableLoadStep(ex,equipment,matched.kg);
-    const knownInventory=equipment.availableLoads?.[equipmentCategory(ex)]||equipment.plateInventories||equipment.platePairs;
+    const knownInventory=(equipmentCategory(ex)==='dumbbell'?availableDumbbellLoads(ex,equipment):equipment.availableLoads?.[equipmentCategory(ex)])||equipment.plateInventories||equipment.platePairs;
     const increment=step.configured||knownInventory?step.step:matched.kg*(equipmentCategory(ex)==='dumbbell'?.05:.025);
     const capacity=mixed?Math.min(...estimates):median(estimates.filter(v=>v!==null));
     const sustainable=desiredWeight(capacity,p,p.reps.min);

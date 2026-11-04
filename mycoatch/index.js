@@ -1,3 +1,4 @@
+import {rowEquipmentLimit} from './equipmentSubstitution.js';
 // mycoatch/index.js
 import { coachState } from './state.js';
 import { generateSmartMesocycle } from './engine.js';
@@ -55,6 +56,7 @@ export const MyCoatch = {
         // athlete's load increments or inventory from the module state.
         config.loadingSteps=loadingSteps;
         config.equipmentSettings=equipmentSettings;
+        config.equipmentSubstitution=rowEquipmentLimit(previousMesocycle,equipmentSettings);
         if(recency.reentry)config.athleteProfile={
             ...(config.athleteProfile || {experience:'intermediate'}),
             calibration:'guided',referenceLoads:{}
@@ -84,6 +86,7 @@ export const MyCoatch = {
             basis: 'validated_completed_work_sets_across_distinct_weeks'
         };
         newMesocycle.coachReport = {
+            equipmentSubstitution:config.equipmentSubstitution,
             closureHandoff: handoff ? {
                 source: 'explicit_closed_mesocycle',
                 year: handoff.locator.year,

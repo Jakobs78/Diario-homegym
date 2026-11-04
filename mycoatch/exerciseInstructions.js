@@ -8,6 +8,7 @@ function cue(exercise) {
     const name = exercise.name || '';
     if (name === 'Hamstring Walkout a Corpo Libero')
         return 'Parti dal ponte glutei con il bacino sollevato. Fai piccoli passi in avanti sui talloni e poi torna indietro senza abbassare il bacino. Andata e ritorno valgono una ripetizione. Se non aggiungi pesi, registra 0 kg.';
+    if(name==='Rematore Unilaterale al Cavo Basso')return 'Usa la maniglia singola al cavo basso, con appoggi stabili. Tira il gomito verso il fianco senza ruotare il busto; controlla il ritorno. Completa entrambi i lati e calibra i kg del cavo separatamente dal manubrio.';
     if (name.includes('Croci')) return 'Mantieni i gomiti leggermente piegati, apri le braccia senza forzare le spalle e richiudile lentamente, evitando di usare lo slancio.';
     if (name.includes('Lat Machine') || name.includes('Trazioni'))
         return name.includes('Trazioni') ? 'Parti da una presa stabile alla sbarra fissa, tira il petto verso la sbarra senza dondolare e scendi lentamente.' : 'Alla lat machine tira l’impugnatura verso la parte alta del petto, senza inclinarti all’indietro per aiutarti, poi lascia risalire il peso lentamente.';

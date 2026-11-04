@@ -134,7 +134,8 @@ export function renderWorkoutList() {
     // Cambiare esercizio, settimana o seduta non deve lasciare consigli obsoleti.
     dismissLiveCoachToast();
     if (!DOM.workoutListContainer) return;
-    const coachWasOpen = Boolean(document.getElementById('mycoatch-live-disclosure')?.open);
+    const previousCoach=document.getElementById('mycoatch-live-disclosure');
+    if(previousCoach?.dataset.sessionKey)try{localStorage.setItem(previousCoach.dataset.sessionKey,previousCoach.open?'1':'0');}catch{}
     const reviewWasOpen = Boolean(document.getElementById('mycoatch-weekly-review')?.open);
     DOM.workoutListContainer.innerHTML = '';
 
@@ -329,7 +330,10 @@ export function renderWorkoutList() {
     const coachDisclosure = document.createElement('details');
     coachDisclosure.className = 'mycoatch-live-disclosure';
     coachDisclosure.id = 'mycoatch-live-disclosure';
-    coachDisclosure.open = coachWasOpen;
+    const summaryKey=['homegym-summary',state.currentUser?.id||'local',state.currentYear,meso.id||mesoIndex,targetWeek.weekNumber,currentDayIndex,currentDay.sessionArchives?.length||0].join(':');
+    coachDisclosure.dataset.sessionKey=summaryKey;
+    try{coachDisclosure.open=localStorage.getItem(summaryKey)==='1';}catch{}
+    coachDisclosure.addEventListener('toggle',()=>{if(!coachDisclosure.isConnected)return;try{localStorage.setItem(summaryKey,coachDisclosure.open?'1':'0');}catch{}});
     const coachSummary = document.createElement('summary');
     coachSummary.className = 'mycoatch-live-trigger';
     coachSummary.setAttribute('aria-label', 'Apri o chiudi il riepilogo MyCoatch');

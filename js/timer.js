@@ -2,13 +2,32 @@
 // MODULI: timer.js - Gestione del timer di recupero, parsing formati temporali, audio beep e visibilità pagina
 // ==========================================
 
+import {state} from './state.js';
 import { playBeep } from './audio.js';
 
 let timerInterval = null;
 let endTime = null;
+let activeContext=null;
 let boundVisibilityHandler = null;
 let lastBeepSecond = null;
 const REST_TIMER_KEY='homegym_rest_timer_deadline_v1';
+const PERSISTENT_REST_KEY='homegym_rest_timer_v2';
+function restContext(){
+ const year=state.workoutData?.history?.years?.[state.currentYear],meso=year?.mesocycles?.[state.activeMesocycleIndex||0];
+ const day=meso?.weeks?.find(w=>Number(w.weekNumber)===Number(state.activeWeek||1))?.days?.[(state.activeDay||1)-1];
+ return {owner:state.currentUser?.id||'local',year:state.currentYear,mesoId:meso?.id||null,mesoIndex:state.activeMesocycleIndex||0,week:state.activeWeek||1,day:state.activeDay||1,attempt:day?.sessionArchives?.length||0};
+}
+function validRestOrigin(context){
+ if(!context||context.owner!==(state.currentUser?.id||'local'))return false;
+ const mesos=state.workoutData?.history?.years?.[context.year]?.mesocycles||[];
+ const meso=context.mesoId?mesos.find(m=>m.id===context.mesoId):mesos[context.mesoIndex];
+ const day=meso?.weeks?.find(w=>Number(w.weekNumber)===Number(context.week))?.days?.[context.day-1];
+ return Boolean(day&&!day.completed&&!meso.locked&&(day.sessionArchives?.length||0)===context.attempt);
+}
+function persistRest(){
+ try{sessionStorage.setItem(REST_TIMER_KEY,String(endTime));}catch{}
+ try{localStorage.setItem(PERSISTENT_REST_KEY,JSON.stringify({deadline:endTime,context:activeContext}));}catch{}
+}
 /**
  * Format un valore in secondi in formato MM:SS
  */
@@ -90,8 +109,9 @@ export function startTimer(durationInput, onTick, onComplete) {
     const seconds = parseRecoveryTime(durationInput);
     if (!seconds || seconds <= 0) return;
 
+    activeContext=restContext();
     endTime = Date.now() + seconds * 1000;
-    try{sessionStorage.setItem(REST_TIMER_KEY,String(endTime));}catch{}
+    persistRest();
 
     const tickCallback = onTick || handleTick;
     const completeCallback = onComplete || handleComplete;
@@ -126,7 +146,7 @@ export function adjustTimer(secondsToAdd, onTick, onComplete) {
     const completeCallback = onComplete || handleComplete;
 
     endTime += secondsToAdd * 1000;
-    try{sessionStorage.setItem(REST_TIMER_KEY,String(endTime));}catch{}
+    persistRest();
 
     if (endTime <= Date.now()) {
         stopTimer();
@@ -181,26 +201,34 @@ export function initTimerEvents() {
 }
 
 /**
- * Restore an unexpired rest after PWA refresh/background reload in the same
- * browser tab, without inventing or extending the original rest duration.
+ * Restore the original rest deadline after closing the PWA, for the same
+ * account and session only; never extend the original rest duration.
  */
-export function restoreActiveRestTimer({allowRestore=true}={}) {
+export function restoreActiveRestTimer({allowRestore=true,legacyAllowed=allowRestore}={}) {
     if(!allowRestore) {
         stopTimer();
         return false;
     }
     if(endTime)return false;
-    let saved=null;
-    try{saved=Number(sessionStorage.getItem(REST_TIMER_KEY));}catch{}
+    let saved=null,restoredContext=null;
+    try{
+        const persistent=JSON.parse(localStorage.getItem(PERSISTENT_REST_KEY)||'null');
+        if(persistent){if(!validRestOrigin(persistent.context))return false;saved=Number(persistent.deadline);restoredContext=persistent.context;}
+        else {if(!legacyAllowed)return false;saved=Number(sessionStorage.getItem(REST_TIMER_KEY));}
+    }catch{}
     if(!Number.isFinite(saved)||!saved || saved<=Date.now() ||
         saved-Date.now()>60*60*1000){
-        try{sessionStorage.removeItem(REST_TIMER_KEY);}catch{}
+        try{sessionStorage.removeItem(REST_TIMER_KEY);localStorage.removeItem(PERSISTENT_REST_KEY);}catch{}
+        if(saved>0&&saved<=Date.now()&&Date.now()-saved<60*60*1000){
+            handleTick(0);const display=document.getElementById('timer-display');if(display)display.textContent='Recupero concluso';handleCompleteTimerNotice();
+        }
         return false;
     }
     const remaining=Math.ceil((saved-Date.now())/1000);
     startTimer(String(remaining)+'s');
     endTime=saved; // keep exact original deadline, not rounded new start
-    try{sessionStorage.setItem(REST_TIMER_KEY,String(saved));}catch{}
+    activeContext=restoredContext||restContext();
+    persistRest();
     return true;
 }
 
@@ -209,8 +237,8 @@ export function stopTimer() {
         clearInterval(timerInterval);
         timerInterval = null;
     }
-    endTime = null;
-    try{sessionStorage.removeItem(REST_TIMER_KEY);}catch{}
+    endTime = null;activeContext=null;
+    try{sessionStorage.removeItem(REST_TIMER_KEY);localStorage.removeItem(PERSISTENT_REST_KEY);}catch{}
     lastBeepSecond = null; // Reset dello stato del beep
 
     if (boundVisibilityHandler) {
@@ -258,3 +286,4 @@ function triggerTimerAlert() {
         }
     }
 }
+function handleCompleteTimerNotice(){setTimeout(()=>{if(!endTime)stopTimer();},4000);}

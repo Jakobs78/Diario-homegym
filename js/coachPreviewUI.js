@@ -65,7 +65,7 @@ export function initCoachPreview(readCoachOptions,configModal) {
                     for(const ex of day.exercises||[]){
                         ul.append(create('li',ex.name+' · '+(ex.setsCount || ex.sets?.length || '?')+
                             ' serie × '+(ex.reps || '?')+' ripetizioni · RPE obiettivo '+String(ex.rpe || '-')+
-                            ' · recupero '+String(ex.restTime || ex.rest || '-')));
+                            ' · recupero '+String(ex.restTime || ex.rest || '-')+(ex.equipmentSubstitution?' · '+ex.equipmentSubstitution.reason:'')));
                     }
                     const duration=Number(day.estimatedMinutes);
                     const budget=Number(day.timeBudgetMinutes);

@@ -36,8 +36,8 @@ function setupSeconds(exercise, index) {
     const equipmentSetup = exercise.equipment === 'barbell' ? 105 : 70;
     const transitions = index > 0 ? 45 : 0;
     // Avvicinamento specifico, aggiuntivo rispetto al riscaldamento generale.
-    const warmup = index === 0 && isCompound(exercise) ? 300 :
-        index === 1 && isCompound(exercise) ? 120 : 0;
+    const warmup = Math.max((exercise.warmupPlan?.length||0)*75,index === 0 && isCompound(exercise) ? 300 :
+        index === 1 && isCompound(exercise) ? 120 : 0);
     return equipmentSetup + transitions + warmup;
 }
 
