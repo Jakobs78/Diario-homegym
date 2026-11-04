@@ -1,11 +1,9 @@
-const CACHE_NAME = 'workout-app-v88-iphone-rest-shortcut-20261104';
-const APP_VERSION = '1.3.6-20261104';
+const CACHE_NAME = 'workout-app-v89-restored-web-timer-20261104';
+const APP_VERSION = '1.3.7-20261104';
 const META_CACHE = 'workout-app-update-state';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
-  '/js/iphoneRestTimer.js',
-  '/js/shortcutTimerLink.js',
   '/mycoatch/warmupPlan.js',
   '/mycoatch/equipmentSubstitution.js',
   '/js/warmupUI.js',
