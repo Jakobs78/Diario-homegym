@@ -13,6 +13,7 @@ async function fixture(){
  const state={version:oldVersion,legacy:true,fail:false};
  const server=createServer(async(req,res)=>{
   if(state.offline){req.socket.destroy();return;}
+  if(state.unavailable){res.writeHead(503);res.end('Server unavailable');return;}
   const name=new URL(req.url,'http://localhost').pathname;
   res.setHeader('Cache-Control','no-store');
   try{
@@ -112,10 +113,13 @@ test('an incomplete update never replaces a working offline version',async({brow
    await reg.update();
   });
   await expect.poll(()=>page.evaluate(()=>window.__failedInstall),{timeout:30000}).toBe(true);
-  f.state.offline=true;await page.reload();await ready(page);
+  // Return no usable network content. Linux WebKit can abort a legacy-worker
+  // navigation internally on a TCP reset; a 503 still requires cached content.
+  // The migration test above separately exercises a severed connection.
+  f.state.unavailable=true;await page.reload();await ready(page);
   await expect(page.locator('#app-release')).toHaveText('v '+oldVersion);
   expect(await page.evaluate(()=>fetch('/js/config.js').then(r=>r.text()))).toContain(oldVersion);
-  f.state.offline=false;f.state.fail=false;await update(page);
+  f.state.unavailable=false;f.state.fail=false;await update(page);
   await page.reload();await ready(page);await expect(page.locator('#app-release')).toHaveText('v '+released);
  }finally{await context.close();await f.close();}
 });
