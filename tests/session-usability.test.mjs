@@ -15,6 +15,9 @@ test('warmup loads are integers, respect stock and never equal or exceed working
  assert.equal(p[0].verified,true);
  const unknown=buildWarmupPlan({name:'Squat con Bilanciere'},{},{workWeight:null});
  assert.equal(unknown.length,2);assert.ok(unknown.every(s=>s.targetKg===''));
+ const barStock={ownedBarbells:[{weight:20,diameter:'50'}],plateInventories:{'50':{'5':2,'10':2}}};
+ const knownBar=buildWarmupPlan({name:'Squat con Bilanciere'},barStock,{workWeight:60});
+ assert.deepEqual(knownBar.map(s=>s.targetKg),['30','40']);assert.ok(knownBar.every(s=>s.verified));
  const practical=buildWarmupPlan({name:'Squat con Bilanciere'},{},{workWeight:101});
  assert.ok(practical.every(s=>Number.isInteger(Number(s.targetKg))&&Number(s.targetKg)<101));
 });

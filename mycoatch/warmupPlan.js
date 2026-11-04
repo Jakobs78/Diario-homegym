@@ -1,6 +1,7 @@
 import {EXERCISE_DATABASE} from './exercisesDB.js';
 import {canonicalExerciseKey} from './exerciseIdentity.js';
 import {resolveNearbyLoad} from './loadProposal.js';
+import {normalizeOwnedBarbells,suggestedBarbell} from '../js/equipmentUI.js';
 const catalog=new Map(EXERCISE_DATABASE.map(ex=>[canonicalExerciseKey(ex.name),ex]));
 export function warmupPattern(ex){
  const known=catalog.get(canonicalExerciseKey(ex?.name));
@@ -8,10 +9,10 @@ export function warmupPattern(ex){
  return !ex?.isWarmup&&!ex?.isExcluded&&!ex?.is_excluded&&['barbell','dumbbell'].includes(equipment)&&
   ['squat','hinge','horizontal_push','vertical_push','horizontal_pull'].includes(pattern)?pattern:null;
 }
-function integerLoad(ex,weight,equipment){
+function integerLoad(ex,weight,equipment,minWeight=1){
  const candidates=[];
  for(let distance=0;distance<=10;distance++)for(const target of new Set([Math.round(weight)-distance,Math.round(weight)+distance])){
-  if(target<=0)continue;
+  if(target<minWeight)continue;
   const result=resolveNearbyLoad(ex,target,equipment,{min:target,max:target});
   if(result.weight===target)candidates.push({weight:target,verified:result.verified});
  }
@@ -19,11 +20,20 @@ function integerLoad(ex,weight,equipment){
 }
 export function buildWarmupPlan(ex,equipment={}, {workWeight=null,previousExercises=[]}={}){
  const pattern=warmupPattern(ex);if(!pattern)return [];
+ const known=catalog.get(canonicalExerciseKey(ex.name));
+ let minWeight=1;
+ if((ex.equipment||known?.equipment)==='barbell'){
+  const key=canonicalExerciseKey(ex.name),binding=equipment.barbellAssignments?.[key]||suggestedBarbell(ex,equipment);
+  if(binding&&normalizeOwnedBarbells([binding]).length){
+   minWeight=Number(binding.weight);
+   equipment={...equipment,barbellAssignments:{...equipment.barbellAssignments,[key]:binding}};
+  }
+ }
  const working=Number(String(workWeight??ex.kgMin??'').replace(',','.'));
  const alreadyWarm=previousExercises.some(previous=>warmupPattern(previous)===pattern);
  const ratios=alreadyWarm?[.65]:[.5,.75];const used=new Set();
  return ratios.map((ratio,i)=>{
-  const resolved=working>0?integerLoad(ex,working*ratio,equipment):null;
+  const resolved=working>0?integerLoad(ex,working*ratio,equipment,minWeight):null;
   const weight=resolved&&resolved.weight<working&&!used.has(resolved.weight)?resolved.weight:null;
   if(weight!==null)used.add(weight);
   return {isWarmup:true,targetKg:weight===null?'':String(weight),targetReps:String(alreadyWarm?4:i===0?8:4),verified:Boolean(weight!==null&&resolved.verified),completed:false};

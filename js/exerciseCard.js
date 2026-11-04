@@ -308,6 +308,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
                 weight:Number(weight),diameter};
             saveAndSync(state.workoutData,'SET_EQUIPMENT');
             updatePlatesBadgeUI(exIdx,exCard);
+            if(!ex.warmupSets&&warmups){const next=createWarmupPanel(ex,currentDay,{workWeight:prefillFor(0).weight,readOnly:false});if(next){warmups.replaceWith(next);warmups=next;}}
         });
     }
     exCard.dataset.platesAutoEligible=String(equipment==='barbell');
