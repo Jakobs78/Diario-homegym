@@ -3723,3 +3723,8 @@ body.dark-mode .group-title-badge {
 .app-update-banner p {margin:0;flex:1 1 220px;font-size:.9rem;line-height:1.45;}
 .app-update-banner button {min-height:44px;white-space:normal;}
 .app-update-banner[hidden],.app-update-banner button[hidden] {display:none!important;}
+
+.equipment-dumbbell-row {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px;gap:8px;align-items:end;margin:10px 0;}
+.equipment-dumbbell-row label {min-width:0;}
+.equipment-dumbbell-row input {width:100%;min-width:0;box-sizing:border-box;}
+.equipment-dumbbell-row button {min-width:44px;min-height:44px;}

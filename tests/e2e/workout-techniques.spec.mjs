@@ -816,3 +816,38 @@ test('Strumenti recupera l’ultimo mesociclo archiviato senza duplicarlo',async
  expect(count).toBe(1);await expect(page.locator('#tools-modal')).toHaveClass(/hidden/);
  expect(monitor.pageErrors).toEqual([]);expect(monitor.remoteRequests).toEqual([]);
 });
+
+test('inventario manubri: peso e quantità persistono, distinguono singolo e coppia e mantengono bilancieri',async({page})=>{
+ const monitor=await openIsolatedApp(page);await page.setViewportSize({width:320,height:812});
+ await page.evaluate(async()=>{const {state}=await import('/js/state.js');state.workoutData.athlete={...state.workoutData.athlete,ownedBarbells:[{weight:20,diameter:'50'}],availableLoads:{dumbbell:[20,30]}};});
+ await page.locator('#open-tools-btn').click();await page.locator('.equipment-settings summary').click();
+ const rows=page.locator('.equipment-dumbbell-row');await expect(rows).toHaveCount(2);
+ await expect(page.locator('#equipment-dumbbells-known')).not.toBeChecked();
+ await expect(rows.first().locator('.equipment-dumbbell-quantity')).toHaveValue('');
+ await rows.nth(0).locator('.equipment-dumbbell-quantity').fill('2');
+ await rows.nth(1).locator('.equipment-dumbbell-quantity').fill('1');
+ await page.locator('.equipment-plate-pairs').evaluateAll(inputs=>inputs.forEach(el=>el.value='0'));
+ await page.locator('#homegym-equipment-form button[type="submit"]').click();
+ await expect(page.locator('#homegym-equipment-status')).toContainText('Attrezzatura salvata');
+ const result=await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');const {flushJournalStorage}=await import('/js/journalStore.js');await flushJournalStorage();
+  const {resolvePlannedLoad}=await import('/mycoatch/loadProposal.js');
+  return {owned:state.workoutData.athlete.ownedDumbbells,bars:state.workoutData.athlete.ownedBarbells,
+   row:resolvePlannedLoad({name:'Rematore con Manubrio a Un Braccio'},30,state.workoutData.athlete).weight,
+   press:resolvePlannedLoad({name:'Panca Inclinata con Manubri'},30,state.workoutData.athlete).weight};
+ });
+ expect(result).toEqual({owned:[{weight:20,quantity:2},{weight:30,quantity:1}],bars:[{weight:20,diameter:'50'}],row:30,press:20});
+ expect(await rows.evaluateAll(rows=>rows.every(row=>row.getBoundingClientRect().right<=innerWidth))).toBe(true);
+ await page.locator('.equipment-owned-dumbbells').screenshot({path:'../../outputs/inventario-manubri.png'});
+ await page.reload();await page.evaluate(()=>{document.getElementById('auth-overlay').style.display='none';});await expect(page.locator('#open-tools-btn')).toBeVisible();
+ await page.locator('#open-tools-btn').click();await page.locator('.equipment-settings summary').click();
+ await expect(page.locator('#equipment-dumbbells-known')).toBeChecked();
+ await expect(rows.nth(1).locator('.equipment-dumbbell-quantity')).toHaveValue('1');
+ // A duplicate weight must not silently inflate quantities or replace saved stock.
+ await page.locator('#equipment-add-dumbbell').click();
+ await rows.nth(2).locator('.equipment-dumbbell-weight').fill('30');await rows.nth(2).locator('.equipment-dumbbell-quantity').fill('2');
+ await page.locator('#homegym-equipment-form button[type="submit"]').click();
+ await expect(page.locator('#homegym-equipment-status')).toContainText('una sola riga per peso');
+ expect(await page.evaluate(async()=>{const {state}=await import('/js/state.js');return state.workoutData.athlete.ownedDumbbells;})).toEqual(result.owned);
+ expect(monitor.pageErrors).toEqual([]);expect(monitor.remoteRequests).toEqual([]);
+});

@@ -250,7 +250,7 @@
                     <button class="sheet-item" data-action="import-history">📥 Importa risultati precedenti (CSV)<small class="sheet-item-help">Carica risultati storici nel formato previsto e verifica anno e contenuto.</small></button>
                     <button class="sheet-item" data-action="backup-json">🛡️ Salva una copia completa del diario (JSON)<small class="sheet-item-help">Contiene anni, programmi, risultati e impostazioni. Conservala fuori dal browser.</small></button>
                     <details class="equipment-settings">
-                        <summary>🏋️ Attrezzatura: bilancieri, dischi e incrementi di peso</summary>
+                        <summary>🏋️ Attrezzatura: bilancieri, dischi, manubri e incrementi di peso</summary>
                         <form id="homegym-equipment-form">
                             <p>Indica il minimo incremento realmente disponibile per il peso totale mostrato nella card. Per i manubri, per singolo manubrio. L'impostazione è inclusa nel diario e sincronizzata.</p>
                             <fieldset class="equipment-owned-bars">
@@ -258,6 +258,14 @@
                                 <p>Registra ogni bilanciere con peso e diametro una sola volta. Se ne usi più di uno, scegli quello predefinito: durante l'allenamento verrà proposto automaticamente. Le scelte specifiche per esercizio restano memorizzate.</p>
                                 <div id="equipment-barbells-list"></div>
                                 <button type="button" id="equipment-add-barbell" class="btn btn-secondary">+ Aggiungi bilanciere</button>
+                            </fieldset>
+                            <fieldset class="equipment-owned-dumbbells">
+                                <legend>Manubri posseduti</legend>
+                                <p>Indica il peso di un singolo manubrio e il numero di pezzi: 30 kg e quantità 2 significa due manubri da 30 kg. Per i regolabili indica i pesi ottenibili e quanti manubri puoi preparare contemporaneamente a quel peso.</p>
+                                <label><input type="checkbox" id="equipment-dumbbells-known"> Elenco completo dei manubri confermato</label>
+                                <p>Se non confermi l’elenco, la disponibilità resta da verificare. I vecchi pesi non hanno una quantità presunta. Un elenco confermato vuoto indica che non hai manubri.</p>
+                                <div id="equipment-dumbbells-list"></div>
+                                <button type="button" id="equipment-add-dumbbell" class="btn btn-secondary">+ Aggiungi peso manubri</button>
                             </fieldset>
                             <div class="equipment-steps-grid">
                                 <label>Peso bilanciere abituale (kg)<input type="number" id="equipment-bar-weight" min="0" max="30" step=".25" value="20" required inputmode="decimal"></label>

@@ -1,3 +1,4 @@
+import {availableDumbbellLoads} from './dumbbellInventory.js';
 import {nextRepTargets} from './repProgression.js';
 import {excludedFromCoaching,painReported} from './setReview.js';
 import {isBodyweightExercise} from './bodyweight.js';
@@ -58,7 +59,7 @@ export function getAvailableLoadStep(ex, settings={},weight=null) {
 /** Declared steps/inventory first; unknown loads are explicitly provisional. */
 export function getHighRepIncrement(ex,settings={},weight){
     const step=getAvailableLoadStep(ex,settings,weight);
-    const owned=settings.availableLoads?.[step.type];
+    const owned=step.type==='dumbbell'?availableDumbbellLoads(ex,settings):settings.availableLoads?.[step.type];
     if(Array.isArray(owned)){
         const next=owned.map(number).filter(x=>x!==null&&x>weight+.001).sort((a,b)=>a-b)[0];
         return next===undefined?step.step:next-weight;
@@ -76,7 +77,7 @@ export function resolveNearbyLoad(ex, requested, settings={}, {min=0.01,max=700,
     const {type,step,configured}=getAvailableLoadStep(ex,settings,raw);
     const limit=number(settings.loadLimits?.[type]);
     if(limit!==null)max=Math.min(max,limit);
-    const owned=settings.availableLoads?.[type];
+    const owned=type==='dumbbell'?availableDumbbellLoads(ex,settings):settings.availableLoads?.[type];
     if(Array.isArray(owned)){
         const candidates=[...new Set(owned.map(number))].filter(x=>x!==null&&x>0&&x>=min-1e-8&&x<=max+1e-8)
             .sort((a,b)=>Math.abs(a-raw)-Math.abs(b-raw)||a-b);
@@ -203,7 +204,7 @@ export function resolvePlannedLoad(ex, weight, settings={}) {
     const kg=number(weight);
     if(kg===null || kg<=0 || kg>700)return {weight:null,verified:false};
     const {step,type}=getAvailableLoadStep(ex,settings,kg);
-    if(Array.isArray(settings.availableLoads?.[type])||settings.loadLimits?.[type]!==undefined)return resolveNearbyLoad(ex,kg,settings,{max:kg});
+    if(Array.isArray(type==='dumbbell'?availableDumbbellLoads(ex,settings):settings.availableLoads?.[type])||settings.loadLimits?.[type]!==undefined)return resolveNearbyLoad(ex,kg,settings,{max:kg});
     if(type==='barbell' && (settings.plateInventories || settings.platePairs)){
         const compatible=compatiblePlates(ex,settings);
         if(!compatible)return {weight:null,verified:true,reason:'missing_assignment'};

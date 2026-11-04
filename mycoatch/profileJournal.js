@@ -113,7 +113,7 @@ export function latestSavedSettings(data) {
 export function snapshotEquipmentState(athlete = {}) {
     const source=athlete && typeof athlete==='object' && !Array.isArray(athlete)
         ? athlete : {};
-    const allowed=['barbellWeight','ownedBarbells','defaultBarbell',
+    const allowed=['barbellWeight','ownedBarbells','ownedDumbbells','defaultBarbell',
         'loadingSteps','plateInventories','platePairs','barbellAssignments','availableLoads','loadLimits','stationConfigurations'];
     return Object.fromEntries(allowed.filter(key=>source[key]!==undefined)
         .map(key=>[key,clone(source[key])]));

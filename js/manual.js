@@ -49,6 +49,7 @@ const diary = [
  ['Ripeti (salva storico)','Archivia la seduta completata prima di preparare una nuova esecuzione dello stesso giorno. «Sedute precedenti salvate» mostra le ripetizioni archiviate, compresi note e scarichi.']
 ]],
 ['attrezzatura','Attrezzatura e calcolo dei dischi',[
+ ['Manubri: peso e quantità','In Strumenti → Attrezzatura registra il peso di un singolo manubrio e la quantità in pezzi: 30 kg × 2 indica una coppia. Per i regolabili indica i carichi ottenibili e quanti ne puoi preparare contemporaneamente. Conferma l’elenco completo per usarlo come disponibilità reale: una coppia richiede almeno due pezzi dello stesso peso; per il rematore a un braccio basta un pezzo. I vecchi pesi senza quantità restano da confermare. L’inventario segue diario, Cloud e backup e non cambia la scheda attuale.'],
  ['Bilancieri posseduti e abituale','In Strumenti e gestione registra peso e diametro di ogni bilanciere, poi scegli quello abituale. La scelta specifica nella card viene ricordata per quell’esercizio.'],
  ['Inventari 50 mm e 29 mm','Sono separati. Indica le coppie disponibili per ciascun taglio: 25, 20, 15, 10, 5, 2,5, 2, 1,25, 1 e 0,5 kg. Due dischi uguali formano una coppia. Usa 0 per i tagli assenti e salva l’attrezzatura nel diario. Il vecchio inventario unico non viene duplicato fra i diametri.'],
  ['Incrementi di peso','Indicano il minimo scatto disponibile: sul totale del bilanciere, sul singolo manubrio o sulla scala della macchina. Sono distinti dalla quantità di dischi posseduti.'],

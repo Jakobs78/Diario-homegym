@@ -1,9 +1,10 @@
-const CACHE_NAME = 'workout-app-v86-reliable-updates-20261104';
-const APP_VERSION = '1.3.4-20261104';
+const CACHE_NAME = 'workout-app-v87-dumbbell-inventory-20261104';
+const APP_VERSION = '1.3.5-20261104';
 const META_CACHE = 'workout-app-update-state';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
+  '/mycoatch/dumbbellInventory.js',
   '/js/appUpdates.js',
   '/js/circuitTransition.js',
   '/mycoatch/recoveryContext.js',

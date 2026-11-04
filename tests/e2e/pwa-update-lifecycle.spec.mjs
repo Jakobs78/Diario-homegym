@@ -6,6 +6,8 @@ import path from 'node:path';
 const root=path.resolve(fileURLToPath(new URL('../../',import.meta.url)));
 const released=(await readFile(path.join(root,'js/config.js'),'utf8')).match(/APP_VERSION:\s*'([^']+)'/)[1];
 const workerSource=await readFile(path.join(root,'sw.js'),'utf8');
+const releasedCache=workerSource.match(/const CACHE_NAME = '([^']+)'/)[1];
+const nextCache=releasedCache.replace(/-v(\d+)-/,(_,n)=>'-v'+(Number(n)+1)+'-');
 const oldVersion='1.3.1-20261031';
 // Reproduce v83's cache-first lookup, waiting lifecycle and lack of an update UI.
 const legacy=`const CACHE='workout-app-v83-legacy';self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['/','/index.html','/js/config.js','/mycoatch/protocolLoad.js']))));self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>{if(new URL(e.request.url).origin!==self.location.origin)return;e.respondWith(caches.match(e.request).then(c=>c||fetch(e.request)));});`;
@@ -19,7 +21,7 @@ async function fixture(){
   try{
    if(name==='/sw.js'){
     res.setHeader('Content-Type','application/javascript');
-    res.end(state.legacy?legacy:workerSource.replace(released,state.version).replace('v86-reliable-updates','v'+(state.version===released?'86':'87')+'-reliable-updates'));return;
+    res.end(state.legacy?legacy:workerSource.replace(released,state.version).replace(releasedCache,state.version===released?releasedCache:nextCache));return;
    }
    if(name==='/'||name==='/index.html'){
     res.setHeader('Content-Type','text/html');
