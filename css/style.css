@@ -3734,15 +3734,3 @@ body.dark-mode .group-title-badge {
 .warmup-row {display:flex;gap:6px;align-items:center;margin:8px 0;}
 .warmup-row input[type=number] {width:64px;min-width:0;min-height:44px;}
 .warmup-row input[type=checkbox] {width:24px;height:24px;}
-
-/* Optional iPhone bridge; the standard rest clock and controls stay intact. */
-#floating-timer.has-iphone-rest {flex-wrap:wrap;width:min(360px,calc(100vw - 16px));box-sizing:border-box;padding:10px 12px;border-radius:20px;gap:8px;}
-#floating-timer.has-iphone-rest>div:first-child {flex:1 1 64px;min-width:0;}
-.iphone-rest-actions {flex:1 0 100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 8px;border-top:1px solid var(--border-color);padding-top:7px;}
-.iphone-rest-actions[hidden] {display:none!important;}
-.iphone-rest-actions .btn {min-height:40px;font-size:.8rem;text-decoration:none;text-align:center;white-space:normal;}
-.iphone-rest-actions a[aria-disabled=true] {opacity:.55;}
-.iphone-rest-actions small {grid-column:1/-1;font-size:.7rem;line-height:1.3;}
-#iphone-rest-status:empty {display:none;}
-
-#floating-timer.has-iphone-rest:not(.active) {visibility:hidden;pointer-events:none;}
