@@ -1,9 +1,11 @@
-const CACHE_NAME = 'workout-app-v90-long-programs-20261106';
-const APP_VERSION = '1.4.0-20261106';
+const CACHE_NAME = 'workout-app-v91-resume-training-20261106';
+const APP_VERSION = '1.4.1-20261106';
 const META_CACHE = 'workout-app-update-state';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
+  '/js/trainingResumeUI.js',
+  '/mycoatch/trainingResume.js',
   '/js/cloudPayload.js',
   '/mycoatch/longProgram.js',
   '/mycoatch/sessionSequence.js',

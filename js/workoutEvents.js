@@ -7,6 +7,8 @@ import {setPrescription} from '../mycoatch/setPrescription.js';
 import {advanceExercise} from './activeExercise.js';
 import {canonicalExerciseKey} from '../mycoatch/exerciseIdentity.js';
 import {hasDropPrescription,needsDropScope,validateDropSegments} from './trainingTechniques.js';
+import {activateTrainingPlan} from '../mycoatch/trainingResume.js';
+import {updateTrainingResumeUI} from './trainingResumeUI.js';
 import {bindDropFields} from './dropSetUI.js';
 /**
  * Module: workoutEvents.js
@@ -190,6 +192,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
 
             updateLiveCoachPanel(currentDay, { readOnly: isPastMeso });
             saveAndSync(state.workoutData); // persist locally now; only network upload is debounced
+            updateTrainingResumeUI(renderCallback);
         });
     });
 
@@ -367,6 +370,7 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
 
             updateSessionAndCompletionState(currentDay);
             if(currentDay.completed)stopTimer();
+            if(isChecked)activateTrainingPlan(state.workoutData,state.currentYear,state.activeMesocycleIndex||0);
             updateSessionHeaderUI(currentDay, renderCallback, isPastMeso);
             updateLiveCoachPanel(currentDay, { readOnly: isPastMeso });
             saveAndSync(state.workoutData);
@@ -382,3 +386,4 @@ export function bindWorkoutTableEvents(currentDay, isPastMeso, renderCallback) {
         });
     });
 }
+

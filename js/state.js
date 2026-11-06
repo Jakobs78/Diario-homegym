@@ -40,6 +40,7 @@ export function resetState() {
     state.currentYear = String(new Date().getFullYear());
     state.activeMesocycleIndex = 0;
     state.activeWeek = 1;
+    state.activeDay = 1;
     state.activeView = 'workout';
     state.mesocycleAnalysis = null;
     state.showArchivedHistory = false;
@@ -56,3 +57,4 @@ export function resetState() {
         isActive: false
     };
 }
+

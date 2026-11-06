@@ -16,6 +16,7 @@ import { applyTrisetDropsetGrouping, normalizeExerciseName } from './helpers.js'
 import { isMesocycleCompleted } from './historySafety.js';
 import { restoreProposalMetadata } from '../mycoatch/planMetadata.js';
 import {programSchedule} from '../mycoatch/longProgram.js';
+import {activateTrainingPlan} from '../mycoatch/trainingResume.js';
 
 // ==========================================
 // 2. UTILITY DI PARSING E RICONOSCIMENTO COLONNE
@@ -302,6 +303,7 @@ export async function importWorkoutPlan(csvText, coachOptions = null) {
         const target = candidate.history.years[currentYear].mesocycles;
         for(const week of newMesocycle.weeks)for(const day of week.days)for(const ex of day.exercises){inheritPersonalExerciseMapping(candidate,ex);}
         target.push(newMesocycle);
+        activateTrainingPlan(candidate,currentYear,target.length-1);
 
         await commitJournalCandidate(candidate,'IMPORT_WORKOUT');
         state.activeMesocycleIndex = target.length - 1;
