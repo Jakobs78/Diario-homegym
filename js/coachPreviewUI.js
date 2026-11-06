@@ -48,14 +48,17 @@ export function initCoachPreview(readCoachOptions,configModal) {
             proposal=await createVisualCoachProposal(options);
             acceptedOptions=structuredClone({...options,
                 equipmentAtGeneration:proposal.equipmentSnapshot || {}});
-            summary.textContent='Proposta di allenamento: '+options.daysPerWeek+' giorni/settimana · '+
+            summary.textContent='Proposta di allenamento: '+options.daysPerWeek+' sedute per settimana di programma · '+
                 options.maxSessionMinutes+' min per sessione · '+proposal.proposal.weeks.length+
                 ' settimane. Controlla gli esercizi e lo scarico: "Scarica CSV" crea soltanto un file, mentre "Importa la proposta nel diario" aggiunge un nuovo mesociclo senza cancellare i precedenti.';
+            if(proposal.proposal.program)summary.textContent+=' '+proposal.proposal.program.notice+' '+proposal.proposal.program.blocks.map(b=>'Mesociclo '+b.order+': settimane '+b.weekFrom+'–'+b.weekTo).join(' · ');
             weeks.replaceChildren();
             for(const week of proposal.proposal.weeks){
                 const container=create('details',undefined,'mycoatch-preview-week');
                 if(week.weekNumber===1)container.open=true;
                 container.append(create('summary','Settimana '+week.weekNumber+
+                    (week.mesocycleNumber?' · mesociclo '+week.mesocycleNumber+' / settimana '+week.weekInMesocycle:'')+
+                    (week.conditional?' · da verificare prima del blocco':'')+
                     (week.isDeloadWeek?' · scarico':'')+
                     ' · fatica programmata (RPE) '+String(week.targetRpe??'vedi le serie')));
                 for(const day of week.days||[]){
@@ -153,3 +156,4 @@ export function initCoachPreview(readCoachOptions,configModal) {
         if(!result.success)feedback.textContent=result.message;
     });
 }
+

@@ -15,6 +15,7 @@ import {commitJournalCandidate} from './journalTransaction.js';
 import { applyTrisetDropsetGrouping, normalizeExerciseName } from './helpers.js';
 import { isMesocycleCompleted } from './historySafety.js';
 import { restoreProposalMetadata } from '../mycoatch/planMetadata.js';
+import {programSchedule} from '../mycoatch/longProgram.js';
 
 // ==========================================
 // 2. UTILITY DI PARSING E RICONOSCIMENTO COLONNE
@@ -133,6 +134,9 @@ export async function importWorkoutPlan(csvText, coachOptions = null) {
 
         const weeksMap = Object.create(null);
         let parsedExercises = 0;
+        let programDefinition=null;
+        const programColumns=['ProgrammaSettimane','MesocicloSettimane'].map(name=>findColumnIndex(headers,[name.toLowerCase()]));
+        if(programColumns.some(i=>i>=0)&&programColumns.some(i=>i<0))throw Error('Metadati del percorso incompleti.');
 
         dataRows.forEach((row, rowIndex) => {
             const getVal = (colNames) => {
@@ -148,6 +152,14 @@ export async function importWorkoutPlan(csvText, coachOptions = null) {
                 return Number(raw);
             };
             const weekNum = strictPositiveInteger(getVal(['settimana', 'week']), 1, 'Settimana', 52);
+            if(programColumns[0]>=0){
+                const raw=[getVal(['programmasettimane']),getVal(['mesociclosettimane'])];
+                if(raw.some(value=>!/^\d+$/.test(value)))throw Error('Durata del percorso mancante o non valida.');
+                const definition=programSchedule({programWeeks:raw[0],durationWeeks:raw[1]});
+                if(!definition.programWeeks)throw Error('Durata del percorso non valida.');
+                if(programDefinition&&JSON.stringify(programDefinition)!==JSON.stringify(definition))throw Error('Durate del percorso discordanti tra le righe.');
+                programDefinition=definition;
+            }
             const dayNum = strictPositiveInteger(getVal(['giorno', 'day']), 1, 'Giorno', 7);
             const blockNum = strictPositiveInteger(getVal(['blocco', 'block']), 1, 'Blocco', 99);
             const rawExName = getVal(['esercizio', 'exercise', 'name']);
@@ -239,6 +251,22 @@ export async function importWorkoutPlan(csvText, coachOptions = null) {
             });
         });
 
+        if(programDefinition){
+            const {totalWeeks,blockWeeks}=programDefinition;
+            if(newMesocycle.weeks.length!==totalWeeks || newMesocycle.weeks.some((w,i)=>w.weekNumber!==i+1))
+                throw Error('Il percorso deve contenere tutte le settimane dichiarate, in sequenza.');
+            const blocks=[];
+            for(let from=1;from<=totalWeeks;from+=blockWeeks){
+                const to=Math.min(totalWeeks,from+blockWeeks-1),order=blocks.length+1;
+                blocks.push({order,weekFrom:from,weekTo:to,durationWeeks:to-from+1,label:'Mesociclo '+order,conditional:order>1,reviewBeforeStart:order>1});
+            }
+            newMesocycle.program={schemaVersion:1,totalWeeks,blockWeeks,weekBasis:'session_sequence',blocks};
+            for(const week of newMesocycle.weeks){
+                week.mesocycleNumber=Math.floor((week.weekNumber-1)/blockWeeks)+1;
+                week.weekInMesocycle=(week.weekNumber-1)%blockWeeks+1;
+                week.conditional=week.mesocycleNumber>1;
+            }
+        }
         if(coachOptions?.generatedPlan)
             newMesocycle=restoreProposalMetadata(newMesocycle,coachOptions.generatedPlan);
 
@@ -552,3 +580,4 @@ export function sanitizeRpe(rawRpe) {
     // Rimuove qualsiasi carattere '@' e spazi superflui
     return String(rawRpe).replace(/@/g, '').trim();
 }
+

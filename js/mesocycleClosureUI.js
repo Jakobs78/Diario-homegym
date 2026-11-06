@@ -1,4 +1,5 @@
 import {editJournal} from './journalTransaction.js';
+import {formatAIExchangeMarkdown} from '../mycoatch/aiExchange.js';
 import {state} from './state.js';
 import {renderWorkoutList} from './ui.js';
 /**
@@ -121,6 +122,13 @@ export function createMesocycleClosurePanel(mesocycle, athleteDiary = null) {
             data.mesocycle.name,'json','application/json');
     });
     advanced.append(jsonBtn);
+    for(const includeResults of [false,true]){
+        const ai=node('button',includeResults?'File AI con prompt, programma e risultati':'File AI con prompt e solo programma','btn btn-secondary btn-sm');
+        ai.type='button';
+        ai.onclick=()=>downloadReviewDossier(formatAIExchangeMarkdown(mesocycle,{includeResults}),mesocycle.name,'md','text/markdown');
+        advanced.append(ai);
+    }
+    advanced.append(node('p','I file AI contengono il prompt universale e i dati di questa scheda, con il contesto e l’inventario salvati alla sua creazione quando disponibili. Escludono account, note libere e date. Controlla il contenuto prima di condividerlo. Nessun invio automatico.'));
     actions.append(pdfBtn,markdownBtn,node('p','PDF: analisi leggibile e stampabile. MD: analisi e dettaglio delle serie in testo. Questi export escludono note libere, date delle sedute e dati account; i nomi personalizzati possono essere riconoscibili. Il PDF completo del diario, disponibile in Strumenti, conserva anche note e archivio. Nessun invio automatico.'),advanced);
 
     if (!closed) {
@@ -287,3 +295,4 @@ function appendAnalysisSections(body,review){
     for(const suggestion of analysis.suggestions)next.append(node('p',suggestion.name+': '+suggestion.text));
     next.append(node('small','Check-in storici pertinenti: '+analysis.recovery.validCheckins+'; difficoltà riferite: '+analysis.recovery.reportedDifficulties+'. Le proposte non cambiano serie, esercizi o struttura del mesociclo attivo. Nessuno scarico obbligatorio a calendario.'));
 }
+

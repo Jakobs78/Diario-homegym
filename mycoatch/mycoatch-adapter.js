@@ -150,7 +150,7 @@ export function startCoachChatAndGenerate(mesocycleOrEvent = null) {
     const set=(id,value)=>{const node=document.getElementById(id);if(node)node.value=value??'';};
     if(settings){
         for(const [key,id] of Object.entries({userAge:'input-age',daysPerWeek:'select-days',durationWeeks:'mycoatch-weeks',
-            focus:'select-focus',splitPreference:'mycoatch-split',cableSetup:'mycoatch-cable-setup'}))
+            programWeeks:'mycoatch-program-weeks',focus:'select-focus',splitPreference:'mycoatch-split',cableSetup:'mycoatch-cable-setup'}))
             if(settings[key]!==undefined)set(id,settings[key]);
         set('mycoatch-deload-choice',settings.deloadWeek===true?'last':settings.deloadWeek===false?'none':'auto');
         const minutes=Number(settings.maxSessionMinutes);
@@ -196,4 +196,5 @@ export function startCoachChatAndGenerate(mesocycleOrEvent = null) {
     modal.classList.remove('hidden');
     time?.focus();
 }
+
 

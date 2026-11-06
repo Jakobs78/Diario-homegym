@@ -15,6 +15,7 @@ import { planMacrocycle } from './macrocyclePlanner.js';
 import { prepareRecentEvidence } from './recentEvidence.js';
 import { deriveDurationCalibration } from './durationCalibration.js';
 import { resolveClosedMesocycle } from './closureHandoff.js';
+import {extendTrainingProgram,programSchedule} from './longProgram.js';
 
 export const MyCoatch = {
     /**
@@ -61,18 +62,24 @@ export const MyCoatch = {
             ...(config.athleteProfile || {experience:'intermediate'}),
             calibration:'guided',referenceLoads:{}
         };
+        programSchedule(config);
         const macrocycle = planMacrocycle({ ...report, lastMesocycle: previousMesocycle }, config, userHistory);
 
         // I dati storici non vengono modificati: proponiamo un mesociclo separato.
-        const newMesocycle = generateSmartMesocycle(config, analysis, previousMesocycle);
+        const newMesocycle = extendTrainingProgram(generateSmartMesocycle(config, analysis, previousMesocycle),config,analysis,previousMesocycle);
+        if(newMesocycle.program){
+            macrocycle.durationWeeks=newMesocycle.program.totalWeeks;
+            macrocycle.blocks=newMesocycle.program.blocks;
+            macrocycle.safety=newMesocycle.program.notice;
+        }
         newMesocycle.macrocycle = macrocycle;
         newMesocycle.generationScope = {
-            detailedMesocycles:1,
+            detailedMesocycles:newMesocycle.program?.blocks.length || 1,
             plannedWeeks:newMesocycle.weeks.length,
             sessionsPerWeek:config.daysPerWeek,
             futureBlocksConditional:true,
             activePlanUnchanged:true,
-            notice:'Questa proposta riguarda un solo mesociclo. La prosecuzione viene rivalutata sui risultati confermati; i carichi in allenamento seguono il protocollo attivo.'
+            notice:newMesocycle.program?.notice || 'Questa proposta riguarda un solo mesociclo. La prosecuzione viene rivalutata sui risultati confermati; i carichi in allenamento seguono il protocollo attivo.'
         };
         const comparison = compareMesocyclePlans(previousMesocycle, newMesocycle, analysis);
         const progressionValues = Object.values(decisions.byExercise);
@@ -209,6 +216,7 @@ export const MyCoatch = {
         if (!meso) throw new Error("Nessun mesociclo attivo generato da MyCoatch.");
 
         let csvRows = ["Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset"];
+        if(meso.program)csvRows[0]+=';ProgrammaSettimane;MesocicloSettimane';
 
         meso.weeks.forEach(week => {
             week.days.forEach((day, dayIndex) => {
@@ -250,7 +258,9 @@ export const MyCoatch = {
                     const noteStr = noteFinalStr.replace(/"/g, '""');
 
                     // Una riga unica per esercizio conforme con il parser della webapp
-                    csvRows.push(`${week.weekNumber};${dayNum};${blockNum};${ex.name};${totalSets};${repsForExercise};${kgMinStr};${kgMaxStr};${rpeStr};${recuperoStr};"${noteStr}";"${topsetVal}"`);
+                    const quote=value=>/[;"\r\n]/.test(String(value))?'"'+String(value).replace(/"/g,'""')+'"':String(value);
+                    csvRows.push(`${week.weekNumber};${dayNum};${blockNum};${quote(ex.name)};${totalSets};${repsForExercise};${kgMinStr};${kgMaxStr};${rpeStr};${recuperoStr};"${noteStr}";"${topsetVal}"`+
+                        (meso.program?`;${meso.program.totalWeeks};${meso.program.blockWeeks}`:''));
                 });
             });
         });
@@ -285,4 +295,5 @@ export function downloadMesocycleCSV() {
         return { success: false, message: error.message };
     }
 }
+
 

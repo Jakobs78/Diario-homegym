@@ -1,9 +1,13 @@
-const CACHE_NAME = 'workout-app-v89-restored-web-timer-20261104';
-const APP_VERSION = '1.3.7-20261104';
+const CACHE_NAME = 'workout-app-v90-long-programs-20261106';
+const APP_VERSION = '1.4.0-20261106';
 const META_CACHE = 'workout-app-update-state';
 
 // Risorse statiche dell'applicazione
 const ASSETS_TO_CACHE = [
+  '/js/cloudPayload.js',
+  '/mycoatch/longProgram.js',
+  '/mycoatch/sessionSequence.js',
+  '/mycoatch/aiExchange.js',
   '/mycoatch/warmupPlan.js',
   '/mycoatch/equipmentSubstitution.js',
   '/js/warmupUI.js',
@@ -245,3 +249,4 @@ self.addEventListener('fetch',event=>{
     return fetch(event.request);
   })());
 });
+

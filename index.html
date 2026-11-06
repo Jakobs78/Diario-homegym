@@ -353,7 +353,15 @@
                     </select>
                     <label for="mycoatch-weeks">Quante settimane deve durare questo mesociclo?</label>
                     <input id="mycoatch-weeks" name="durationWeeks" type="number" min="1" max="12" step="1" value="4" required inputmode="numeric">
-                    <p class="mycoatch-form-hint">Da 1 a 12 settimane, con tutte le giornate consultabili. Viene generato un solo mesociclo: la prosecuzione sarà rivalutata sui risultati reali. Carichi, reps e note continuano ad adattarsi secondo il protocollo attivo, dopo le tue conferme.</p>
+                    <label for="mycoatch-program-weeks">Percorso completo in settimane di programma</label>
+                    <select id="mycoatch-program-weeks" name="programWeeks">
+                        <option value="0">Solo questo mesociclo</option>
+                        <option value="24">24 settimane</option>
+                        <option value="26">26 settimane</option>
+                        <option value="48">48 settimane</option>
+                        <option value="52">52 settimane</option>
+                    </select>
+                    <p class="mycoatch-form-hint">Ogni settimana di programma è un giro delle sedute scelte: puoi completarlo anche in più di sette giorni. Il mesociclo dura da 1 a 12 settimane; nel percorso lungo i blocchi si susseguono fino alla durata scelta. Tutte le sedute sono consultabili. I blocchi successivi vanno verificati sui risultati reali e non prevedono aumenti automatici dei carichi.</p>
                     <label for="mycoatch-split">Struttura settimanale (scelta disponibile su 4 giorni)</label>
                     <select id="mycoatch-split" name="splitPreference">
                         <option value="auto" selected>Upper/Lower — 2 sedute sopra + 2 sotto</option>
@@ -606,3 +614,4 @@
     </div>
 </body>
 </html>
+

@@ -38,6 +38,19 @@ test('lost acknowledgement is recovered without a second write or false conflict
  expect(result).toEqual({firstConflict:false,identicalPayload:true,conflictAfterRetry:false,writes:1,pending:false,badge:'✓ Cloud'});
  console.log('AUDIT_LOST_ACK',JSON.stringify(result));
 });
+test('compressed long programme survives a lost acknowledgement with unchanged conflict protection',async({page})=>{
+ await harness(page);
+ const result=await page.evaluate(async()=>{
+  const a=window.__audit,s=await import('/js/storage.js'),sync=await import('/js/sync.js');
+  const payload={...a.payload,history:{years:{2026:{mesocycles:[{program:{totalWeeks:26},weeks:Array.from({length:26},(_,i)=>({weekNumber:i+1,notes:'Repeated synthetic prescription '.repeat(100)}))}]}}}};
+  a.dropAck=true;const first=await sync.pushDataToSupabase(a.user,payload);
+  const packed=a.remote.payload.format==='homegym-cloud-gzip';
+  const record=await sync.pullWorkoutRecord(a.user);
+  const second=await sync.pushDataToSupabase(a.user,payload);
+  return {firstOk:first.ok,secondOk:second.ok,packed,identical:JSON.stringify(record.payload)===JSON.stringify(payload),writes:a.writes,conflict:Boolean(s.getSyncConflict())};
+ });
+ expect(result).toEqual({firstOk:false,secondOk:true,packed:true,identical:true,writes:1,conflict:false});
+});
 test('a new edit during slow upload is drained without another user action',async({page})=>{
  await harness(page);
  await page.evaluate(async()=>{
@@ -203,3 +216,4 @@ test('ongoing compact diagnostics are moved out of the operational journal befor
   return {retained:data.history.years[2026].mesocycles[0].coachAdjustments.length,refs:data.history.years[2026].mesocycles[0].coachArchiveRefs.length};
  });expect(result).toEqual({retained:5,refs:1});
 });
+

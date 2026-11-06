@@ -6,6 +6,7 @@ import {workingProposal,PROTOCOL_POLICY,selectEvidence,relatedSets} from './prot
 import {confirmed,warm,blockKey,setPrescription} from './setPrescription.js';
 import {exerciseIdentity} from './exerciseIdentity.js';
 import {assessSessionReadiness} from './sessionReadiness.js';
+import {nextProgramSession} from './sessionSequence.js';
 const clone=x=>JSON.parse(JSON.stringify(x));
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const started=day=>Boolean(day.completed||day.sessionStart||day.accumulatedSeconds>0||day.sessionCompletedAt||
@@ -23,8 +24,11 @@ export function reconcileTrainingPlan(data,{year,mesoIndex,now=new Date().toISOS
     const equipment={...data.athlete,...(data.athlete?.loadingSteps||{})};
     const reservations=new Map();let changed=false;
     const updates=[];
+    const next=meso.program?nextProgramSession(meso).next:null;
     for(const week of [...(meso.weeks||[])].sort((a,b)=>Number(a.weekNumber)-Number(b.weekNumber))){
         for(const [di,day] of (week.days||[]).entries())for(const [ei,ex] of (day.exercises||[]).entries()){
+            // Long programmes retain future prescriptions, not copies of today's coaching advice.
+            if(meso.program && (!next || week.weekNumber!==next.weekNumber || day.dayNumber!==next.dayNumber))continue;
             const context={year:Number(year),mesoIndex,weekNumber:Number(week.weekNumber),dayIndex:di,exerciseIndex:ei};
             const exposures=trainingExposures(data,context,ex);
             const readiness=assessSessionReadiness(day.coachCheckin);
@@ -78,3 +82,4 @@ export function reconcileTrainingPlan(data,{year,mesoIndex,now=new Date().toISOS
     }
     return changed;
 }
+

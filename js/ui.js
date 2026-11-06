@@ -1,4 +1,5 @@
 import {saveAndSync} from './storage.js';
+import {nextProgramSession} from '../mycoatch/sessionSequence.js';
 import {reconcileTrainingPlan} from '../mycoatch/trainingPlan.js';
 import {bindActiveExercisePanels} from './activeExercise.js';
 import {createCircuitCard} from './circuitUI.js';
@@ -176,6 +177,27 @@ export function renderWorkoutList() {
     const targetWeek = (meso.weeks || []).find(w => w.weekNumber === activeWeekNum) || meso.weeks?.[0];
 
     if (!targetWeek) return;
+    if(meso.program){
+        const progress=nextProgramSession(meso);
+        const panel=document.createElement('details');panel.className='day-card';panel.id='long-program-overview';panel.open=true;
+        const title=document.createElement('summary');title.textContent='Percorso di '+meso.program.totalWeeks+' settimane · '+progress.completed+'/'+progress.total+' sedute concluse';
+        const help=document.createElement('p');help.textContent='Le settimane sono giri di sedute, senza date obbligatorie. Le sedute concluse con esclusioni non contano le serie saltate come eseguite.';
+        panel.append(title,help);
+        for(const block of meso.program.blocks||[]){
+            const status=nextProgramSession({weeks:meso.weeks.filter(w=>w.weekNumber>=block.weekFrom&&w.weekNumber<=block.weekTo)});
+            const row=document.createElement('p');row.textContent=block.label+' · settimane '+block.weekFrom+'–'+block.weekTo+' · '+status.completed+'/'+status.total+' sedute concluse'+(block.conditional?' · verifica risultati e recupero prima di iniziare':'');panel.append(row);
+        }
+        if(progress.next){
+            const next=document.createElement('button');next.type='button';next.id='next-program-session';next.className='btn btn-secondary';
+            next.textContent='Riprendi: settimana '+progress.next.weekNumber+' · '+progress.next.dayName;
+            next.onclick=()=>{stopTimer();state.activeWeek=progress.next.weekNumber;state.activeDay=progress.next.dayNumber;localStorage.setItem('ui_active_week',state.activeWeek);localStorage.setItem('ui_active_day',state.activeDay);renderWorkoutList();};
+            panel.append(next);
+        }
+        if(targetWeek.conditional && targetWeek.weekInMesocycle===1){
+            const review=document.createElement('p');review.textContent='Inizio mesociclo '+targetWeek.mesocycleNumber+': controlla l’analisi delle settimane precedenti e il recupero. I carichi iniziali sono riferimenti da rivalutare, non aumenti già acquisiti.';panel.append(review);
+        }
+        DOM.workoutListContainer.append(panel);
+    }
 
     if(!isPastMeso && reconcileTrainingPlan(state.workoutData,{year:state.currentYear,mesoIndex})) {
         saveAndSync(state.workoutData,'COACH_PROTOCOL_REFRESH');
@@ -450,3 +472,4 @@ function openMesocycleAnalysis(meso,{restore=false}={}){
     view.append(back,title,name,report);DOM.workoutListContainer.append(view);workout.hidden=true;
     if(!restore){window.scrollTo({top:0,behavior:'instant'});title.focus({preventScroll:true});}
 }
+

@@ -1,4 +1,5 @@
 import {sameJSON,payloadHash,timedQuery} from './syncPrimitives.js';
+import {encodeCloudPayload,decodeCloudPayload} from './cloudPayload.js';
 import {syncCoachArchives} from './coachArchive.js';
 import { journalStorage, flushJournalStorage } from './journalStore.js';
 /**
@@ -48,7 +49,7 @@ export async function pullWorkoutRecord(userOrEmail) {
     const {data,error}=await timedQuery(supabase.from('workouts')
         .select('payload,updated_at').eq('email',email).maybeSingle());
     if(error)throw error;
-    return data ? {payload:data.payload,revision:data.updated_at||null} : null;
+    return data ? {payload:await decodeCloudPayload(data.payload),revision:data.updated_at||null} : null;
 }
 
 const activePulls=new Map();
@@ -128,7 +129,7 @@ export async function pushDataToSupabase(userOrEmail,payload,actionTimestamp=nul
         setSyncAttempt(userOrEmail,{hash,priorHashes:[...new Set(previousAttempt?[previousAttempt.hash,...(previousAttempt.priorHashes||[])]:[])],baseRevision:expected,at:new Date().toISOString()});
         // Persist the receipt proof BEFORE the request can reach the server.
         await flushJournalStorage();
-        const recordData={email,payload,updated_at:new Date(Math.max(Date.now(),
+        const recordData={email,payload:await encodeCloudPayload(payload),updated_at:new Date(Math.max(Date.now(),
             (Date.parse(expected||'')||0)+1)).toISOString()};
         const result=expected!==null
             ? await timedQuery(supabase.from('workouts').update(recordData)
@@ -176,17 +177,18 @@ export async function resolveSyncConflict(userOrEmail,choice,payload=null) {
     }
     const currentPayload=payload||getFromLocalStorageForUser(userOrEmail);
     await syncCoachArchives(currentPayload,userOrEmail);
+    const cloudPayload=await encodeCloudPayload(currentPayload);
     const writtenAt=new Date(Math.max(Date.now(),
         (Date.parse(remote?.revision||'')||0)+1)).toISOString();
     let result;
     if(remote){
         result=await timedQuery(supabase.from('workouts')
-            .update({email,payload:currentPayload,updated_at:writtenAt})
+            .update({email,payload:cloudPayload,updated_at:writtenAt})
             .eq('email',email).eq('updated_at',observed.remoteRevision)
             .select('updated_at').maybeSingle());
     }else{
         result=await timedQuery(supabase.from('workouts')
-            .insert({email,payload:currentPayload,updated_at:writtenAt})
+            .insert({email,payload:cloudPayload,updated_at:writtenAt})
             .select('updated_at').maybeSingle());
     }
     if(result.error || !result.data?.updated_at)
@@ -319,3 +321,4 @@ export function initBackgroundSync(state) {
     window.addEventListener('online', handleSyncTrigger);
     window.addEventListener('focus', handleSyncTrigger);
 }
+
