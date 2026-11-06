@@ -1,3 +1,7 @@
+import {muscleWorkReport,muscleWorkSessions} from '../mycoatch/muscleWorkReport.js';
+import {muscleGroupLabel} from '../mycoatch/muscleCatalog.js';
+import {TRACKED_MUSCLES} from '../mycoatch/volumeAccounting.js';
+import {renderMuscleWorkDetails} from './muscleWorkUI.js';
 import {validPerformedSet} from './workoutSemantics.js';
 import {historyWindow} from './historyWindow.js';
 /* global Chart */
@@ -485,74 +489,20 @@ export function renderMuscleVolumeChart(canvasId, workoutData, range = currentRa
         targetData = getSelectedMesoData(workoutData);
     }
 
-    const allDays = extractAllDays(targetData);
+    const allDays = muscleWorkSessions(extractAllDays(targetData));
     const days = range === 'meso' ? allDays : filterDaysByRange(allDays, range);
-    const muscleGroups = {};
-    const plannedGroups = {};
-    
-    const uniqueWeeks = new Set();
-    days.forEach(d => {
-        const date=d.sessionCompletedAt || d.date;
-        if(date && !Number.isNaN(Date.parse(date))) {
-            const current=new Date(date);
-            // Calendar week per year, not simply "week 1" across multiple mesocycles.
-            const first=new Date(Date.UTC(current.getUTCFullYear(),0,1));
-            const ordinal=Math.floor((current-first)/86400000);
-            uniqueWeeks.add(current.getUTCFullYear()+'-'+Math.floor((ordinal+first.getUTCDay())/7));
-        } else if (d.weekNumber || d.week) {
-            uniqueWeeks.add(String(d.mesoNumber || 'meso')+'/'+(d.weekNumber || d.week));
-        }
-    });
-    const totalWeeks = uniqueWeeks.size || 1;
-
-    const muscleFor = ex=>{
-        let muscle=String(ex.muscle_group || ex.target_muscle || ex.category || 'Generico');
-        if (muscle.toLowerCase().includes('back_') || muscle.toLowerCase()==='schiena')
-            muscle='Dorso';
-        return muscle;
-    };
-    days.forEach(day=>{
-        const raw=day.exercises || day.esercizi || [];
-        for(const ex of Array.isArray(raw)?raw:Object.values(raw)){
-            if(isWarmupExercise(ex))continue;
-            const muscle=muscleFor(ex);
-            const planned=Array.isArray(ex.sets)?ex.sets.length:
-                Array.isArray(ex.loggedSets)?ex.loggedSets.length:0;
-            plannedGroups[muscle]=(plannedGroups[muscle]||0)+planned;
-        }
-        const validExs=filterValidSets(day.exercises || day.esercizi || []);
-        for(const ex of validExs){
-            const muscle=muscleFor(ex);
-            muscleGroups[muscle]=(muscleGroups[muscle]||0)+ex.sets.length;
-        }
-    });
-    const labels=[...new Set([...Object.keys(plannedGroups),...Object.keys(muscleGroups)])];
-    const round=x=>Math.round(x*10)/10;
-    const dataValues=labels.map(muscle=>round((muscleGroups[muscle]||0)/totalWeeks));
-    const plannedValues=labels.map(muscle=>round((plannedGroups[muscle]||0)/totalWeeks));
-
-    activeCharts[canvasId] = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels.length ? labels : ['Petto', 'Dorso', 'Gambe', 'Spalle', 'Braccia'],
-            datasets: [{
-                label: 'Confermate / settimana',
-                data: dataValues.length ? dataValues: [0, 0, 0, 0, 0],
-                backgroundColor: 'rgba(59, 130, 246, 0.75)',
-                borderWidth: 1,borderRadius: 6
-            },{
-                label: 'Previste / settimana',
-                data: plannedValues.length ? plannedValues: [0, 0, 0, 0, 0],
-                backgroundColor: 'rgba(148, 163, 184, 0.65)',
-                borderWidth: 1,borderRadius: 6
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            plugins: { legend: { display: true } },
-            scales: { x: { beginAtZero: true, title: { display: true, text: 'Serie per settimana (piano e completamento)' } } }
-        }
+    const report=muscleWorkReport(days);
+    const groups=TRACKED_MUSCLES.filter(m=>report.planned.byMuscle[m].fractionalSets||report.performed.byMuscle[m].fractionalSets);
+    const series=(source,key)=>groups.map(m=>report[source].byMuscle[m][key]);
+    renderMuscleWorkDetails(ctx,report);
+    activeCharts[canvasId]=new Chart(ctx,{
+        type:'bar',data:{labels:groups.map(muscleGroupLabel),datasets:[
+            {label:'Confermate: dirette',data:series('performed','directSets'),stack:'confirmed',backgroundColor:'rgba(59,130,246,0.85)'},
+            {label:'Confermate: contributi indiretti (×0,5)',data:series('performed','indirectSetCredits'),stack:'confirmed',backgroundColor:'rgba(96,165,250,0.5)'},
+            {label:'Previste: dirette',data:series('planned','directSets'),stack:'planned',backgroundColor:'rgba(100,116,139,0.7)'},
+            {label:'Previste: contributi indiretti (×0,5)',data:series('planned','indirectSetCredits'),stack:'planned',backgroundColor:'rgba(148,163,184,0.4)'}
+        ]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:true}},
+            scales:{x:{beginAtZero:true,stacked:true,title:{display:true,text:'Serie e contributi stimati nel periodo'}},y:{stacked:true}}}
     });
 }
 

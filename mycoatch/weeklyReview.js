@@ -1,3 +1,4 @@
+import {catalogExercise} from './catalogLookup.js';
 /**
  * MyCoatch: revisione tra due settimane adiacenti dello STESSO mesociclo.
  * Si basa solo su giornate concluse, serie confermate, RPE misurati e
@@ -6,13 +7,11 @@
  */
 import { validateCompletedSet } from './liveCoach.js';
 import { validateSessionCheckin } from './sessionReadiness.js';
-import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { canonicalExerciseKey } from './exerciseIdentity.js';
 
-const muscleCatalog = new Map(EXERCISE_DATABASE.map(ex => [canonicalExerciseKey(ex.name), ex.category]));
 function muscleKey(exercise) {
     const key = canonicalExerciseKey(exercise?.name);
-    return muscleCatalog.get(key) || exercise?.category || (key ? 'exercise:' + key : null);
+    return catalogExercise(exercise)?.muscleProfile.primary[0] || exercise?.category || (key ? 'exercise:' + key : null);
 }
 
 const TARGET_FIELDS = ['targetRpe','rpe','minRpe','maxRpe','coachWeeklyLoadReview'];

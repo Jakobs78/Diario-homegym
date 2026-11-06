@@ -1,3 +1,4 @@
+import {catalogExercise} from './catalogLookup.js';
 import {isWarmupExercise,plannedWorkSetCount,validPerformedSet} from '../js/workoutSemantics.js';
 /**
  * Analisi descrittiva del volume di allenamento.
@@ -12,19 +13,15 @@ import {isWarmupExercise,plannedWorkSetCount,validPerformedSet} from '../js/work
  *
  * Base: Pelland et al., Sports Medicine 2026, DOI 10.1007/s40279-025-02344-w.
  */
-import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { canonicalExerciseKey } from './exerciseIdentity.js';
 
 export const INDIRECT_SET_CREDIT = 0.5;
-export const VOLUME_ACCOUNTING_METHOD = 'catalog_direct_1_indirect_0_5_exploratory';
+export const VOLUME_ACCOUNTING_METHOD = 'catalog_audit_v2_direct_1_indirect_0_5_exploratory';
 export const TRACKED_MUSCLES = Object.freeze([
     'Petto', 'Back_Lats', 'Back_Thickness', 'Spalle', 'Quadricipiti',
     'Femorali', 'Glutei', 'Polpacci', 'Bicipiti', 'Tricipiti', 'Core'
 ]);
 
-const catalog = new Map(EXERCISE_DATABASE.map(exercise => [
-    canonicalExerciseKey(exercise.name), exercise
-]));
 const round = value => Math.round(value * 100) / 100;
 const numericReps = value => {
     const s = String(value ?? '').trim();
@@ -32,11 +29,6 @@ const numericReps = value => {
     // porzione verificabile, senza attribuire tre serie distinte.
     const n = /^\d{1,3}(?:\+\d{1,3})*$/.test(s) ? Number(s.split('+')[0]) : NaN;
     return Number.isInteger(n) && n >= 1 && n <= 100;
-};
-const validWeight = value => {
-    if (value === null || value === undefined || String(value).trim() === '') return false;
-    const s = String(value).trim().replace(',', '.');
-    return /^\d+(?:\.\d+)?$/.test(s) && Number(s) > 0;
 };
 const isWork = set => !set?.isWarmup && !set?.warmup && !set?.is_warmup;
 const isConfirmed = set => set?.isLocked === true || set?.completed === true;
@@ -47,25 +39,22 @@ export function completedWorkingSetCount(exercise) {
         Array.isArray(exercise?.sets) ? exercise.sets : [];
     if(isWarmupExercise(exercise))return 0;
     return logs.filter(set => set && validPerformedSet(exercise,set) && isWork(set) && isConfirmed(set) &&
-        (validWeight(set.weight ?? set.actualKg) ||
-            ((exercise.catalogMapping?.confirmed?exercise.catalogMapping.equipment:catalog.get(canonicalExerciseKey(exercise.name))?.equipment) === 'bodyweight' &&
-             String(set.weight ?? set.actualKg).trim() === '0')) &&
         numericReps(set.reps ?? set.actualReps)).length;
 }
 
 export function contributionsForExercise(name, setCount) {
-    const key = canonicalExerciseKey(name);
-    const meta = catalog.get(key);
+    const meta = catalogExercise(name);
+    const key = meta ? canonicalExerciseKey(meta.name) : '';
     if (!meta || !Number.isInteger(setCount) || setCount < 1) return null;
     const secondary = [...new Set(meta.secondaryMuscles || [])].filter(group =>
-        TRACKED_MUSCLES.includes(group) && group !== meta.category
+        TRACKED_MUSCLES.includes(group) && !meta.muscleProfile.primary.includes(group)
     );
     return {
         key,
         exercise: meta.name,
-        category: meta.category,
+        category: meta.muscleProfile.primary[0],
         physicalSets: setCount,
-        direct: { [meta.category]: setCount },
+        direct: Object.fromEntries(meta.muscleProfile.primary.map(group=>[group,setCount])),
         indirect: Object.fromEntries(secondary.map(group =>
             [group, round(setCount * INDIRECT_SET_CREDIT)]))
     };
@@ -102,7 +91,7 @@ export function summarizeMuscleVolume(exercises = [], { mode = 'planned' } = {})
             continue;
         }
         if (count === 0) continue;
-        const credits = contributionsForExercise(exercise.catalogMapping?.confirmed?exercise.catalogMapping.name:exercise.name, count);
+        const credits = contributionsForExercise(exercise, count);
         if (!credits) {
             unknownExercises.push(exercise?.name || 'sconosciuto');
             unclassifiedSets+=count;
@@ -123,7 +112,7 @@ export function summarizeMuscleVolume(exercises = [], { mode = 'planned' } = {})
     }
     return {
         method: VOLUME_ACCOUNTING_METHOD,
-        note: 'Crediti descrittivi, non misure di ipertrofia ne soglie individuali di recupero.',
+        note: 'Dirette: 1 per serie. Indirette: contributo stimato di 0,5. Stabilizzazione esclusa. Non misura fatica, attivazione o crescita.',
         physicalSets,
         unclassifiedSets,
         totalPhysicalSets:physicalSets+unclassifiedSets,

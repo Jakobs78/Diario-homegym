@@ -117,9 +117,9 @@ test('UI browser reale: propone prima +1 rep, poi +kg, senza dati inventati né 
   assert.equal(Number(check.loads.first.kgMin),Number(check.loads.first.coachDecision.plannedKg));
   assert.match(check.loads.review, /Nuovo blocco: carico ricalibrato/);
   assert.match(check.loads.csv.split('\n')[0],
-    /^Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset$/);
+    /^Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset;NomeSeduta$/);
   assert.ok(check.loads.csv.trim().split('\n').slice(1)
-    .every(row => row.split(';').length === 12));
+    .every(row => row.split(';').length === 13));
 
   assert.equal(check.noRpe.decision.action, 'maintain');
   assert.equal(check.noRpe.first.kgMin, '80');

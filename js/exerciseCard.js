@@ -1,3 +1,4 @@
+import {exerciseMusclesMarkup} from './exerciseMusclesUI.js';
 import {createWarmupPanel} from './warmupUI.js';
 import {isExerciseSkipped} from './sessionSkip.js';
 import {setPrescription} from '../mycoatch/setPrescription.js';
@@ -100,6 +101,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         <div class="target-box mb-md">
             <strong>${ex.coachSetProposals?'SCHEDA ORIGINALE':'TARGET'}:</strong> ${formatExerciseSummary(ex)}
         </div>
+        ${exerciseMusclesMarkup(ex)}
         <section class="exercise-coach-notes" aria-label="Istruzioni e aggiornamenti dell’esercizio">
             <div class="exercise-coach-notes-body">
                 <div class="exercise-plan-notes"><strong>Note della scheda</strong><div class="note-allenatore-text"></div></div>

@@ -1,0 +1,31 @@
+import {test,expect} from '@playwright/test';
+test('muscle chart resolves imported aliases and separates performed, planned and indirect work',async({page},info)=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/*',r=>r.request().url().startsWith('http://127.0.0.1:4173')?r.continue():r.abort());
+ await page.route('**/js/config.js',r=>r.fulfill({contentType:'application/javascript',body:`export const CONFIG={STORAGE_KEY:'workoutApp_data',APP_VERSION:'isolated'};export const supabase={auth:{getUser:async()=>({data:{user:null}}),getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})},from(){throw Error('Remote access forbidden');}};`}));
+ await page.addInitScript(()=>localStorage.setItem('dev_banner_closed','true'));
+ await page.goto('/index.html');await expect(page.locator('#open-tools-btn')).toBeAttached();
+ const chart=await page.evaluate(async()=>{
+  const {state}=await import('/js/state.js');const {renderMuscleVolumeChart}=await import('/js/analytics.js');const {renderWorkoutList}=await import('/js/ui.js');
+  const log=(lock=true)=>({weight:'20',reps:'10',rpe:'8',isLocked:lock});
+  const ex=(name,logs)=>({name,set:'2 set',reps:'8-12',rpe:8,recupero:'90s',sets:[{},{}],loggedSets:logs});
+  state.currentYear=2026;state.currentUser=null;state.activeWeek=1;state.activeDay=1;state.activeMesocycleIndex=0;
+  state.workoutData={history:{years:{2026:{mesocycles:[{id:'test',name:'Prova',weeks:[{weekNumber:1,days:[{dayNumber:1,dayName:'Upper A',exercises:[ex('pulley triangolo',[log(),log(false)]),ex('preacher curl dumbbell',[log(),log()]),ex('Esercizio personale',[log(),log(false)])]}]}]}]}}}};
+  document.getElementById('auth-overlay').style.display='none';renderWorkoutList();
+  const RealChart=window.Chart;window.Chart=class extends RealChart{constructor(ctx,config){super(ctx,config);window.muscleChart=config;window.testMuscleChart=this;}};
+  renderMuscleVolumeChart('chart-muscle-volume',state.workoutData);
+  return window.muscleChart.data;
+ });
+ expect(chart.labels).toContain('Trapezio medio e romboidi');expect(chart.labels).toContain('Flessori del gomito');expect(chart.labels).not.toContain('Generico');expect(chart.labels).not.toContain('Ipertrofia');
+ const row=chart.labels.indexOf('Trapezio medio e romboidi');expect(chart.datasets[0].data[row]).toBe(1);expect(chart.datasets[2].data[row]).toBe(2);
+ const b=chart.labels.indexOf('Flessori del gomito');expect(chart.datasets[0].data[b]).toBe(2);expect(chart.datasets[1].data[b]).toBe(.5);
+ await expect(page.locator('.exercise-muscle-details')).toHaveCount(3);
+ await page.locator('.exercise-muscle-details summary').first().click();await expect(page.locator('.exercise-muscle-details').first()).toContainText('Stabilizzazione: Addome e core');
+ await page.evaluate(()=>{document.getElementById('analytics').classList.remove('d-none');document.querySelector('.workout-list')?.classList.add('d-none');});
+ expect(await page.locator('.muscle-work-report').textContent()).toContain('Non attribuite: 1 serie confermate, 2 previste');
+ expect(await page.locator('.muscle-work-report').textContent()).toContain('RPE medio 8');
+ await page.setViewportSize({width:390,height:844});
+ await page.locator('.exercise-muscle-details').first().scrollIntoViewIfNeeded();
+ await page.screenshot({path:info.outputPath('muscle-details-mobile.png'),fullPage:false});
+ expect(errors).toEqual([]);
+});
