@@ -39,8 +39,13 @@
     border: 1px solid var(--accent-color); font-weight: 650;
 }
 #resume-training-btn[hidden] { display: none; }
-.app-header-container:has(#resume-training-btn:not([hidden])) {
+.app-header-container {
     position: sticky; top: env(safe-area-inset-top, 0px); z-index: 40;
+    transition: transform .18s ease;
+}
+.app-header-container.header-scroll-hidden {
+    transform: translateY(calc(-100% - env(safe-area-inset-top, 0px) - 10px));
+    pointer-events: none;
 }
 
 * {

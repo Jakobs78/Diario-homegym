@@ -1,4 +1,5 @@
 import {normalizeOwnedDumbbells} from '../mycoatch/dumbbellInventory.js';
+import {initHeaderScroll} from './headerScroll.js';
 import {setupAppUpdates} from './appUpdates.js';
 import {EXERCISE_DATABASE,DEFAULT_HOME_GYM_EQUIPMENT} from '../mycoatch/exercisesDB.js';
 import {FUNDAMENTAL_CHOICES} from '../mycoatch/exerciseSelection.js';
@@ -89,6 +90,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 // 3. INIZIALIZZAZIONE DELL'APP
 // ==========================================
 async function initApp() {
+    initHeaderScroll();
     console.log(`Avvio Advanced Workout Tracker v${CONFIG.APP_VERSION}`);
     const release=document.getElementById('app-release');
     if(release){
