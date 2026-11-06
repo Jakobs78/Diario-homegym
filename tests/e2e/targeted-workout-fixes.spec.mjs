@@ -27,6 +27,14 @@ test('header disappears downwards and returns upwards on mobile without changing
  await page.evaluate(()=>window.scrollTo(0,900));
  await expect(page.locator('.app-header-container')).toHaveClass(/header-scroll-hidden/);
  await expect.poll(()=>page.locator('.app-header-container').evaluate(el=>el.getBoundingClientRect().bottom)).toBeLessThanOrEqual(0);
+ await page.evaluate(()=>window.scrollBy(0,-20));
+ await page.waitForTimeout(250);
+ await expect(page.locator('.app-header-container')).toHaveClass(/header-scroll-hidden/);
+ await page.evaluate(()=>window.scrollBy(0,12));
+ await page.waitForTimeout(100);
+ await page.evaluate(()=>window.scrollBy(0,-25));
+ await page.waitForTimeout(250);
+ await expect(page.locator('.app-header-container')).toHaveClass(/header-scroll-hidden/);
  await page.evaluate(()=>window.scrollBy(0,-200));
  await expect(page.locator('.app-header-container')).not.toHaveClass(/header-scroll-hidden/);
  await expect(page.locator('#resume-training-btn')).toBeInViewport();expect(errors).toEqual([]);
