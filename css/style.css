@@ -3764,10 +3764,12 @@ body.dark-mode .group-title-badge {
 .warmup-row input[type=checkbox] {width:24px;height:24px;}
 
 
-.exercise-muscle-details { margin: .6rem 0; font-size: .9em; }
-.exercise-muscle-details summary, .muscle-work-report summary { cursor: pointer; font-weight: 600; }
-.exercise-muscle-details p { margin: .35rem 0; }
+.session-muscle-details { margin: .6rem 0; font-size: .9em; }
+.session-muscle-details summary, .muscle-work-report summary { cursor: pointer; font-weight: 600; }
+.session-muscle-details p { margin: .35rem 0; }
 .muscle-work-report { font-size: .9em; margin-top: .8rem; }
 .muscle-work-table-scroll { overflow-x: auto; margin-top: .6rem; }
 .muscle-work-table-scroll table { border-collapse: collapse; min-width: 650px; width: 100%; }
 .muscle-work-table-scroll th, .muscle-work-table-scroll td { padding: .5rem; text-align: left; border-bottom: 1px solid #94a3b8; }
+
+.exercise-original-load { margin-top: .35rem; font-size: .85em; color: #475569; }

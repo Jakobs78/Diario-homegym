@@ -1,3 +1,4 @@
+import {createSessionMusclesPanel} from './sessionMusclesUI.js';
 import {createSessionFeedback} from './sessionFeedbackUI.js';
 import { buildLiveSessionSnapshot, assessExerciseLive } from '../mycoatch/liveCoach.js';
 import { calibrationContextForDay } from '../mycoatch/calibrationReview.js';
@@ -200,12 +201,12 @@ function createSessionCheckinPanel(day, readiness, locked, panel) {
     return section;
 }
 
-export function createLiveCoachPanel(day, { readOnly = false } = {}) {
+export function createLiveCoachPanel(day, { readOnly = false, musclesOpen = false } = {}) {
     const panel = element('section', 'mycoatch-live-panel');
     panel.id = 'mycoatch-live-panel';
     panel.setAttribute('aria-label', 'Riepilogo seduta');
     panel.dataset.readOnly = readOnly ? 'true' : 'false';
-    updateLiveCoachPanel(day, { readOnly }, panel);
+    updateLiveCoachPanel(day, { readOnly, musclesOpen }, panel);
     return panel;
 }
 
@@ -213,11 +214,12 @@ export function createLiveCoachPanel(day, { readOnly = false } = {}) {
  * Viene chiamato su input e sul check/uncheck.
  * Aggiorna SOLO il box, mai la tabella degli esercizi o i dati archiviati.
  */
-export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPanel = null) {
+export function updateLiveCoachPanel(day, { readOnly = false, musclesOpen: requestedMusclesOpen } = {}, explicitPanel = null) {
     const panel = explicitPanel || document.getElementById('mycoatch-live-panel');
     if (!panel || !day) return null;
     const snapshot = buildLiveSessionSnapshot(day, { history: state.workoutData });
     const locked = readOnly || panel.dataset.readOnly === 'true';
+    const musclesOpen=requestedMusclesOpen ?? (panel.querySelector('.session-muscle-details')?.open||false);
     panel.replaceChildren();
 
     if(!snapshot.finished)panel.append(createSessionCheckinPanel(day, snapshot.readiness, locked, panel));
@@ -229,7 +231,7 @@ export function updateLiveCoachPanel(day, { readOnly = false } = {}, explicitPan
     progress.value = snapshot.checkedSets;
     progress.setAttribute('aria-label', 'Progressione delle serie confermate');
     meter.append(textProgress, progress);
-    panel.append(meter);
+    panel.append(meter,createSessionMusclesPanel(day,{open:musclesOpen}));
 
     const liveMessage = element('div', 'mycoatch-live-guidance');
     liveMessage.id = 'mycoatch-live-guidance';
