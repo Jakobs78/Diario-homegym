@@ -3,7 +3,7 @@ import {isBodyweightExercise} from './bodyweight.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {trainingExposures} from './trainingHistory.js';
 import {workingProposal,PROTOCOL_POLICY,selectEvidence,relatedSets} from './protocolLoad.js';
-import {confirmed,warm,blockKey,setPrescription} from './setPrescription.js';
+import {confirmed,warm,blockKey,setPrescription,observed} from './setPrescription.js';
 import {exerciseIdentity} from './exerciseIdentity.js';
 import {assessSessionReadiness} from './sessionReadiness.js';
 import {nextProgramSession} from './sessionSequence.js';
@@ -51,10 +51,22 @@ export function reconcileTrainingPlan(data,{year,mesoIndex,now=new Date().toISOS
                 const source=selectEvidence(ex,index,exposures)[0];
                 const sourceKey=source?JSON.stringify([source.source,exerciseIdentity(ex),blockKey(source.match.prescription)]):null;
                 const held=sourceKey&&reservations.get(sourceKey);
-                const eligible=!started(day)&&!week.isDeloadWeek&&!week.isDeload&&(!held||held===targetKey);
+                // Earlier exercises/timer may have started the DAY. They must not veto
+                // the already validated progression of an exercise with no confirmed sets yet.
+                const eligible=!(ex.loggedSets||[]).some(confirmed)&&!week.isDeloadWeek&&!week.isDeload&&(!held||held===targetKey);
                 const keepStarted=!isBodyweightExercise(ex)&&started(day)&&transferred&&unchangedSource&&
                     !(ex.loggedSets||[]).some(confirmed)&&readiness.level!=='stop'&&readiness.allowIncrease!==false;
                 const proposal=keepStarted?clone(previous):workingProposal(ex,index,{exposures,equipment,readiness,allowProgression:eligible||isBodyweightExercise(ex)&&started(day)&&transferred&&unchangedSource});
+                // A successful first series must not erase the already authorized
+                // near-top rep goal/message for the remaining series. Live reductions still win.
+                if(previous?.kind==='build_reps' && unchangedSource && /chiudere tutte le serie/.test(previous.reason||'') &&
+                    proposal?.kind==='today' && proposal.weight===previous.weight && proposal.reps===previous.reps && readiness.allowIncrease!==false){
+                    const target=setPrescription(ex,index).rpe?.max;
+                    const today=(ex.loggedSets||[]).flatMap((row,i)=>confirmed(row)&&!warm(row)?[observed(ex,i)]:[]);
+                    if(today.length && today.every(row=>row && row.kg===proposal.weight && row.rpe!==null && row.rpe<=target)){
+                        proposal.kind='build_reps';proposal.reason=previous.reason;
+                    }
+                }
                 if(proposal&&sourceKey&&eligible&&['increase_load','build_reps'].includes(proposal.kind))reservations.set(sourceKey,targetKey);
                 if(proposal){
                     proposal.destination={...context,setIndex:index};

@@ -2,13 +2,29 @@ import {buildWarmupPlan} from '../mycoatch/warmupPlan.js';
 import {state} from './state.js';
 import {saveAndSync} from './storage.js';
 const node=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n;};
+const disclosureStates=new WeakMap();
 export function createWarmupPanel(ex,day,{workWeight,readOnly=false}={}){
  if((readOnly||day.completed)&&!ex.warmupSets)return null;
  const index=day.exercises.indexOf(ex);
  const proposed=buildWarmupPlan(ex,state.workoutData?.athlete||{},{workWeight,previousExercises:day.exercises.slice(0,index)});
  if(!proposed.length)return null;
- const panel=node('details');panel.className='exercise-warmups';panel.open=!ex.warmupSkipped;
- panel.append(node('summary','🔥 Avvicinamento · riscaldamento W'));
+ const run=day.sessionArchives?.length||0;
+ const meso=state.workoutData?.history?.years?.[String(state.currentYear)]?.mesocycles?.[state.activeMesocycleIndex||0];
+ const key=['homegym-warmup-open',state.currentUser?.id||'local',state.currentYear,meso?.id??state.activeMesocycleIndex,state.activeWeek,day.dayNumber??state.activeDay,index,run].join(':');
+ let stored=null;try{stored=localStorage.getItem(key);}catch{}
+ const remembered=disclosureStates.get(ex);
+ const open=remembered?.run===run?remembered.open:stored!==null?stored==='1':!ex.warmupSkipped;
+ const panel=node('details');panel.className='exercise-warmups';panel.open=open;
+ const remember=value=>{
+  disclosureStates.set(ex,{run,open:value});
+  try{localStorage.setItem(key,value?'1':'0');}catch{}
+ };
+ // Carry the UI choice over when a legacy plan receives a stable ID after a check.
+ if(remembered?.run===run && stored!==(open?'1':'0'))remember(open);
+ const summary=node('summary','🔥 Avvicinamento · riscaldamento W');
+ summary.addEventListener('click',()=>remember(!panel.open));
+ panel.addEventListener('toggle',()=>{if(panel.isConnected)remember(panel.open);});
+ panel.append(summary);
  const info=node('p','Serie facoltative, escluse da volume e progressioni. Kg per il totale del bilanciere o per singolo manubrio. Usa carichi leggeri, senza affaticarti.');panel.append(info);
  if(proposed.some(row=>row.targetKg&&!row.verified))info.textContent+=' Carichi indicativi: verifica i pesi realmente disponibili.';
  if(proposed.some(row=>!row.targetKg))info.textContent+=' Completa i kg mancanti con un peso leggero disponibile.';
@@ -45,3 +61,4 @@ export function createWarmupPanel(ex,day,{workWeight,readOnly=false}={}){
  add.onclick=async()=>{if(rows.length>=5){status.textContent='Sono già presenti cinque serie di avvicinamento.';return;}const row={isWarmup:true,targetKg:'',targetReps:'2',completed:false};rows.push(row);renderRow(row,rows.length-1);await save();};
  panel.append(add,skip,status);return panel;
 }
+

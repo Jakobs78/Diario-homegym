@@ -31,6 +31,9 @@ test('one tap returns from history/analysis to the paused day across dates, pres
  await open(page,data);
  await expect(page.locator('#resume-training-btn')).toHaveText('Riprendi D – settimana 3');
  await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));
+ await expect(page.locator('.app-header-container')).toHaveClass(/header-scroll-hidden/);
+ await page.evaluate(()=>window.scrollBy(0,-200));
+ await expect(page.locator('.app-header-container')).not.toHaveClass(/header-scroll-hidden/);
  await expect(page.locator('#resume-training-btn')).toBeInViewport();
  await page.locator('#review-close-meso-btn').click();
  await expect(page.locator('#mesocycle-analysis-view')).toBeVisible();

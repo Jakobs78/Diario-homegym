@@ -58,7 +58,7 @@ function appliedChange(entry){
         const effort=c.rpe!==null&&c.rpe!==undefined?' Rispetta l’RPE '+decimal(c.rpe)+'.':' Rispetta l’RPE previsto.';
         text+=effort;
         if(c.kind==='increase')text+=' Lavora nel range '+(c.minReps===c.maxReps?c.minReps:c.minReps+'–'+c.maxReps)+' reps: non fermarti automaticamente al minimo se hai ancora margine. Se raggiungi lo sforzo previsto prima del minimo, riduci il carico nella serie successiva.';
-        if(c.kind==='reps'&&c.close)text+=' Cerca di chiudere tutte le serie al limite alto; fermati prima se raggiungi l’RPE previsto.';
+        if(c.kind==='reps'&&c.close)text+=' Manca poco. Cerca di chiudere tutte le serie al limite alto; fermati prima se raggiungi l’RPE previsto.';
         if(c.kind==='increase'&&c.largeJump)text+=' Il salto di peso è consistente: la riuscita va verificata durante la seduta.';
     }
     return {...entry,text:text+(c.warning?' '+c.warning:''),labelSeries:false};
@@ -150,3 +150,4 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
     }
     return {instructions,updates:[...groups.values()].map(appliedChange),references:[...references.values()]};
 }
+
