@@ -146,6 +146,6 @@ test('anteprima integrata: segnali fra blocchi e strategia leggibili, mai scritt
     assert.equal(decision.stallStrategy.code,'continue_double_progression');
     assert.equal(JSON.stringify(diary),original);
     const csv = MyCoatch.exportAsCSV();
-    assert.equal(csv.split('\n')[0].split(';').length,12);
+    assert.equal(csv.split('\n')[0].split(';').length,13);
     MyCoatch.clearProposal();
 });

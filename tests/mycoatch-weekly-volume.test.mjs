@@ -198,7 +198,7 @@ test('il bilanciatore non altera gli array di partenza', () => {
     assert.deepEqual(result.report.moves, []);
 });
 
-test('CSV mantiene le 12 colonne e conserva i blocchi di superserie', () => {
+test('CSV mantiene le 13 colonne e conserva i blocchi di superserie', () => {
     MyCoatch.generateNextFromHistory({ history: { years: {} } }, {
         daysPerWeek: 4, durationWeeks: 4, userAge: 49,
         focus: 'hybrid', maxSessionMinutes: 40
@@ -206,10 +206,11 @@ test('CSV mantiene le 12 colonne e conserva i blocchi di superserie', () => {
     const csv = MyCoatch.exportAsCSV();
     const rows = csv.trim().split('\n');
     assert.equal(rows[0],
-        'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset');
-    for (const row of rows.slice(1)) assert.equal(row.split(';').length, 12);
+        'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset;NomeSeduta');
+    for (const row of rows.slice(1)) assert.equal(row.split(';').length, 13);
     assert.doesNotMatch(csv, /\[VOLUME RIDISTRIBUITO\]/);
-    assert.match(csv, /\[SPLIT MYCOATCH\]/);
+    assert.match(csv, /;NomeSeduta/);
+    assert.doesNotMatch(csv, /\[SPLIT MYCOATCH\]/);
     const report = MyCoatch.getActiveMesocycleJSON().coachReport.weeklyVolumeBalance;
     assert.equal(report[0].recoveredSets,
         report[0].moves.reduce((sum, move) => sum + move.sets, 0));

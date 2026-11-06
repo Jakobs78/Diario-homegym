@@ -108,15 +108,15 @@ test('età 49 anni non implica scarico anticipato alla terza settimana', () => {
     assert.equal(meso.weeks[3].days[0].exercises[0].rpe, '6.5');
 });
 
-test('MyCoatch produce CSV con 12 colonne, timer e note compatibili', () => {
+test('MyCoatch produce CSV con 13 colonne, timer e note compatibili', () => {
     MyCoatch.generateNextFromHistory({ history: { years: {} } }, cfg);
     const csv = MyCoatch.exportAsCSV();
     const lines = csv.trim().split('\n');
-    assert.equal(lines[0], 'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset');
+    assert.equal(lines[0], 'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset;NomeSeduta');
     assert.ok(lines.length > 60);
     for (const line of lines.slice(1)) {
         const parts = line.split(';');
-        assert.equal(parts.length, 12, line);
+        assert.equal(parts.length, 13, line);
         assert.match(parts[9], /^\d+s$/);
     }
 });

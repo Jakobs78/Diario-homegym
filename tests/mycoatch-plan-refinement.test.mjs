@@ -72,7 +72,7 @@ test('note specifiche al movimento, RIR coerente e regola di progressione esport
  MyCoatch.generateNextFromHistory({history:{years:{}}},config);
  const rows=MyCoatch.exportAsCSV().trim().split('\n').map(row=>row.split(';')); 
  assert.ok(rows.length>50);
- assert.ok(rows.every(r=>r.length===12));
+ assert.ok(rows.every(r=>r.length===13));
  assert.doesNotMatch(MyCoatch.exportAsCSV(),/\[PROGRESSIONE\]|\[SCELTA MYCOATCH\]/);
  assert.match(MyCoatch.exportAsCSV(),/esecuzione controllata|Movimento controllato|Tronco stabile|[Ss]capole stabili/);
 });

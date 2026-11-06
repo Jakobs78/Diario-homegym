@@ -248,8 +248,8 @@ test('3/4 giorni e durata scelta rispettati, CSV compatibile e nessun check fant
     MyCoatch.generateNextFromHistory({ history: { years: {} } }, config(profile('beginner')));
     const csv = MyCoatch.exportAsCSV().trim().split('\n');
     assert.equal(csv[0],
-        'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset');
-    assert.ok(csv.slice(1).every(line => line.split(';').length === 12));
+        'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset;NomeSeduta');
+    assert.ok(csv.slice(1).every(line => line.split(';').length === 13));
     assert.match(MyCoatch.exportAsCSV(), /CALIBRAZIONE MYCOATCH/);
 });
 

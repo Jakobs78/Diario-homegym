@@ -184,6 +184,6 @@ test('proposed 4-week microcycles include direct and indirect credit reports', (
     }
     assert.deepEqual(training,before);
     const csv=MyCoatch.exportAsCSV();
-    assert.equal(csv.split('\n')[0].split(';').length,12);
+    assert.equal(csv.split('\n')[0].split(';').length,13);
     MyCoatch.clearProposal();
 });

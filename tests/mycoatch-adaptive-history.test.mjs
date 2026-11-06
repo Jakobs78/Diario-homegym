@@ -190,14 +190,14 @@ test('prima settimana: confronto strutturato tra il mesociclo precedente e la pr
     assert.match(review, /Vuoi scaricare soltanto il file CSV/);
 });
 
-test('CSV rimane importabile a 12 colonne, senza dati di regressione extra', () => {
+test('CSV rimane importabile a 13 colonne, senza dati di regressione extra', () => {
     const meso = mesocycle('Test', [[[70, 7, '@8']], [[72.5, 8, '@8']], [[75, 8, '@8']]]);
     MyCoatch.generateNextFromHistory(historyOf(years(2026, meso)), baseConfig);
     const csv = MyCoatch.exportAsCSV();
     const rows = csv.trim().split('\n');
-    assert.equal(rows[0], 'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset');
+    assert.equal(rows[0], 'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset;NomeSeduta');
     for (const row of rows.slice(1)) {
-        assert.equal(row.split(';').length, 12, row);
+        assert.equal(row.split(';').length, 13, row);
     }
 });
 
