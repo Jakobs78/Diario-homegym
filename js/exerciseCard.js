@@ -1,4 +1,4 @@
-import {exerciseMusclesMarkup} from './exerciseMusclesUI.js';
+import {exerciseTargetMarkup} from './exerciseTargetUI.js';
 import {createWarmupPanel} from './warmupUI.js';
 import {isExerciseSkipped} from './sessionSkip.js';
 import {setPrescription} from '../mycoatch/setPrescription.js';
@@ -16,7 +16,7 @@ import {equipmentKind,automaticallyShowPlates,selectableBarbells,suggestedBarbel
  * Summary: Genera dinamicamente le card per ogni esercizio gestendo lo stato di esclusione dai massimali, i selettori del bilanciere, il calcolo dei dischi per lato e l'evidenziatura automatica fuori target per KG (inclusi Topset), REPS ed RPE (con supporto al feedback verde di miglioramento).
  */
 
-import { formatExerciseSummary, getPlateBreakdown, findPriorExerciseExposures, isValueOutOfRange, isValueExceedingTarget, parseRPE, escapeHtml } from './helpers.js';
+import { getPlateBreakdown, findPriorExerciseExposures, isValueOutOfRange, isValueExceedingTarget, parseRPE, escapeHtml } from './helpers.js';
 import { state } from './state.js';
 import { enableCardSwipeGesture } from './gestures.js';
 import { isWarmupExercise } from './workoutSemantics.js';
@@ -99,9 +99,8 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
 
     cardHtml += `
         <div class="target-box mb-md">
-            <strong>${ex.coachSetProposals?'SCHEDA ORIGINALE':'TARGET'}:</strong> ${formatExerciseSummary(ex)}
+            ${exerciseTargetMarkup(ex,Array.from({length:Math.max(ex.sets?.length||0,ex.loggedSets?.length||0)},(_,i)=>prefillFor(i)),{readOnly:isPastMeso})}
         </div>
-        ${exerciseMusclesMarkup(ex)}
         <section class="exercise-coach-notes" aria-label="Istruzioni e aggiornamenti dell’esercizio">
             <div class="exercise-coach-notes-body">
                 <div class="exercise-plan-notes"><strong>Note della scheda</strong><div class="note-allenatore-text"></div></div>

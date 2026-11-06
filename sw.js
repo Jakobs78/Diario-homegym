@@ -1,5 +1,5 @@
-const CACHE_NAME = 'workout-app-v96-muscle-catalog-20261106';
-const APP_VERSION = '1.4.6-20261106';
+const CACHE_NAME = 'workout-app-v97-session-summary-20261106';
+const APP_VERSION = '1.4.7-20261106';
 const META_CACHE = 'workout-app-update-state';
 
 // Risorse statiche dell'applicazione
@@ -135,7 +135,9 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/muscleCatalog.js',
   '/mycoatch/catalogLookup.js',
   '/mycoatch/muscleWorkReport.js',
-  '/js/exerciseMusclesUI.js',
+  '/js/exerciseLoadSummary.js',
+  '/js/exerciseTargetUI.js',
+  '/js/sessionMusclesUI.js',
   '/js/muscleWorkUI.js',
   '/mycoatch/exerciseIdentity.js',
   '/mycoatch/mesocycleComparison.js',

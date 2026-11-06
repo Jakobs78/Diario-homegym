@@ -56,7 +56,7 @@ export function escapeHtml(value) {
     }[char]));
 }
 
-export function formatExerciseSummary(ex) {
+export function formatExerciseSummary(ex, {weightLabel=null} = {}) {
     if (!ex) return '';
 
     const getCell = (...keys) => {
@@ -109,8 +109,10 @@ export function formatExerciseSummary(ex) {
     if (weightParts.length > 0) {
         weightPart = `<span class="exercise-weight-highlight">${weightParts.join(' | ')}</span>`;
     } else {
-        weightPart = `<span class="exercise-weight-highlight">Kg liberi</span>`;
+        weightPart = `<span class="exercise-weight-highlight">Carico da impostare</span>`;
     }
+
+    if(weightLabel!==null)weightPart = `<span class="exercise-weight-highlight">${escapeHtml(weightLabel)}</span>`;
 
     const setsVal = Array.isArray(sets) ? sets.length : (sets || '-');
     const repsVal = reps || '-';

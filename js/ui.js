@@ -371,7 +371,7 @@ export function renderWorkoutList() {
     coachCount.setAttribute('aria-live', 'off');
     coachCount.textContent = 'Serie 0/0';
     coachSummary.append(coachName, coachCount);
-    coachDisclosure.append(coachSummary, createLiveCoachPanel(currentDay, { readOnly: isPastMeso }));
+    coachDisclosure.append(coachSummary, createLiveCoachPanel(currentDay, { readOnly: isPastMeso, musclesOpen:previousCoach?.dataset.sessionKey===summaryKey && Boolean(previousCoach.querySelector('.session-muscle-details')?.open) }));
     DOM.workoutListContainer.appendChild(coachDisclosure);
     const futureReview=meso.coachProtocol ? null : createFutureLoadReviewPanel(meso,targetWeek.weekNumber,currentDayIndex-1,{
         readOnly:isPastMeso,render:renderWorkoutList

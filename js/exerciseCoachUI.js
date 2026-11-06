@@ -1,3 +1,4 @@
+import {exerciseTargetMarkup} from './exerciseTargetUI.js';
 import {exerciseCoachModel} from '../mycoatch/coachCommunication.js';
 const contexts=new WeakMap();
 const signatures=new WeakMap();
@@ -8,6 +9,8 @@ export function renderExerciseCoachPanel(card,exercise,context={}) {
     contexts.set(card,{exercise,context});
     const count=Math.max(exercise.loggedSets?.length||0,exercise.sets?.length||0);
     const prefills=context.getPrefill?Array.from({length:count},(_,i)=>context.getPrefill(i)):context.prefills;
+    const target=card.querySelector('.target-box');
+    if(target)target.innerHTML=exerciseTargetMarkup(exercise,prefills||[],{readOnly:context.readOnly});
     const model=exerciseCoachModel(exercise,{...context,prefills});
     const signature=JSON.stringify(model);
     if(signatures.get(card)===signature)return model;
