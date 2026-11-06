@@ -1,4 +1,5 @@
 import {canonicalExerciseKey} from './exerciseIdentity.js';
+import {compactProgramForJournal} from './longProgram.js';
 
 /** Validate the CSV round trip before transferring trusted proposal metadata.
  * Only unperformed prescriptions are copied; neither source nor history is mutated.
@@ -14,7 +15,7 @@ export function restoreProposalMetadata(imported, proposal) {
         const original=proposal.weeks[wi];
         if(week.weekNumber!==original.weekNumber || week.days.length!==original.days?.length)
             throw Error('Settimane della proposta non corrispondenti.');
-        copy(week,original,['isDeloadWeek','isDeload','targetRpe','phase','weeklyCoverage','volumeBalance']);
+        copy(week,original,['isDeloadWeek','isDeload','targetRpe','phase','weeklyCoverage','volumeBalance','mesocycleNumber','weekInMesocycle','conditional']);
         for(const [di,day] of week.days.entries()){
             const before=original.days[di];
             if(day.exercises.length!==before.exercises?.length)throw Error('Esercizi della proposta non corrispondenti.');
@@ -39,6 +40,7 @@ export function restoreProposalMetadata(imported, proposal) {
             }
         }
     }
-    copy(result,proposal,['periodization','coachReport','macrocycle','generationScope']);
-    return result;
+    copy(result,proposal,['periodization','coachReport','macrocycle','generationScope','program']);
+    return compactProgramForJournal(result);
 }
+

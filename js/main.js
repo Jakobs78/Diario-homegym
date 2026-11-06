@@ -345,6 +345,7 @@ function setupEventListeners() {
                 customTime: customTime?.value,
                 daysPerWeek: document.getElementById('select-days')?.value,
                 durationWeeks: document.getElementById('mycoatch-weeks')?.value,
+                programWeeks: document.getElementById('mycoatch-program-weeks')?.value || 0,
                 splitPreference: document.getElementById('mycoatch-split')?.value || 'auto',
                 deloadChoice: document.getElementById('mycoatch-deload-choice')?.value || 'auto',
                 userAge: document.getElementById('input-age')?.value,
@@ -746,3 +747,4 @@ function closeImportModal() {
         importModal.classList.add('hidden', 'd-none');
     }
 }
+

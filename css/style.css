@@ -20,6 +20,18 @@
     --brand-gradient: linear-gradient(90deg, #38bdf8 0%, #818cf8 100%);
 }
 
+#long-program-overview {
+    margin: 10px 0;
+    padding: 14px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+}
+#long-program-overview > summary { cursor: pointer; font-weight: 650; }
+#long-program-overview p { font-size: .9rem; line-height: 1.45; margin: 10px 0; }
+#next-program-session { max-width: 100%; white-space: normal; text-align: left; }
+
 * {
     box-sizing: border-box;
 }
@@ -3734,3 +3746,4 @@ body.dark-mode .group-title-badge {
 .warmup-row {display:flex;gap:6px;align-items:center;margin:8px 0;}
 .warmup-row input[type=number] {width:64px;min-width:0;min-height:44px;}
 .warmup-row input[type=checkbox] {width:24px;height:24px;}
+

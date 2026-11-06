@@ -2,6 +2,7 @@ import { normalizeSelectionPreferences, isExerciseAvailable, FUNDAMENTAL_CHOICES
 import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { normalizeAthleteProfile } from './athleteProfile.js';
 import { generationSchedule } from './generationSchedule.js';
+import {programSchedule} from './longProgram.js';
 
 /**
  * Convalida la durata scelta dall'utente, senza convertire input vuoti in valori
@@ -34,6 +35,7 @@ export function parseCoachPreferences(fields = {}) {
     }
     const schedule = generationSchedule({daysPerWeek,
         ...(fields.durationWeeks !== undefined ? {durationWeeks:fields.durationWeeks} : {})});
+    const program=programSchedule({...schedule,programWeeks:fields.programWeeks??0});
     if (!['hybrid', 'strength', 'hypertrophy'].includes(focus)) {
         throw new Error("Seleziona un obiettivo di allenamento.");
     }
@@ -72,6 +74,7 @@ export function parseCoachPreferences(fields = {}) {
         maxSessionMinutes,
         userAge,
         daysPerWeek,
+        ...(fields.programWeeks!==undefined?{programWeeks:program.programWeeks}:{}),
         ...(fields.durationWeeks !== undefined ? {durationWeeks:schedule.durationWeeks} : {}),
         focus,
         splitPreference,
@@ -83,3 +86,4 @@ export function parseCoachPreferences(fields = {}) {
             focus === 'hypertrophy' ? 'bodybuilding' : 'powerbuilding'
     };
 }
+

@@ -94,7 +94,7 @@ export function latestSavedProfile(data) {
 }
 
 export function generationSettings(options={}) {
-    const fields=['userAge','daysPerWeek','durationWeeks','maxSessionMinutes','focus','splitPreference',
+    const fields=['userAge','daysPerWeek','durationWeeks','programWeeks','maxSessionMinutes','focus','splitPreference',
         'deloadWeek','preferredLifts','availableEquipment','availableMachines','availableAccessories','cableSetup'];
     return Object.fromEntries(fields.filter(key=>options[key]!==undefined)
         .map(key=>[key,clone(options[key])]));
@@ -131,7 +131,7 @@ export function equipmentMatchesSnapshot(captured, athlete) {
  * v1 snapshots remain readable; no automatic migration or historical write.
  */
 export function profileSnapshot(staged,{
-    splitPreference='auto',daysPerWeek=null,durationWeeks=4,maxSessionMinutes=null,focus=null,
+    splitPreference='auto',daysPerWeek=null,durationWeeks=4,programWeeks=0,maxSessionMinutes=null,focus=null,
     userAge=null,preferredLifts={},availableEquipment=[],
     availableAccessories=[],availableMachines=[],cableSetup=null,deloadWeek=null,
     equipmentAtGeneration:previewEquipment={}
@@ -139,7 +139,7 @@ export function profileSnapshot(staged,{
     if(!staged?.profile||!Number.isInteger(staged.version))
         throw Error('Profilo non disponibile.');
     const settings={
-        splitPreference,daysPerWeek,durationWeeks,maxSessionMinutes,focus,
+        splitPreference,daysPerWeek,durationWeeks,programWeeks,maxSessionMinutes,focus,
         userAge:Number.isInteger(Number(userAge)) && userAge !== null
             ? Number(userAge) : null,
         preferredLifts:preferredLifts || {},
@@ -161,3 +161,4 @@ export function profileSnapshot(staged,{
 export function proposalEvidenceFingerprint(data){
     return JSON.stringify({history:data?.history,profile:data?.athlete?.mycoatchProfileJournal,equipment:snapshotEquipmentState(data?.athlete)});
 }
+
