@@ -3,7 +3,7 @@ export function initHeaderScroll() {
     const header=document.querySelector('.app-header-container');
     if(!header || header.dataset.scrollReady)return;
     header.dataset.scrollReady='true';
-    let anchor=Math.max(0,window.scrollY),scheduled=false;
+    let previous=Math.max(0,window.scrollY),distance=0,direction=0,scheduled=false;
     const show=()=>header.classList.remove('header-scroll-hidden');
     window.addEventListener('scroll',()=>{
         if(scheduled)return;
@@ -11,10 +11,16 @@ export function initHeaderScroll() {
         requestAnimationFrame(()=>{
             scheduled=false;
             const y=Math.max(0,window.scrollY);
-            if(y<=10){show();anchor=y;return;}
-            if(Math.abs(y-anchor)<8)return;
-            header.classList.toggle('header-scroll-hidden',y>anchor);
-            anchor=y;
+            const delta=y-previous;previous=y;
+            if(y<=10){show();distance=0;direction=0;return;}
+            if(delta===0)return;
+            const nextDirection=Math.sign(delta);
+            distance=nextDirection===direction?distance+Math.abs(delta):Math.abs(delta);
+            direction=nextDirection;
+            // Revealing requires a deliberate upward gesture, not a tiny correction.
+            const threshold=direction<0?80:24;
+            if(distance<threshold)return;
+            header.classList.toggle('header-scroll-hidden',direction>0);
         });
     },{passive:true});
     header.addEventListener('focusin',show);

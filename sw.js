@@ -1,5 +1,5 @@
-const CACHE_NAME = 'workout-app-v92-targeted-workout-fixes-20261106';
-const APP_VERSION = '1.4.2-20261106';
+const CACHE_NAME = 'workout-app-v93-header-scroll-threshold-20261106';
+const APP_VERSION = '1.4.3-20261106';
 const META_CACHE = 'workout-app-update-state';
 
 // Risorse statiche dell'applicazione
