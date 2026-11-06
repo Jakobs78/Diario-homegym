@@ -223,9 +223,9 @@ test('real MyCoatch CSV generation for 4x60 powerbuilding includes posterior iso
     deloadWeek:false
   });
   const lines=MyCoatch.exportAsCSV().trim().split('\n');
-  assert.equal(lines[0].split(';').length,12);
+  assert.equal(lines[0].split(';').length,13);
   assert.equal(plan.weeks.length,4);
-  assert.ok(lines.every((row,index)=>index===0||row.split(';').length===12));
+  assert.ok(lines.every((row,index)=>index===0||row.split(';').length===13));
   for(const week of [1,2,3,4]){
     const weekRows=lines.slice(1).filter(row=>row.startsWith(week+';'));
     assert.ok(weekRows.some(row=>/Alzate Posteriori|Face Pull|Reverse Fly/i.test(row)),

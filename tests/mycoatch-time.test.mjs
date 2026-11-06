@@ -144,17 +144,17 @@ test('25 minuti: segnala quando riscaldamento e fondamentali non entrano nel bud
     assert.throws(() => makeMeso(25), /Non è possibile rispettare 25 minuti/);
 });
 
-test('il CSV mantiene 12 colonne e timer formattati per tutte le durate', () => {
+test('il CSV mantiene 13 colonne e timer formattati per tutte le durate', () => {
     for (const maxSessionMinutes of [30, 45, 60, 90]) {
         MyCoatch.generateNextFromHistory({ history: { years: {} } },
             { ...config, maxSessionMinutes });
         const csv = MyCoatch.exportAsCSV();
         const rows = csv.trim().split('\n');
-        assert.equal(rows[0], 'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset');
+        assert.equal(rows[0], 'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset;NomeSeduta');
         assert.ok(rows.length > 25);
         for (const row of rows.slice(1)) {
             const values = row.split(';');
-            assert.equal(values.length, 12, row);
+            assert.equal(values.length, 13, row);
             assert.match(values[9], /^\d+s$/);
         }
     }

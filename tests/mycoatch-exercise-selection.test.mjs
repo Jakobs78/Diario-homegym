@@ -118,7 +118,7 @@ test('4 fondamentali personalizzabili senza cambiare lo schema motorio richiesto
     assert.deepEqual(csvPlan.weeks[0].days.map(d => d.exercises[0].name),
         Object.values(preferences));
     const csv = MyCoatch.exportAsCSV().trim().split('\n');
-    assert.ok(csv.every(row => row.split(';').length === 12));
+    assert.ok(csv.every(row => row.split(';').length === 13));
     assert.match(MyCoatch.exportAsCSV(), /Stacco da Terra Convenzionale/);
 });
 

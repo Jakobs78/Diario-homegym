@@ -151,7 +151,7 @@ test('generation links roadmap to proposed mesocycle and review without modifyin
     assert.deepEqual(input,old);
     const csv = MyCoatch.exportAsCSV();
     assert.match(csv,/Settimana;Giorno;Blocco;/);
-    assert.equal(csv.split('\n')[0].split(';').length,12);
+    assert.equal(csv.split('\n')[0].split(';').length,13);
     MyCoatch.clearProposal();
 });
 

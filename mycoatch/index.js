@@ -215,7 +215,7 @@ export const MyCoatch = {
         const meso = coachState.getActiveMesocycle();
         if (!meso) throw new Error("Nessun mesociclo attivo generato da MyCoatch.");
 
-        let csvRows = ["Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset"];
+        let csvRows = ["Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset;NomeSeduta"];
         if(meso.program)csvRows[0]+=';ProgrammaSettimane;MesocicloSettimane';
 
         meso.weeks.forEach(week => {
@@ -245,7 +245,7 @@ export const MyCoatch = {
 
                     // ESTRAZIONE E CODIFICA DELLE TECNICHE DI INTENSITÀ NEL CSV
                     // Se l'ultimo set dell'esercizio contiene una tecnica di intensità, iniettiamo il tag a inizio nota
-                    let noteFinalStr = conciseExerciseInstruction(ex);
+                    let noteFinalStr = conciseExerciseInstruction(ex).split(/\s*\|\s*/).filter(part => !/^\[SPLIT MYCOATCH\]/i.test(part)).join(' | ');
                     const lastSetObj = Array.isArray(ex.sets) ? ex.sets[ex.sets.length - 1] : null;
 
                     if (lastSetObj && lastSetObj.intensityTechnique) {
@@ -259,7 +259,7 @@ export const MyCoatch = {
 
                     // Una riga unica per esercizio conforme con il parser della webapp
                     const quote=value=>/[;"\r\n]/.test(String(value))?'"'+String(value).replace(/"/g,'""')+'"':String(value);
-                    csvRows.push(`${week.weekNumber};${dayNum};${blockNum};${quote(ex.name)};${totalSets};${repsForExercise};${kgMinStr};${kgMaxStr};${rpeStr};${recuperoStr};"${noteStr}";"${topsetVal}"`+
+                    csvRows.push(`${week.weekNumber};${dayNum};${blockNum};${quote(ex.name)};${totalSets};${repsForExercise};${kgMinStr};${kgMaxStr};${rpeStr};${recuperoStr};"${noteStr}";"${topsetVal}";${quote(day.dayName || `Giorno ${dayNum}`)}`+
                         (meso.program?`;${meso.program.totalWeeks};${meso.program.blockWeeks}`:''));
                 });
             });

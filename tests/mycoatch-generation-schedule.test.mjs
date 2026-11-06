@@ -83,7 +83,7 @@ test('one detailed block only; full CSV export reaches week 12 / day 6 without m
     assert.equal(m.generationScope.detailedMesocycles,1);
     assert.equal(m.macrocycle.blocks[1].conditional,true);
     assert.ok(MyCoatch.exportAsCSV().split('\n').some(row=>row.startsWith('12;6;')));
-    assert.match(MyCoatch.exportAsCSV(),/SPLIT MYCOATCH\] Lower C/);
+    assert.match(MyCoatch.exportAsCSV(),/;Lower C/);
     assert.equal(auditLatestBlock(m).weeksPlanned,12);
     assert.equal(auditLatestBlock(m).completed,false);
     const outline=buildMesocyclePdfOutline(m);

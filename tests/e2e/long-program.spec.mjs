@@ -36,7 +36,7 @@ test('26-week programme: import/CSV round trip, session sequence, AI download an
    firstWeeks:first.weeks.length,firstReport:first.coachReport===undefined,blocks:plan.program.blocks.length,lastLocalWeek:plan.weeks.at(-1).weekInMesocycle};
  });
  expect(result).toEqual({imported:true,second:true,invalid:false,unchanged:true,firstWeeks:26,firstReport:true,blocks:5,lastLocalWeek:2});
- await expect(page.locator('#resume-training-btn')).toContainText('Inizia Lower B – settimana 1');
+ await expect(page.locator('#resume-training-btn')).toHaveText(/Inizia Lower B.* – settimana 1/);
  await page.locator('#resume-training-btn').click();
  expect(await page.evaluate(async()=>{const {state}=await import('/js/state.js');return [state.activeWeek,state.activeDay];})).toEqual([1,4]);
  await page.screenshot({path:testInfo.outputPath('long-program.png'),fullPage:false});
@@ -49,7 +49,7 @@ test('26-week programme: import/CSV round trip, session sequence, AI download an
  const file=await download,text=await readFile(await file.path(),'utf8');
  expect(text).toContain('Prompt da seguire');expect(text).toContain('homegym-ai-exchange');expect(text).not.toContain('"observedSets":');
  await page.reload();
- await expect(page.locator('#resume-training-btn')).toContainText('Inizia Lower B – settimana 1');
+ await expect(page.locator('#resume-training-btn')).toHaveText(/Inizia Lower B.* – settimana 1/);
  expect(await page.evaluate(async()=>{
   const {getFromLocalStorage}=await import('/js/storage.js');
   return getFromLocalStorage().history.years[2026].mesocycles[1].program.totalWeeks;

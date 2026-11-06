@@ -73,9 +73,10 @@ test('istruzioni CSV brevi: split, warmup, superserie, triset, drop restano inte
     const noHistory={history:{years:{}}};
     MyCoatch.generateNextFromHistory(noHistory,configForNoHistory());
     const csv=MyCoatch.exportAsCSV();
-    assert.ok(csv.includes('[SPLIT MYCOATCH]'));
+    assert.ok(csv.includes(';NomeSeduta'));
+    assert.ok(!csv.includes('[SPLIT MYCOATCH]'));
     assert.ok(!csv.includes('[SCELTA MYCOATCH]'));
-    const notes=[...csv.matchAll(/;"([^"\n]*)";"[^"\n]*"$/gm)].map(m=>m[1]);
+    const notes=[...csv.matchAll(/;"([^"\n]*)";"[^"\n]*";[^\n]*$/gm)].map(m=>m[1]);
     assert.ok(notes.length>20,'each row should have a concise note');
     assert.ok(notes.every(n=>n.length<700),Math.max(...notes.map(n=>n.length)));
 });

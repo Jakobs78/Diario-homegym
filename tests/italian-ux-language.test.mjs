@@ -48,17 +48,17 @@ test('Italian coach notes explain executable steps without breaking importer tag
   assert.match(drop,/\[DROP_SET\] \[DROP_SCOPE:LAST\]/);
 });
 
-test('generated powerbuilding CSV still contains twelve columns, clear notes, no accidental import',()=>{
+test('generated powerbuilding CSV still contains thirteen columns, clear notes, no accidental import',()=>{
   const plan=MyCoatch.generateNextFromHistory({history:{years:{}}},{
     daysPerWeek:4,durationWeeks:4,maxSessionMinutes:60,
     userAge:35,focus:'hybrid',splitPreference:'upperlower',deloadWeek:false
   });
   assert.equal(plan.weeks.length,4);
   const rows=MyCoatch.exportAsCSV().trim().split('\n');
-  assert.equal(rows[0],'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset');
+  assert.equal(rows[0],'Settimana;Giorno;Blocco;Esercizio;Set;Reps;KgMin;KgMax;RPE;Recupero;Note;Topset;NomeSeduta');
   assert.ok(plan.weeks.every(week=>week.days.length===4&&week.days.every(day=>day.exercises.length>=3)),'must have four complete training weeks within the time budget, including warmups');
   for(const row of rows.slice(1)){
-    assert.equal(row.split(';').length,12,'CSV column count is preserved');
+    assert.equal(row.split(';').length,13,'CSV column count is preserved');
   }
   const notes=rows.slice(1).map(row=>row.split(';')[10]);
   assert.ok(notes.some(note=>note.includes('Carico da scegliere:')),'uncalibrated kg require practical instructions');

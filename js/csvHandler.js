@@ -134,6 +134,7 @@ export async function importWorkoutPlan(csvText, coachOptions = null) {
         };
 
         const weeksMap = Object.create(null);
+        const sessionNames = new Map();
         let parsedExercises = 0;
         let programDefinition=null;
         const programColumns=['ProgrammaSettimane','MesocicloSettimane'].map(name=>findColumnIndex(headers,[name.toLowerCase()]));
@@ -189,12 +190,19 @@ export async function importWorkoutPlan(csvText, coachOptions = null) {
             if (!weeksMap[weekNum].daysMap[dayNum]) {
                 weeksMap[weekNum].daysMap[dayNum] = { dayNumber: dayNum, dayName: `Giorno ${dayNum}`, exercises: [] };
             }
-            // Compatibilità retroattiva: SOLO i CSV generati da MyCoatch
-            // possono ricostruire l'etichetta Upper/Lower nel vecchio formato
-            // a 12 colonne, senza influenzare importazioni di altri coach.
-            const namedSplit = /^\[SPLIT MYCOATCH\]\s*(Upper [A-F]|Lower [A-F]|Full Body [A-F])\b/i.exec(notesVal);
-            if (blockNum === 1 && namedSplit) {
-                weeksMap[weekNum].daysMap[dayNum].dayName = namedSplit[1];
+            const nameColumn = headers.indexOf('nomeseduta');
+            const sessionName = nameColumn >= 0 ? String(row[nameColumn] || '').trim() : '';
+            const sessionKey = weekNum + ':' + dayNum;
+            if (sessionName) {
+                if (sessionNames.has(sessionKey) && sessionNames.get(sessionKey) !== sessionName) {
+                    throw Error('Riga ' + (rowIndex + 2) + ': nomi diversi per la stessa seduta.');
+                }
+                sessionNames.set(sessionKey, sessionName);
+                weeksMap[weekNum].daysMap[dayNum].dayName = sessionName;
+            } else if (!sessionNames.has(sessionKey)) {
+                // Older files still carry their session label in the first exercise's notes.
+                const namedSplit = /^\[SPLIT MYCOATCH\]\s*(Upper [A-F]|Lower [A-F]|Full Body [A-F])\b/i.exec(notesVal);
+                if (blockNum === 1 && namedSplit) weeksMap[weekNum].daysMap[dayNum].dayName = namedSplit[1];
             }
 
             const perSetTag=/\[OBIETTIVO REPS PER SERIE\]\s*(\d+(?:\s*[-–]\s*\d+)?(?:\/\d+(?:\s*[-–]\s*\d+)?)*)/.exec(notesVal);
