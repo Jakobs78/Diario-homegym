@@ -29,7 +29,7 @@ test('one tap returns from history/analysis to the paused day across dates, pres
  d.isPaused=true;d.accumulatedSeconds=900;d.date='2026-11-01';
  d.exercises[0].loggedSets=[{weight:50,reps:8,rpe:8,isLocked:true},{}];
  await open(page,data);
- await expect(page.locator('#resume-training-btn')).toHaveText('Riprendi D – settimana 3');
+ await expect(page.locator('#resume-training-btn')).toHaveText('Riprendi Lower B – settimana 3');
  await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));
  await expect(page.locator('.app-header-container')).toHaveClass(/header-scroll-hidden/);
  await page.evaluate(()=>window.scrollBy(0,-200));
@@ -44,31 +44,31 @@ test('one tap returns from history/analysis to the paused day across dates, pres
  await expect(page.locator('#resume-training-btn')).toBeInViewport();
  await page.screenshot({path:info.outputPath('resume-mobile.png')});
  await page.reload();
- await expect(page.locator('#resume-training-btn')).toHaveText('Riprendi D – settimana 3');
+ await expect(page.locator('#resume-training-btn')).toHaveText('Riprendi Lower B – settimana 3');
 });
 test('untouched day shows Inizia, starting/pausing persists Riprendi, completion advances to next day',async({page})=>{
  await open(page,fixture());
- await expect(page.locator('#resume-training-btn')).toHaveText('Inizia A – settimana 3');
+ await expect(page.locator('#resume-training-btn')).toHaveText('Inizia Upper A – settimana 3');
  await page.locator('#resume-training-btn').click();
  await page.locator('#start-workout-session').click();
- await expect(page.locator('#resume-training-btn')).toHaveText('Riprendi A – settimana 3');
+ await expect(page.locator('#resume-training-btn')).toHaveText('Riprendi Upper A – settimana 3');
  await page.locator('#pause-session-timer-btn').click();
  await page.reload();
- await expect(page.locator('#resume-training-btn')).toHaveText('Riprendi A – settimana 3');
+ await expect(page.locator('#resume-training-btn')).toHaveText('Riprendi Upper A – settimana 3');
  await page.evaluate(async()=>{
   const {state}=await import('/js/state.js');const d=state.workoutData.history.years[2026].mesocycles[1].weeks[0].days[0];
   d.exercises[0].loggedSets=[0,1].map(()=>({weight:50,reps:8,rpe:8,isLocked:true}));
   (await import('/js/ui.js')).renderWorkoutList();
  });
- await expect(page.locator('#resume-training-btn')).toHaveText('Inizia B – settimana 3');
+ await expect(page.locator('#resume-training-btn')).toHaveText('Inizia Lower A – settimana 3');
 });
 test('explicit programme selection is retained when browsing other plans and after reload',async({page})=>{
  await open(page,fixture());
  await page.evaluate(async()=>{const {state}=await import('/js/state.js');state.currentYear='2026';state.activeMesocycleIndex=0;(await import('/js/ui.js')).renderWorkoutList();});
  await page.locator('#use-training-plan-btn').click();
- await expect(page.locator('#resume-training-btn')).toHaveText('Inizia A – settimana 1');
+ await expect(page.locator('#resume-training-btn')).toHaveText('Inizia Upper A – settimana 1');
  await page.evaluate(async()=>{const {state}=await import('/js/state.js');state.activeMesocycleIndex=1;state.activeWeek=3;(await import('/js/ui.js')).renderWorkoutList();});
- await expect(page.locator('#resume-training-btn')).toHaveText('Inizia A – settimana 1');
+ await expect(page.locator('#resume-training-btn')).toHaveText('Inizia Upper A – settimana 1');
  await page.reload();
- await expect(page.locator('#resume-training-btn')).toHaveText('Inizia A – settimana 1');
+ await expect(page.locator('#resume-training-btn')).toHaveText('Inizia Upper A – settimana 1');
 });

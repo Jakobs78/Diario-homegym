@@ -23,10 +23,8 @@ export function planResumeTarget(plan) {
     const target=pending.find(({day})=>sessionStarted(day)) || pending[0];
     if(!target)return null;
     const {week,day}=target;
-    const number=Number(day.dayNumber);
     const name=String(day.dayName||'').trim();
-    const generic=/^(?:(?:Giorno|Seduta)\s*\d+|(?:Upper|Lower|Full Body)\s+[A-Z](?:\s.*)?)$/i.test(name);
-    const label=name&&!generic?name:(number>=1&&number<=26?String.fromCharCode(64+number):String(number));
+    const label=name || 'Giorno '+day.dayNumber;
     const started=sessionStarted(day);
     return {weekNumber:week.weekNumber,dayNumber:day.dayNumber,dayName:name,started,
         label:(started?'Riprendi ':'Inizia ')+label+' – settimana '+week.weekNumber};
