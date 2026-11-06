@@ -91,7 +91,7 @@ function volumeWeek(week){
     let plannedSets=0,performedSets=0,skippedSets=0,invalidSets=0,unclassifiedSets=0;
     for(const day of week.days||[])for(const ex of day.exercises||[]){
         if(isWarmupExercise(ex))continue;
-        const r=analysisExerciseRows(ex),name=ex.catalogMapping?.confirmed?ex.catalogMapping.name:ex.name;
+        const r=analysisExerciseRows(ex),name=ex;
         plannedSets+=r.planned;performedSets+=r.valid.length;skippedSets+=r.skipped;invalidSets+=r.invalid.length;
         if(!contributionsForExercise(name,r.planned))unclassifiedSets+=r.planned;
         addMuscles(planned,name,r.planned);addMuscles(performed,name,r.valid.length);addMuscles(skipped,name,r.skipped);

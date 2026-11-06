@@ -1,17 +1,16 @@
+import {catalogExercise} from './catalogLookup.js';
 import {excludedFromCoaching} from './setReview.js';
 import {isBodyweightExercise} from './bodyweight.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {specialSeries} from './seriesTechnique.js';
 import { HIGH_REP_EXERCISES } from './prescriptionPolicy.js';
-import { canonicalExerciseKey, canonicalExerciseName } from './exerciseIdentity.js';
+import { canonicalExerciseKey, canonicalExerciseName, exerciseIdentity } from './exerciseIdentity.js';
 import { numericValue, estimateE1rm } from './historyAnalysis.js';
-import { EXERCISE_DATABASE } from './exercisesDB.js';
 import { evaluateExerciseProgression, exposureRoleKey } from './progressionPolicy.js';
 import { evaluateRepetitionTrend, compareBlockResponse } from './stallResponse.js';
 import { isWarmupExercise, plannedWorkSetCount } from '../js/workoutSemantics.js';
 import { contributionsForExercise, TRACKED_MUSCLES, VOLUME_ACCOUNTING_METHOD } from './volumeAccounting.js';
 
-const catalog = new Map(EXERCISE_DATABASE.map(ex => [canonicalExerciseKey(ex.name), ex]));
 const orderedKeys = object => Object.keys(object || {}).sort((a, b) => Number(a) - Number(b));
 const mean = numbers => numbers.length ? numbers.reduce((a, b) => a + b, 0) / numbers.length : null;
 const round = (number, places = 1) => number === null ? null :
@@ -49,7 +48,7 @@ function inspectExercise(exercise, context) {
         const special = specialSeries(exercise,index,set);
         return [{
             kg, reps, rpe, special,coachingExcluded:excludedFromCoaching(set),completedAt:set.performedAt||set.completedAt,
-            e1rm: !bodyweight && !HIGH_REP_EXERCISES[catalog.get(canonicalExerciseKey(exercise.name))?.name] && rpe !== null && !special ? estimateE1rm(kg, reps, rpe) : null
+            e1rm: !bodyweight && !HIGH_REP_EXERCISES[catalogExercise(exercise)?.name] && rpe !== null && !special ? estimateE1rm(kg, reps, rpe) : null
         }];
     });
     if (!valid.length) return null;
@@ -63,8 +62,8 @@ function inspectExercise(exercise, context) {
     // RPE basso puo' essere una calibrazione, non uno scarico.
     const isDeload = typeof context.isDeloadWeek === 'boolean'
         ? context.isDeloadWeek : (targetRpe !== null && targetRpe <= 6.5);
-    const key = canonicalExerciseKey(exercise.name);
-    const meta = catalog.get(key);
+    const key = exerciseIdentity(exercise);
+    const meta = catalogExercise(exercise);
     const min = repsTarget?.min;
     const max = repsTarget?.max;
     const calendarIds=context.calendarWeeks ? valid.map(set=>{
@@ -84,7 +83,7 @@ function inspectExercise(exercise, context) {
         weekId:context.calendarWeeks && calendarComparable ? calendarIds[0] : context.weekId,
         key,
         name: canonicalExerciseName(exercise.name),
-        category: meta?.category || 'Non classificato',
+        category: meta?.muscleProfile.primary[0] || 'Non classificato',
         equipment: meta?.equipment || null,
         targetRpe,
         repRange: repsTarget,
@@ -226,7 +225,7 @@ export function analyzeTrainingHistory(userHistory,{calendarWeeks=false}={}) {
                             if (ex && !isWarmupExercise(ex) && !deload && volumeWeekId) {
                                 if (!prescribedWeeks.has(volumeWeekId)) prescribedWeeks.set(volumeWeekId,new Map());
                                 const totals=prescribedWeeks.get(volumeWeekId);
-                                const muscle=catalog.get(canonicalExerciseKey(ex.name))?.category || 'Non classificato';
+                                const muscle=catalogExercise(ex)?.muscleProfile.primary[0] || 'Non classificato';
                                 totals.set(muscle,(totals.get(muscle)||0)+plannedWorkSetCount(ex));
                             }
                             const parsed = inspectExercise(ex, {
@@ -247,7 +246,7 @@ export function analyzeTrainingHistory(userHistory,{calendarWeeks=false}={}) {
                             byExercise[parsed.key].exposures.push(parsed);
                             if (parsed.isDeload || !volumeWeekId) continue;
                             const volumeCredits = contributionsForExercise(
-                                parsed.name, parsed.completedSets);
+                                ex, parsed.completedSets);
                             if (volumeCredits) {
                                 if (!fractionalWeeks.has(volumeWeekId)) {
                                     fractionalWeeks.set(volumeWeekId, new Map());

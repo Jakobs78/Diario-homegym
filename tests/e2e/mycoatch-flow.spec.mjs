@@ -148,11 +148,12 @@ test('percorso reale: tempo scelto, storico multianno, anteprima, download, impo
   const download = await downloadPromise;
   const csv = await readFile(await download.path(), 'utf8');
   assert.ok(download.suggestedFilename().endsWith('.csv'));
-  assert.equal(csv.split(/\r?\n/)[0], HEADER);
+  assert.equal(csv.split(/\r?\n/)[0], HEADER+';NomeSeduta');
   const rows = csv.trim().split(/\r?\n/);
   assert.ok(rows.length > 25);
-  for (const row of rows.slice(1)) assert.equal(row.split(';').length, 12, row);
-  assert.ok(rows.some(row => row.includes('[SPLIT MYCOATCH]')));
+  for (const row of rows.slice(1)) assert.equal(row.split(';').length, 13, row);
+  assert.ok(!csv.includes('[SPLIT MYCOATCH]'));
+  assert.ok(rows.some(row => row.includes(';Upper A')));
   assert.ok(rows.some(row => row.includes('[DURATA STIMATA]')));
   assert.ok(rows.some(row => row.includes('[SUPERSERIE]')));
   assert.ok(dialogues.some(d => d.type === 'confirm' &&
@@ -185,7 +186,7 @@ test('percorso reale: tempo scelto, storico multianno, anteprima, download, impo
   }, csv);
   assert.ok(imported.result.success, JSON.stringify(imported));
   assert.equal(imported.totalMesocycles, 2);
-  assert.deepEqual(imported.dayNames, ['Upper A', 'Lower A', 'Upper B', 'Lower B']);
+  assert.deepEqual(imported.dayNames, ['Upper A (Priorità panca, dorsali)','Lower A (Priorità squat, femorali)','Upper B (Priorità military press, richiamo petto e dorso)','Lower B (Priorità stacco rumeno o convenzionale)']);
   assert.ok(imported.exerciseCount >= 4);
   assert.equal(imported.group.length, 2);
   assert.equal(imported.group[0].isGroupLast, false);
@@ -263,7 +264,7 @@ test('40 minuti: riequilibrio reale visibile e importabile senza assumere sposta
   const downloaded = page.waitForEvent('download', { timeout: 20000 });
   await page.locator('#mycoatch-submit').click();
   const csv = await readFile(await (await downloaded).path(), 'utf8');
-  assert.equal(csv.split(/\r?\n/)[0], HEADER);
+  assert.equal(csv.split(/\r?\n/)[0], HEADER+';NomeSeduta');
   assert.doesNotMatch(csv, /\[VOLUME RIDISTRIBUITO\]/);
 
   const expected = await page.evaluate(async () => {
@@ -700,9 +701,9 @@ test('scelta atleta: fondamentali alternativi, controllo attrezzi, CSV e antepri
     p.includes('Panca Inclinata con Manubri') &&
     p.includes('Stacco da Terra Convenzionale')));
   assert.doesNotMatch(csv, /\[SCELTA MYCOATCH\]/);
-  assert.match(csv, /\[SPLIT MYCOATCH\]/);
+  assert.match(csv, /;NomeSeduta/);
   for (const line of csv.trim().split(/\r?\n/).slice(1)) {
-    assert.equal(line.split(';').length, 12);
+    assert.equal(line.split(';').length, 13);
   }
   assert.deepEqual(monitoring.remoteRequests, []);
   assert.deepEqual(monitoring.pageErrors, []);
@@ -736,7 +737,7 @@ test('prima scheda atleta principiante: questionario, calibrazione guidata, ante
   assert.match(csv, /\[VOLUME INIZIALE\]/);
   const rows = csv.trim().split(/\r?\n/).slice(1).map(line => line.split(';'));
   assert.ok(rows.length > 10);
-  assert.ok(rows.every(row => row.length === 12));
+  assert.ok(rows.every(row => row.length === 13));
   assert.ok(rows.every(row => Number(row[4]) <= 2));
   assert.ok(rows.every(row => row[6] === '' && row[7] === ''));
   assert.ok(rows.filter(row => Number(row[0]) === 1).every(row => row[8] === '6.5'));
@@ -1456,7 +1457,7 @@ test('MyCoatch visual preview: all weeks shown and diary changes only after expl
     return {count:mesos.length,first:mesos[0].name,last:mesos.at(-1).name,days:mesos.at(-1).weeks[0].days.map(x=>x.dayName)};
   });
   assert.equal(updated.count,2);
-  assert.deepEqual(updated.days,['Upper A','Lower A','Upper B','Lower B']);
+  assert.deepEqual(updated.days,['Upper A (Priorità panca, dorsali)','Lower A (Priorità squat, femorali)','Upper B (Priorità military press, richiamo petto e dorso)','Lower B (Priorità stacco rumeno o convenzionale)']);
   assert.deepEqual(monitoring.pageErrors,[]);
 });
 
@@ -2410,7 +2411,7 @@ test('refinement: smartphone confirms a bodyweight set with explicit zero and sh
  });
  assert.match(result.manual,/Guida pratica a HomeGym Diary e MyCoatch/);
  assert.match(result.manual,/cinque minuti/);
- assert.ok(result.columns.every(count=>count===12));
+ assert.ok(result.columns.every(count=>count===13));
  assert.deepEqual(monitoring.pageErrors,[]);
  assert.deepEqual(monitoring.remoteRequests,[]);
 });
@@ -3098,7 +3099,7 @@ test('8 settimane e 6 giorni: anteprima e importazione preservano il diario e tu
   await page.locator('#mycoatch-preview-download').click();
   const file=await downloading;const csv=await readFile(await file.path(),'utf8');
   assert.ok(csv.split('\n').some(row=>row.startsWith('8;6;')));
-  assert.match(csv,/SPLIT MYCOATCH\] Lower C/);
+  assert.match(csv,/;Lower C/);
   assert.doesNotMatch(csv,/Hamstring Walkout|Push-up a Terra/);
   await page.locator('#mycoatch-preview-apply').click();
   await expect(page.locator('#mycoatch-preview-overlay')).toHaveClass(/hidden/);
@@ -3113,13 +3114,13 @@ test('8 settimane e 6 giorni: anteprima e importazione preservano il diario e tu
       pdfWeeks:buildMesocyclePdfOutline(m).filter(r=>r.kind==='week').length,
       oldWeight:state.workoutData.history.years[2025].mesocycles[0].weeks[0].days[0].exercises[0].loggedSets[0].weight};
   });
-  expect(result.weeks).toBe(8);expect(result.days).toBe(6);expect(result.last).toBe('Lower C');
+  expect(result.weeks).toBe(8);expect(result.days).toBe(6);expect(result.last).toBe('Lower C (richiamo e complementari)');
   expect(result.settings.durationWeeks).toBe(8);expect(result.sessions).toBe(48);expect(result.pdfWeeks).toBe(8);
   expect(result.oldWeight).toBe('70');
   await page.locator('#week-selector').selectOption('8');
   await expect(page.locator('.day-tabs button')).toHaveCount(6);
   await page.locator('.day-tabs button').last().click();
-  await expect(page.locator('.active-day-btn')).toHaveText('Lower C');
+  await expect(page.locator('.active-day-btn')).toHaveText('Lower C (richiamo e complementari)');
   assert.deepEqual(monitor.pageErrors,[]);assert.deepEqual(monitor.remoteRequests,[]);
 });
 

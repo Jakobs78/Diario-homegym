@@ -17,12 +17,12 @@ const plan = (config = {}, previous = null) =>
     generateSmartMesocycle({ ...base, ...config }, noHistory, previous);
 
 test('catalogo esteso con ID stabili, categorie e dotazioni esplicite', () => {
-    assert.equal(EXERCISE_DATABASE.length, 67);
+    assert.equal(EXERCISE_DATABASE.length, 70);
     assert.equal(new Set(EXERCISE_DATABASE.map(e => e.id)).size, EXERCISE_DATABASE.length);
     assert.equal(new Set(EXERCISE_DATABASE.map(e => e.name)).size, EXERCISE_DATABASE.length);
     assert.ok(EXERCISE_DATABASE.every(ex =>
         /^[a-z0-9_]+$/.test(ex.id) &&
-        ex.primaryMuscle === ex.category &&
+        ex.primaryMuscle === ex.muscleProfile.primary[0] &&
         Array.isArray(ex.secondaryMuscles) &&
         Array.isArray(ex.requires) && Number.isFinite(ex.estimatedFatigue)));
     for (const muscle of ['Petto', 'Back_Lats', 'Back_Thickness', 'Spalle',

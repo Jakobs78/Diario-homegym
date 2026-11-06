@@ -1,8 +1,6 @@
-import { EXERCISE_DATABASE } from './exercisesDB.js';
-import { canonicalExerciseKey } from './exerciseIdentity.js';
+import {catalogExercise} from './catalogLookup.js';
 import { summarizeWeeklyMuscleVolume, VOLUME_ACCOUNTING_METHOD } from './volumeAccounting.js';
 
-const byName = new Map(EXERCISE_DATABASE.map(ex => [canonicalExerciseKey(ex.name), ex]));
 const TRACKED_GROUPS = Object.freeze([
     'Petto', 'Back_Lats', 'Back_Thickness', 'Spalle', 'Quadricipiti',
     'Femorali', 'Glutei', 'Polpacci', 'Bicipiti', 'Tricipiti', 'Core'
@@ -47,7 +45,7 @@ function countFunctionalSets(days = []) {
     for (const day of days) {
         const exercises = Array.isArray(day) ? day : (day?.exercises || []);
         for (const exercise of exercises) {
-            const meta = byName.get(canonicalExerciseKey(exercise.name));
+            const meta = catalogExercise(exercise);
             const sets = Number(exercise.setsCount);
             if (!meta || !Number.isInteger(sets) || sets < 1) continue;
             for (const [key, rule] of Object.entries(FUNCTIONAL_PATTERNS)) {
@@ -111,14 +109,14 @@ export function auditWeeklyCoverage(days, templates = [], requestedDays = []) {
             });
         }
         for (const exercise of actual) {
-            const meta = byName.get(canonicalExerciseKey(exercise.name));
+            const meta = catalogExercise(exercise);
             if (!meta) {
                 exercisesUnknown.push(exercise.name);
                 continue;
             }
             const count = Number(exercise.setsCount);
             if (!Number.isInteger(count) || count < 1) continue;
-            direct[meta.category] = (direct[meta.category] || 0) + count;
+            for(const muscle of meta.muscleProfile.primary)direct[muscle]=(direct[muscle]||0)+count;
             if (meta.shoulderHeadIsolation) {
                 shoulderHeadDirectIsolationSets[meta.shoulderHeadIsolation] += count;
             }
