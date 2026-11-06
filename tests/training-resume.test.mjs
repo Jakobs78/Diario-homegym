@@ -2,23 +2,23 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {trainingResumeDestination,planResumeTarget,sessionStarted,activateTrainingPlan,pauseOvernightSession} from '../mycoatch/trainingResume.js';
 const log=()=>({weight:50,reps:8,rpe:8,isLocked:true});
-const day=(n,extra={})=>({dayNumber:n,dayName:'Giorno '+n,exercises:[{name:'Panca Piana con Bilanciere',set:'2 set',setsCount:2,reps:'6-8',sets:[{},{}],loggedSets:[{},{}]}],...extra});
+const day=(n,extra={})=>({dayNumber:n,dayName:['Upper A','Lower A','Upper B','Lower B'][n-1],exercises:[{name:'Panca Piana con Bilanciere',set:'2 set',setsCount:2,reps:'6-8',sets:[{},{}],loggedSets:[{},{}]}],...extra});
 const plan=(id,days=[day(1),day(2),day(3),day(4)])=>({id,name:id,weeks:[{weekNumber:3,days}]});
 
 test('resume prioritizes an already started incomplete session over earlier untouched days',()=>{
  const m=plan('current');m.weeks[0].days[3].isPaused=true;m.weeks[0].days[3].accumulatedSeconds=600;
  const before=JSON.stringify(m),target=planResumeTarget(m);
- assert.equal(target.label,'Riprendi D – settimana 3');assert.equal(target.dayNumber,4);
+ assert.equal(target.label,'Riprendi Lower B – settimana 3');assert.equal(target.dayNumber,4);
  assert.equal(JSON.stringify(m),before);
 });
 test('prefilled values and stale completed flags cannot start or resolve a session',()=>{
  const m=plan('current');const d=m.weeks[0].days[0];d.completed=true;
  d.exercises[0].loggedSets=[{weight:50,reps:8,rpe:8},{}];
- assert.equal(sessionStarted(d),false);assert.equal(planResumeTarget(m).label,'Inizia A – settimana 3');
+ assert.equal(sessionStarted(d),false);assert.equal(planResumeTarget(m).label,'Inizia Upper A – settimana 3');
  d.exercises[0].loggedSets[0].manualFields={weight:true};
- assert.equal(planResumeTarget(m).label,'Riprendi A – settimana 3');
+ assert.equal(planResumeTarget(m).label,'Riprendi Upper A – settimana 3');
  d.exercises[0].loggedSets[0].weight='';
- assert.equal(planResumeTarget(m).label,'Inizia A – settimana 3');
+ assert.equal(planResumeTarget(m).label,'Inizia Upper A – settimana 3');
 });
 test('valid completed work advances; invalid checked work remains to resume',()=>{
  const m=plan('current'),first=m.weeks[0].days[0];
