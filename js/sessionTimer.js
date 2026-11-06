@@ -1,4 +1,6 @@
 import {sessionWorkCounts,isExerciseSkipped} from './sessionSkip.js';
+import {activateTrainingPlan} from '../mycoatch/trainingResume.js';
+import {updateTrainingResumeUI} from './trainingResumeUI.js';
 // ==========================================
 // MODULI: sessionTimer.js - Gestione del timer di sessione, calcolo durata e stati di completamento allenamento
 // ==========================================
@@ -57,6 +59,7 @@ export function updateSessionAndCompletionState(currentDay) {
  * @param {Function} renderCallback - Funzione di callback per rirenderizzare la vista quando cambia lo stato
  */
 export function updateSessionHeaderUI(currentDay, renderCallback, readOnly = false) {
+    updateTrainingResumeUI(renderCallback);
     const timerEl = document.getElementById('live-session-timer');
     if (!timerEl) return;
 
@@ -87,7 +90,7 @@ export function updateSessionHeaderUI(currentDay, renderCallback, readOnly = fal
     let start=timerWrapper?.querySelector('#start-workout-session');
     if(!start&&timerWrapper){start=document.createElement('button');start.id='start-workout-session';start.type='button';start.className='btn btn-secondary btn-sm';start.textContent='Inizia seduta';timerWrapper.append(start);}
     if(start){start.hidden=readOnly||Boolean(currentDay.sessionStart)||Boolean(currentDay.accumulatedSeconds)||Boolean(currentDay.completed);
-        start.onclick=async()=>{if(readOnly||currentDay.completed)return;currentDay.sessionStart=Date.now();currentDay.timerMeasurement='full_session';currentDay.date ||= localCalendarDay();
+        start.onclick=async()=>{if(readOnly||currentDay.completed)return;activateTrainingPlan(state.workoutData,state.currentYear,state.activeMesocycleIndex||0);currentDay.sessionStart=Date.now();currentDay.timerMeasurement='full_session';currentDay.date ||= localCalendarDay();
             if(await saveAndSync(state.workoutData)===false){alert('Avvio non salvato: conserva un backup e verifica lo spazio.');return;}renderCallback?.();promptSessionCheckin(currentDay);};}
     const actionBtn = document.getElementById('reset-session-timer-btn');
     const pauseBtn = document.getElementById('pause-session-timer-btn');
@@ -96,6 +99,7 @@ export function updateSessionHeaderUI(currentDay, renderCallback, readOnly = fal
         pauseBtn.disabled = readOnly;
         pauseBtn.onclick = () => {
             if (readOnly || currentDay.completed) return;
+            activateTrainingPlan(state.workoutData,state.currentYear,state.activeMesocycleIndex||0);
             if (currentDay.isPaused) {
                 currentDay.isPaused = false;
                 currentDay.sessionStart = Date.now();

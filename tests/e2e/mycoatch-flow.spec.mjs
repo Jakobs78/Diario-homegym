@@ -1373,7 +1373,8 @@ test('shell compatto mobile: navigazione rapida, menu utility e MyCoatch apribil
       viewport: document.documentElement.clientWidth
     };
   });
-  assert.ok(sizes.header <= 95, 'Header too tall: ' + JSON.stringify(sizes));
+  // The persistent resume button adds one explicit navigation row.
+  assert.ok(sizes.header <= 140, 'Header too tall including resume navigation: ' + JSON.stringify(sizes));
   assert.ok(sizes.nav <= 180, 'Navigator too tall: ' + JSON.stringify(sizes));
   assert.ok(sizes.coach <= 65, 'Coach collapsed row too tall: ' + JSON.stringify(sizes));
   assert.ok(sizes.firstExerciseTop < 435, 'First exercise below the fold: ' + JSON.stringify(sizes));
@@ -3395,3 +3396,4 @@ test('analisi export unificato: MD e JSON distinguono serie saltate e target per
  const data=JSON.parse(await readFile(await (await jsonDownload).path(),'utf8'));expect(data.schemaVersion).toBe(2);expect(data.sessions[0].exercises[0].skippedSets).toBe(1);expect(data.sessions[0].exercises[0].unconfirmedOrMissingSets).toBe(0);
  expect(data.summary.analysis.volumeWeeks[0].skippedSets).toBe(1);
 });
+

@@ -1,4 +1,6 @@
 import {saveAndSync} from './storage.js';
+import {updateTrainingResumeUI,createTrainingPlanSelection} from './trainingResumeUI.js';
+import {pauseOvernightSession} from '../mycoatch/trainingResume.js';
 import {nextProgramSession} from '../mycoatch/sessionSequence.js';
 import {reconcileTrainingPlan} from '../mycoatch/trainingPlan.js';
 import {bindActiveExercisePanels} from './activeExercise.js';
@@ -132,6 +134,7 @@ document.addEventListener('click', (e) => {
 // 4. RENDERING SCHEDA ALLENAMENTO
 // ==========================================
 export function renderWorkoutList() {
+    updateTrainingResumeUI(renderWorkoutList);
     // Cambiare esercizio, settimana o seduta non deve lasciare consigli obsoleti.
     dismissLiveCoachToast();
     if (!DOM.workoutListContainer) return;
@@ -172,7 +175,9 @@ export function renderWorkoutList() {
         return;
     }
 
-    const isPastMeso = Boolean(meso.locked);
+    const isPastMeso = Boolean(meso.locked || meso.coachClosure?.status==='closed');
+    const trainingSelection=createTrainingPlanSelection(meso,mesoIndex,isPastMeso,renderWorkoutList);
+    if(trainingSelection)DOM.workoutListContainer.append(trainingSelection);
     const activeWeekNum = state.activeWeek || 1;
     const targetWeek = (meso.weeks || []).find(w => w.weekNumber === activeWeekNum) || meso.weeks?.[0];
 
@@ -186,12 +191,6 @@ export function renderWorkoutList() {
         for(const block of meso.program.blocks||[]){
             const status=nextProgramSession({weeks:meso.weeks.filter(w=>w.weekNumber>=block.weekFrom&&w.weekNumber<=block.weekTo)});
             const row=document.createElement('p');row.textContent=block.label+' · settimane '+block.weekFrom+'–'+block.weekTo+' · '+status.completed+'/'+status.total+' sedute concluse'+(block.conditional?' · verifica risultati e recupero prima di iniziare':'');panel.append(row);
-        }
-        if(progress.next){
-            const next=document.createElement('button');next.type='button';next.id='next-program-session';next.className='btn btn-secondary';
-            next.textContent='Riprendi: settimana '+progress.next.weekNumber+' · '+progress.next.dayName;
-            next.onclick=()=>{stopTimer();state.activeWeek=progress.next.weekNumber;state.activeDay=progress.next.dayNumber;localStorage.setItem('ui_active_week',state.activeWeek);localStorage.setItem('ui_active_day',state.activeDay);renderWorkoutList();};
-            panel.append(next);
         }
         if(targetWeek.conditional && targetWeek.weekInMesocycle===1){
             const review=document.createElement('p');review.textContent='Inizio mesociclo '+targetWeek.mesocycleNumber+': controlla l’analisi delle settimane precedenti e il recupero. I carichi iniziali sono riferimenti da rivalutare, non aumenti già acquisiti.';panel.append(review);
@@ -354,7 +353,13 @@ export function renderWorkoutList() {
     coachDisclosure.id = 'mycoatch-live-disclosure';
     const summaryKey=['homegym-summary',state.currentUser?.id||'local',state.currentYear,meso.id||mesoIndex,targetWeek.weekNumber,currentDayIndex,currentDay.sessionArchives?.length||0].join(':');
     coachDisclosure.dataset.sessionKey=summaryKey;
-    try{coachDisclosure.open=localStorage.getItem(summaryKey)==='1';}catch{}
+    try{
+        // Assigning a stable ID to a legacy plan must not collapse an open live-coach/check-in panel.
+        const legacyKey=['homegym-summary',state.currentUser?.id||'local',state.currentYear,mesoIndex,targetWeek.weekNumber,currentDayIndex,currentDay.sessionArchives?.length||0].join(':');
+        if(summaryKey!==legacyKey && previousCoach?.dataset.sessionKey===legacyKey)
+            localStorage.setItem(summaryKey,previousCoach.open?'1':'0');
+        coachDisclosure.open=localStorage.getItem(summaryKey)==='1';
+    }catch{}
     coachDisclosure.addEventListener('toggle',()=>{if(!coachDisclosure.isConnected)return;try{localStorage.setItem(summaryKey,coachDisclosure.open?'1':'0');}catch{}});
     const coachSummary = document.createElement('summary');
     coachSummary.className = 'mycoatch-live-trigger';
@@ -385,14 +390,9 @@ export function renderWorkoutList() {
         DOM.workoutListContainer.appendChild(info);
     }
 
-    if (currentDay.sessionStart) {
-        const startDate = new Date(currentDay.sessionStart).toDateString();
-        const todayDate = new Date().toDateString();
-        if (startDate !== todayDate && !currentDay.completed) {
-            currentDay.sessionStart = null;
-            currentDay.accumulatedSeconds = 0;
-            currentDay.isPaused = false;
-        }
+    if(!isPastMeso && pauseOvernightSession(currentDay)){
+        saveAndSync(state.workoutData,'PAUSE_OVERNIGHT_SESSION');
+        updateTrainingResumeUI(renderWorkoutList);
     }
 
     if (window._sessionTimerInterval) {
