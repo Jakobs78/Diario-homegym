@@ -240,7 +240,8 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
         message = 'Limite alto delle ripetizioni raggiunto con margine. Mantieni il carico e cerca conferma nelle serie successive.';
     }
 
-    if (!isBodyweightExercise(exercise) && remainingIndex >= 0 && knownRpe && !result.technique && !plannedFailure &&
+    const protocolCorrection=['reduce_reps_today','reduce_today'].includes(exercise.coachSetProposals?.[remainingIndex]?.kind);
+    if (!protocolCorrection && !isBodyweightExercise(exercise) && remainingIndex >= 0 && knownRpe && !result.technique && !plannedFailure &&
         (code === 'high_effort' || code === 'above_rpe' || code === 'below_reps')) {
         const multipleHard = paired.slice(-2).filter(set =>
             set.rpe >= 9 || (range && set.reps < range.min)).length >= 2;

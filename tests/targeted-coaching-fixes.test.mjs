@@ -30,7 +30,8 @@ test('screenshot case: a started day still proposes 12 for pushdown series 2/3 a
  assert.match(exerciseCoachModel(ex,{prefills:[0,1,2].map(i=>getSetPrefill(ex,i))}).updates.map(u=>u.text).join(' '),/Cerca di chiudere tutte le serie/);
  ex.loggedSets[0].rpe=9.5;
  reconcileTrainingPlan(data,{year:2026,mesoIndex:0});
- assert.equal(ex.coachSetProposals[1].kind,'reduce_today','a difficult series must override the previous completion goal');
+ assert.equal(ex.coachSetProposals[1].kind,'reduce_reps_today','a difficult series must override the previous completion goal');
+ assert.equal(ex.coachSetProposals[1].weight,21);assert.equal(ex.coachSetProposals[1].reps,11);
 });
 test('all three series at 12 within RPE propose the next available 22 kg, including after another exercise started',()=>{
  const data=fixture([12,12,12]),ex=current(data),before=JSON.stringify(ex.loggedSets);

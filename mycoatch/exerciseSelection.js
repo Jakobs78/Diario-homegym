@@ -29,6 +29,7 @@ export const OPTIONAL_ACCESSORIES = Object.freeze([
     Object.freeze({ id: 'ankle_strap', label: 'Cavigliera per cavi' }),
     Object.freeze({ id: 'rope_attachment', label: 'Corda per pushdown' }),
     Object.freeze({ id: 'triangle_handle', label: 'Impugnatura triangolare lat machine' }),
+    Object.freeze({ id: 'u_bar', label: 'Barra a U per cavo' }),
     Object.freeze({ id: 'ez_bar', label: 'Bilanciere EZ' }),
     Object.freeze({ id: 'dip_station', label: 'Parallele per dip' })
 ]);
@@ -47,6 +48,7 @@ const HIGH_CABLE_EXERCISES = new Set([
 ]);
 const LOW_CABLE_EXERCISES = new Set([
     'Rematore Unilaterale al Cavo Basso',
+    'Pulley Basso con Triangolo', 'Pulley Basso con Barra a U',
     'Pulley Basso a T', 'Curl ai Cavi Bassi', 'Leg Curl ai Cavi (cavigliera)',
     'Alzate Laterali ai Cavi', 'Pull-through ai Cavi'
 ]);

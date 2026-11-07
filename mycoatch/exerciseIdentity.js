@@ -95,6 +95,7 @@ for (const ex of EXERCISE_DATABASE) {
 }
 const EXTRA_ALIASES = {
  'Pulley Basso con Triangolo':['pulley triangolo','pulley basso triangolo','rematore al cavo basso con triangolo','seated cable row triangle'],
+ 'Pulley Basso con Barra a U':['pulley barra a u','pulley basso barra a u','pulley con barra a u','rematore al cavo basso con barra a u'],
  'Curl Scott con Manubrio su Panca Inclinata':['curl scott manubrio panca inclinata','curl scott con manubrio su panca','preacher curl dumbbell','dumbbell preacher curl'],
  'French Press con Bilanciere EZ su Panca Inclinata':['french press ez inclinata','french press su panca inclinata con ez','incline ez bar triceps extension'],
  'Curl Manubri su Panca Inclinata':['curl con manubri su panca inclinata','curl manubri panca inclinata'],

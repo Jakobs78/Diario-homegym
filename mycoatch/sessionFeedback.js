@@ -44,7 +44,7 @@ function nextProposal(exercise,exerciseIndex,context){
             const changes=[];
             for(const [index,p] of (target.coachSetProposals||[]).entries()){
                 if(!p||confirmed(target.loggedSets?.[index])||warm(target.loggedSets?.[index])||warm(target.sets?.[index]))continue;
-                if(!['build_reps','increase_load','estimated_history','today_estimate','increase_today','reduce_today','calibration_reference'].includes(p.kind))continue;
+                if(!['build_reps','increase_load','estimated_history','today_estimate','increase_today','reduce_today','reduce_reps_history','reduce_reps_today','calibration_reference'].includes(p.kind))continue;
                 const reference=p.basedOn?.[0];
                 if(!sourceMatches(reference?.source,context,exerciseIndex)||!evidenceMatches(reference,exercise))continue;
                 const kg=number(p.weight),reps=number(p.reps),oldKg=number(reference.weight),oldReps=number(reference.reps);

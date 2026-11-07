@@ -47,21 +47,27 @@ function appliedChange(entry){
     const c=entry.change;if(!c)return entry;
     const where=entry.series.length===1?'alla serie '+entry.series[0]:'alle serie '+entry.series.join(', ');
     const target=c.bodyweight&&Number(c.weight)===0?c.reps+' reps a corpo libero (0 kg)':decimal(c.weight)+' kg × '+c.reps+' reps';
+    const lead=c.kind==='increase'?(c.today?'La serie appena conclusa indica margine per un piccolo aumento. ':c.basis==='mixed_reps'?'Più serie hanno superato il range rispettando l’RPE previsto. ':'Visto che hai raggiunto il massimo delle ripetizioni in tutte le serie precedenti, rispettando l’RPE previsto, '):
+        c.kind==='reduce_reps'?(c.today?'La serie appena conclusa è risultata più difficile dell’RPE previsto. ':'Nella seduta precedente questa serie è risultata più difficile dell’RPE previsto. '):'';
     let text;
     if(c.manual)text='Suggerisco '+target+' '+(entry.series.length===1?'per la serie ':'per le serie ')+entry.series.join(', ')+'.';
     else if(c.kind==='reps')text='Ho aggiunto '+(c.delta===1?'una ripetizione':c.delta+' ripetizioni')+' '+where+': '+target+'.';
     else if(c.kind==='calibration')text=(c.pending?'Riferimento provvisorio ':'Carico di riferimento ')+where+': '+target+(c.pending?'. Verifica il carico durante la seduta.':'. Basato sulla serie indicata come carico trovato.');
-    else if(c.kind==='increase')text='Ho aumentato il carico '+where+': '+target+(c.today?'. La serie precedente indica margine.':c.basis==='mixed_reps'?'. Più serie hanno superato il range rispettando l’RPE.':'. Raggiunto il limite alto in tutte le serie, entro l’RPE previsto.');
+    else if(c.kind==='increase')text='Ho aumentato il carico '+where+': '+target+'.';
+    else if(c.kind==='reduce_reps')text='Mantieni il carico '+where+' e prova '+target+'.';
     else if(c.kind==='reduce')text='Ho ridotto il carico '+where+': '+target+'. La serie precedente è risultata più difficile del target.';
     else text='Ho adattato il carico '+where+': '+target+(c.today?' in base alla serie appena confermata.':' in base al massimale stimato.');
-    if(['increase','reduce','estimate','reps'].includes(c.kind)){
+    const action=text;
+    if(['increase','reduce','estimate','reps','reduce_reps'].includes(c.kind)){
         const effort=c.rpe!==null&&c.rpe!==undefined?' Rispetta l’RPE '+decimal(c.rpe)+'.':' Rispetta l’RPE previsto.';
         text+=effort;
         if(c.kind==='increase')text+=' Lavora nel range '+(c.minReps===c.maxReps?c.minReps:c.minReps+'–'+c.maxReps)+' reps: non fermarti automaticamente al minimo se hai ancora margine. Se raggiungi lo sforzo previsto prima del minimo, riduci il carico nella serie successiva.';
         if(c.kind==='reps'&&c.close)text+=' Manca poco. Cerca di chiudere tutte le serie al limite alto; fermati prima se raggiungi l’RPE previsto.';
         if(c.kind==='increase'&&c.largeJump)text+=' Il salto di peso è consistente: la riuscita va verificata durante la seduta.';
+        if(c.kind==='reduce_reps')text+=' Verifica lo sforzo effettivo: una ripetizione in meno non garantisce l’RPE previsto. Se è ancora troppo alto al minimo del range, riduci il carico.';
     }
-    return {...entry,text:text+(c.warning?' '+c.warning:''),labelSeries:false};
+    const detail=text.slice(action.length)+(c.warning?' '+c.warning:'');
+    return {...entry,text:lead+action+detail,lead,action,detail,labelSeries:false};
 }
 
 export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=null,
@@ -85,7 +91,7 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
             const p=ex.coachSetProposals?.[i];if(!p||specialSeries(ex,i))continue;
             const reference=p.basedOn?.[0];
             const previous=(ex.loggedSets||[]).slice(0,i).filter(s=>confirmed(s)&&!warm(s)).at(-1);
-            const today=['today','increase_today','reduce_today','today_estimate','prescribed_step'].includes(p.kind);
+            const today=['today','increase_today','reduce_today','reduce_reps_today','today_estimate','prescribed_step'].includes(p.kind);
             const origin=today?previous:reference;
             const kg=number(origin?.weight),reps=number(origin?.reps);
             const weightChanged=!bodyweight&&kg!==null && number(p.weight)!==null && Math.abs(number(p.weight)-kg)>.001;
@@ -93,7 +99,7 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
             const loadProblem=!bodyweight&&/non componibile|non è componibile/i.test(p.reason||'');
             const recoveryMessage=conciseReason(p.reason).match(/(?:Recupero precedente|Tecnica diversa:)[\s\S]*$/)?.[0]||(/recuper[oi] divers[oi]/i.test(p.reason||'')?'Recupero diverso: verifica il riferimento prima di trasferire la progressione.':'');
             const recoveryChanged=Boolean(recoveryMessage);
-            const caution=p.kind==='pain_caution' || p.kind==='reduce_today'||p.kind==='bodyweight_reduce_reps';
+            const caution=p.kind==='pain_caution' || p.kind==='reduce_today'||p.kind==='bodyweight_reduce_reps'||p.kind==='reduce_reps_today'||p.kind==='reduce_reps_history';
             const update=(['increase_load','increase_today','build_reps','estimated_history','today_estimate','calibration_reference'].includes(p.kind) || p.kind==='today'&&/Margine di sforzo/.test(p.reason||'')) && (weightChanged||repsChanged);
             const calibration=number(p.weight)===null && p.kind!=='pain_caution' && !hasLoad;
             if(caution||loadProblem||update||calibration||recoveryChanged){
@@ -104,6 +110,7 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
                 if(number(p.weight)!==null&&number(p.reps)!==null){
                     if(repsChanged&&number(p.reps)>reps&&!weightChanged)change={kind:'reps',delta:number(p.reps)-reps,weight:p.weight,reps:p.reps,manual};
                     else if(['increase_load','increase_today'].includes(p.kind))change={kind:'increase',weight:p.weight,reps:p.reps,today,manual,basis:p.progressionBasis};
+                    else if(['reduce_reps_today','reduce_reps_history'].includes(p.kind))change={kind:'reduce_reps',weight:p.weight,reps:p.reps,today,manual};
                     else if(p.kind==='reduce_today')change={kind:'reduce',weight:p.weight,reps:p.reps,manual};
                     else if(p.kind==='calibration_reference')change={kind:'calibration',weight:p.weight,reps:p.reps,manual,pending:/provvisorio/.test(p.reason||'')};
                     else if(update&&!bodyweight)change={kind:'estimate',weight:p.weight,reps:p.reps,today,manual};
@@ -141,8 +148,9 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
             // live warning as well only when it conveys a separate problem.
             if(!ex.coachSetProposals || ![...groups.values()].some(x=>key(x.text).includes(key(liveAdvice.message))))
                 {
-                    let message=conciseReason(liveAdvice.message);
+                    let message=clean(liveAdvice.message);
                     for(const p of ex.coachSetProposals||[])if(p?.reason)message=message.replace(p.reason,'');
+                    message=conciseReason(message);
                     message=message.replace(/Esercizio completato; registra il risultato e valuta il prossimo\./g,'').trim();
                     add(message,null,liveAdvice.severity);
                 }

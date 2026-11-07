@@ -28,9 +28,14 @@ export function renderExerciseCoachPanel(card,exercise,context={}) {
         if(entry.labelSeries!==false&&entry.series.length){const label=document.createElement('strong');label.textContent='Serie '+entry.series.join(', ')+': ';p.append(label);}
         if(entry.change){
             const label=document.createElement('strong');
-            const end=entry.text.indexOf(':');
-            if(end>=0){label.textContent=entry.text.slice(0,end+1);p.append(label,document.createTextNode(entry.text.slice(end+1)));}
-            else p.append(document.createTextNode(entry.text));
+            if(['increase','reduce_reps'].includes(entry.change.kind)){
+                label.textContent=entry.action;
+                p.append(document.createTextNode(entry.lead),label,document.createTextNode(entry.detail));
+            }else{
+                const end=entry.text.indexOf(':');
+                if(end>=0){label.textContent=entry.text.slice(0,end+1);p.append(label,document.createTextNode(entry.text.slice(end+1)));}
+                else p.append(document.createTextNode(entry.text));
+            }
         }else p.append(document.createTextNode(entry.text));
         updates.append(p);
     }

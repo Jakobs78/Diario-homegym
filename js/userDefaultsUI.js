@@ -5,7 +5,7 @@ import {userDefaults,saveUserDefaults,needsUserSetup} from '../mycoatch/userDefa
 import {EXERCISE_DATABASE} from '../mycoatch/exercisesDB.js';
 const owner=()=>String(state.currentUser?.id||'local');
 let activeDialog=null,dialogOwner=null;
-const labels={barbell:'Bilancieri',dumbbell:'Manubri',cable:'Cavi',lat_machine:'Lat machine',machine:'Macchine',rack:'Rack',flat_bench:'Panca piana',incline_bench:'Panca inclinabile',ez_bar:'Barra EZ',triangle_handle:'Triangolo',rope_attachment:'Corda',ankle_strap:'Cavigliere',single_handle:'Maniglia singola',pullup_bar:'Barra trazioni',dip_station:'Parallele'};
+const labels={barbell:'Bilancieri',dumbbell:'Manubri',cable:'Cavi',lat_machine:'Lat machine',machine:'Macchine',rack:'Rack',flat_bench:'Panca piana',incline_bench:'Panca inclinabile',ez_bar:'Barra EZ',triangle_handle:'Triangolo',u_bar:'Barra a U per cavo',rope_attachment:'Corda',ankle_strap:'Cavigliere',single_handle:'Maniglia singola',pullup_bar:'Barra trazioni',dip_station:'Parallele'};
 const el=(tag,text)=>{const n=document.createElement(tag);if(text)n.textContent=text;return n;};
 export function openUserDefaults(){
  if(activeDialog?.isConnected)return;

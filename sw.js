@@ -1,5 +1,5 @@
-const CACHE_NAME = 'workout-app-v98-profile-load-advice-20261107';
-const APP_VERSION = '1.4.8-20261107';
+const CACHE_NAME = 'workout-app-v99-rpe-pulley-20261107';
+const APP_VERSION = '1.4.9-20261107';
 const META_CACHE = 'workout-app-update-state';
 
 // Risorse statiche dell'applicazione
