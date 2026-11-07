@@ -32,7 +32,7 @@ const repsRange=ex=>{
     return min>0 && min<=max && max<=40 ? {min,max} : null;
 };
 export const DEFAULT_LOADING_STEPS=Object.freeze({
-    barbell:2.5,dumbbell:1,machine:2.5
+    barbell:2.5,dumbbell:1,machine:2.5,bodyweight:1
 });
 export function equipmentCategory(ex={}) {
     if(isBodyweightExercise(ex))return 'bodyweight';
@@ -44,7 +44,6 @@ export function equipmentCategory(ex={}) {
 export function getAvailableLoadStep(ex, settings={},weight=null) {
     settings={...settings,...(settings.loadingSteps || {})};
     const type=equipmentCategory(ex);
-    if(type==='bodyweight')return {type,step:null,configured:false};
     const custom=number(settings?.[type]);
     const standard=type==='dumbbell'&&weight!==null&&weight<12.5?0.5:
         type==='machine'&&weight!==null&&weight<12.5?0.5:

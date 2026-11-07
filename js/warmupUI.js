@@ -13,7 +13,8 @@ export function createWarmupPanel(ex,day,{workWeight,readOnly=false}={}){
  const key=['homegym-warmup-open',state.currentUser?.id||'local',state.currentYear,meso?.id??state.activeMesocycleIndex,state.activeWeek,day.dayNumber??state.activeDay,index,run].join(':');
  let stored=null;try{stored=localStorage.getItem(key);}catch{}
  const remembered=disclosureStates.get(ex);
- const open=remembered?.run===run?remembered.open:stored!==null?stored==='1':!ex.warmupSkipped;
+ const alreadyDone=ex.warmupSets?.length>0&&ex.warmupSets.every(row=>row?.completed);
+ const open=remembered?.run===run?remembered.open:stored!==null?stored==='1':!ex.warmupSkipped&&!alreadyDone;
  const panel=node('details');panel.className='exercise-warmups';panel.open=open;
  const remember=value=>{
   disclosureStates.set(ex,{run,open:value});
@@ -32,8 +33,8 @@ export function createWarmupPanel(ex,day,{workWeight,readOnly=false}={}){
  const status=node('p');status.setAttribute('role','status');
  const save=async()=>{
   const previous=ex.warmupSets;ex.warmupSets=structuredClone(rows);
-  try{if(await saveAndSync(state.workoutData)===false)throw Error('Avvicinamento non salvato: riprova.');status.textContent='Riscaldamento salvato; non conta come lavoro allenante.';}
-  catch(error){if(previous===undefined)delete ex.warmupSets;else ex.warmupSets=previous;status.textContent=error.message;}
+  try{if(await saveAndSync(state.workoutData)===false)throw Error('Avvicinamento non salvato: riprova.');status.textContent='Riscaldamento salvato; non conta come lavoro allenante.';return true;}
+  catch(error){if(previous===undefined)delete ex.warmupSets;else ex.warmupSets=previous;status.textContent=error.message;return false;}
  };
  const list=node('div');panel.append(list);
  const renderRow=(row,i)=>{
@@ -46,8 +47,12 @@ export function createWarmupPanel(ex,day,{workWeight,readOnly=false}={}){
   };}
   check.disabled=readOnly;check.onchange=async()=>{
    if(check.checked&&(!weight.value||!reps.value||!weight.reportValidity()||!reps.reportValidity())){check.checked=false;status.textContent='Indica kg interi e ripetizioni prima di confermare il riscaldamento.';return;}
+   const previousRow={...row};
    row.weight=weight.value;row.reps=reps.value;row.completed=check.checked;row.isWarmup=true;
-   weight.disabled=reps.disabled=readOnly||row.completed;await save();
+   weight.disabled=reps.disabled=readOnly||row.completed;check.disabled=true;
+   const saved=await save();check.disabled=readOnly;
+   if(!saved){Object.assign(row,previousRow);check.checked=Boolean(row.completed);weight.disabled=reps.disabled=readOnly||row.completed;return;}
+   if(rows.length&&rows.every(item=>item.completed)){remember(false);panel.open=false;}
   };
   line.append(weight,node('span','kg ×'),reps,check);list.append(line);
  };
@@ -55,7 +60,7 @@ export function createWarmupPanel(ex,day,{workWeight,readOnly=false}={}){
  const skip=node('button',ex.warmupSkipped?'Ripristina avvicinamento':'Salta avvicinamento');skip.type='button';skip.className='btn btn-secondary btn-sm';skip.disabled=readOnly;
  skip.onclick=async()=>{const previous=ex.warmupSkipped;ex.warmupSkipped=!previous;
   if(await saveAndSync(state.workoutData)===false){ex.warmupSkipped=previous;status.textContent='Scelta non salvata: riprova.';return;}
-  panel.open=!ex.warmupSkipped;skip.textContent=ex.warmupSkipped?'Ripristina avvicinamento':'Salta avvicinamento';
+  remember(!ex.warmupSkipped);panel.open=!ex.warmupSkipped;skip.textContent=ex.warmupSkipped?'Ripristina avvicinamento':'Salta avvicinamento';
  };
  const add=node('button','+ Aggiungi serie di avvicinamento');add.type='button';add.className='btn btn-secondary btn-sm';add.disabled=readOnly;
  add.onclick=async()=>{if(rows.length>=5){status.textContent='Sono già presenti cinque serie di avvicinamento.';return;}const row={isWarmup:true,targetKg:'',targetReps:'2',completed:false};rows.push(row);renderRow(row,rows.length-1);await save();};

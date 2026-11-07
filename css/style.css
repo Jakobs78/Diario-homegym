@@ -3585,7 +3585,7 @@ body.dark-mode .group-title-badge {
 .ex-card .coach-reference-source {font-size:.78rem;color:var(--text-muted);}
 .ex-card section.exercise-history-box {
     margin:8px 0;padding:9px 11px;border:1px solid var(--border-color);
-    border-radius:9px;background:var(--card-bg);color:var(--text-color);
+    border-radius:9px;background:color-mix(in srgb,var(--accent-color) 8%,var(--card-bg));color:var(--text-color);
 }
 .ex-card .exercise-history-box h4 {margin:0;font-size:.84rem;line-height:1.4;}
 .ex-card .exercise-history-location {margin:2px 0 6px;font-size:.75rem;color:var(--text-muted);}

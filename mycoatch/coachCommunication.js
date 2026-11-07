@@ -1,5 +1,5 @@
 import {setPrescription} from './setPrescription.js';
-import {isBodyweightExercise} from './bodyweight.js';
+import {bodyweightMetadata} from './bodyweight.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {specialSeries} from './seriesTechnique.js';
 // Presentation policy only. Never writes proposals, prescriptions or results.
@@ -46,14 +46,14 @@ const decimal = value => String(value).replace('.',',');
 function appliedChange(entry){
     const c=entry.change;if(!c)return entry;
     const where=entry.series.length===1?'alla serie '+entry.series[0]:'alle serie '+entry.series.join(', ');
-    const target=c.bodyweight&&Number(c.weight)===0?c.reps+' reps a corpo libero (0 kg)':decimal(c.weight)+' kg × '+c.reps+' reps';
+    const target=c.bodyweight&&Number(c.weight)===0?c.reps+' reps a corpo libero (0 kg)':decimal(c.weight)+' kg'+(c.bodyweight?' di zavorra':'')+' × '+c.reps+' reps';
     const lead=c.kind==='increase'?(c.today?'La serie appena conclusa indica margine per un piccolo aumento. ':c.basis==='mixed_reps'?'Più serie hanno superato il range rispettando l’RPE previsto. ':'Visto che hai raggiunto il massimo delle ripetizioni in tutte le serie precedenti, rispettando l’RPE previsto, '):
         c.kind==='reduce_reps'?(c.today?'La serie appena conclusa è risultata più difficile dell’RPE previsto. ':'Nella seduta precedente questa serie è risultata più difficile dell’RPE previsto. '):'';
     let text;
     if(c.manual)text='Suggerisco '+target+' '+(entry.series.length===1?'per la serie ':'per le serie ')+entry.series.join(', ')+'.';
     else if(c.kind==='reps')text='Ho aggiunto '+(c.delta===1?'una ripetizione':c.delta+' ripetizioni')+' '+where+': '+target+'.';
     else if(c.kind==='calibration')text=(c.pending?'Riferimento provvisorio ':'Carico di riferimento ')+where+': '+target+(c.pending?'. Verifica il carico durante la seduta.':'. Basato sulla serie indicata come carico trovato.');
-    else if(c.kind==='increase')text='Ho aumentato il carico '+where+': '+target+'.';
+    else if(c.kind==='increase')text='Ho aumentato '+(c.bodyweight?'la zavorra ':'il carico ')+where+': '+target+'.';
     else if(c.kind==='reduce_reps')text='Mantieni il carico '+where+' e prova '+target+'.';
     else if(c.kind==='reduce')text='Ho ridotto il carico '+where+': '+target+'. La serie precedente è risultata più difficile del target.';
     else text='Ho adattato il carico '+where+': '+target+(c.today?' in base alla serie appena confermata.':' in base al massimale stimato.');
@@ -77,7 +77,7 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
     const hasLoad=indices.length>0 && indices.every(i=>number(prefills[i]?.weight ?? ex.loggedSets?.[i]?.weight ?? ex.coachSetProposals?.[i]?.weight)!==null);
     const instructions=exerciseInstructionNotes(ex,{hasLoad:readOnly?true:hasLoad});
     const groups=new Map();
-    const bodyweight=isBodyweightExercise(ex);
+    const bodyMetadata=bodyweightMetadata(ex),bodyweight=bodyMetadata!==null;
     const add=(text,index=null,severity='info',change=null)=>{
         if(!clean(text))return;
         const k=(change?'':key(text))+JSON.stringify(change),entry=groups.get(k)||{text,series:[],severity,...(change?{change}:{})};
@@ -94,13 +94,13 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
             const today=['today','increase_today','reduce_today','reduce_reps_today','today_estimate','prescribed_step'].includes(p.kind);
             const origin=today?previous:reference;
             const kg=number(origin?.weight),reps=number(origin?.reps);
-            const weightChanged=!bodyweight&&kg!==null && number(p.weight)!==null && Math.abs(number(p.weight)-kg)>.001;
+            const weightChanged=(!bodyweight||bodyMetadata.loadable)&&kg!==null && number(p.weight)!==null && Math.abs(number(p.weight)-kg)>.001;
             const repsChanged=reps!==null && number(p.reps)!==null && number(p.reps)!==reps;
             const loadProblem=!bodyweight&&/non componibile|non è componibile/i.test(p.reason||'');
             const recoveryMessage=conciseReason(p.reason).match(/(?:Recupero precedente|Tecnica diversa:)[\s\S]*$/)?.[0]||(/recuper[oi] divers[oi]/i.test(p.reason||'')?'Recupero diverso: verifica il riferimento prima di trasferire la progressione.':'');
             const recoveryChanged=Boolean(recoveryMessage);
             const caution=p.kind==='pain_caution' || p.kind==='reduce_today'||p.kind==='bodyweight_reduce_reps'||p.kind==='reduce_reps_today'||p.kind==='reduce_reps_history';
-            const update=(['increase_load','increase_today','build_reps','estimated_history','today_estimate','calibration_reference'].includes(p.kind) || p.kind==='today'&&/Margine di sforzo/.test(p.reason||'')) && (weightChanged||repsChanged);
+            const update=p.kind==='bodyweight_add_load'||(['increase_load','increase_today','build_reps','estimated_history','today_estimate','calibration_reference'].includes(p.kind) || p.kind==='today'&&/Margine di sforzo/.test(p.reason||'')) && (weightChanged||repsChanged);
             const calibration=number(p.weight)===null && p.kind!=='pain_caution' && !hasLoad;
             if(caution||loadProblem||update||calibration||recoveryChanged){
                 const shown=prefills[i]??ex.loggedSets?.[i]??{};
@@ -120,9 +120,9 @@ export function exerciseCoachModel(ex,{prefills=[],readOnly=false,liveAdvice=nul
                     change.bodyweight=bodyweight;change.rpe=p.rpe??targetPrescription.rpe?.max??null;
                     change.minReps=targetPrescription.reps?.min??p.reps;change.maxReps=targetPrescription.reps?.max??p.reps;
                     change.close=/chiudere tutte le serie/.test(p.reason||'');
-                    change.largeJump=kg>0&&Number(p.weight)/kg>1.10;
+                    change.largeJump=!bodyweight&&kg>0&&Number(p.weight)/kg>1.10;
                 }
-                const target=number(p.weight)!==null
+                const target=p.kind!=='bodyweight_add_load'&&number(p.weight)!==null
                     ? `${decimal(p.weight)} kg${number(p.reps)!==null?' × '+p.reps+' reps':''}. ` : '';
                 const description=conciseReason(p.reason).replace(warning,'').replace(recoveryMessage,'').replace(/Recuper[oi] divers[oi]:[^.]*(?:\.|$)/i,'').trim();
                 if(change||caution||calibration||!recoveryChanged&&!loadProblem)add(target+description,i,caution?'caution':'info',change);

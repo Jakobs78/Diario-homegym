@@ -2,6 +2,7 @@ import {recoveryContext,recoveryKey} from './recoveryContext.js';
 import {excludedFromCoaching,painReported} from './setReview.js';
 import {bodyweightMetadata} from './bodyweight.js';
 import {recommendNextSessionReps} from './nextSessionReps.js';
+import {workingProposal} from './protocolLoad.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {exerciseIdentity} from './exerciseIdentity.js';
 import {isWarmupExercise,isWarmupSet,validPerformedSet,plannedWorkSetCount} from '../js/workoutSemantics.js';
@@ -29,6 +30,11 @@ export function recommendNextExposure(previous,upcoming,equipment={},readiness=n
     const restChanged=recoveryKey(previous)!==recoveryKey(upcoming);
     if(body){
         if(readiness?.level==='stop')return {weight:null,suppressLoad:true,kind:'maintain',reason:'Dolore segnalato: rivaluta il movimento prima di proseguire.'};
+        if(body.loadable){
+            const proposals=sets.map((_,i)=>workingProposal(upcoming,i,{exposures:[{exercise:previous}],equipment,readiness}));
+            const first=proposals[0];
+            if(first)return {weight:first.weight,reps:proposals.map(p=>p.reps),kind:first.kind==='bodyweight_reference'?'maintain':first.kind,reason:first.reason,restChanged};
+        }
         const progression=readiness?.allowIncrease!==false&&restContext.allowProgression?recommendNextSessionReps(previous,upcoming):null;
         return {weight:body.unloaded?0:weights[0],reps:progression?.reps??reps,kind:progression?.kind==='build_reps'?'build_reps':'maintain',reason:progression?.kind==='build_reps'?progression.reason:'Riferimento delle serie a corpo libero: carico esterno invariato.',restChanged};
     }

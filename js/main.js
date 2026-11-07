@@ -594,10 +594,10 @@ function setupEventListeners() {
         }
         const barWeight=document.getElementById('equipment-bar-weight');
         if(barWeight)barWeight.value=athlete.barbellWeight??20;
-        for(const name of ['barbell','dumbbell','machine']){
+        for(const name of ['barbell','dumbbell','machine','bodyweight']){
             const field=document.getElementById('equipment-step-'+name);
             if(field)field.value=athlete.loadingSteps?.[name]??({
-                barbell:2.5,dumbbell:1,machine:2.5
+                barbell:2.5,dumbbell:1,machine:2.5,bodyweight:1
             })[name];
         }
         for(const key of ['machine']){const field=document.getElementById('equipment-owned-'+key);if(field)field.value=(athlete.availableLoads?.[key]||[]).join('; ');}
@@ -625,7 +625,7 @@ function setupEventListeners() {
         event.preventDefault();
         if(!equipmentForm.reportValidity())return;
         const status=document.getElementById('homegym-equipment-status');
-        const stepNames=['barbell','dumbbell','machine'];
+        const stepNames=['barbell','dumbbell','machine','bodyweight'];
         const loadingSteps={};
         for(const key of stepNames){
             const value=Number(document.getElementById('equipment-step-'+key)?.value);

@@ -25,5 +25,8 @@ export function exerciseLoadSummary(ex,prefills=[],{readOnly=false}={}){
  if(n===0&&body)return {text:body.unloaded?'Corpo libero':'Senza sovraccarico',original};
  const entered=selected.every(r=>number(r.log.weight??r.log.actualKg)!==null);
  const prescribed=selected.every(r=>r.prefill.source==='csv_target');
- return {text:(complete?'Carico registrato: ':entered?'Carico impostato: ':prescribed?'Carico della scheda: ':'Carico proposto: ')+fmt(n)+' kg',original};
+ const prefix=body
+  ?complete?'Zavorra registrata: ':entered?'Zavorra impostata: ':prescribed?'Zavorra della scheda: ':'Zavorra proposta: '
+  :complete?'Carico registrato: ':entered?'Carico impostato: ':prescribed?'Carico della scheda: ':'Carico proposto: ';
+ return {text:prefix+fmt(n)+' kg',original};
 }

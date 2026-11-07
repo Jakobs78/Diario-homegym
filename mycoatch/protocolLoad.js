@@ -7,11 +7,11 @@ import {recoveryContext} from './recoveryContext.js';
 export {recoveryKey} from './recoveryContext.js';
 import {nextRepTargets} from './repProgression.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
-/** Deterministic protocol 1.9. Numeric tolerances are engineering defaults, not physiological laws. */
+/** Deterministic protocol 1.10. Numeric tolerances are engineering defaults, not physiological laws. */
 import {setPrescription,observed,blockKey,warm} from './setPrescription.js';
 import {estimateE1rm} from './historyAnalysis.js';
 import {resolveNearbyLoad,equipmentCategory,getAvailableLoadStep,getHighRepIncrement} from './loadProposal.js';
-export const PROTOCOL_POLICY=Object.freeze({version:'1.9',historyExposures:3,rpeTolerance:0.5,stableSpread:0.10,rangeHalfWidth:0.025,maxIncrease:0.05,maxDumbbellIncrease:0.10,maxReduction:0.10});
+export const PROTOCOL_POLICY=Object.freeze({version:'1.10',historyExposures:3,rpeTolerance:0.5,stableSpread:0.10,rangeHalfWidth:0.025,maxIncrease:0.05,maxDumbbellIncrease:0.10,maxReduction:0.10});
 const round=x=>Math.round(x*100)/100;
 const median=values=>{const a=[...values].sort((x,y)=>x-y);return a.length?(a[Math.floor((a.length-1)/2)]+a[Math.ceil((a.length-1)/2)])/2:null;};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
@@ -115,7 +115,7 @@ export function workingProposal(ex,index,{exposures=[],equipment={},readiness=nu
     const reference=recent?.match;
     const sourcePain=Boolean(usable[0]&&painReported(usable[0].exercise)||recent&&painReported(recent.exercise));
     if(sourcePain)readiness={...readiness,allowIncrease:false};
-    if(isBodyweightExercise(ex))return bodyweightWorkingProposal(ex,index,{evidence,readiness,allowProgression:allowProgression&&recent?.checkin?.pain!=='present',contextUnchanged:!recent||recoveryContext(recent.exercise,ex).allowProgression});
+    if(isBodyweightExercise(ex))return bodyweightWorkingProposal(ex,index,{evidence,equipment,readiness,allowProgression:allowProgression&&recent?.checkin?.pain!=='present',contextUnchanged:!recent||recoveryContext(recent.exercise,ex).allowProgression});
     let progressionBasis=null,progressionRange=null;
     let reps=p.reps?.min??null,kg=p.kg?.min??null,kind='prescription',range=null,verified=false,alternativeWeight=null;
     let reason=kg?'Carico iniziale della scheda; verifica la risposta durante l’avvicinamento.':'Manca uno storico pertinente: carico da calibrare.';
