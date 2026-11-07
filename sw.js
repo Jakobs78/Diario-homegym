@@ -1,5 +1,5 @@
-const CACHE_NAME = 'workout-app-v102-warmup-ballast-20261107';
-const APP_VERSION = '1.4.12-20261107';
+const CACHE_NAME = 'workout-app-v103-circuit-follow-20261107';
+const APP_VERSION = '1.4.13-20261107';
 const META_CACHE = 'workout-app-update-state';
 
 // Risorse statiche dell'applicazione

@@ -1,8 +1,20 @@
 import {circuitMembers,currentCircuitRound,circuitRoundComplete,isCircuit} from './restPolicy.js';
 import {isExerciseSkipped} from './sessionSkip.js';
 import {isWarmupExercise,isWarmupSet} from './workoutSemantics.js';
+import {activateExercise,bindActiveExercisePanels} from './activeExercise.js';
 let activeDay=null,activeContainer=null,pending=null;
 const bound=new WeakSet();
+function focusPendingMember(day,members,round,container){
+    if(activeDay!==day||activeContainer!==container||!container.isConnected||day.completed)return;
+    const first=members.find(ex=>!isExerciseSkipped(ex)&&!isWarmupExercise(ex)&&ex.loggedSets?.[round]&&
+        !isWarmupSet(ex.loggedSets[round])&&!ex.loggedSets[round].isLocked&&!ex.loggedSets[round].completed);
+    const index=day.exercises.indexOf(first);
+    const card=container.querySelector('.ex-card[data-ex="'+index+'"]');
+    if(!card)return;
+    activateExercise(day,index);bindActiveExercisePanels(container,day);
+    const target=card.querySelector('.workout-set-row[data-set-index="'+round+'"]')||card;
+    target.scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+}
 export function cancelCircuitTransition(){
     if(pending){clearTimeout(pending.timer);pending.popup.remove();pending=null;}
 }
@@ -23,6 +35,9 @@ export function showCircuitTransition(day,exercise,completedRound,container){
     cancelCircuitTransition();
     if(!isCircuit(exercise)||day.completed)return;
     const members=circuitMembers(day,exercise),next=currentCircuitRound(members);
+    if(next===completedRound&&!circuitRoundComplete(members,completedRound)){
+        focusPendingMember(day,members,next,container);return;
+    }
     if(next<=completedRound||!circuitRoundComplete(members,completedRound))return;
     const popup=document.createElement('div');popup.className='circuit-round-popup';
     popup.setAttribute('role','status');popup.setAttribute('aria-live','polite');
@@ -33,10 +48,6 @@ export function showCircuitTransition(day,exercise,completedRound,container){
         cancelCircuitTransition();
         if(activeDay!==day||activeContainer!==container||!container.isConnected||day.completed||
             currentCircuitRound(members)!==next||!circuitRoundComplete(members,completedRound))return;
-        const first=members.find(ex=>!isExerciseSkipped(ex)&&!isWarmupExercise(ex)&&ex.loggedSets?.[next]&&
-            !isWarmupSet(ex.loggedSets[next])&&!ex.loggedSets[next].isLocked&&!ex.loggedSets[next].completed);
-        const index=day.exercises.indexOf(first);
-        const target=container.querySelector('.ex-card[data-ex="'+index+'"]');
-        target?.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+        focusPendingMember(day,members,next,container);
     },3000);
 }

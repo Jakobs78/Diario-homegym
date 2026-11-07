@@ -4,6 +4,10 @@ import {isWarmupExercise,isWarmupSet} from './workoutSemantics.js';
 const sessions=new WeakMap();
 const complete=ex=>isWarmupExercise(ex)||isExerciseSkipped(ex)||((ex.loggedSets||[]).length>0&&(ex.loggedSets||[]).filter(s=>!isWarmupSet(s)).every(s=>s.isLocked||s.completed));
 function session(day){if(!sessions.has(day))sessions.set(day,{index:(day.exercises||[]).findIndex(ex=>!complete(ex)),manual:new Map(),scroll:false});return sessions.get(day);}
+export function activateExercise(day,index){
+    if(!day.exercises?.[index])return;
+    const value=session(day);value.index=index;value.manual.clear();
+}
 export function advanceExercise(day,index){
     const current=day.exercises?.[index];if(!current||!complete(current))return;
     const group=isCircuit(current)?circuitMembers(day,current):[current];
@@ -31,7 +35,7 @@ export function bindActiveExercisePanels(container,day){
         });
         const title=card.querySelector('.ex-name');
         if(title){title.tabIndex=0;title.setAttribute('role','button');title.setAttribute('aria-expanded',String(isActive));
-            const activate=()=>{value.index=index;value.manual.clear();bindActiveExercisePanels(container,day);};
+            const activate=()=>{activateExercise(day,index);bindActiveExercisePanels(container,day);};
             title.onclick=activate;title.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();activate();}};
         }
     });
