@@ -13,20 +13,20 @@ const week=(id,extra={})=>({weekId:id,targetRpe:8,repRange:{min:6,max:8},complet
  allStraightSets:true,uniformWeight:true,workingKg:70,topKg:70,
  rpeOvershoot:true,allRepsBelowMin:true,...extra});
 
-test('inventario dichiarato vincola i carichi, anche quando è vuoto',()=>{
- assert.deepEqual(resolvePlannedLoad(lift,70,stock),{weight:70,verified:true});
- assert.equal(resolvePlannedLoad(lift,72.5,stock).weight,null);
- assert.equal(resolvePlannedLoad(lift,10,stock).weight,null);
+test('inventario dichiarato informa la disponibilità senza eliminare il riferimento di carico',()=>{
+ assert.equal(resolvePlannedLoad(lift,70,stock).weight,70);assert.equal(resolvePlannedLoad(lift,70,stock).verified,true);
+ assert.equal(resolvePlannedLoad(lift,72.5,stock).weight,72.5);
+ assert.equal(resolvePlannedLoad(lift,10,stock).weight,10);
  assert.equal(resolvePlannedLoad(lift,20,{...stock,plateInventories:{'50':{}}}).weight,20);
- assert.equal(resolvePlannedLoad(lift,25,{...stock,plateInventories:{'50':{}}}).weight,null);
+ assert.equal(resolvePlannedLoad(lift,25,{...stock,plateInventories:{'50':{}}}).weight,25);
  assert.equal(resolvePlannedLoad({equipment:'dumbbell'},12.5,stock).verified,false);
  assert.equal(resolvePlannedLoad(lift,70,{}).verified,false);
 });
 test('progressione storica valida non inventa i dischi per il prossimo incremento',()=>{
  const report={byExercise:{bench:{...lift,lastKg:70,readyForLoad:true,status:'stable'}},byMuscle:{}};
  const result=planAdaptiveDecisions(report,{loadingSteps:stock}).byExercise.bench;
- assert.equal(result.action,'maintain');assert.equal(result.plannedKg,70);
- assert.match(result.reason,/dischi disponibili/);
+ assert.equal(result.action,'increase_load');assert.equal(result.plannedKg,72.5);
+ assert.match(result.reason,/attrezzatura salvata/);
 });
 test('due settimane difficili richiedono carichi, target e serie confrontabili',()=>{
  assert.equal(evaluateExerciseProgression([week('1'),week('2')]).fatigueConcern,true);
@@ -41,7 +41,7 @@ test('gli scarichi strutturati escludono la proposta di aumento da serie normali
  const set={weight:70,reps:8,rpe:6,isLocked:true,dropSegments:[{weight:50,reps:6}]};
  assert.equal(recommendNextSessionLoad({...lift,reps:'6-8',rpe:7,loggedSets:[set,set]}),null);
 });
-test('scheda generata: carico impossibile vuoto e spiegato, nessuna mutazione dello storico',()=>{
+test('scheda generata: carico teorico visibile e disponibilità spiegata, nessuna mutazione dello storico',()=>{
  const key=canonicalExerciseKey(name);
  const analysis={byExercise:{[key]:{lastWorkingKg:72.5,lastKg:72.5}},byMuscle:{},decisions:{byExercise:{},byMuscle:{}}};
  const before=JSON.stringify(analysis);
@@ -50,8 +50,8 @@ test('scheda generata: carico impossibile vuoto e spiegato, nessuna mutazione de
  const benches=meso.weeks.flatMap(w=>w.days.flatMap(d=>d.exercises)).filter(e=>e.name===name);
  assert.ok(benches.length);
  for(const e of benches){
-  assert.equal(e.kgMin,'');assert.ok(e.sets.every(s=>s.targetKg===''));
-  assert.match(e.notes,/non è componibile/);assert.doesNotMatch(e.notes,/WARM-UP AUTO/);
+  assert.ok(Number(e.kgMin)>0);assert.ok(e.sets.every(s=>String(s.targetKg)===e.kgMin));
+  assert.match(e.notes,/attrezzatura salvata/);
  }
  assert.equal(JSON.stringify(analysis),before);
 });
@@ -69,6 +69,6 @@ test('generazione senza nuovi obiettivi usa l’inventario dell’atleta corrent
  const second=MyCoatch.generateNextFromHistory({...history,athlete:{...stock,plateInventories:{...stock.plateInventories,'50':{'20':1,'5':1,'2.5':1,'1.25':1}}}});
  const benches=m=>m.weeks[0].days.flatMap(d=>d.exercises).filter(e=>e.name===name);
  assert.ok(benches(first).length);assert.ok(benches(second).length);
- assert.ok(benches(first).every(e=>e.kgMin===''));
+ assert.ok(benches(first).every(e=>Number(e.kgMin)>0));
  assert.ok(benches(second).every(e=>Number(e.kgMin)>=60 && Number(e.kgMin)<=75));
 });

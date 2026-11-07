@@ -49,12 +49,12 @@ test('working sets only: an earlier warmup set does not block a valid progressio
     assert.equal(recommendNextSessionLoad(alone),null);
 });
 
-test('real equipment increments are honored; a large smallest step is withheld',()=>{
+test('configured increments guide a bounded proposal without requiring owned inventory',()=>{
     assert.equal(recommendNextSessionLoad(ex([set(12,7),set(12,7)]),{equipmentSettings:{barbell:1.25}})?.suggestedWeight,71.25);
     const impossible=recommendNextSessionLoad(ex([set(12,7),set(12,7)]),{equipmentSettings:{barbell:5}});
     assert.equal(impossible.eligible,true);
-    assert.equal(impossible.suggestedWeight,75);
-    assert.equal(impossible.repGoal,8);
+    assert.equal(impossible.suggestedWeight,73.5);
+    assert.equal(impossible.repGoal,null);
     const db=ex([set(12,7,12.5),set(12,7,12.5)],{
         name:'Curl manubri',equipment:'dumbbell',reps:'10-12'
     });

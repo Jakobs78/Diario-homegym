@@ -9,7 +9,7 @@ import { previousExercisePerformance, historicalSessionPace } from './liveHistor
 import { isWarmupExercise } from '../js/workoutSemantics.js';
 import { assessSessionReadiness } from './sessionReadiness.js';
 import { repetitionSeconds } from './timeEstimator.js';
-import {getAvailableLoadStep,resolveNearbyLoad} from './loadProposal.js';
+import {getAvailableLoadStep,resolveSuggestedLoad,availabilityNote} from './loadProposal.js';
 
 function decimal(value) {
     if (value === null || value === undefined || value === '') return null;
@@ -270,18 +270,12 @@ export function assessExerciseLive(exercise, exerciseIndex = 0, { readiness = nu
     if(suggestedWeight!==null){
         const provisional=suggestedWeight;
         const increasing=provisional>result.weight;
-        const resolved=resolveNearbyLoad(exercise,provisional,equipmentSettings,{
+        const resolved=resolveSuggestedLoad(exercise,provisional,equipmentSettings,{
             min:increasing?result.weight+.01:result.weight*.8,
             max:increasing?result.weight*1.10:result.weight-.01,origin:result.weight
         });
         suggestedWeight=resolved.weight;
-        if(suggestedWeight===null){
-            code='equipment_hold';
-            message='Il carico proposto non è verificabile con l’attrezzatura configurata. Mantieni un peso gestibile; verifica bilanciere e dischi prima di cambiare i kg.';
-        }else{
-            message=message.replace(provisional+' kg',suggestedWeight+' kg');
-            if(!resolved.verified)message+=' Disponibilità del peso da verificare: inventario non confermato.';
-        }
+        if(suggestedWeight!==null)message=message.replace(provisional+' kg',suggestedWeight+' kg')+availabilityNote(resolved);
     }
 
     // Il check-in è una limitazione ulteriore rispetto alla singola serie:

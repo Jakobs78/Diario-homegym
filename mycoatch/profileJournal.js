@@ -1,3 +1,4 @@
+import {saveUserDefaults} from './userDefaults.js';
 import { normalizeAthleteProfile } from './athleteProfile.js';
 
 const clone=value=>JSON.parse(JSON.stringify(value));
@@ -40,6 +41,8 @@ export function commitProfileRevision(data,staged) {
         throw Error('Il profilo è stato aggiornato altrove: ricarica i dati prima di salvare.');
     data.athlete ||= {};
     data.athlete.mycoatchProfileJournal=clone(staged.journal);
+    const defaults=staged.journal.versions.at(-1)?.settings;
+    if(Number.isInteger(Number(defaults?.userAge))&&Number(defaults.userAge)>=18&&Number(defaults.userAge)<=100)saveUserDefaults(data,defaults,{confirmed:Array.isArray(defaults.availableEquipment)});
     return data.athlete.mycoatchProfileJournal;
 }
 

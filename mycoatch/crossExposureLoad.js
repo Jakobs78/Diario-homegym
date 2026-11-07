@@ -9,7 +9,7 @@ import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {exerciseIdentity} from './exerciseIdentity.js';
 import {estimateE1rm} from './historyAnalysis.js';
 
-import {resolveNearbyLoad, equipmentCategory} from './loadProposal.js';
+import {resolveSuggestedLoad, equipmentCategory} from './loadProposal.js';
 
 
 const number=v=>{
@@ -87,11 +87,11 @@ export function recommendCrossExposureLoad(upcoming,recentExposures=[],equipment
     if(equipmentCategory(upcoming)==='machine'&&station&&(source.loggedSets||[]).some(s=>s.equipmentSnapshot?.station!==station))continue;
     const evidence=estimateFromSource(source,upcoming);
     if(!evidence)continue;
-    const resolved=resolveNearbyLoad(upcoming,evidence.raw,equipment,{min:evidence.raw*.9,max:evidence.raw});
-    if(resolved.weight===null||!resolved.verified)continue;
+    const resolved=resolveSuggestedLoad(upcoming,evidence.raw,equipment,{min:evidence.raw*.9,max:evidence.raw});
+    if(resolved.weight===null)continue;
     const kg=resolved.weight;
     return {
-      kg,source:'estimated_cross_exposure',confidence:'provisional',
+      kg,availability:resolved.availability,source:'estimated_cross_exposure',confidence:'provisional',
       reason:'Stima prudente da serie confermate dello stesso esercizio con ripetizioni/RPE diversi. '+
         'Carico iniziale indicativo: verifica con avvicinamento e correggi in base all’RPE percepito.',
       basedOn:{name:source.name,kg:evidence.sourceKg,

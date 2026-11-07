@@ -80,7 +80,7 @@ test('primary and fallback agree when the nearest owned increase exceeds the sma
  const source=ex([set(20,8,100),set(20,8,100),set(20,8,100)],{name:'Leg press',equipment:'machine'});
  const equipment={machine:1,availableLoads:{machine:[100,104]}};
  const primary=nextBlockDecision(source,0,equipment),fallback=recommendNextSessionLoad(source,{equipmentSettings:equipment});
- assert.equal(primary.weight,104);assert.equal(fallback.suggestedWeight,primary.weight);assert.equal(primary.verified,true);assert.equal(fallback.verified,true);
+ assert.equal(primary.weight,101);assert.equal(fallback.suggestedWeight,primary.weight);assert.equal(primary.verified,false);assert.equal(fallback.verified,false);
 });
 
 test('fallback cannot merge high-rep blocks with different RPE prescriptions',()=>{

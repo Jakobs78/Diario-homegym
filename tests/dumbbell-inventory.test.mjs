@@ -15,14 +15,14 @@ test('one-arm rows can use a single piece; paired and unilateral leg exercises n
  assert.deepEqual(availableDumbbellLoads({name:'Bulgarian Split Squat con Manubri',unilateral:true},stock),[20]);
  assert.deepEqual(availableDumbbellLoads({name:'Goblet Squat con Manubrio'},stock),[20,30]);
  assert.equal(resolvePlannedLoad(row,30,stock).weight,30);
- assert.equal(resolvePlannedLoad(press,30,stock).weight,20);
+ assert.equal(resolvePlannedLoad(press,30,stock).weight,30);
  assert.equal(resolveNearbyLoad(row,32,stock,{min:30.01}).weight,null);
 });
 test('unknown legacy quantities retain old behavior; an empty confirmed inventory proves no stock',()=>{
  assert.deepEqual(availableDumbbellLoads(row,{availableLoads:{dumbbell:[20,30]}}),[20,30]);
  assert.equal(availableDumbbellLoads(row,{}),undefined);
  assert.deepEqual(availableDumbbellLoads(row,{ownedDumbbells:[],availableLoads:{dumbbell:[30]}}),[]);
- assert.equal(resolvePlannedLoad(row,30,{ownedDumbbells:[]}).weight,null);
+ assert.equal(resolvePlannedLoad(row,30,{ownedDumbbells:[]}).weight,30);
 });
 test('quantities are copied into generation snapshots and invalidate stale previews',()=>{
  const snapshot=snapshotEquipmentState(stock);

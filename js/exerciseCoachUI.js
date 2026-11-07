@@ -10,7 +10,7 @@ export function renderExerciseCoachPanel(card,exercise,context={}) {
     const count=Math.max(exercise.loggedSets?.length||0,exercise.sets?.length||0);
     const prefills=context.getPrefill?Array.from({length:count},(_,i)=>context.getPrefill(i)):context.prefills;
     const target=card.querySelector('.target-box');
-    if(target)target.innerHTML=exerciseTargetMarkup(exercise,prefills||[],{readOnly:context.readOnly});
+    if(target)target.innerHTML=exerciseTargetMarkup(exercise,prefills||[],{readOnly:context.readOnly,equipmentSettings:context.equipmentSettings});
     const model=exerciseCoachModel(exercise,{...context,prefills});
     const signature=JSON.stringify(model);
     if(signatures.get(card)===signature)return model;

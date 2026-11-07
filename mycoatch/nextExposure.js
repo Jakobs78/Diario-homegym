@@ -5,7 +5,7 @@ import {recommendNextSessionReps} from './nextSessionReps.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
 import {exerciseIdentity} from './exerciseIdentity.js';
 import {isWarmupExercise,isWarmupSet,validPerformedSet,plannedWorkSetCount} from '../js/workoutSemantics.js';
-import {recommendNextSessionLoad,resolveNearbyLoad,equipmentCategory} from './loadProposal.js';
+import {recommendNextSessionLoad,resolveNearbyLoad,equipmentCategory,availabilityNote} from './loadProposal.js';
 /** One decision payload for the next exposure; never mutate prescriptions or results. */
 export function recommendNextExposure(previous,upcoming,equipment={},readiness=null){
     if(isExerciseSkipped(previous)||isExerciseSkipped(upcoming)||!previous||!upcoming||isWarmupExercise(previous)||isWarmupExercise(upcoming)||upcoming.coachWeeklyLoadReview||upcoming.isDeload||upcoming.isDeloadWeek)return null;
@@ -38,9 +38,11 @@ export function recommendNextExposure(previous,upcoming,equipment={},readiness=n
         basedOn:sets.map(s=>({weight:s.weight,reps:s.reps,rpe:s.rpe??null,performedAt:s.performedAt||s.completedAt||null})),confidence:'provisional'};
     if(readiness?.level==='stop')return {...result,weight:null,suppressLoad:true,reason:'Dolore segnalato: rivaluta il movimento prima di proporre un carico.'};
     if(restContext.message)result.reason+=' '+restContext.message;
-    if(restContext.allowProgression&&decision?.nextReps)return {...result,reps:decision.nextReps,kind:'build_reps',reason:decision.reason+(restContext.message?' '+restContext.message:'')};
-    if(restContext.allowProgression&&decision?.suggestedWeight&&(decision.verified||decision.evidence==='high_reps')){result.weight=decision.suggestedWeight;result.kind='increase_load';result.reason=decision.reason+(restContext.message?' '+restContext.message:'');result.reps=reps.map(()=>decision.repGoal||Number(range[1]));}
+    const previousAvailability=resolveNearbyLoad(upcoming,result.weight,equipment,{min:result.weight,max:result.weight});
+    if(previousAvailability.verified&&previousAvailability.weight===null)result.availability='unavailable';
+    if(restContext.allowProgression&&decision?.nextReps)return {...result,reps:decision.nextReps,kind:'build_reps',reason:decision.reason+(restContext.message?' '+restContext.message:'')+availabilityNote({availability:result.availability,reason:previousAvailability.reason})};
+    if(!restChanged&&restContext.allowProgression&&decision?.suggestedWeight&&decision.eligible){result.weight=decision.suggestedWeight;result.kind='increase_load';result.reason=decision.reason+(restContext.message?' '+restContext.message:'');result.reps=reps.map(()=>decision.repGoal||Number(range[1]));}
     const available=resolveNearbyLoad(upcoming,result.weight,equipment,{min:result.weight,max:result.weight});
-    if(available.verified&&available.weight===null)return {...result,weight:null,suppressLoad:true,reason:'La prestazione precedente resta visibile, ma il suo carico non è componibile con l’attrezzatura attuale: calibra il nuovo carico.'};
+    if(available.verified&&available.weight===null){result.availability='unavailable';if(!result.reason.includes('attrezzatura salvata'))result.reason+=availabilityNote(result);}
     return result;
 }

@@ -1,3 +1,4 @@
+import {openUserDefaults} from './userDefaultsUI.js';
 import {normalizeOwnedDumbbells} from '../mycoatch/dumbbellInventory.js';
 import {initHeaderScroll} from './headerScroll.js';
 import {setupAppUpdates} from './appUpdates.js';
@@ -180,6 +181,7 @@ function setManualButtonLabel(open){
     if(label)label.textContent=open?'✖️ Chiudi manuale':'📖 Manuale d’uso';
 }
 function setupEventListeners() {
+    document.getElementById('edit-user-defaults')?.addEventListener('click',openUserDefaults);
     document.getElementById('theme-toggle-btn')?.addEventListener('click', toggleTheme);
     document.addEventListener('keydown',event=>{
         const tools=document.getElementById('tools-modal');

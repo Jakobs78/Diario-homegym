@@ -1,3 +1,4 @@
+import {refreshUserDefaultsPrompt} from './userDefaultsUI.js';
 import {saveAndSync} from './storage.js';
 import {updateTrainingResumeUI,createTrainingPlanSelection} from './trainingResumeUI.js';
 import {pauseOvernightSession} from '../mycoatch/trainingResume.js';
@@ -134,6 +135,7 @@ document.addEventListener('click', (e) => {
 // 4. RENDERING SCHEDA ALLENAMENTO
 // ==========================================
 export function renderWorkoutList() {
+    refreshUserDefaultsPrompt();
     updateTrainingResumeUI(renderWorkoutList);
     // Cambiare esercizio, settimana o seduta non deve lasciare consigli obsoleti.
     dismissLiveCoachToast();

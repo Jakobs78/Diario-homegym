@@ -122,7 +122,7 @@ test('warmups, unfinished sources and unavailable plate increments never rewrite
     assert.equal(previewFutureLoadReview(m,1,0,0,settings),null);
     m.weeks[0].days[0].exercises[0].isWarmup=false;
     const noPlates={equipmentSettings:{barbell:2.5,barbellWeight:20,platePairs:{}}};
-    assert.equal(previewFutureLoadReview(m,1,0,0,noPlates),null);
+    const proposed=previewFutureLoadReview(m,1,0,0,noPlates);assert.equal(proposed.source.to,82.5);assert.match(proposed.reason,/attrezzatura salvata|riferimento indicativo/);
 });
 
 test('CSV con carichi futuri vuoti: proposta reversibile e solo sulla prossima esposizione',()=>{
@@ -159,7 +159,7 @@ test('CSV importato non sovrascrive target espliciti o parziali',()=>{
 });
 
 
-test('weight-only future review cannot apply a jump that requires new repetition targets',()=>{
+test('weight-only future review offers a bounded theoretical step without rewriting repetitions',()=>{
     const m=mesocycle();
     for(const week of m.weeks){
         const ex=week.days[0].exercises[0];
@@ -167,6 +167,6 @@ test('weight-only future review cannot apply a jump that requires new repetition
         if(week.weekNumber===1)ex.loggedSets=Array.from({length:3},()=>performed(70,12,7));
     }
     const before=structuredClone(m);
-    assert.equal(previewFutureLoadReview(m,1,0,0,{equipmentSettings:{barbell:5}}),null);
+    assert.equal(previewFutureLoadReview(m,1,0,0,{equipmentSettings:{barbell:5}}).source.to,73.5);
     assert.deepEqual(m,before);
 });

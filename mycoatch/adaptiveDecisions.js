@@ -3,7 +3,7 @@ import {isBodyweightExercise} from './bodyweight.js';
  * Decisioni conservative e spiegabili. Nessuna diagnosi di crescita muscolare:
  * kg, reps, volume e RPE descrivono prestazione, stimolo e tolleranza al lavoro.
  */
-import { getAvailableLoadStep, resolvePlannedLoad, resolveNearbyLoad } from './loadProposal.js';
+import { getAvailableLoadStep, resolvePlannedLoad, resolveSuggestedLoad, availabilityNote } from './loadProposal.js';
 const roundLoad = kg => Math.max(0, Math.round(kg * 4) / 4);
 
 export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
@@ -27,15 +27,14 @@ export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
             reason='Esercizio a corpo libero: valuta ripetizioni e RPE, senza stimare un massimale dal sovraccarico esterno o applicare incrementi dei pesi.';
         } else if (exercise.fatigueConcern && kg !== null) {
             action = 'reduce_load';
-            // Use the athlete's actual loading increment, and never suggest
-            // a reduction whose physical load is unavailable. A fatigue
-            // signal is not permission to invent smaller plates or dumbbells.
+            // Compute the performance-based reduction; ownership only
+            // annotates the reference and never invents available plates.
             const {step}=getAvailableLoadStep(exercise,loadingSteps,kg);
             const candidate=roundLoad(Math.max(kg * 0.95,kg-step));
             const resolved=resolvePlannedLoad(exercise,candidate,loadingSteps);
             if(resolved.weight !== null && resolved.weight < kg) {
                 plannedKg=resolved.weight;
-                reason='RPE realmente elevato in esposizioni confrontabili: valuta un alleggerimento componibile e il recupero prima della prossima seduta.';
+                reason='RPE realmente elevato in esposizioni confrontabili: valuta un alleggerimento e il recupero prima della prossima seduta.';
             } else {
                 action='review_recovery';
                 plannedKg=kg;
@@ -46,7 +45,7 @@ export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
             const increment = getAvailableLoadStep(exercise,loadingSteps,kg).step;
             if (increment / kg <= 0.10) {
                 action = 'increase_load';
-                plannedKg = resolveNearbyLoad(exercise,kg+increment,loadingSteps,{min:kg+.01,max:kg*1.10,origin:kg}).weight;
+                plannedKg = resolveSuggestedLoad(exercise,kg+increment,loadingSteps,{min:kg+.01,max:kg*1.10,origin:kg}).weight;
                 if(plannedKg===null){plannedKg=kg;action='maintain';unavailableIncrement=true;}
                 reason = exercise.progressionEvidence?.progressionTrigger === 'low_rpe'
                     ? 'Due settimane diverse: tutte le serie confermate entro il range di ripetizioni con RPE almeno 1 punto sotto il target. Incremento minimo proporzionato al carico e alla tua attrezzatura.'
@@ -84,6 +83,7 @@ export function planAdaptiveDecisions(report,{loadingSteps={}}={}) {
             reason='Le prestazioni consentono una progressione, ma i dischi disponibili non compongono il carico proposto. Mantieni i kg e riconferma ripetizioni e RPE.';
         }
 
+        if(plannedKg!==null)reason+=availabilityNote(resolvePlannedLoad(exercise,plannedKg,loadingSteps));
         byExercise[key] = {
             exercise: exercise.name,
             action,

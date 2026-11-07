@@ -87,7 +87,7 @@ test('non confonde configurazione mancante con un peso non componibile',()=>{
  assert.equal(settings.barbellAssignments[key].weight,20);
  const history={byExercise:{[key]:{lastWorkingKg:62.5}},exerciseNotes:{}};
  let plan=generateSmartMesocycle({...config,equipmentSettings:settings},history);
- assert.match(plan.weeks[0].days[0].exercises[0].notes,/non è componibile/);
+ assert.match(plan.weeks[0].days[0].exercises[0].notes,/attrezzatura salvata/);
  delete settings.barbellAssignments;
  plan=generateSmartMesocycle({...config,equipmentSettings:settings},history);
  assert.match(plan.weeks[0].days[0].exercises[0].notes,/ATTREZZATURA DA CONFIGURARE/);

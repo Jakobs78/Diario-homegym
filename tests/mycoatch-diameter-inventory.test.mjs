@@ -16,8 +16,8 @@ test('entrambi i diametri supportano tutti i dieci tagli, compreso 25 kg',()=>{
 });
 test('nessun prestito di microdischi fra 29 e 50 mm',()=>{
  assert.equal(resolvePlannedLoad(ex,70,equipment).weight,70);
- assert.equal(resolvePlannedLoad(ex,72.5,equipment).weight,null);
- assert.equal(recommendNextSessionLoad(ex,{equipmentSettings:equipment}).suggestedWeight,null);
+ assert.equal(resolvePlannedLoad(ex,72.5,equipment).weight,72.5);assert.equal(resolvePlannedLoad(ex,72.5,equipment).verified,false);
+ assert.equal(recommendNextSessionLoad(ex,{equipmentSettings:equipment}).suggestedWeight,72.5);
  const other=structuredClone(equipment);other.barbellAssignments[key].diameter='29';
  assert.equal(resolvePlannedLoad(ex,72.5,other).weight,72.5);
  assert.equal(recommendNextSessionLoad(ex,{equipmentSettings:other}).suggestedWeight,72.5);
@@ -26,8 +26,8 @@ test('nessun prestito di microdischi fra 29 e 50 mm',()=>{
 test('inventario legacy e diametro mancante non diventano disponibilità verificata',()=>{
  const legacy={platePairs:{'25':2}};const saved=JSON.stringify(legacy);
  assert.equal(compatiblePlates(ex,legacy),null);
- assert.equal(resolvePlannedLoad(ex,70,legacy).weight,null);
- assert.equal(resolvePlannedLoad(ex,70,{plateInventories:equipment.plateInventories}).weight,null);
+ assert.equal(resolvePlannedLoad(ex,70,legacy).weight,70);
+ assert.equal(resolvePlannedLoad(ex,70,{plateInventories:equipment.plateInventories}).weight,70);
  assert.equal(JSON.stringify(legacy),saved);
 });
 
