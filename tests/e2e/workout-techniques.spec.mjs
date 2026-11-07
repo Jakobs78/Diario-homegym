@@ -719,22 +719,26 @@ for(const type of ['superset','triset'])test('passaggio '+type+': popup 3 second
   state.workoutData={athlete:{},history:{years:{2026:{mesocycles:[{weeks:[{weekNumber:1,days:[{dayNumber:1,exercises}]}]}]}}}};
   state.currentYear='2026';state.activeMesocycleIndex=0;state.activeWeek=1;state.activeDay=1;renderWorkoutList();
   window.__roundScrolls=[];const original=Element.prototype.scrollIntoView;
-  Element.prototype.scrollIntoView=function(options){if(this.matches('.ex-card'))window.__roundScrolls.push(this.dataset.ex);return original.call(this,options);};
+  Element.prototype.scrollIntoView=function(options){if(this.matches('.ex-card,.workout-set-row'))window.__roundScrolls.push(this.closest('.ex-card').dataset.ex);return original.call(this,options);};
  },type);
  await page.clock.install({time:new Date('2026-11-02T12:00:00Z')});await page.clock.pauseAt(new Date('2026-11-02T12:01:00Z'));
  const count=type==='triset'?3:2;
  // Completing a partial round never announces another round.
- for(let i=0;i<count-1;i++){await confirmSet(page,i);await expect(page.locator('.circuit-round-popup')).toHaveCount(0);}
+ for(let i=0;i<count-1;i++){
+  await confirmSet(page,i);await expect(page.locator('.circuit-round-popup')).toHaveCount(0);
+  await expect(page.locator('.ex-card[data-ex="'+(i+1)+'"] .workout-set-row[data-set-index="0"]')).toBeInViewport();
+ }
  await confirmSet(page,count-1);
  await expect(page.locator('.circuit-round-popup')).toHaveText('Si riparte col giro 2');
  await expect(page.locator('#floating-timer')).toHaveClass(/active/);
  await page.clock.runFor(2999);
  await expect(page.locator('.circuit-round-popup')).toBeVisible();
- expect(await page.evaluate(()=>window.__roundScrolls)).toEqual([]);
+ expect(await page.evaluate(()=>window.__roundScrolls)).toEqual(Array.from({length:count-1},(_,i)=>String(i+1)));
  const layers=await page.evaluate(()=>({timer:+getComputedStyle(document.querySelector('#floating-timer')).zIndex,popup:+getComputedStyle(document.querySelector('.circuit-round-popup')).zIndex}));
  expect(layers.timer).toBeGreaterThan(layers.popup);
  await page.clock.runFor(1);await expect(page.locator('.circuit-round-popup')).toHaveCount(0);
- expect(await page.evaluate(()=>window.__roundScrolls)).toEqual(['0']);
+ expect(await page.evaluate(()=>window.__roundScrolls)).toEqual([...Array.from({length:count-1},(_,i)=>String(i+1)),'0']);
+ await expect(page.locator('.ex-card[data-ex="0"] .workout-set-row[data-set-index="1"]')).toBeInViewport();
  await expect(page.locator('#floating-timer')).toBeInViewport();
  expect(await page.locator('#timer-display').textContent()).toContain('1:27');
  for(let i=0;i<count;i++)await confirmSet(page,i,1);
