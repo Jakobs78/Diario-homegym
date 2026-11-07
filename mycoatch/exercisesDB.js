@@ -9,12 +9,12 @@ const RAW_EXERCISES = [
     // --- PETTO / SPINTA ---
     { name: "Panca Piana con Bilanciere", category: "Petto", pattern: "horizontal_push", equipment: "barbell", cnsCost: 8, profile: "Curva bilanciata - Max tensione medio-range", defaultReps: "6-8", defaultKg: "" },
     { name: "Panca Inclinata con Manubri", category: "Petto", pattern: "horizontal_push", equipment: "dumbbell", cnsCost: 6, profile: "Enfasi fascio clavicolare - Ottimizzazione ROM", defaultReps: "8-10", defaultKg: "" },
-    { name: "Dip alle Parallele (sovraccarico)", category: "Petto", pattern: "vertical_push", equipment: "bodyweight", cnsCost: 7, profile: "Forte enfasi in allungamento sul basso petto", defaultReps: "8-12", defaultKg: "" },
+    { name: "Dip alle Parallele (sovraccarico)", externalLoadAllowed:true, category: "Petto", pattern: "vertical_push", equipment: "bodyweight", cnsCost: 7, profile: "Forte enfasi in allungamento sul basso petto", defaultReps: "8-12", defaultKg: "" },
     { name: "Croci ai Cavi in Allungamento", category: "Petto", pattern: "isolation", equipment: "cable", cnsCost: 3, profile: "Isolamento del petto - curva dipendente da assetto e pulegge", defaultReps: "12-15", defaultKg: "" },
     { name: "Croci con Manubri su Panca Piana", category: "Petto", pattern: "isolation", equipment: "dumbbell", cnsCost: 3, defaultReps: "10-15", defaultKg: "" },
 
     // --- SCHIENA / TRAZIONE ---
-    { name: "Trazioni alla Sbarra (Pull-up)", category: "Back_Lats", pattern: "vertical_pull", equipment: "bodyweight", cnsCost: 7, profile: "Catena cinetica chiusa - Gran dorsale e teres major", defaultReps: "6-8", defaultKg: "" },
+    { name: "Trazioni alla Sbarra (Pull-up)", externalLoadAllowed:true, category: "Back_Lats", pattern: "vertical_pull", equipment: "bodyweight", cnsCost: 7, profile: "Catena cinetica chiusa - Gran dorsale e teres major", defaultReps: "6-8", defaultKg: "" },
     { name: "Lat Machine con Triangolo", category: "Back_Lats", pattern: "vertical_pull", equipment: "lat_machine", cnsCost: 5, profile: "Vettore adduzione/estensione - Curva stabile", defaultReps: "8-10", defaultKg: "" },
     { name: "Rematore con Bilanciere", category: "Back_Thickness", pattern: "horizontal_pull", equipment: "barbell", cnsCost: 8, profile: "Spessore mid-traps e romboidi - Carico alto", defaultReps: "6-8", defaultKg: "" },
     { name: "Rematore Unilaterale al Cavo Basso", category: "Back_Thickness", pattern: "horizontal_pull", equipment: "cable", cnsCost: 5, defaultReps: "8-12", defaultKg: "" },
@@ -47,7 +47,7 @@ const RAW_EXERCISES = [
     { name: "Curl ai Cavi Bassi", category: "Bicipiti", pattern: "isolation", equipment: "cable", cnsCost: 3, defaultReps: "10-15", defaultKg: "" },
     // --- COMPLEMENTARI, VARIANTI E DISTRETTI NON COPERTI ---
     { name: "Panca Inclinata con Bilanciere", category: "Petto", pattern: "horizontal_push", equipment: "barbell", cnsCost: 7, defaultReps: "6-10", defaultKg: "" },
-    { name: "Push-up a Terra", category: "Petto", pattern: "horizontal_push", equipment: "bodyweight", cnsCost: 4, defaultReps: "8-20", defaultKg: "" },
+    { name: "Push-up a Terra", externalLoadAllowed:true, category: "Petto", pattern: "horizontal_push", equipment: "bodyweight", cnsCost: 4, defaultReps: "8-20", defaultKg: "" },
     { name: "Panca Stretta con Bilanciere", category: "Tricipiti", pattern: "horizontal_push", equipment: "barbell", cnsCost: 7, defaultReps: "6-10", defaultKg: "" },
     { name: "Lat Machine Presa Larga", category: "Back_Lats", pattern: "vertical_pull", equipment: "lat_machine", cnsCost: 5, defaultReps: "8-12", defaultKg: "" },
     { name: "Lat Machine Presa Supina", category: "Back_Lats", pattern: "vertical_pull", equipment: "lat_machine", cnsCost: 5, defaultReps: "8-12", defaultKg: "" },
@@ -66,7 +66,7 @@ const RAW_EXERCISES = [
     { name: "Curl Martello con Manubri", category: "Bicipiti", pattern: "isolation", equipment: "dumbbell", cnsCost: 3, defaultReps: "8-12", defaultKg: "" },
     { name: "Estensioni Tricipiti Sopra la Testa ai Cavi", category: "Tricipiti", pattern: "isolation", equipment: "cable", cnsCost: 3, defaultReps: "10-15", defaultKg: "" },
     { name: "Calf Raise in Piedi con Manubri", category: "Polpacci", pattern: "isolation", equipment: "dumbbell", cnsCost: 3, defaultReps: "10-20", defaultKg: "" },
-    { name: "Calf Raise Monopodalico", category: "Polpacci", pattern: "isolation", equipment: "bodyweight", cnsCost: 2, defaultReps: "12-20", defaultKg: "" },
+    { name: "Calf Raise Monopodalico", externalLoadAllowed:true, category: "Polpacci", pattern: "isolation", equipment: "bodyweight", cnsCost: 2, defaultReps: "12-20", defaultKg: "" },
     { name: "Crunch ai Cavi", category: "Core", pattern: "isolation", equipment: "cable", cnsCost: 3, defaultReps: "10-20", defaultKg: "" },
     { name: "Reverse Crunch su Panca", category: "Core", pattern: "isolation", equipment: "bodyweight", cnsCost: 2, defaultReps: "12-20", defaultKg: "" },
     { name: "Pallof Press ai Cavi", category: "Core", pattern: "isolation", equipment: "cable", cnsCost: 3, defaultReps: "8-15", defaultKg: "" },

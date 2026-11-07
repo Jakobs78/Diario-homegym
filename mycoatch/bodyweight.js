@@ -7,6 +7,6 @@ export function bodyweightMetadata(ex={}){
     const name=mapped?ex.catalogMapping.name:ex.name;
     const meta=catalog.get(canonicalExerciseKey(name));
     const equipment=String(mapped?ex.catalogMapping.equipment||meta?.equipment||ex.equipment:ex.equipment||meta?.equipment||'').toLowerCase();
-    return equipment==='bodyweight'?{unloaded:meta?.externalLoadAllowed===false}:null;
+    return equipment==='bodyweight'?{unloaded:meta?.externalLoadAllowed===false,loadable:meta?.externalLoadAllowed===true||!meta&&ex.externalLoadAllowed===true}:null;
 }
 export const isBodyweightExercise=ex=>bodyweightMetadata(ex)!==null;
