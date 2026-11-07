@@ -39,9 +39,6 @@ export function renderExerciseCoachPanel(card,exercise,context={}) {
         }else p.append(document.createTextNode(entry.text));
         updates.append(p);
     }
-    for(const text of model.references){
-        const p=document.createElement('p');p.className='coach-reference-source';p.textContent=text;updates.append(p);
-    }
     updates.hidden=!model.updates.length;
     panel.hidden=!model.instructions.length&&!model.updates.length;
     panel.querySelector('.exercise-coach-updates').hidden=updates.hidden;
