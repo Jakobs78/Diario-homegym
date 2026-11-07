@@ -49,6 +49,7 @@ const HIGH_CABLE_EXERCISES = new Set([
 const LOW_CABLE_EXERCISES = new Set([
     'Rematore Unilaterale al Cavo Basso',
     'Pulley Basso con Triangolo', 'Pulley Basso con Barra a U',
+    'French Press con Corda al Cavo Basso su Panca Inclinata',
     'Pulley Basso a T', 'Curl ai Cavi Bassi', 'Leg Curl ai Cavi (cavigliera)',
     'Alzate Laterali ai Cavi', 'Pull-through ai Cavi'
 ]);

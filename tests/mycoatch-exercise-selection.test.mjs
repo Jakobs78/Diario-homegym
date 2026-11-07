@@ -16,8 +16,17 @@ const noHistory = { byExercise: {}, stalledExercises: [], exerciseNotes: {} };
 const plan = (config = {}, previous = null) =>
     generateSmartMesocycle({ ...base, ...config }, noHistory, previous);
 
+test('French press con corda inclinata richiede cavo basso, corda e panca inclinabile',()=>{
+    const exercise=EXERCISE_DATABASE.find(e=>e.name==='French Press con Corda al Cavo Basso su Panca Inclinata');
+    for(const cableSetup of ['none','high_only','low_only','single_high_low','dual_adjustable']){
+        const available=normalizeSelectionPreferences({availableEquipment:['cable'],availableAccessories:['rope_attachment','incline_bench'],cableSetup});
+        assert.equal(isExerciseAvailable(exercise,available),!['none','high_only'].includes(cableSetup),cableSetup);
+        for(const accessories of [[],['rope_attachment'],['incline_bench']])assert.equal(isExerciseAvailable(exercise,{...available,availableAccessories:accessories}),false);
+    }
+});
+
 test('catalogo esteso con ID stabili, categorie e dotazioni esplicite', () => {
-    assert.equal(EXERCISE_DATABASE.length, 71);
+    assert.equal(EXERCISE_DATABASE.length, 72);
     assert.equal(new Set(EXERCISE_DATABASE.map(e => e.id)).size, EXERCISE_DATABASE.length);
     assert.equal(new Set(EXERCISE_DATABASE.map(e => e.name)).size, EXERCISE_DATABASE.length);
     assert.ok(EXERCISE_DATABASE.every(ex =>
