@@ -1,9 +1,10 @@
+import {userDefaults} from './userDefaults.js';
 import {recentPainReports} from './limitationsReview.js';
 // mycoatch/mycoatch-adapter.js
 import { MyCoatch, downloadMesocycleCSV } from './index.js';
 import { getFromLocalStorageForUser } from '../js/storage.js';
 import { state } from '../js/state.js';
-import { latestSavedProfile, latestSavedSettings, snapshotEquipmentState } from './profileJournal.js';
+import { latestSavedProfile, snapshotEquipmentState } from './profileJournal.js';
 import { pullDataFromSupabase } from '../js/sync.js';
 import { formatCoachReview } from './mesocycleComparison.js';
 import { locateClosedMesocycle } from './closureHandoff.js';
@@ -28,16 +29,16 @@ export async function generateAndDownloadMesocycleCSV(options = {}) {
             Boolean(data?.history?.years && Object.values(data.history.years)
                 .some(year => Array.isArray(year?.mesocycles) && year.mesocycles.length));
 
-        let userHistory = hasHistory(state.workoutData) ? state.workoutData : null;
+        let userHistory = (hasHistory(state.workoutData)||state.workoutData?.athlete) ? state.workoutData : null;
         if (!userHistory) {
             const local = getFromLocalStorageForUser(state.currentUser);
             if (local) {
-                if (hasHistory(local)) userHistory = local;
+                if (hasHistory(local)||local.athlete) userHistory = local;
             }
         }
         if (!userHistory && state.currentUser) {
             const remote = await pullDataFromSupabase(state.currentUser);
-            if (hasHistory(remote)) userHistory = remote;
+            if (hasHistory(remote)||remote?.athlete) userHistory = remote;
         }
         userHistory ||= {};
 
@@ -146,7 +147,7 @@ export function startCoachChatAndGenerate(mesocycleOrEvent = null) {
     if (feedback) feedback.textContent = '';
 
     const saved=latestSavedProfile(state.workoutData);
-    const settings=latestSavedSettings(state.workoutData);
+    const settings=userDefaults(state.workoutData);
     const set=(id,value)=>{const node=document.getElementById(id);if(node)node.value=value??'';};
     if(settings){
         for(const [key,id] of Object.entries({userAge:'input-age',daysPerWeek:'select-days',durationWeeks:'mycoatch-weeks',
@@ -161,9 +162,9 @@ export function startCoachChatAndGenerate(mesocycleOrEvent = null) {
             if(!standard && custom)custom.value=String(minutes);
         }
         document.querySelectorAll('.mycoatch-base-equipment-check').forEach(input=>{input.checked=Array.isArray(settings.availableEquipment)?settings.availableEquipment.includes(input.value):input.defaultChecked;});
-        document.querySelectorAll('.mycoatch-machine-check').forEach(input=>{input.checked=settings.availableMachines?.includes(input.value)===true;});
-        document.querySelectorAll('.mycoatch-accessory-check').forEach(node=>{
-            node.checked=settings.availableAccessories?.includes(node.value)===true;
+        if(Array.isArray(settings.availableMachines))document.querySelectorAll('.mycoatch-machine-check').forEach(input=>{input.checked=settings.availableMachines.includes(input.value);});
+        if(Array.isArray(settings.availableAccessories))document.querySelectorAll('.mycoatch-accessory-check').forEach(node=>{
+            node.checked=settings.availableAccessories.includes(node.value);
         });
         for(const lift of ['bench','squat','military','hinge'])
             set('mycoatch-lift-'+lift,settings.preferredLifts?.[lift] || 'auto');

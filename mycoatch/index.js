@@ -1,3 +1,5 @@
+import {userDefaults} from './userDefaults.js';
+import {latestSavedProfile} from './profileJournal.js';
 import {rowEquipmentLimit} from './equipmentSubstitution.js';
 // mycoatch/index.js
 import { coachState } from './state.js';
@@ -23,7 +25,9 @@ export const MyCoatch = {
      */
     generateNextFromHistory(userHistory, goalSettings = {}) {
         // Analisi longitudinale: tutti gli anni e i mesocicli, soltanto serie confermate.
-        const { closureSource, ...coachingGoals } = goalSettings;
+        const { closureSource, ...explicitGoals } = goalSettings;
+        const savedProfile=latestSavedProfile(userHistory);
+        const coachingGoals={...userDefaults(userHistory),...(savedProfile?{athleteProfile:savedProfile}:{}),...explicitGoals};
         // The closure button supplies a locator, not a cached mesocycle.
         // Reject a reopened or replaced source rather than silently using a
         // different block after asynchronous sync/import operations.

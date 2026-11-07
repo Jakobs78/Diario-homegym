@@ -12,7 +12,6 @@ import {compatiblePlates,PLATE_SIZES} from './barbellInventory.js';
  * A low RPE (e.g. 6 observed versus 7 prescribed) is evidence only when
  * repeated across ALL the exercise's homogeneous working sets.
  */
-import { getPlateBreakdown } from '../js/helpers.js';
 import { plannedWorkSetCount } from '../js/workoutSemantics.js';
 import {estimateE1rm} from './historyAnalysis.js';
 const number=value=>{
@@ -56,16 +55,13 @@ export function getAvailableLoadStep(ex, settings={},weight=null) {
         configured:custom!==null&&custom>=0.25&&custom<=25
     };
 }
-/** Declared steps/inventory first; unknown loads are explicitly provisional. */
+/** Training increments do not depend on the next owned weight. */
 export function getHighRepIncrement(ex,settings={},weight){
     const step=getAvailableLoadStep(ex,settings,weight);
-    const owned=step.type==='dumbbell'?availableDumbbellLoads(ex,settings):settings.availableLoads?.[step.type];
-    if(Array.isArray(owned)){
-        const next=owned.map(number).filter(x=>x!==null&&x>weight+.001).sort((a,b)=>a-b)[0];
-        return next===undefined?step.step:next-weight;
-    }
-    if(step.configured||step.type==='barbell'&&(settings.plateInventories||settings.platePairs))return step.step;
-    return Math.max(1,Math.round(weight*(step.type==='dumbbell'?.05:.025)*2)/2);
+    // Performance progression uses the configured increment, not the next
+    // owned weight. Ownership is checked separately after the proposal.
+    if(step.configured)return step.step;
+    return Math.max(1,Math.round(weight*HIGH_REP_POLICY.defaultIncrease*2)/2);
 }
 const roundLoad=value=>Math.round(value*100)/100;
 
@@ -104,6 +100,30 @@ export function resolveNearbyLoad(ex, requested, settings={}, {min=0.01,max=700,
         .map(roundLoad).filter(x=>x>=min-1e-8&&x<=max+1e-8&&x>0)
         .sort((a,b)=>Math.abs(a-raw)-Math.abs(b-raw)||a-b);
     return {weight:candidates[0]??null,verified:false,reason:configured?'configured_step':'indicative_step'};
+}
+
+/** Keep the performance-based reference even when ownership is unconfirmed. */
+export function resolveSuggestedLoad(ex,requested,settings={},bounds={}) {
+    const {min=0.01,max=700,origin=0}=bounds;
+    const raw=number(requested);
+    if(raw===null||raw<=0||raw>700||min>max)return {weight:null,verified:false,availability:'unknown'};
+    const available=resolveNearbyLoad(ex,raw,settings,{min,max,origin});
+    if(available.weight!==null&&available.verified)return {...available,availability:'available'};
+    const step=getAvailableLoadStep(ex,settings,raw);
+    const neutral=resolveNearbyLoad(ex,raw,{loadingSteps:{[step.type]:step.step}},{min,max,origin});
+    const fallback=Math.floor(Math.min(max,Math.max(min,raw))*4+1e-8)/4;
+    const weight=neutral.weight??(fallback>=min&&fallback>0?fallback:null);
+    if(weight===null)return {weight:null,verified:false,availability:'unknown'};
+    const owned=resolveNearbyLoad(ex,weight,settings,{min:weight,max:weight});
+    return {weight,verified:owned.verified&&owned.weight!==null,
+        availability:owned.verified?(owned.weight===null?'unavailable':'available'):'unknown',
+        reason:owned.reason};
+}
+export function availabilityNote(result){
+    if(result.reason==='missing_assignment')return ' Associa bilanciere e dischi per verificare la disponibilità; il carico resta un riferimento indicativo.';
+    return result.availability==='unavailable'
+        ? ' Il carico proposto non risulta nell’attrezzatura salvata: scegli tu il peso utilizzabile, rispettando ripetizioni e RPE.'
+        : result.availability==='unknown'?' Disponibilità del peso da verificare.':'';
 }
 
 /**
@@ -147,11 +167,10 @@ export function recommendNextSessionLoad(ex,{
         if(decision.kind==='build_reps')return {eligible:true,suggestedWeight:null,previousWeight:kg,
             nextReps:(ex.loggedSets||[]).map((s,i)=>({s,i})).filter(({s})=>!warmup(s)).map((_,i)=>decision.nextReps[i]),
             reason:decision.reason,evidence:'build_reps',configured:step.configured,type:step.type};
-        const resolved=resolveNearbyLoad(ex,decision.weight,equipmentSettings||{},{min:kg+.001,max:Math.min(decision.weight*1.025,Math.max(kg*(1+HIGH_REP_POLICY.maxIncrease),decision.weight)),origin:kg});
-        const theoretical=resolved.weight===null;
+        const resolved=resolveSuggestedLoad(ex,decision.weight,equipmentSettings||{},{min:kg+.001,max:decision.weight,origin:kg});
         return {eligible:true,suggestedWeight:resolved.weight??decision.weight,previousWeight:kg,repGoal:decision.reps,
-            reason:decision.reason+(theoretical?' Carico indicativo: l’inventario dichiarato non conferma questo piccolo incremento.':''),
-            evidence:'high_reps',configured:step.configured,type:step.type,verified:!theoretical&&resolved.verified};
+            reason:decision.reason+availabilityNote(resolved),
+            evidence:'high_reps',configured:step.configured,type:step.type,verified:resolved.verified,availability:resolved.availability};
     }
     const extraReps=values.every(v=>v.reps>=range.max&&v.reps<=range.max+2&&v.rpe<=target);
     // First build repetitions. Even easy working sets below the top of the
@@ -167,13 +186,13 @@ export function recommendNextSessionLoad(ex,{
     }
     const {step,type,configured}=getAvailableLoadStep(ex,equipmentSettings||{},kg);
     const cap=type==='dumbbell'?0.1:0.05;
-    let resolved=resolveNearbyLoad(ex,kg+step,equipmentSettings || {},{min:kg+.01,max:kg*(1+cap),origin:kg});
+    let resolved=resolveSuggestedLoad(ex,kg+step,equipmentSettings || {},{min:kg+.01,max:kg*(1+cap),origin:kg});
     let repGoal=null;
     if(resolved.weight===null && range.min<range.max && range.max<=12 && target<=9.5){
         const estimates=values.map(v=>estimateE1rm(v.kg,v.reps,v.rpe));
         if(estimates.every(value=>value!==null)){
             const raw=Math.min(...estimates)/(1+(range.min+10-target)/30);
-            resolved=resolveNearbyLoad(ex,raw,equipmentSettings || {},{
+            resolved=resolveSuggestedLoad(ex,raw,equipmentSettings || {},{
                 min:kg+.01,max:Math.min(kg*1.10,raw),origin:kg
             });
             if(resolved.weight!==null)repGoal=range.min;
@@ -187,31 +206,28 @@ export function recommendNextSessionLoad(ex,{
         eligible:true,suggestedWeight:proposed,previousWeight:kg,step,
         evidence:'top_reps',
         repGoal,
-        reason:'Tutte le serie confermate hanno raggiunto il limite alto con RPE entro target.'+
+        reason:'Tutte le serie confermate hanno raggiunto il limite alto con RPE entro target.'+availabilityNote(resolved)+
             (repGoal?' Con il nuovo peso riparti da '+repGoal+' ripetizioni, senza superare l’RPE previsto.':''),
         configured,type,
-        verified:resolved.verified,
+        verified:resolved.verified,availability:resolved.availability,
         confidence:'single_session_provisional',
         advisory:'Proposta per la prossima seduta, non modifica automatica della scheda. Rivaluta tecnica, recupero e disponibilità reale dei pesi.'
     };
 }
 
 
-/** A configured inventory is authoritative, including an empty inventory.
- * Without inventory, increments remain indicative, never verified stock.
- */
+/** Preserve the performance reference; availability is a separate result. */
 export function resolvePlannedLoad(ex, weight, settings={}) {
     const kg=number(weight);
-    if(kg===null || kg<=0 || kg>700)return {weight:null,verified:false};
-    const {step,type}=getAvailableLoadStep(ex,settings,kg);
-    if(Array.isArray(type==='dumbbell'?availableDumbbellLoads(ex,settings):settings.availableLoads?.[type])||settings.loadLimits?.[type]!==undefined)return resolveNearbyLoad(ex,kg,settings,{max:kg});
-    if(type==='barbell' && (settings.plateInventories || settings.platePairs)){
-        const compatible=compatiblePlates(ex,settings);
-        if(!compatible)return {weight:null,verified:true,reason:'missing_assignment'};
-        const {weight:bar,inventory}=compatible;
-        const exact=Math.abs(kg-bar)<0.001 ||
-            kg>bar && getPlateBreakdown(kg,bar,inventory)?.exact;
-        return {weight:exact?kg:null,verified:true,...(!exact?{reason:'unavailable_load'}:{})};
+    if(kg===null||kg<=0||kg>700)return {weight:null,verified:false,availability:'unknown'};
+    const exact=resolveNearbyLoad(ex,kg,settings,{min:kg,max:kg});
+    if(exact.verified){
+        if(exact.weight!==null)return {...exact,weight:kg,verified:true,availability:'available'};
+        const rounded=Math.round(kg*4)/4;
+        const checked=resolveNearbyLoad(ex,rounded,settings,{min:rounded,max:rounded});
+        return {...checked,weight:rounded,verified:checked.weight!==null,availability:checked.weight===null?'unavailable':'available'};
     }
-    return {weight:Math.round(Math.round(kg/step)*step*100)/100,verified:false};
+    const {step}=getAvailableLoadStep(ex,settings,kg);
+    const rounded=Math.round(Math.round(kg/step)*step*100)/100;
+    return resolveSuggestedLoad(ex,rounded,settings,{min:rounded,max:rounded});
 }

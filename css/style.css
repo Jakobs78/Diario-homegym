@@ -3773,3 +3773,12 @@ body.dark-mode .group-title-badge {
 .muscle-work-table-scroll th, .muscle-work-table-scroll td { padding: .5rem; text-align: left; border-bottom: 1px solid #94a3b8; }
 
 .exercise-original-load { margin-top: .35rem; font-size: .85em; color: #475569; }
+
+.user-defaults-prompt { margin: .6rem 0; padding: .8rem; border: 1px solid #94a3b8; border-radius: .6rem; background: #eff6ff; color: #172033; }
+.user-defaults-prompt p { margin: .3rem 0 .6rem; }
+.user-defaults-dialog { max-width: 620px; width: calc(100% - 2rem); max-height: 85vh; overflow: auto; border: 0; border-radius: .8rem; padding: 1rem; }
+.user-defaults-dialog::backdrop { background: rgba(15,23,42,.55); }
+.user-defaults-dialog fieldset { margin: .7rem 0; }
+.user-defaults-dialog fieldset label { display: block; padding: .25rem 0; }
+.user-defaults-dialog input[type=checkbox] { margin-right: .5rem; }
+.user-defaults-dialog button { margin: .3rem; }

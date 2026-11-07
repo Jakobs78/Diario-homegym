@@ -1,5 +1,5 @@
-const CACHE_NAME = 'workout-app-v97-session-summary-20261106';
-const APP_VERSION = '1.4.7-20261106';
+const CACHE_NAME = 'workout-app-v98-profile-load-advice-20261107';
+const APP_VERSION = '1.4.8-20261107';
 const META_CACHE = 'workout-app-update-state';
 
 // Risorse statiche dell'applicazione
@@ -146,6 +146,8 @@ const ASSETS_TO_CACHE = [
   '/mycoatch/mycoatch-adapter.js',
   '/mycoatch/liveCoach.js',
   '/mycoatch/loadProposal.js',
+  '/mycoatch/userDefaults.js',
+  '/js/userDefaultsUI.js',
   '/mycoatch/nextSessionReps.js',
   '/mycoatch/barbellInventory.js',
   '/mycoatch/futureLoadReview.js',

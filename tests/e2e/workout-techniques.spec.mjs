@@ -834,9 +834,9 @@ test('inventario manubri: peso e quantità persistono, distinguono singolo e cop
   const {resolvePlannedLoad}=await import('/mycoatch/loadProposal.js');
   return {owned:state.workoutData.athlete.ownedDumbbells,bars:state.workoutData.athlete.ownedBarbells,
    row:resolvePlannedLoad({name:'Rematore con Manubrio a Un Braccio'},30,state.workoutData.athlete).weight,
-   press:resolvePlannedLoad({name:'Panca Inclinata con Manubri'},30,state.workoutData.athlete).weight};
+   press:resolvePlannedLoad({name:'Panca Inclinata con Manubri'},30,state.workoutData.athlete).weight,pressAvailable:resolvePlannedLoad({name:'Panca Inclinata con Manubri'},30,state.workoutData.athlete).verified};
  });
- expect(result).toEqual({owned:[{weight:20,quantity:2},{weight:30,quantity:1}],bars:[{weight:20,diameter:'50'}],row:30,press:20});
+ expect(result).toEqual({owned:[{weight:20,quantity:2},{weight:30,quantity:1}],bars:[{weight:20,diameter:'50'}],row:30,press:30,pressAvailable:false});
  expect(await rows.evaluateAll(rows=>rows.every(row=>row.getBoundingClientRect().right<=innerWidth))).toBe(true);
  await page.locator('.equipment-owned-dumbbells').screenshot({path:'../../outputs/inventario-manubri.png'});
  await page.reload();await page.evaluate(()=>{document.getElementById('auth-overlay').style.display='none';});await expect(page.locator('#open-tools-btn')).toBeVisible();

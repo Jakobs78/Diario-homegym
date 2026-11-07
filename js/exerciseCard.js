@@ -99,7 +99,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
 
     cardHtml += `
         <div class="target-box mb-md">
-            ${exerciseTargetMarkup(ex,Array.from({length:Math.max(ex.sets?.length||0,ex.loggedSets?.length||0)},(_,i)=>prefillFor(i)),{readOnly:isPastMeso})}
+            ${exerciseTargetMarkup(ex,Array.from({length:Math.max(ex.sets?.length||0,ex.loggedSets?.length||0)},(_,i)=>prefillFor(i)),{readOnly:isPastMeso,equipmentSettings})}
         </div>
         <section class="exercise-coach-notes" aria-label="Istruzioni e aggiornamenti dell’esercizio">
             <div class="exercise-coach-notes-body">
@@ -253,7 +253,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
 
     exCard.innerHTML = cardHtml;
     exCard.querySelector('.set-table')?.insertAdjacentHTML('afterend',personalNotesMarkup);
-    renderExerciseCoachPanel(exCard,ex,{getPrefill:prefillFor,readOnly:isPastMeso,
+    renderExerciseCoachPanel(exCard,ex,{getPrefill:prefillFor,readOnly:isPastMeso,equipmentSettings,
         nextExposureAdvice,crossExposureAdvice,nextRepAdvice,historySource:previousExposure?.source});
 
     // Il coaching in seduta è calcolato centralmente solo dai set confermati.

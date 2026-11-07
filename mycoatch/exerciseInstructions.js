@@ -67,7 +67,7 @@ export function conciseExerciseInstruction(exercise) {
     if (drop === 'DROP_SET') parts.push('[DROP_SET] [DROP_SCOPE:LAST] Dropset (dropset): solo dopo l’ultima serie riduci il peso ed esegui altre ripetizioni. Registra il nuovo peso a parte.');
     else if (drop === 'REST_PAUSE') parts.push('[REST_PAUSE] Dopo l’ultima serie fai una pausa molto breve, poi completa altre ripetizioni con lo stesso carico finché la tecnica rimane corretta.');
     if (verbose.includes('[ATTREZZATURA DA CONFIGURARE]'))
-        parts.push('Carico non assegnato: indica nel diario il peso e il diametro del bilanciere che usi, insieme ai dischi disponibili. Verifica poi quale peso totale puoi caricare realmente.');
+        parts.push('Carico indicativo: indica nel diario il peso e il diametro del bilanciere che usi, insieme ai dischi disponibili. Verifica poi quale peso totale puoi caricare realmente.');
     else if (verbose.includes('non è componibile'))
         parts.push('Carico da verificare: il peso proposto non si ottiene esattamente con i dischi registrati. Scegli un peso davvero componibile e rispetta le ripetizioni e l’RPE della scheda.');
     else if ((exercise.kgMin === '' || exercise.kgMin == null) &&
@@ -75,6 +75,7 @@ export function conciseExerciseInstruction(exercise) {
         parts.push('Carico da scegliere: dopo il riscaldamento usa un peso con cui completi le ripetizioni previste rispettando l’RPE (8 ≈ 2 ripetizioni ancora possibili). Annota kg, ripetizioni e RPE reali.');
     const estimate=/\[CARICO STIMATO\][^|]*/.exec(verbose);
     if(estimate)parts.push(estimate[0].trim());
+    if(verbose.includes('non risulta nell’attrezzatura salvata'))parts.push('Carico indicativo non presente nell’attrezzatura salvata: scegli il peso utilizzabile rispettando l’RPE.');
     parts.push(cue(exercise));
     // The legacy 12-column CSV must not gain a pseudo-separator in Note.
     const duration = /\[DURATA STIMATA\]\s*\d+\s*minuti\s+su\s+\d+\s+disponibili/.exec(verbose);

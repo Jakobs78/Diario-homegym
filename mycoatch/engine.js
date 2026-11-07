@@ -2,7 +2,7 @@ import {buildWarmupPlan} from './warmupPlan.js';
 import {replacementCatalogExercise} from './equipmentSubstitution.js';
 // mycoatch/engine.js
 import { EXERCISE_DATABASE } from './exercisesDB.js';
-import { resolvePlannedLoad,resolveNearbyLoad } from './loadProposal.js';
+import { resolvePlannedLoad,resolveSuggestedLoad,availabilityNote } from './loadProposal.js';
 import {estimatePrescribedLoad} from './prescribedLoad.js';
 import { isWarmupExercise } from '../js/workoutSemantics.js';
 import { analyzeCompletedMesocycle } from './historyAnalysis.js';
@@ -313,7 +313,7 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                 // equipment profile. Defaults are illustrative.
                 const equipmentSettings=config.equipmentSettings || config.loadingSteps || {};
                 const resolvedLoad=historicalEstimate
-                    ? resolveNearbyLoad(ex,plannedKg,equipmentSettings,{min:plannedKg*.9,max:plannedKg*1.03})
+                    ? resolveSuggestedLoad(ex,plannedKg,equipmentSettings,{min:plannedKg*.9,max:plannedKg*1.03})
                     : resolvePlannedLoad(ex,plannedKg,equipmentSettings);
                 if(historicalEstimate)autoNote+='[CARICO STIMATO] Da '+historicalEstimate.samples+
                     ' esposizioni recenti dello stesso esercizio, e1RM prudente '+
@@ -375,12 +375,9 @@ export function generateSmartMesocycle(config = {}, historicalData = {}, rawLast
                     autoNote += '[QUALITÀ DATI] RPE assente o oltre il target nelle settimane di confronto: carico non aumentato. | ';
                 }
                 if (plannedKg !== null && ex.equipment !== 'bodyweight') {
-                    autoNote += resolvedLoad.verified
-                        ? targetKgMin ? '[ATTREZZATURA] Carico componibile con il bilanciere e i dischi configurati. | '
-                            : resolvedLoad.reason === 'missing_assignment'
-                                ? '[ATTREZZATURA DA CONFIGURARE] Associa a questo esercizio peso e diametro del bilanciere e inventario compatibile. Il carico non è ancora verificabile. | '
-                                : '[ATTREZZATURA] Il carico previsto non è componibile con i dischi configurati. Kg lasciati vuoti: scegli un carico disponibile rispettando il target RPE e registralo. | '
-                        : '[ATTREZZATURA] Arrotondamento indicativo: verifica gli incrementi di peso realmente disponibili. | ';
+                    autoNote += (resolvedLoad.reason==='missing_assignment'?'[ATTREZZATURA DA CONFIGURARE] ':'[ATTREZZATURA] ')+(resolvedLoad.verified
+                        ? 'Carico verificato nell’attrezzatura salvata.'
+                        : availabilityNote(resolvedLoad).trim())+' | ';
                 }
                 const coachingContext = generateContextNote(ex, exerciseRpeString, isDeloadWeek);
                 let noteFinal = autoNote + coachingContext +

@@ -106,7 +106,7 @@ test('live load changes respect configured equipment and low RPE is stored witho
     const low=assessExerciseLive(lift({loggedSets:[set(50,6,5),{},{}]}));
     assert.equal(low.e1rm,null);
     const easy=lift({loggedSets:[set(50,8,6),set(50,8,6),{}]});
-    assert.equal(assessExerciseLive(easy,0,{equipmentSettings:{plateInventories:{'29':{}}}}).suggestedWeight,null);
+    assert.equal(assessExerciseLive(easy,0,{equipmentSettings:{plateInventories:{'29':{}}}}).suggestedWeight,52.5);
 });
 
 test('barbell assignment persists by canonical exercise and never falls back after removal',()=>{

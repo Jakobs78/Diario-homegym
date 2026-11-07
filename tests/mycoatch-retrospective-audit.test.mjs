@@ -76,7 +76,7 @@ test('serie in futuro e non confermate non diventano prestazioni eseguite',()=>{
     assert.notEqual(out.snapshots[1].byExercise[key].action,'increase_load');
 });
 
-test('con fatica confermata, non si propongono riduzioni che l’inventario non permette',()=>{
+test('con fatica confermata, la riduzione teorica resta visibile anche se non disponibile',()=>{
     const signal={byExercise:{[key]:{
         name:bench,category:'Petto',equipment:'barbell',
         lastKg:100,lastWorkingKg:100,fatigueConcern:true,
@@ -86,9 +86,9 @@ test('con fatica confermata, non si propongono riduzioni che l’inventario non 
     const stock={barbell:2.5,plateInventories:{'50':{}},
         barbellAssignments:{[key]:{weight:20,diameter:'50'}}};
     const unavailable=planAdaptiveDecisions(signal,{loadingSteps:stock}).byExercise[key];
-    assert.equal(unavailable.action,'review_recovery');
-    assert.equal(unavailable.plannedKg,100);
-    assert.match(unavailable.reason,/non risulta componibile/);
+    assert.equal(unavailable.action,'reduce_load');
+    assert.equal(unavailable.plannedKg,97.5);
+    assert.match(unavailable.reason,/attrezzatura salvata/);
     const normal=planAdaptiveDecisions(signal,{loadingSteps:{barbell:2.5}}).byExercise[key];
     assert.equal(normal.action,'reduce_load');
     assert.equal(normal.plannedKg,97.5);

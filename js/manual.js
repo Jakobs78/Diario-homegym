@@ -21,6 +21,8 @@ const diary = [
  ['Kg e ripetizioni','Inserisci il peso e le ripetizioni realmente eseguite. Per i manubri usa il peso del singolo manubrio e mantieni la stessa convenzione nello storico. I pulsanti −/+ delle reps variano di una ripetizione senza cambiare il target.'],
  ['RPE percepito e obiettivo','Il target rimane sotto la cella; il campo registra lo sforzo percepito. Modificalo a mano o con −/+ di 0,5. Se lo lasci vuoto, MyCoatch non lo inventa e dispone di meno informazioni.'],
  ['Conferma ✓ e correzione','Spunta dopo l’esecuzione, verificando anche i valori precompilati. Per correggere togli la spunta, modifica e riconferma. Una serie non confermata resta una bozza.'],
+ ['Profilo personale','Al primo utilizzo compare la richiesta di età e attrezzatura. Puoi aggiornarle in Strumenti → Profilo personale; pesi, dischi e incrementi restano in Attrezzatura personale. I valori salvati vengono riproposti in MyCoatch.'],
+ ['Disponibilità dei carichi','Un carico consigliato può non essere presente nell’inventario: MyCoatch lo segnala e lascia scegliere il peso da utilizzare. Le serie effettuate e le prescrizioni originali non vengono riscritte.'],
  ['Carico nell’obiettivo','Il riepilogo distingue carico proposto, impostato e registrato. Il peso originale della scheda rimane visibile quando è diverso. Senza un peso disponibile compare Carico da impostare.'],
  ['Muscoli coinvolti','Apri Riepilogo seduta e poi Muscoli coinvolti: trovi serie previste e confermate per distretto, contributi indiretti stimati e dettaglio degli esercizi.'],
  ['Esercizio attivo','Il titolo attiva la card; dopo il completamento si apre il successivo esercizio. Puoi tornare ai precedenti. Le indicazioni del coach e l’ultima esecuzione restano vicine ai campi.'],

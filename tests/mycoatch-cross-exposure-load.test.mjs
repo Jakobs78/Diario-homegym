@@ -63,7 +63,7 @@ test('one missed set, unknown RPE, unknown plates or special top set veto inferr
  assert.equal(recommendCrossExposureLoad(future(),[hard],plates()),null);
  const unconfirmed=source();unconfirmed.loggedSets[1].isLocked=false;unconfirmed.loggedSets[1].completed=false;
  assert.equal(recommendCrossExposureLoad(future(),[unconfirmed],plates()),null);
- assert.equal(recommendCrossExposureLoad(future(),[source()],{}),null);
+ assert.equal(recommendCrossExposureLoad(future(),[source()],{}).availability,'unknown');
  assert.equal(recommendCrossExposureLoad(future({topset:'1x5 @ 60kg'}),[source()],plates()),null);
 });
 
