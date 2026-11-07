@@ -109,7 +109,6 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
         </section>
     `;
 
-    cardHtml += previousSessionMarkup(previousExposure,escapeHtml);
     cardHtml += dropScopeControl(ex,exIdx,isPastMeso||skipped);
     cardHtml += `
         <table class="set-table mb-sm">
@@ -321,6 +320,7 @@ export function createSingleExerciseCard(ex, exIdx, currentDay, mesoIndex, targe
     selectSet(selected);
     let warmups=createWarmupPanel(ex,currentDay,{workWeight:prefillFor(0).weight,readOnly:isPastMeso||skipped});
     if(warmups)exCard.querySelector('.set-table')?.before(warmups);
+    exCard.querySelector('.set-table')?.insertAdjacentHTML('beforebegin',previousSessionMarkup(previousExposure,escapeHtml));
     exCard.querySelector('.set-kg[data-set="0"]')?.addEventListener('change',event=>{
         if(ex.warmupSets||isPastMeso||skipped)return;
         const next=createWarmupPanel(ex,currentDay,{workWeight:event.target.value,readOnly:false});
