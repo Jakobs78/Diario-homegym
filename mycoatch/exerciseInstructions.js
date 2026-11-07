@@ -6,6 +6,7 @@
  */
 function cue(exercise) {
     const name = exercise.name || '';
+    if(name==='French Press con Corda al Cavo Basso su Panca Inclinata')return 'Panca 30°, cavo basso dietro la testa. Braccia ferme.';
     if(name==='Pulley Basso con Barra a U')return 'Presa neutra, busto stabile. Tira verso l’addome senza forzare l’apertura dei gomiti.';
     if(name==='Pulley Basso con Triangolo')return 'Gomiti vicini al busto, tira verso l’addome senza slanci.';
     if (name === 'Hamstring Walkout a Corpo Libero')

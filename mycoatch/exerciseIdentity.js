@@ -98,6 +98,7 @@ const EXTRA_ALIASES = {
  'Pulley Basso con Barra a U':['pulley barra a u','pulley basso barra a u','pulley con barra a u','rematore al cavo basso con barra a u'],
  'Curl Scott con Manubrio su Panca Inclinata':['curl scott manubrio panca inclinata','curl scott con manubrio su panca','preacher curl dumbbell','dumbbell preacher curl'],
  'French Press con Bilanciere EZ su Panca Inclinata':['french press ez inclinata','french press su panca inclinata con ez','incline ez bar triceps extension'],
+ 'French Press con Corda al Cavo Basso su Panca Inclinata':['french press con corda su panca inclinata','french press corda cavo basso panca inclinata','estensioni tricipiti con corda al cavo basso su panca inclinata','incline lying cable rope triceps extension'],
  'Curl Manubri su Panca Inclinata':['curl con manubri su panca inclinata','curl manubri panca inclinata'],
  'Curl Martello con Manubri':['hammer curl','hammer curl manubri','curl a martello con manubri'],
  'Rematore con Manubri su Panca Inclinata':['rematore manubri panca inclinata','chest supported dumbbell row','rematore con manubri petto appoggiato'],

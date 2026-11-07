@@ -6,6 +6,7 @@ const RAW_EXERCISES = [
     {name:'Pulley Basso con Barra a U',category:'Back_Thickness',pattern:'horizontal_pull',equipment:'cable',cnsCost:5,defaultReps:'8-12',defaultKg:''},
     {name:'Curl Scott con Manubrio su Panca Inclinata',category:'Bicipiti',pattern:'isolation',equipment:'dumbbell',cnsCost:3,defaultReps:'10-15',defaultKg:''},
     {name:'French Press con Bilanciere EZ su Panca Inclinata',category:'Tricipiti',pattern:'isolation',equipment:'barbell',cnsCost:4,defaultReps:'10-15',defaultKg:''},
+    {name:'French Press con Corda al Cavo Basso su Panca Inclinata',category:'Tricipiti',pattern:'isolation',equipment:'cable',cnsCost:3,defaultReps:'10-15',defaultKg:''},
     // --- PETTO / SPINTA ---
     { name: "Panca Piana con Bilanciere", category: "Petto", pattern: "horizontal_push", equipment: "barbell", cnsCost: 8, profile: "Curva bilanciata - Max tensione medio-range", defaultReps: "6-8", defaultKg: "" },
     { name: "Panca Inclinata con Manubri", category: "Petto", pattern: "horizontal_push", equipment: "dumbbell", cnsCost: 6, profile: "Enfasi fascio clavicolare - Ottimizzazione ROM", defaultReps: "8-10", defaultKg: "" },
@@ -101,6 +102,7 @@ const STABLE_IDS = new Map([
     ['Pulley Basso con Barra a U','pulley_basso_con_barra_a_u'],
     ['Curl Scott con Manubrio su Panca Inclinata','curl_scott_manubrio_panca_inclinata'],
     ['French Press con Bilanciere EZ su Panca Inclinata','french_press_ez_panca_inclinata'],
+    ['French Press con Corda al Cavo Basso su Panca Inclinata','french_press_corda_cavo_basso_panca_inclinata'],
     ...['Chest Press','Shoulder Press alla Macchina','Hack Squat','Leg Extension',
         'Leg Curl Seduto','Rematore alla Macchina con Appoggio','Pec Deck','Reverse Pec Deck',
         'Calf Raise alla Macchina in Piedi','Calf Raise Seduto alla Macchina','Crunch alla Macchina',
@@ -166,6 +168,7 @@ const REQUIRES = {
     'Pulley Basso con Barra a U':['u_bar'],
     'Curl Scott con Manubrio su Panca Inclinata':['incline_bench'],
     'French Press con Bilanciere EZ su Panca Inclinata':['ez_bar','incline_bench'],
+    'French Press con Corda al Cavo Basso su Panca Inclinata':['rope_attachment','incline_bench'],
     'Rematore Unilaterale al Cavo Basso': ['single_handle'],
     'Panca Piana con Manubri': ['flat_bench'],
     'Panca Stretta con Bilanciere': ['rack','flat_bench'],
