@@ -6,6 +6,7 @@ import {catalogExercise} from '../mycoatch/catalogLookup.js';
 import {importedIdentity} from '../mycoatch/importIdentity.js';
 import {contributionsForExercise,summarizeMuscleVolume,TRACKED_MUSCLES} from '../mycoatch/volumeAccounting.js';
 import {muscleWorkReport,muscleWorkSessions} from '../mycoatch/muscleWorkReport.js';
+import {equipmentCategory,getAvailableLoadStep} from '../mycoatch/loadProposal.js';
 const log=(rpe='8')=>({weight:'20',reps:'10',rpe,isLocked:true});
 test('every catalog entry has a unique identity and audited non-overlapping muscle roles',()=>{
  assert.equal(db.length,72);
@@ -22,6 +23,8 @@ test('every catalog entry has a unique identity and audited non-overlapping musc
 });
 test('safe aliases share history while different equipment and variants remain distinct',()=>{
  assert.equal(canonicalExerciseName('french press con corda su panca inclinata'),'French Press con Corda al Cavo Basso su Panca Inclinata');
+ const rope={name:'French Press con Corda al Cavo Basso su Panca Inclinata'};
+ assert.equal(equipmentCategory(rope),'machine');assert.equal(getAvailableLoadStep(rope,{machine:1,barbell:5}).step,1);
  for(const name of ['French Press con Bilanciere EZ','French Press con Bilanciere EZ su Panca Inclinata','Estensioni Tricipiti Sopra la Testa ai Cavi'])assert.notEqual(canonicalExerciseKey(name),canonicalExerciseKey('French Press con Corda al Cavo Basso su Panca Inclinata'));
  for(const [a,b] of [['curl con manubri su panca inclinata','Curl Manubri su Panca Inclinata'],['hammer curl','Curl Martello con Manubri'],['pulley basso triangolo','Pulley Basso con Triangolo'],['preacher curl dumbbell','Curl Scott con Manubrio su Panca Inclinata'],['french press ez inclinata','French Press con Bilanciere EZ su Panca Inclinata']])assert.equal(canonicalExerciseName(a),b);
  for(const [a,b] of [['rdl','rdl manubri'],['pulley basso','pulley triangolo'],['curl scott manubrio panca inclinata','Curl Manubri su Panca Inclinata'],['french press ez','french press ez inclinata'],['Panca Piana con Manubri','panca piana bilanciere']])assert.notEqual(canonicalExerciseKey(a),canonicalExerciseKey(b));

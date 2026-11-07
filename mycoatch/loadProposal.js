@@ -38,7 +38,7 @@ export function equipmentCategory(ex={}) {
     if(isBodyweightExercise(ex))return 'bodyweight';
     const s=String(ex.catalogMapping?.confirmed?ex.catalogMapping.equipment||ex.equipment:ex.equipment||'').toLowerCase()+' '+String(ex.name||'').toLowerCase();
     if(/dumbbell|manubrio|manubri/.test(s))return 'dumbbell';
-    if(/cable|cavi|lat.machine|macchina|machine|seated|leg press/.test(s))return 'machine';
+    if(/cable|cav[oi]|lat.machine|macchina|machine|seated|leg press/.test(s))return 'machine';
     return 'barbell';
 }
 export function getAvailableLoadStep(ex, settings={},weight=null) {
