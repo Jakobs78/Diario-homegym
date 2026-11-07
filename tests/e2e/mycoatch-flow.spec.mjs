@@ -378,7 +378,7 @@ test('MyCoatch LIVE usa solo serie reali, suggerisce senza applicare, segue temp
   await expect(page.locator('.ex-card .coach-adaptive-notes').first()).toContainText('RPE molto alto');
   await expect(page.locator('.mycoatch-live-toast .mycoatch-live-apply')).toHaveCount(0);
   await expect(page.locator('.set-kg[data-set="1"]')).toHaveValue('80');
-  await expect(page.locator('.set-reps[data-set="1"]')).toHaveValue('6');
+  await expect(page.locator('.set-reps[data-set="1"]')).toHaveValue('7');
   await expect(page.locator('.set-rpe[data-set="1"]')).toHaveValue('8');
   await expect(page.locator('#live-session-timer')).not.toHaveText('0:00');
 
@@ -1773,8 +1773,8 @@ test('all six exercise cards prefill by current prescription or comparable confi
     renderWorkoutList();
   });
   const expected=[
-    {kg:'72.5',reps:'9',rpe:'8',source:'mycoatch_protocol'},
-    {kg:'80',reps:'10',rpe:'8',source:'mycoatch_protocol'},
+    {kg:'72.5',reps:'8',rpe:'8',source:'mycoatch_protocol'},
+    {kg:'80',reps:'9',rpe:'8',source:'mycoatch_protocol'},
     {kg:'11.94',reps:'12',rpe:'7',source:'mycoatch_protocol'},
     {kg:'90',reps:'5',rpe:'9',source:'current_entry'},
     {kg:'12',reps:'10+8+6',rpe:'8',source:'confirmed_previous_week'},

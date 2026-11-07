@@ -8,7 +8,7 @@ import {contributionsForExercise,summarizeMuscleVolume,TRACKED_MUSCLES} from '..
 import {muscleWorkReport,muscleWorkSessions} from '../mycoatch/muscleWorkReport.js';
 const log=(rpe='8')=>({weight:'20',reps:'10',rpe,isLocked:true});
 test('every catalog entry has a unique identity and audited non-overlapping muscle roles',()=>{
- assert.equal(db.length,70);
+ assert.equal(db.length,71);
  for(const e of db){
   assert.equal(catalogExercise(e).id,e.id);assert.equal(importedIdentity(e.name).kind,'known');
   assert.equal(catalogExercise(e.name.replace(/ con /g,' ')).id,e.id);

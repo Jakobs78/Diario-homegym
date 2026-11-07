@@ -7,11 +7,11 @@ import {recoveryContext} from './recoveryContext.js';
 export {recoveryKey} from './recoveryContext.js';
 import {nextRepTargets} from './repProgression.js';
 import {isExerciseSkipped} from '../js/sessionSkip.js';
-/** Deterministic protocol 1.8. Numeric tolerances are engineering defaults, not physiological laws. */
+/** Deterministic protocol 1.9. Numeric tolerances are engineering defaults, not physiological laws. */
 import {setPrescription,observed,blockKey,warm} from './setPrescription.js';
 import {estimateE1rm} from './historyAnalysis.js';
 import {resolveNearbyLoad,equipmentCategory,getAvailableLoadStep,getHighRepIncrement} from './loadProposal.js';
-export const PROTOCOL_POLICY=Object.freeze({version:'1.8',historyExposures:3,rpeTolerance:0.5,stableSpread:0.10,rangeHalfWidth:0.025,maxIncrease:0.05,maxDumbbellIncrease:0.10,maxReduction:0.10});
+export const PROTOCOL_POLICY=Object.freeze({version:'1.9',historyExposures:3,rpeTolerance:0.5,stableSpread:0.10,rangeHalfWidth:0.025,maxIncrease:0.05,maxDumbbellIncrease:0.10,maxReduction:0.10});
 const round=x=>Math.round(x*100)/100;
 const median=values=>{const a=[...values].sort((x,y)=>x-y);return a.length?(a[Math.floor((a.length-1)/2)]+a[Math.ceil((a.length-1)/2)])/2:null;};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
@@ -144,6 +144,15 @@ export function workingProposal(ex,index,{exposures=[],equipment={},readiness=nu
             if(differing&&!decision){kind=intentional&&!calibrated?'history':'calibration_reference';reason=calibrated?'Uso il carico indicato come riferimento valido; verifica la risposta nelle serie successive.':intentional?'Mantengo la variazione di carico indicata come intenzionale.':'Carichi precedenti diversi: riferimento provvisorio, in attesa del chiarimento.';}
             if(decision){progressionRange=decision.range??null;progressionBasis=decision.progressionBasis??null;({weight:kg,reps,kind}=decision);reason=decision.reason;verified=Boolean(decision.verified);}
         }
+        // For comparable ranged work, try one fewer rep before changing kg.
+        // This is an initial target to verify, never an exact RPE conversion.
+        if(comparable&&contextUnchanged&&!sourcePain&&!currentPain&&!ex.isDeload&&!ex.isDeloadWeek&&
+            p.rpe&&p.reps.min<p.reps.max&&reference.rpe!==null&&
+            reference.rpe>p.rpe.max+PROTOCOL_POLICY.rpeTolerance&&
+            reference.reps>p.reps.min&&reference.reps<=p.reps.max){
+            kg=reference.kg;reps=reference.reps-1;kind='reduce_reps_history';
+            reason='Nella serie precedente l’RPE era superiore al previsto: mantieni il carico e prova una ripetizione in meno, verificando lo sforzo effettivo.';
+        }
         if(restContext.message)reason+=' '+restContext.message;
     }
     // Only confirmed rows BEFORE this series inform today's proposal. Fatigue does not rewrite stable capacity.
@@ -164,9 +173,14 @@ export function workingProposal(ex,index,{exposures=[],equipment={},readiness=nu
             reason='Riferimento della serie confermata oggi, con recupero e target invariati.';
             const delta=last.rpe!==null&&p.rpe?last.rpe-p.rpe.max:null;
             if(delta!==null&&(delta>PROTOCOL_POLICY.rpeTolerance||last.reps<p.reps.min)){
-                const estimated=desiredWeight(todayCapacity,p,p.reps.min);
-                kg=Math.max(last.kg*(1-PROTOCOL_POLICY.maxReduction),Math.min(last.kg,estimated??last.kg*.95));reps=p.reps.min;kind='reduce_today';
-                reason='La serie è risultata più difficile del target: riduco la proposta successiva, senza abbassare automaticamente il riferimento storico.';
+                if(last.reps>p.reps.min&&last.reps<=p.reps.max){
+                    reps=last.reps-1;kind='reduce_reps_today';
+                    reason='La serie è risultata più difficile del target: mantieni il carico e prova una ripetizione in meno, verificando lo sforzo effettivo.';
+                }else{
+                    const estimated=desiredWeight(todayCapacity,p,p.reps.min);
+                    kg=Math.max(last.kg*(1-PROTOCOL_POLICY.maxReduction),Math.min(last.kg,estimated??last.kg*.95));reps=p.reps.min;kind='reduce_today';
+                    reason='La serie è risultata più difficile del target: riduco la proposta successiva, senza abbassare automaticamente il riferimento storico.';
+                }
             }else if(delta!==null&&delta<=-1&&p.reps.max<=12&&readiness?.allowIncrease!==false){
                 if(last.reps<p.reps.max){reps=Math.min(p.reps.max,last.reps+1);reason='Margine di sforzo: propongo una ripetizione in più entro il range, mantenendo i kg.';}
                 else{kg=last.kg*1.025;kind='increase_today';reason='Serie chiaramente più facile del target: piccolo aumento indicativo per la prossima serie.';}
@@ -177,7 +191,7 @@ export function workingProposal(ex,index,{exposures=[],equipment={},readiness=nu
     if((sourcePain||currentPain)&&reference&&kg>reference.kg){kg=reference.kg;kind='history';}
     if(kg!==null){
         const resolved=resolve(ex,kg,equipment,{increasing:kind.startsWith('increase'),base:kind==='increase_today'?last.kg:reference?.kg??last?.kg??kg,maxIncrease:p.reps?.max>12?Math.max(HIGH_REP_POLICY.maxIncrease,kg/(reference?.kg??kg)-1):null});
-        const preserve=['history','today'].includes(kind)||(p.reps?.max>12&&['maintain','build_reps'].includes(kind));
+        const preserve=['history','today','reduce_reps_history','reduce_reps_today'].includes(kind)||(p.reps?.max>12&&['maintain','build_reps'].includes(kind));
         kg=preserve?round(kg):resolved.weight;verified=verified||resolved.verified&&Math.abs(resolved.weight-kg)<.001;
         if(!verified)reason+=' Disponibilità del peso da verificare.';
         if(resolved.reason==='theoretical_unavailable'){
